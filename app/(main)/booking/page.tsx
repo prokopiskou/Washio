@@ -29,13 +29,14 @@ const addons = [
   { id: 4, name: 'Αρωματικό εσωτερικού', price: 5 },
 ]
 
-function CheckoutForm({ total, email, service, formattedDate, slotTime, router }: {
+function CheckoutForm({ total, email, service, formattedDate, slotTime, router, clientSecret }: {
   total: number
   email: string
   service: { name: string; price: number }
   formattedDate: string
   slotTime: string
   router: any
+  clientSecret: string
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -50,19 +51,6 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, router }
     const { error: submitError } = await elements.submit()
     if (submitError) {
       setError(submitError.message || 'Σφάλμα πληρωμής')
-      setLoading(false)
-      return
-    }
-
-    const res = await fetch('/api/payments/create-intent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: total, serviceId: '1', locationId: '1' }),
-    })
-
-    const { clientSecret, error: apiError } = await res.json()
-    if (apiError) {
-      setError(apiError)
       setLoading(false)
       return
     }
@@ -89,39 +77,22 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, router }
       <div className="border border-gray-200 rounded-xl p-4 mb-2">
         <PaymentElement options={{
           layout: 'tabs',
-          wallets: {
-            applePay: 'auto',
-            googlePay: 'auto',
-          },
-          fields: {
-            billingDetails: 'never'
-          },
-          terms: {
-            card: 'never'
-          }
+          wallets: { applePay: 'auto', googlePay: 'auto' },
+          fields: { billingDetails: 'never' },
+          terms: { card: 'never' }
         }} />
       </div>
-
       <div className="flex items-center gap-2 mb-4 px-1">
         <Shield size={12} className="text-green-500 shrink-0" />
         <span className="text-xs text-gray-400">Ασφαλής πληρωμή 256-bit SSL · Powered by Stripe</span>
       </div>
-
       {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
-
       <button
         onClick={handleSubmit}
         disabled={loading || !stripe}
         className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-40"
       >
-        {loading ? (
-          <span className="text-gray-400">Επεξεργασία...</span>
-        ) : (
-          <>
-            <CreditCard size={15} />
-            Πλήρωσε €{total}
-          </>
-        )}
+        {loading ? <span className="text-gray-400">Επεξεργασία...</span> : <><CreditCard size={15} />Πλήρωσε €{total}</>}
       </button>
     </div>
   )
@@ -155,22 +126,17 @@ function BookingPageContent() {
     )
   }
 
-  const addonTotal = addons
-    .filter(a => selectedAddons.includes(a.id))
-    .reduce((sum, a) => sum + a.price, 0)
-
+  const addonTotal = addons.filter(a => selectedAddons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)
   const total = service.price + addonTotal
   const canProceed = firstName.trim() && lastName.trim() && email.trim() && plate.trim() && phone.trim()
 
   const handleProceedToPayment = async () => {
     if (!canProceed) return
-
     const res = await fetch('/api/payments/create-intent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amount: total, serviceId, locationId: '1' }),
     })
-
     const { clientSecret: secret } = await res.json()
     setClientSecret(secret)
     setShowPayment(true)
@@ -178,11 +144,8 @@ function BookingPageContent() {
 
   return (
     <main className="min-h-screen bg-white max-w-md mx-auto pb-32">
-
       <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-        <button onClick={() => router.back()} className="text-gray-400">
-          <ArrowLeft size={18} />
-        </button>
+        <button onClick={() => router.back()} className="text-gray-400"><ArrowLeft size={18} /></button>
         <span className="text-sm font-medium text-gray-900">Ολοκλήρωση κράτησης</span>
       </div>
 
@@ -258,15 +221,11 @@ function BookingPageContent() {
           locale: 'el',
           appearance: {
             theme: 'stripe',
-            variables: {
-              colorPrimary: '#0A0A0A',
-              borderRadius: '12px',
-              fontSizeBase: '14px',
-            }
+            variables: { colorPrimary: '#0A0A0A', borderRadius: '12px', fontSizeBase: '14px' }
           }
         }}>
           <CheckoutForm total={total} email={email} service={service}
-            formattedDate={formattedDate} slotTime={slotTime} router={router} />
+            formattedDate={formattedDate} slotTime={slotTime} router={router} clientSecret={clientSecret} />
         </Elements>
       ) : (
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
@@ -283,7 +242,6 @@ function BookingPageContent() {
           )}
         </div>
       )}
-
     </main>
   )
 }
