@@ -29,16 +29,13 @@ const addons = [
   { id: 4, name: 'Αρωματικό εσωτερικού', price: 5 },
 ]
 
-function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret, firstName, lastName, phone }: {
+function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret }: {
   total: number
   email: string
   service: { name: string; price: number }
   formattedDate: string
   slotTime: string
   clientSecret: string
-  firstName: string
-  lastName: string
-  phone: string
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -66,13 +63,6 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
         clientSecret,
         confirmParams: {
           return_url: `${window.location.origin}/booking/confirmed?email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}`,
-          payment_method_data: {
-            billing_details: {
-              name: `${firstName} ${lastName}`,
-              email: email,
-              phone: phone,
-            }
-          }
         },
       })
 
@@ -93,7 +83,6 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
         <PaymentElement options={{
           layout: 'tabs',
           wallets: { applePay: 'auto', googlePay: 'auto' },
-          terms: { card: 'never' }
         }} />
       </div>
       <div className="flex items-center gap-2 mb-4 px-1">
@@ -241,8 +230,7 @@ function BookingPageContent() {
           <CheckoutForm
             total={total} email={email} service={service}
             formattedDate={formattedDate} slotTime={slotTime}
-            clientSecret={clientSecret} firstName={firstName}
-            lastName={lastName} phone={phone}
+            clientSecret={clientSecret}
           />
         </Elements>
       ) : (
