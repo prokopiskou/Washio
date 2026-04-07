@@ -93,7 +93,6 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
         <PaymentElement options={{
           layout: 'tabs',
           wallets: { applePay: 'auto', googlePay: 'auto' },
-          fields: { billingDetails: 'never' },
           terms: { card: 'never' }
         }} />
       </div>
