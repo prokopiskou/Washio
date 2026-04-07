@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Check } from 'lucide-react'
 
-export default function ConfirmedPage() {
+function ConfirmedContent() {
   const router = useRouter()
   const params = useSearchParams()
 
@@ -23,7 +23,6 @@ export default function ConfirmedPage() {
         })
       })
     }
-
     sendConfirmation()
   }, [])
 
@@ -42,5 +41,13 @@ export default function ConfirmedPage() {
         Πίσω στην αρχική
       </button>
     </main>
+  )
+}
+
+export default function ConfirmedPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div>}>
+      <ConfirmedContent />
+    </Suspense>
   )
 }
