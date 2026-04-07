@@ -29,13 +29,16 @@ const addons = [
   { id: 4, name: 'Αρωματικό εσωτερικού', price: 5 },
 ]
 
-function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret }: {
+function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret, firstName, lastName, phone }: {
   total: number
   email: string
   service: { name: string; price: number }
   formattedDate: string
   slotTime: string
   clientSecret: string
+  firstName: string
+  lastName: string
+  phone: string
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -43,27 +46,8 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
   const [error, setError] = useState('')
 
   const handleSubmit = async () => {
-    console.log('[CheckoutForm] submit clicked', { hasStripe: !!stripe, hasElements: !!elements, hasClientSecret: !!clientSecret })
-
-    if (!stripe || !elements) {
-      const msg = 'Το σύστημα πληρωμών δεν είναι έτοιμο ακόμα. Δοκίμασε ξανά σε λίγο.'
-      console.log('[CheckoutForm] Stripe not ready', { stripe, elements })
-      setError(msg)
-      return
-    }
-
-    const paymentElement = elements.getElement(PaymentElement)
-    if (!paymentElement) {
-      const msg = 'Η φόρμα κάρτας δεν έχει αρχικοποιηθεί. Κάνε ανανέωση και δοκίμασε ξανά.'
-      console.log('[CheckoutForm] PaymentElement not initialized')
-      setError(msg)
-      return
-    }
-
-    if (!clientSecret) {
-      const msg = 'Δεν βρέθηκε client secret για την πληρωμή.'
-      console.log('[CheckoutForm] Missing clientSecret')
-      setError(msg)
+    if (!stripe || !elements || !clientSecret) {
+      setError('Το σύστημα πληρωμών δεν είναι έτοιμο. Δοκίμασε ξανά.')
       return
     }
 
@@ -71,34 +55,32 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
     setError('')
 
     try {
-      console.log('[CheckoutForm] Calling elements.submit()')
       const { error: submitError } = await elements.submit()
       if (submitError) {
-        console.log('[CheckoutForm] elements.submit error', submitError)
-        setError(submitError.message || 'Σφάλμα κατά την επαλήθευση στοιχείων πληρωμής.')
+        setError(submitError.message || 'Σφάλμα επαλήθευσης.')
         return
       }
-
-      const returnUrl = `${window.location.origin}/booking/confirmed?email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}`
-      console.log('[CheckoutForm] Calling stripe.confirmPayment', { returnUrl })
 
       const { error: confirmError } = await stripe.confirmPayment({
         elements,
         clientSecret,
-        confirmParams: { return_url: returnUrl },
+        confirmParams: {
+          return_url: `${window.location.origin}/booking/confirmed?email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}`,
+          payment_method_data: {
+            billing_details: {
+              name: `${firstName} ${lastName}`,
+              email: email,
+              phone: phone,
+            }
+          }
+        },
       })
 
       if (confirmError) {
-        console.log('[CheckoutForm] confirmPayment error', confirmError)
-        setError(confirmError.message || 'Η πληρωμή απέτυχε. Δοκίμασε ξανά.')
-        return
+        setError(confirmError.message || 'Η πληρωμή απέτυχε.')
       }
-
-      console.log('[CheckoutForm] confirmPayment completed without immediate error')
     } catch (err) {
-      console.log('[CheckoutForm] Unexpected submit error', err)
-      const message = err instanceof Error ? err.message : 'Άγνωστο σφάλμα πληρωμής.'
-      setError(message)
+      setError('Άγνωστο σφάλμα. Δοκίμασε ξανά.')
     } finally {
       setLoading(false)
     }
@@ -106,9 +88,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
 
   return (
     <div className="px-5 py-4">
-      <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
-        Πληρωμή
-      </p>
+      <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Πληρωμή</p>
       <div className="border border-gray-200 rounded-xl p-4 mb-2">
         <PaymentElement options={{
           layout: 'tabs',
@@ -259,8 +239,12 @@ function BookingPageContent() {
             variables: { colorPrimary: '#0A0A0A', borderRadius: '12px', fontSizeBase: '14px' }
           }
         }}>
-          <CheckoutForm total={total} email={email} service={service}
-            formattedDate={formattedDate} slotTime={slotTime} clientSecret={clientSecret} />
+          <CheckoutForm
+            total={total} email={email} service={service}
+            formattedDate={formattedDate} slotTime={slotTime}
+            clientSecret={clientSecret} firstName={firstName}
+            lastName={lastName} phone={phone}
+          />
         </Elements>
       ) : (
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
