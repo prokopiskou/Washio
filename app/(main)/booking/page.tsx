@@ -271,4 +271,4 @@ export default function BookingPage() {
       <BookingPageContent />
     </Suspense>
   )
-}
+}// updated
