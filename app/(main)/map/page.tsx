@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, X, ChevronRight } from 'lucide-react'
 
@@ -30,7 +30,7 @@ declare global {
   interface Window { google: any; initMap: () => void }
 }
 
-export default function MapPage() {
+function MapPageContent() {
   const router = useRouter()
   const params = useSearchParams()
   const mapRef = useRef<HTMLDivElement>(null)
@@ -249,5 +249,13 @@ export default function MapPage() {
       </div>
 
     </main>
+  )
+}
+
+export default function MapPage() {
+  return (
+    <Suspense fallback={<div className="h-screen w-full max-w-md mx-auto flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div>}>
+      <MapPageContent />
+    </Suspense>
   )
 }

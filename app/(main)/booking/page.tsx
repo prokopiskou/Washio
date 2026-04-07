@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CreditCard, Plus, Minus, Shield } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
@@ -127,7 +127,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, router }
   )
 }
 
-export default function BookingPage() {
+function BookingPageContent() {
   const router = useRouter()
   const params = useSearchParams()
 
@@ -285,5 +285,13 @@ export default function BookingPage() {
       )}
 
     </main>
+  )
+}
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div>}>
+      <BookingPageContent />
+    </Suspense>
   )
 }
