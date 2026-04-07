@@ -34,14 +34,19 @@ function MapPageContent() {
   const router = useRouter()
   const params = useSearchParams()
   const mapRef = useRef<HTMLDivElement>(null)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
+  const autocompleteServiceRef = useRef<any>(null)
+  const placesServiceRef = useRef<any>(null)
 
   const [mapLoaded, setMapLoaded] = useState(false)
   const [selectedLocation, setSelectedLocation] = useState<typeof locations[0] | null>(null)
   const [selectedService, setSelectedService] = useState<number | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
   const [search, setSearch] = useState('')
+  const [suggestions, setSuggestions] = useState<any[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const today = new Date().toISOString().split('T')[0]
   const service = services.find(s => s.id === selectedService)
@@ -69,6 +74,8 @@ function MapPageContent() {
       })
 
       mapInstanceRef.current = map
+      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+      placesServiceRef.current = new window.google.maps.places.PlacesService(map)
 
       locations.forEach(loc => {
         const marker = new window.google.maps.Marker({
@@ -99,30 +106,105 @@ function MapPageContent() {
     }
 
     const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initMap`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initMap&libraries=places`
     script.async = true
     document.head.appendChild(script)
 
     return () => { document.head.removeChild(script) }
   }, [])
 
+  useEffect(() => {
+    if (!search.trim() || !autocompleteServiceRef.current || !window.google?.maps?.places) {
+      setSuggestions([])
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      autocompleteServiceRef.current.getPlacePredictions(
+        {
+          input: search,
+          componentRestrictions: { country: 'gr' },
+        },
+        (predictions: any[] | null, status: string) => {
+          if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
+            setSuggestions([])
+            return
+          }
+          setSuggestions(predictions)
+        }
+      )
+    }, 200)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [search])
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!searchContainerRef.current?.contains(event.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSelectSuggestion = (prediction: any) => {
+    if (!placesServiceRef.current || !mapInstanceRef.current) return
+
+    placesServiceRef.current.getDetails(
+      {
+        placeId: prediction.place_id,
+        fields: ['geometry', 'name', 'formatted_address'],
+      },
+      (place: any, status: string) => {
+        if (status !== window.google.maps.places.PlacesServiceStatus.OK || !place?.geometry?.location) return
+
+        const location = place.geometry.location
+        mapInstanceRef.current.panTo(location)
+        mapInstanceRef.current.setZoom(15)
+        setSearch(place.name || prediction.description || '')
+        setShowSuggestions(false)
+      }
+    )
+  }
+
   return (
     <main className="h-screen w-full max-w-md mx-auto relative overflow-hidden">
 
       {/* Search bar */}
       <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4">
-        <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
-          <button onClick={() => router.back()} className="text-gray-400 shrink-0">
-            <ArrowLeft size={16} />
-          </button>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Αναζήτηση περιοχής..."
-            className="flex-1 text-sm text-gray-900 placeholder-gray-400 focus:outline-none bg-transparent"
-            autoFocus={params.get('source') === 'search'}
-          />
+        <div ref={searchContainerRef} className="relative">
+          <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+            <button onClick={() => router.back()} className="text-gray-400 shrink-0">
+              <ArrowLeft size={16} />
+            </button>
+            <input
+              type="text"
+              value={search}
+              onChange={e => {
+                setSearch(e.target.value)
+                setShowSuggestions(true)
+              }}
+              onFocus={() => setShowSuggestions(true)}
+              placeholder="Αναζήτηση περιοχής..."
+              className="flex-1 text-sm text-gray-900 placeholder-gray-400 focus:outline-none bg-transparent"
+              autoFocus={params.get('source') === 'search'}
+            />
+          </div>
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="mt-2 bg-white rounded-xl shadow-sm border border-gray-100 py-1 overflow-hidden">
+              {suggestions.map(suggestion => (
+                <button
+                  key={suggestion.place_id}
+                  onClick={() => handleSelectSuggestion(suggestion)}
+                  className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {suggestion.description}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
