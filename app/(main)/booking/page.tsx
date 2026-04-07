@@ -25,7 +25,7 @@ const slots: Record<string, string> = {
 const addons = [
   { id: 1, name: 'Αλλαγή λαδιών', price: 25 },
   { id: 2, name: 'Αλλαγή υαλοκαθαριστήρων', price: 15 },
-  { id: 3, name: 'Έλεγχος τυρών', price: 8 },
+  { id: 3, name: 'Ψυκτικά υγρά', price: 8 },
   { id: 4, name: 'Αρωματικό εσωτερικού', price: 5 },
 ]
 
