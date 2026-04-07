@@ -29,13 +29,12 @@ const addons = [
   { id: 4, name: 'Αρωματικό εσωτερικού', price: 5 },
 ]
 
-function CheckoutForm({ total, email, service, formattedDate, slotTime, router, clientSecret }: {
+function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret }: {
   total: number
   email: string
   service: { name: string; price: number }
   formattedDate: string
   slotTime: string
-  router: any
   clientSecret: string
 }) {
   const stripe = useStripe()
@@ -44,27 +43,63 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, router, 
   const [error, setError] = useState('')
 
   const handleSubmit = async () => {
-    if (!stripe || !elements) return
-    setLoading(true)
-    setError('')
+    console.log('[CheckoutForm] submit clicked', { hasStripe: !!stripe, hasElements: !!elements, hasClientSecret: !!clientSecret })
 
-    const { error: submitError } = await elements.submit()
-    if (submitError) {
-      setError(submitError.message || 'Σφάλμα πληρωμής')
-      setLoading(false)
+    if (!stripe || !elements) {
+      const msg = 'Το σύστημα πληρωμών δεν είναι έτοιμο ακόμα. Δοκίμασε ξανά σε λίγο.'
+      console.log('[CheckoutForm] Stripe not ready', { stripe, elements })
+      setError(msg)
       return
     }
 
-    const { error: confirmError } = await stripe.confirmPayment({
-      elements,
-      clientSecret,
-      confirmParams: {
-        return_url: `${window.location.origin}/booking/confirmed?email=${email}&date=${formattedDate}&time=${slotTime}&service=${service.name}`,
-      },
-    })
+    const paymentElement = elements.getElement(PaymentElement)
+    if (!paymentElement) {
+      const msg = 'Η φόρμα κάρτας δεν έχει αρχικοποιηθεί. Κάνε ανανέωση και δοκίμασε ξανά.'
+      console.log('[CheckoutForm] PaymentElement not initialized')
+      setError(msg)
+      return
+    }
 
-    if (confirmError) {
-      setError(confirmError.message || 'Σφάλμα πληρωμής')
+    if (!clientSecret) {
+      const msg = 'Δεν βρέθηκε client secret για την πληρωμή.'
+      console.log('[CheckoutForm] Missing clientSecret')
+      setError(msg)
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      console.log('[CheckoutForm] Calling elements.submit()')
+      const { error: submitError } = await elements.submit()
+      if (submitError) {
+        console.log('[CheckoutForm] elements.submit error', submitError)
+        setError(submitError.message || 'Σφάλμα κατά την επαλήθευση στοιχείων πληρωμής.')
+        return
+      }
+
+      const returnUrl = `${window.location.origin}/booking/confirmed?email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}`
+      console.log('[CheckoutForm] Calling stripe.confirmPayment', { returnUrl })
+
+      const { error: confirmError } = await stripe.confirmPayment({
+        elements,
+        clientSecret,
+        confirmParams: { return_url: returnUrl },
+      })
+
+      if (confirmError) {
+        console.log('[CheckoutForm] confirmPayment error', confirmError)
+        setError(confirmError.message || 'Η πληρωμή απέτυχε. Δοκίμασε ξανά.')
+        return
+      }
+
+      console.log('[CheckoutForm] confirmPayment completed without immediate error')
+    } catch (err) {
+      console.log('[CheckoutForm] Unexpected submit error', err)
+      const message = err instanceof Error ? err.message : 'Άγνωστο σφάλμα πληρωμής.'
+      setError(message)
+    } finally {
       setLoading(false)
     }
   }
@@ -225,7 +260,7 @@ function BookingPageContent() {
           }
         }}>
           <CheckoutForm total={total} email={email} service={service}
-            formattedDate={formattedDate} slotTime={slotTime} router={router} clientSecret={clientSecret} />
+            formattedDate={formattedDate} slotTime={slotTime} clientSecret={clientSecret} />
         </Elements>
       ) : (
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
