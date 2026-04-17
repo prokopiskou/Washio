@@ -18,11 +18,11 @@ type Booking = {
   services?: { name?: string } | null
 }
 
-type LocationService = {
-  id: string
-  name: string
+type DashboardService = {
+  id: number
+  service_name: string
   price: number
-  duration: number
+  duration_minutes: number
   is_active: boolean
 }
 
@@ -61,20 +61,23 @@ const defaultHours: LocationHour[] = DAYS.map((_, idx) => ({
   close_time: '20:00',
 }))
 
+const MASTER_SERVICES = [
+  { id: 1, service_name: 'Μέσα' },
+  { id: 2, service_name: 'Έξω' },
+  { id: 3, service_name: 'Μέσα & Έξω' },
+]
+
 export default function DashboardPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [loading, setLoading] = useState(true)
   const [location, setLocation] = useState<any | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
-  const [services, setServices] = useState<LocationService[]>([])
+  const [services, setServices] = useState<DashboardService[]>([])
   const [hours, setHours] = useState<LocationHour[]>(defaultHours)
   const [staff, setStaff] = useState<StaffMember[]>([])
   const [reviews, setReviews] = useState<Review[]>([])
   const [savingHours, setSavingHours] = useState(false)
-  const [newServiceName, setNewServiceName] = useState('')
-  const [newServicePrice, setNewServicePrice] = useState('')
-  const [newServiceDuration, setNewServiceDuration] = useState('')
   const [newStaffName, setNewStaffName] = useState('')
   const [newStaffRole, setNewStaffRole] = useState('Τεχνικός')
   const [newStaffPhone, setNewStaffPhone] = useState('')
@@ -119,7 +122,7 @@ export default function DashboardPage() {
           .order('slot_date', { ascending: false }),
         supabase
           .from('location_services')
-          .select('id, name, price, duration, is_active')
+          .select('service_name, price, duration_minutes, is_active')
           .eq('location_id', locationId)
           .order('created_at', { ascending: false }),
         supabase
@@ -140,7 +143,18 @@ export default function DashboardPage() {
       ])
 
       setBookings((bookingsRes.data as Booking[]) || [])
-      setServices((servicesRes.data as LocationService[]) || [])
+      const existingServices = (servicesRes.data as any[]) || []
+      const mergedServices = MASTER_SERVICES.map(master => {
+        const existing = existingServices.find(s => s.service_name === master.service_name)
+        return {
+          id: master.id,
+          service_name: master.service_name,
+          price: Number(existing?.price || 0),
+          duration_minutes: Number(existing?.duration_minutes || 0),
+          is_active: !!existing?.is_active,
+        }
+      })
+      setServices(mergedServices)
       setStaff((staffRes.data as StaffMember[]) || [])
       setReviews((reviewsRes.data as Review[]) || [])
 
@@ -196,38 +210,17 @@ export default function DashboardPage() {
     return 'bg-gray-50 text-gray-500'
   }
 
-  const updateService = async (service: LocationService) => {
+  const updateService = async (service: DashboardService) => {
     const supabase = createClient()
     await supabase
       .from('location_services')
-      .update({
-        name: service.name,
-        price: Number(service.price),
-        duration: Number(service.duration),
-        is_active: service.is_active,
-      })
-      .eq('id', service.id)
-  }
-
-  const addService = async () => {
-    if (!location?.id || !newServiceName.trim() || !newServicePrice || !newServiceDuration) return
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('location_services')
-      .insert({
+      .upsert({
         location_id: location.id,
-        name: newServiceName.trim(),
-        price: Number(newServicePrice),
-        duration: Number(newServiceDuration),
-        is_active: true,
-      })
-      .select('id, name, price, duration, is_active')
-      .single()
-
-    if (data) setServices(prev => [data as LocationService, ...prev])
-    setNewServiceName('')
-    setNewServicePrice('')
-    setNewServiceDuration('')
+        service_name: service.service_name,
+        price: Number(service.price),
+        duration_minutes: Number(service.duration_minutes),
+        is_active: service.is_active,
+      }, { onConflict: 'location_id,service_name' })
   }
 
   const saveHours = async () => {
@@ -408,21 +401,11 @@ export default function DashboardPage() {
 
             {activeTab === 'services' && (
               <div className="space-y-3">
-                <div className="border border-gray-100 rounded-xl p-4 space-y-2">
-                  <p className="text-sm font-medium text-gray-900">Νέα υπηρεσία</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    <input value={newServiceName} onChange={e => setNewServiceName(e.target.value)} placeholder="Όνομα" className="border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                    <input value={newServicePrice} onChange={e => setNewServicePrice(e.target.value)} placeholder="Τιμή" className="border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                    <input value={newServiceDuration} onChange={e => setNewServiceDuration(e.target.value)} placeholder="Διάρκεια (λ')" className="border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                    <button onClick={addService} className="bg-gray-900 text-white text-sm rounded-xl px-3 py-2">+ Προσθήκη</button>
-                  </div>
-                </div>
-
                 {services.map(service => (
                   <div key={service.id} className="border border-gray-100 rounded-xl p-4 grid grid-cols-5 gap-2 items-center">
-                    <input value={service.name} onChange={e => setServices(prev => prev.map(s => s.id === service.id ? { ...s, name: e.target.value } : s))} className="border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                    <input value={service.price} onChange={e => setServices(prev => prev.map(s => s.id === service.id ? { ...s, price: Number(e.target.value || 0) } : s))} className="border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                    <input value={service.duration} onChange={e => setServices(prev => prev.map(s => s.id === service.id ? { ...s, duration: Number(e.target.value || 0) } : s))} className="border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+                    <p className="text-sm text-gray-900 px-1">{service.service_name}</p>
+                    <input value={service.price} onChange={e => setServices(prev => prev.map(s => s.id === service.id ? { ...s, price: Number(e.target.value || 0) } : s))} className="border border-gray-200 rounded-xl px-3 py-2 text-sm" placeholder="Τιμή (€)" />
+                    <input value={service.duration_minutes} onChange={e => setServices(prev => prev.map(s => s.id === service.id ? { ...s, duration_minutes: Number(e.target.value || 0) } : s))} className="border border-gray-200 rounded-xl px-3 py-2 text-sm" placeholder="Διάρκεια (λ')" />
                     <button
                       onClick={() => setServices(prev => prev.map(s => s.id === service.id ? { ...s, is_active: !s.is_active } : s))}
                       className={`text-xs rounded-xl px-3 py-2 ${service.is_active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}
