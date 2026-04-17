@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { MapPin, Star, Clock, Calendar, Search, ChevronDown } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 const locations = [
   { id: 1, name: 'Avin Γλυφάδα', distance: '0.4 km', rating: 4.8, nextSlot: 'Τώρα' },
@@ -33,11 +34,22 @@ function getTodayValue() {
 
 export default function Home() {
   const router = useRouter()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [timing, setTiming] = useState<'now' | 'later'>('now')
   const [locationGranted, setLocationGranted] = useState(false)
   const [selectedTime, setSelectedTime] = useState<string>('')
   const [showTimePicker, setShowTimePicker] = useState(false)
   const timePickerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const loadSession = async () => {
+      const supabase = createClient()
+      const { data } = await supabase.auth.getSession()
+      setIsLoggedIn(!!data.session)
+    }
+
+    loadSession()
+  }, [])
 
   useEffect(() => {
     navigator.geolocation?.getCurrentPosition(
@@ -72,9 +84,11 @@ export default function Home() {
       {/* Navbar */}
       <nav className="flex justify-between items-center px-5 py-3 border-b border-gray-100">
         <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto" />
-        <Link href="/login" className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">
-          Σύνδεση
-        </Link>
+        {!isLoggedIn && (
+          <Link href="/login" className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">
+            Σύνδεση
+          </Link>
+        )}
       </nav>
 
       {/* Hero */}
