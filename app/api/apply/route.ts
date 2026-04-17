@@ -77,7 +77,7 @@ export async function POST(req: Request) {
 
     await resend.emails.send({
       from: 'Washio Apply <onboarding@resend.dev>',
-      to: 'prokopis@washio.gr',
+      to: 'withinsuccess@gmail.com',
       subject: `Νέα αίτηση: ${businessName}`,
       html,
     })
