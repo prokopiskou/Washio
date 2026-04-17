@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { createClient } from '@supabase/supabase-js'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
 
 export async function POST(req: Request) {
   try {
@@ -75,6 +80,20 @@ export async function POST(req: Request) {
       to: 'prokopis@washio.gr',
       subject: `Νέα αίτηση: ${businessName}`,
       html,
+    })
+
+    await supabaseAdmin.from('applications').insert({
+      business_name: businessName,
+      address,
+      city,
+      afm: taxId,
+      owner_name: contactName,
+      phone,
+      email,
+      hours,
+      lanes,
+      wash_type: washType,
+      status: 'pending',
     })
 
     return NextResponse.json({ ok: true })

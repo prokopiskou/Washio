@@ -7,10 +7,11 @@ import { BarChart3, Users, MapPin, Calendar, ChevronRight, ArrowUpRight } from '
 
 export default function AdminPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications'>('overview')
   const [bookings, setBookings] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
+  const [applications, setApplications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -21,15 +22,17 @@ export default function AdminPage() {
     const supabase = createClient()
     setLoading(true)
 
-    const [{ data: bookingsData }, { data: locationsData }, { data: profilesData }] = await Promise.all([
+    const [{ data: bookingsData }, { data: locationsData }, { data: profilesData }, { data: applicationsData }] = await Promise.all([
       supabase.from('bookings').select('*, locations(name), services(name, price), profiles(full_name)').order('created_at', { ascending: false }).limit(50),
       supabase.from('locations').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').order('created_at', { ascending: false }).limit(50),
+      supabase.from('applications').select('*').order('created_at', { ascending: false }),
     ])
 
     setBookings(bookingsData || [])
     setLocations(locationsData || [])
     setUsers(profilesData || [])
+    setApplications(applicationsData || [])
     setLoading(false)
   }
 
@@ -52,6 +55,18 @@ export default function AdminPage() {
     pending: 'Εκκρεμεί',
     cancelled: 'Ακυρώθηκε',
     no_show: 'Δεν εμφανίστηκε',
+  }
+
+  const applicationStatusColors: Record<string, string> = {
+    pending: 'bg-amber-50 text-amber-600',
+    approved: 'bg-green-50 text-green-600',
+    rejected: 'bg-red-50 text-red-500',
+  }
+
+  const applicationStatusLabels: Record<string, string> = {
+    pending: 'Εκκρεμεί',
+    approved: 'Εγκρίθηκε',
+    rejected: 'Απορρίφθηκε',
   }
   const handleCancel = async (bookingId: string, paymentIntentId: string) => {
     if (!confirm('Ακύρωση κράτησης και επιστροφή χρημάτων;')) return
@@ -89,6 +104,7 @@ export default function AdminPage() {
             { key: 'bookings', label: 'Κρατήσεις' },
             { key: 'locations', label: 'Πρατήρια' },
             { key: 'users', label: 'Χρήστες' },
+            { key: 'applications', label: 'Αιτήσεις πλυντηρίων' },
           ].map(tab => (
             <button
               key={tab.key}
@@ -250,6 +266,32 @@ export default function AdminPage() {
             ))}
             {users.length === 0 && (
               <p className="text-xs text-gray-400 text-center py-6">Δεν υπάρχουν χρήστες ακόμα</p>
+            )}
+          </div>
+        )}
+
+        {!loading && activeTab === 'applications' && (
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+              <p className="text-sm font-medium text-gray-900">Αιτήσεις πλυντηρίων</p>
+              <span className="text-xs text-gray-400">{applications.length} συνολικά</span>
+            </div>
+            {applications.map((app, i) => (
+              <div key={app.id} className={`px-4 py-3 ${i < applications.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm text-gray-900">{app.business_name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{app.city} · {app.owner_name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{app.phone} · {app.email}</p>
+                  </div>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-md ${applicationStatusColors[app.status] || 'bg-gray-50 text-gray-500'}`}>
+                    {applicationStatusLabels[app.status] || app.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+            {applications.length === 0 && (
+              <p className="text-xs text-gray-400 text-center py-6">Δεν υπάρχουν αιτήσεις ακόμα</p>
             )}
           </div>
         )}
