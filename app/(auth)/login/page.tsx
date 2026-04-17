@@ -57,12 +57,21 @@ function LoginPageContent() {
     }
   }
 
+  const handleGoogleLogin = async () => {
+    const supabase = createClient()
+    const oauthRedirectTo = `https://washio-ten.vercel.app${redirectUrl.startsWith('/') ? redirectUrl : '/' + redirectUrl}`
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: oauthRedirectTo }
+    })
+  }
+
   return (
     <main className="min-h-screen bg-white flex flex-col items-center justify-start">
       <div className="w-full max-w-md px-5">
 
         <div className="pt-14 pb-8 flex flex-col items-center">
-        <img src="/washio_logo.png" alt="Washio" className="h-16 w-auto mb-5" />
+          <img src="/washio_logo.png" alt="Washio" className="h-16 w-auto mb-5" />
           <h1 className="text-lg font-semibold text-gray-900">
             {sent ? 'Έλεγξε το email σου' : 'Είσοδος / Εγγραφή'}
           </h1>
@@ -100,17 +109,8 @@ function LoginPageContent() {
             </div>
 
             <button
-              onClick={async () => {
-                const supabase = createClient()
-                const oauthRedirectTo = redirectUrl.startsWith('http')
-                  ? redirectUrl
-                  : `${window.location.origin}${redirectUrl}`
-                await supabase.auth.signInWithOAuth({
-                  provider: 'google',
-                  options: { redirectTo: oauthRedirectTo }
-                })
-              }}
-              className="w-full border border-gray-200 text-gray-700 text-sm py-3 rounded-xl flex items-center justify-center gap-2 mb-2"
+              onClick={handleGoogleLogin}
+              className="w-full border border-gray-200 text-gray-700 text-sm py-3 rounded-xl flex items-center justify-center gap-2"
             >
               <svg width="14" height="14" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
