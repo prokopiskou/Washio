@@ -151,16 +151,18 @@ export default function Home() {
         </div>
 
         {timing === 'later' && (
-          <div className="mt-2 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2 items-stretch">
             <input
               type="date"
               defaultValue={getTodayValue()}
-              className="h-9 border border-gray-200 rounded-lg px-3 text-xs text-gray-700 bg-gray-50 w-full"
+              style={{ height: '36px', minHeight: '36px' }}
+              className="border border-gray-200 rounded-lg px-3 text-xs text-gray-700 bg-gray-50 w-full"
             />
             <div className="relative" ref={timePickerRef}>
               <button
                 onClick={() => setShowTimePicker(!showTimePicker)}
-                className="h-9 w-full border border-gray-200 rounded-lg px-3 text-xs bg-gray-50 flex items-center justify-between"
+                style={{ height: '36px', minHeight: '36px' }}
+                className="w-full border border-gray-200 rounded-lg px-3 text-xs bg-gray-50 flex items-center justify-between"
               >
                 <span className={selectedTime ? 'text-gray-700' : 'text-gray-400'}>
                   {selectedTime || 'Ώρα'}
