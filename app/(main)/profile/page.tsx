@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronRight, Heart, Calendar, User, Car, Bell, MessageCircle, LogOut, Star, CheckCircle } from 'lucide-react'
+import { ChevronRight, Heart, Calendar, User, Car, Bell, MessageCircle, LogOut, Star, CheckCircle, Trash2 } from 'lucide-react'
 
 const favorites = [
   { id: 1, name: 'Avin Γλυφάδα', distance: '0.4 km', rating: 4.8 },
@@ -14,6 +14,12 @@ const recentBookings = [
   { id: 1, location: 'Avin Γλυφάδα', service: 'Μέσα & Έξω', date: '28 Μαρ', status: 'completed' },
   { id: 2, location: 'Shell Άλιμος', service: 'Έξω', date: '15 Μαρ', status: 'completed' },
 ]
+
+type Vehicle = {
+  id: string
+  plate: string
+  type: string
+}
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -27,10 +33,23 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState('')
   const [plate, setPlate] = useState('')
   const [vehicleType, setVehicleType] = useState('ΙΧ')
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [showVehicleForm, setShowVehicleForm] = useState(false)
   const [profileSaving, setProfileSaving] = useState(false)
   const [vehicleSaving, setVehicleSaving] = useState(false)
   const [savedProfile, setSavedProfile] = useState(false)
   const [savedCar, setSavedCar] = useState(false)
+
+  const loadVehicles = async (id: string) => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('vehicles')
+      .select('id, plate, type')
+      .eq('user_id', id)
+      .order('created_at', { ascending: false })
+
+    setVehicles((data as Vehicle[]) || [])
+  }
 
   useEffect(() => {
     const loadUser = async () => {
@@ -45,16 +64,7 @@ export default function ProfilePage() {
       setPhone((user?.user_metadata?.phone as string) || '')
 
       if (user?.id) {
-        const { data: vehicle } = await supabase
-          .from('vehicles')
-          .select('plate, type')
-          .eq('user_id', user.id)
-          .maybeSingle()
-
-        if (vehicle) {
-          setPlate(vehicle.plate || '')
-          setVehicleType(vehicle.type || 'ΙΧ')
-        }
+        await loadVehicles(user.id)
       }
     }
     loadUser()
@@ -80,26 +90,34 @@ export default function ProfilePage() {
   }
 
   const handleSaveVehicle = async () => {
-    if (!userId) return
+    if (!userId || !plate.trim()) return
     setVehicleSaving(true)
     const supabase = createClient()
 
     const { error } = await supabase
       .from('vehicles')
-      .upsert(
-        {
-          user_id: userId,
-          plate: plate.trim().toUpperCase(),
-          type: vehicleType,
-        },
-        { onConflict: 'user_id' }
-      )
+      .insert({
+        user_id: userId,
+        plate: plate.trim().toUpperCase(),
+        type: vehicleType,
+      })
 
     setVehicleSaving(false)
     if (!error) {
+      await loadVehicles(userId)
+      setPlate('')
+      setVehicleType('ΙΧ')
       setSavedCar(true)
       setTimeout(() => setSavedCar(false), 2000)
-      setShowCarEdit(false)
+      setShowVehicleForm(false)
+    }
+  }
+
+  const handleDeleteVehicle = async (vehicleId: string) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId)
+    if (!error && userId) {
+      await loadVehicles(userId)
     }
   }
 
@@ -239,40 +257,89 @@ export default function ProfilePage() {
                 <Car size={14} className="text-gray-400" />
                 <p className="text-sm text-gray-900">Το όχημά μου</p>
               </div>
-              <ChevronRight size={14} className="text-gray-300" />
+              <div className="flex items-center gap-2">
+                {showCarEdit && (
+                  <button
+                    onClick={e => {
+                      e.stopPropagation()
+                      setShowVehicleForm(v => !v)
+                    }}
+                    className="w-5 h-5 rounded-full border border-gray-300 text-gray-500 text-xs leading-none flex items-center justify-center"
+                    aria-label="Προσθήκη οχήματος"
+                  >
+                    +
+                  </button>
+                )}
+                <ChevronRight size={14} className="text-gray-300" />
+              </div>
             </button>
             {showCarEdit && (
               <div className="bg-white px-4 py-3 border-t border-gray-50 flex flex-col gap-2">
-                <input
-                  type="text"
-                  value={plate}
-                  onChange={e => setPlate(e.target.value.toUpperCase())}
-                  placeholder="Πινακίδα"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
-                />
-                <select
-                  value={vehicleType}
-                  onChange={e => setVehicleType(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400"
-                >
-                  <option value="Μοτοσυκλέτα">Μοτοσυκλέτα</option>
-                  <option value="ΙΧ">ΙΧ</option>
-                  <option value="SUV">SUV</option>
-                  <option value="Φορτηγό">Φορτηγό</option>
-                </select>
-                <div className="pt-1">
-                  <button
-                    onClick={handleSaveVehicle}
-                    disabled={vehicleSaving || savedCar || !userId}
-                    className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2 disabled:opacity-40"
-                  >
-                    {savedCar ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <CheckCircle size={14} className="text-green-500" />
-                        Αποθηκεύτηκε
-                      </span>
-                    ) : vehicleSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
-                  </button>
+                {vehicles.length === 0 ? (
+                  <p className="text-xs text-gray-400">Δεν υπάρχουν αποθηκευμένα οχήματα.</p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {vehicles.map(vehicle => (
+                      <div key={vehicle.id} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-gray-900">{vehicle.plate}</p>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">{vehicle.type}</span>
+                        </div>
+                        <button onClick={() => handleDeleteVehicle(vehicle.id)} className="text-red-500">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {showVehicleForm && (
+                  <div className="border-t border-gray-50 pt-2 flex flex-col gap-2">
+                    <input
+                      type="text"
+                      value={plate}
+                      onChange={e => setPlate(e.target.value.toUpperCase())}
+                      placeholder="Πινακίδα"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                    />
+                    <select
+                      value={vehicleType}
+                      onChange={e => setVehicleType(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400"
+                    >
+                      <option value="Μοτοσυκλέτα">Μοτοσυκλέτα</option>
+                      <option value="ΙΧ">ΙΧ</option>
+                      <option value="SUV">SUV</option>
+                      <option value="Φορτηγό">Φορτηγό</option>
+                    </select>
+                    <div className="pt-1">
+                      <button
+                        onClick={handleSaveVehicle}
+                        disabled={vehicleSaving || savedCar || !userId}
+                        className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2 disabled:opacity-40"
+                      >
+                        {savedCar ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <CheckCircle size={14} className="text-green-500" />
+                            Αποθηκεύτηκε
+                          </span>
+                        ) : vehicleSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {!showVehicleForm && (
+                  <div className="pt-1">
+                    <button
+                      onClick={() => setShowVehicleForm(true)}
+                      className="text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-2"
+                    >
+                      + Προσθήκη οχήματος
+                    </button>
+                  </div>
+                )}
+                <div>
                 </div>
               </div>
             )}
