@@ -20,17 +20,78 @@ export default function ProfilePage() {
   const [notifications, setNotifications] = useState({ email: true, sms: false })
   const [userEmail, setUserEmail] = useState('')
   const [userInitial, setUserInitial] = useState('?')
+  const [userId, setUserId] = useState('')
+  const [showProfileEdit, setShowProfileEdit] = useState(false)
+  const [showCarEdit, setShowCarEdit] = useState(false)
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [plate, setPlate] = useState('')
+  const [vehicleType, setVehicleType] = useState('ΙΧ')
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [vehicleSaving, setVehicleSaving] = useState(false)
 
   useEffect(() => {
     const loadUser = async () => {
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
-      const email = data.session?.user?.email || ''
+      const user = data.session?.user
+      const email = user?.email || ''
       setUserEmail(email)
       setUserInitial(email ? email[0].toUpperCase() : '?')
+      setUserId(user?.id || '')
+      setFullName((user?.user_metadata?.full_name as string) || '')
+      setPhone((user?.user_metadata?.phone as string) || '')
+
+      if (user?.id) {
+        const { data: vehicle } = await supabase
+          .from('vehicles')
+          .select('plate, type')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        if (vehicle) {
+          setPlate(vehicle.plate || '')
+          setVehicleType(vehicle.type || 'ΙΧ')
+        }
+      }
     }
     loadUser()
   }, [])
+
+  const handleSaveProfile = async () => {
+    setProfileSaving(true)
+    const supabase = createClient()
+
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        full_name: fullName.trim(),
+        phone: phone.trim(),
+      },
+    })
+
+    setProfileSaving(false)
+    if (!error) setShowProfileEdit(false)
+  }
+
+  const handleSaveVehicle = async () => {
+    if (!userId) return
+    setVehicleSaving(true)
+    const supabase = createClient()
+
+    const { error } = await supabase
+      .from('vehicles')
+      .upsert(
+        {
+          user_id: userId,
+          plate: plate.trim().toUpperCase(),
+          type: vehicleType,
+        },
+        { onConflict: 'user_id' }
+      )
+
+    setVehicleSaving(false)
+    if (!error) setShowCarEdit(false)
+  }
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -119,7 +180,7 @@ export default function ProfilePage() {
         <section className="mt-3 mx-4">
           <div className="bg-white rounded-2xl overflow-hidden">
             <button
-              onClick={() => router.push('/profile/edit')}
+              onClick={() => setShowProfileEdit(v => !v)}
               className="w-full flex items-center justify-between px-4 py-3.5 border-b border-gray-50"
             >
               <div className="flex items-center gap-2">
@@ -128,16 +189,73 @@ export default function ProfilePage() {
               </div>
               <ChevronRight size={14} className="text-gray-300" />
             </button>
+            {showProfileEdit && (
+              <div className="bg-white px-4 py-3 border-t border-gray-50 flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  placeholder="Όνομα"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="Τηλέφωνο"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                />
+                <div className="pt-1">
+                  <button
+                    onClick={handleSaveProfile}
+                    disabled={profileSaving}
+                    className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2 disabled:opacity-40"
+                  >
+                    {profileSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                  </button>
+                </div>
+              </div>
+            )}
             <button
-              onClick={() => router.push('/profile/car')}
+              onClick={() => setShowCarEdit(v => !v)}
               className="w-full flex items-center justify-between px-4 py-3.5"
             >
               <div className="flex items-center gap-2">
                 <Car size={14} className="text-gray-400" />
-                <p className="text-sm text-gray-900">Το αμάξι μου</p>
+                <p className="text-sm text-gray-900">Το όχημά μου</p>
               </div>
               <ChevronRight size={14} className="text-gray-300" />
             </button>
+            {showCarEdit && (
+              <div className="bg-white px-4 py-3 border-t border-gray-50 flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={plate}
+                  onChange={e => setPlate(e.target.value.toUpperCase())}
+                  placeholder="Πινακίδα"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                />
+                <select
+                  value={vehicleType}
+                  onChange={e => setVehicleType(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400"
+                >
+                  <option value="Μοτοσυκλέτα">Μοτοσυκλέτα</option>
+                  <option value="ΙΧ">ΙΧ</option>
+                  <option value="SUV">SUV</option>
+                  <option value="Φορτηγό">Φορτηγό</option>
+                </select>
+                <div className="pt-1">
+                  <button
+                    onClick={handleSaveVehicle}
+                    disabled={vehicleSaving || !userId}
+                    className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2 disabled:opacity-40"
+                  >
+                    {vehicleSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
