@@ -11,7 +11,7 @@ const favorites = [
 ]
 
 const recentBookings = [
-  { id: 1, location: 'Avin Γλυφάδα', service: 'Μέσα-Έξω', date: '28 Μαρ', status: 'completed' },
+  { id: 1, location: 'Avin Γλυφάδα', service: 'Μέσα & Έξω', date: '28 Μαρ', status: 'completed' },
   { id: 2, location: 'Shell Άλιμος', service: 'Έξω', date: '15 Μαρ', status: 'completed' },
 ]
 

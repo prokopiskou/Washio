@@ -14,9 +14,9 @@ const location = {
 }
 
 const services = [
-  { id: 1, name: 'Μέσα', desc: 'Καθάρισμα εσωτερικού', price: 10, duration: 30 },
-  { id: 2, name: 'Έξω', desc: 'Πλύσιμο εξωτερικού', price: 6, duration: 15 },
-  { id: 3, name: 'Μέσα-Έξω', desc: 'Πλήρης περιποίηση', price: 15, duration: 45 },
+  { id: 1, name: 'Μέσα', desc: 'Καθάρισμα εσωτερικού', price: 5, duration: 30 },
+  { id: 2, name: 'Έξω', desc: 'Πλύσιμο εξωτερικού', price: 7, duration: 15 },
+  { id: 3, name: 'Μέσα & Έξω', desc: 'Πλήρης περιποίηση', price: 10, duration: 45 },
 ]
 
 const slots = [
