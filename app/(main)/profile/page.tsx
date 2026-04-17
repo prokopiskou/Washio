@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronRight, Heart, Calendar, User, Car, Bell, MessageCircle, LogOut, Star } from 'lucide-react'
+import { ChevronRight, Heart, Calendar, User, Car, Bell, MessageCircle, LogOut, Star, CheckCircle } from 'lucide-react'
 
 const favorites = [
   { id: 1, name: 'Avin Γλυφάδα', distance: '0.4 km', rating: 4.8 },
@@ -29,6 +29,8 @@ export default function ProfilePage() {
   const [vehicleType, setVehicleType] = useState('ΙΧ')
   const [profileSaving, setProfileSaving] = useState(false)
   const [vehicleSaving, setVehicleSaving] = useState(false)
+  const [savedProfile, setSavedProfile] = useState(false)
+  const [savedCar, setSavedCar] = useState(false)
 
   useEffect(() => {
     const loadUser = async () => {
@@ -70,7 +72,11 @@ export default function ProfilePage() {
     })
 
     setProfileSaving(false)
-    if (!error) setShowProfileEdit(false)
+    if (!error) {
+      setSavedProfile(true)
+      setTimeout(() => setSavedProfile(false), 2000)
+      setShowProfileEdit(false)
+    }
   }
 
   const handleSaveVehicle = async () => {
@@ -90,7 +96,11 @@ export default function ProfilePage() {
       )
 
     setVehicleSaving(false)
-    if (!error) setShowCarEdit(false)
+    if (!error) {
+      setSavedCar(true)
+      setTimeout(() => setSavedCar(false), 2000)
+      setShowCarEdit(false)
+    }
   }
 
   const handleLogout = async () => {
@@ -208,10 +218,15 @@ export default function ProfilePage() {
                 <div className="pt-1">
                   <button
                     onClick={handleSaveProfile}
-                    disabled={profileSaving}
+                    disabled={profileSaving || savedProfile}
                     className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2 disabled:opacity-40"
                   >
-                    {profileSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                    {savedProfile ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <CheckCircle size={14} className="text-green-500" />
+                        Αποθηκεύτηκε
+                      </span>
+                    ) : profileSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
                   </button>
                 </div>
               </div>
@@ -248,10 +263,15 @@ export default function ProfilePage() {
                 <div className="pt-1">
                   <button
                     onClick={handleSaveVehicle}
-                    disabled={vehicleSaving || !userId}
+                    disabled={vehicleSaving || savedCar || !userId}
                     className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2 disabled:opacity-40"
                   >
-                    {vehicleSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                    {savedCar ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <CheckCircle size={14} className="text-green-500" />
+                        Αποθηκεύτηκε
+                      </span>
+                    ) : vehicleSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
                   </button>
                 </div>
               </div>
