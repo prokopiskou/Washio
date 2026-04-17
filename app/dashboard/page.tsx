@@ -401,11 +401,16 @@ export default function DashboardPage() {
 
             {activeTab === 'services' && (
               <div className="space-y-3">
+                <div className="grid grid-cols-4 gap-2 px-2 text-xs text-gray-400">
+                  <p>Υπηρεσία</p>
+                  <p>Τιμή (€)</p>
+                  <p>Κατάσταση</p>
+                  <p></p>
+                </div>
                 {services.map(service => (
-                  <div key={service.id} className="border border-gray-100 rounded-xl p-4 grid grid-cols-5 gap-2 items-center">
+                  <div key={service.id} className="border border-gray-100 rounded-xl p-4 grid grid-cols-4 gap-2 items-center">
                     <p className="text-sm text-gray-900 px-1">{service.service_name}</p>
                     <input value={service.price} onChange={e => setServices(prev => prev.map(s => s.id === service.id ? { ...s, price: Number(e.target.value || 0) } : s))} className="border border-gray-200 rounded-xl px-3 py-2 text-sm" placeholder="Τιμή (€)" />
-                    <input value={service.duration_minutes} onChange={e => setServices(prev => prev.map(s => s.id === service.id ? { ...s, duration_minutes: Number(e.target.value || 0) } : s))} className="border border-gray-200 rounded-xl px-3 py-2 text-sm" placeholder="Διάρκεια (λ')" />
                     <button
                       onClick={() => setServices(prev => prev.map(s => s.id === service.id ? { ...s, is_active: !s.is_active } : s))}
                       className={`text-xs rounded-xl px-3 py-2 ${service.is_active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}
