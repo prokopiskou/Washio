@@ -155,12 +155,12 @@ export default function Home() {
             <input
               type="date"
               defaultValue={getTodayValue()}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-gray-50 w-full"
+              className="h-9 border border-gray-200 rounded-lg px-3 text-xs text-gray-700 bg-gray-50 w-full"
             />
             <div className="relative" ref={timePickerRef}>
               <button
                 onClick={() => setShowTimePicker(!showTimePicker)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs bg-gray-50 flex items-center justify-between"
+                className="h-9 w-full border border-gray-200 rounded-lg px-3 text-xs bg-gray-50 flex items-center justify-between"
               >
                 <span className={selectedTime ? 'text-gray-700' : 'text-gray-400'}>
                   {selectedTime || 'Ώρα'}
