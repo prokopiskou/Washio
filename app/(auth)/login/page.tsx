@@ -60,7 +60,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md px-5">
 
         <div className="pt-14 pb-8 flex flex-col items-center">
-        <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto mb-5" />
+        <img src="/washio_logo.png" alt="Washio" className="h-16 w-auto mb-5" />
           <h1 className="text-lg font-semibold text-gray-900">
             {sent ? 'Έλεγξε το email σου' : 'Είσοδος / Εγγραφή'}
           </h1>
