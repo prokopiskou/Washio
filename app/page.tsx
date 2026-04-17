@@ -47,7 +47,6 @@ export default function Home() {
       const { data } = await supabase.auth.getSession()
       setIsLoggedIn(!!data.session)
     }
-
     loadSession()
   }, [])
 
@@ -152,16 +151,13 @@ export default function Home() {
         </div>
 
         {timing === 'later' && (
-          <div className="mt-2 flex gap-2">
-            {/* Date — σημερινή ως default, επεξεργάσιμη */}
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <input
               type="date"
               defaultValue={getTodayValue()}
-              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-gray-50"
+              className="border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-gray-50 w-full"
             />
-
-            {/* Time picker ανά 30 λεπτά */}
-            <div className="flex-1 relative" ref={timePickerRef}>
+            <div className="relative" ref={timePickerRef}>
               <button
                 onClick={() => setShowTimePicker(!showTimePicker)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs bg-gray-50 flex items-center justify-between"
