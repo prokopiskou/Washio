@@ -41,7 +41,6 @@ export default function Home() {
   const [selectedTime, setSelectedTime] = useState<string>('')
   const [showTimePicker, setShowTimePicker] = useState(false)
   const timePickerRef = useRef<HTMLDivElement>(null)
-  const dateInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const loadSession = async () => {
@@ -84,18 +83,6 @@ export default function Home() {
     month: '2-digit',
     year: 'numeric',
   })
-
-  const handleOpenDatePicker = () => {
-    const input = dateInputRef.current
-    if (!input) return
-
-    if (typeof input.showPicker === 'function') {
-      input.showPicker()
-      return
-    }
-
-    input.click()
-  }
 
   return (
     <main className="min-h-screen bg-white max-w-md mx-auto pb-24">
@@ -173,23 +160,21 @@ export default function Home() {
         {timing === 'later' && (
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div className="relative">
-              <button
-                onClick={handleOpenDatePicker}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs bg-gray-50 flex items-center justify-between"
-              >
-                <span className="text-gray-700">{formattedSelectedDate}</span>
-                <ChevronDown size={10} className="text-gray-400" />
-              </button>
               <input
-                ref={dateInputRef}
                 type="date"
                 value={selectedDate}
                 onChange={e => setSelectedDate(e.target.value)}
                 min={getTodayValue()}
-                className="absolute opacity-0 pointer-events-none w-0 h-0"
-                aria-hidden="true"
-                tabIndex={-1}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                style={{ WebkitAppearance: 'none' }}
+                aria-label="Επιλογή ημερομηνίας"
               />
+              <div className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs bg-gray-50 flex items-center justify-between">
+                <span className={selectedDate ? 'text-gray-700' : 'text-gray-400'}>
+                  {selectedDate ? formattedSelectedDate : 'Ημερομηνία'}
+                </span>
+                <ChevronDown size={10} className="text-gray-400" />
+              </div>
             </div>
             <div className="relative" ref={timePickerRef}>
               <button
