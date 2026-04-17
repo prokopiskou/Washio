@@ -13,9 +13,9 @@ const locations = [
 ]
 
 const services = [
-  { name: 'Έξω', price: 'από €5' },
-  { name: 'Μέσα-Έξω', price: 'από €12' },
-  { name: 'Μέσα & Έξω', price: 'από €20' },
+  { name: 'Μέσα', price: 'από €5' },
+  { name: 'Έξω', price: 'από €7' },
+  { name: 'Μέσα & Έξω', price: 'από €10' },
 ]
 
 function getTimeSlots() {
