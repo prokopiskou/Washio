@@ -75,14 +75,7 @@ export async function POST(req: Request) {
       </div>
     `
 
-    await resend.emails.send({
-      from: 'Washio Apply <onboarding@resend.dev>',
-      to: 'withinsuccess@gmail.com',
-      subject: `Νέα αίτηση: ${businessName}`,
-      html,
-    })
-
-    await supabaseAdmin.from('applications').insert({
+    const { error: dbError } = await supabaseAdmin.from('applications').insert({
       business_name: businessName,
       address,
       city,
@@ -94,6 +87,18 @@ export async function POST(req: Request) {
       lanes,
       wash_type: washType,
       status: 'pending',
+    })
+
+    if (dbError) {
+      console.error('DB insert error:', dbError)
+      return NextResponse.json({ error: 'Failed to save application', dbError }, { status: 500 })
+    }
+
+    await resend.emails.send({
+      from: 'Washio Apply <onboarding@resend.dev>',
+      to: 'withinsuccess@gmail.com',
+      subject: `Νέα αίτηση: ${businessName}`,
+      html,
     })
 
     return NextResponse.json({ ok: true })
