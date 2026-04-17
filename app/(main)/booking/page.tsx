@@ -11,9 +11,9 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
 const services: Record<string, { name: string; price: number; duration: number }> = {
-  '1': { name: 'Μέσα', price: 10, duration: 30 },
-  '2': { name: 'Έξω', price: 6, duration: 15 },
-  '3': { name: 'Μέσα-Έξω', price: 15, duration: 45 },
+  '1': { name: 'Μέσα', price: 5, duration: 30 },
+  '2': { name: 'Έξω', price: 7, duration: 15 },
+  '3': { name: 'Μέσα & Έξω', price: 10, duration: 45 },
 }
 
 const slots: Record<string, string> = {

@@ -12,9 +12,9 @@ const locations = [
 ]
 
 const services = [
-  { id: 1, name: 'Μέσα', price: 10 },
-  { id: 2, name: 'Έξω', price: 6 },
-  { id: 3, name: 'Μέσα-Έξω', price: 15 },
+  { id: 1, name: 'Μέσα', price: 5 },
+  { id: 2, name: 'Έξω', price: 7 },
+  { id: 3, name: 'Μέσα & Έξω', price: 10 },
 ]
 
 const slots = [
@@ -81,7 +81,7 @@ function MapPageContent() {
         const marker = new window.google.maps.Marker({
           position: { lat: loc.lat, lng: loc.lng },
           map,
-          label: { text: `€${loc.id === 2 || loc.id === 4 ? 5 : 6}`, color: '#fff', fontSize: '11px', fontWeight: '600' },
+          label: { text: `€${loc.id === 2 || loc.id === 4 ? 5 : 7}`, color: '#fff', fontSize: '11px', fontWeight: '600' },
           icon: {
             path: window.google.maps.SymbolPath.CIRCLE,
             scale: 20,
@@ -243,7 +243,7 @@ function MapPageContent() {
                       <span className="text-xs text-gray-300 mx-1">·</span>
                       <span className="text-xs text-gray-400">{loc.distance}</span>
                     </div>
-                    <span className="text-xs font-semibold text-gray-900">από €{loc.id === 2 || loc.id === 4 ? 5 : 6}</span>
+                    <span className="text-xs font-semibold text-gray-900">από €{loc.id === 2 || loc.id === 4 ? 5 : 7}</span>
                   </div>
                 </button>
               ))}
