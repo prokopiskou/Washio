@@ -37,9 +37,11 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [timing, setTiming] = useState<'now' | 'later'>('now')
   const [locationGranted, setLocationGranted] = useState(false)
+  const [selectedDate, setSelectedDate] = useState(getTodayValue())
   const [selectedTime, setSelectedTime] = useState<string>('')
   const [showTimePicker, setShowTimePicker] = useState(false)
   const timePickerRef = useRef<HTMLDivElement>(null)
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const loadSession = async () => {
@@ -75,6 +77,24 @@ export default function Home() {
       },
       () => setLocationGranted(false)
     )
+  }
+
+  const formattedSelectedDate = new Date(selectedDate).toLocaleDateString('el-GR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+
+  const handleOpenDatePicker = () => {
+    const input = dateInputRef.current
+    if (!input) return
+
+    if (typeof input.showPicker === 'function') {
+      input.showPicker()
+      return
+    }
+
+    input.click()
   }
 
   return (
@@ -151,18 +171,30 @@ export default function Home() {
         </div>
 
         {timing === 'later' && (
-          <div className="mt-2 grid grid-cols-2 gap-2 items-stretch">
-            <input
-              type="date"
-              defaultValue={getTodayValue()}
-              style={{ height: '36px', minHeight: '36px' }}
-              className="border border-gray-200 rounded-lg px-3 text-xs text-gray-700 bg-gray-50 w-full"
-            />
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="relative">
+              <button
+                onClick={handleOpenDatePicker}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs bg-gray-50 flex items-center justify-between"
+              >
+                <span className="text-gray-700">{formattedSelectedDate}</span>
+                <ChevronDown size={10} className="text-gray-400" />
+              </button>
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={selectedDate}
+                onChange={e => setSelectedDate(e.target.value)}
+                min={getTodayValue()}
+                className="absolute opacity-0 pointer-events-none w-0 h-0"
+                aria-hidden="true"
+                tabIndex={-1}
+              />
+            </div>
             <div className="relative" ref={timePickerRef}>
               <button
                 onClick={() => setShowTimePicker(!showTimePicker)}
-                style={{ height: '36px', minHeight: '36px' }}
-                className="w-full border border-gray-200 rounded-lg px-3 text-xs bg-gray-50 flex items-center justify-between"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs bg-gray-50 flex items-center justify-between"
               >
                 <span className={selectedTime ? 'text-gray-700' : 'text-gray-400'}>
                   {selectedTime || 'Ώρα'}
