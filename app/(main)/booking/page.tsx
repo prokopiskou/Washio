@@ -107,7 +107,6 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
 function BookingPageContent() {
   const router = useRouter()
   const params = useSearchParams()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [sessionLoading, setSessionLoading] = useState(true)
 
   const serviceId = params.get('service') || '1'
@@ -135,9 +134,13 @@ function BookingPageContent() {
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
       const user = data.session?.user
-      setIsLoggedIn(!!user)
+
+      if (!user) {
+        router.replace(`/login?redirect=${encodeURIComponent(window.location.href)}`)
+        return
+      }
+
       setSessionLoading(false)
-      if (!user) return
 
       if (user.email) setEmail(user.email)
 
@@ -195,36 +198,11 @@ function BookingPageContent() {
     setPlate(selectedVehicle?.plate || '')
   }
 
-  const renderBottomBar = () => {
-    if (sessionLoading) return null
-
-    if (!isLoggedIn) {
-      return (
-        <button
-          onClick={() => router.push(`/login?redirect=${encodeURIComponent(window.location.href)}`)}
-          className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl flex items-center justify-center gap-2"
-        >
-          Σύνδεση για να συνεχίσεις
-        </button>
-      )
-    }
-
-    if (!canProceed) {
-      return (
-        <div className="w-full bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-xl flex items-center justify-center">
-          Συμπλήρωσε τα στοιχεία σου
-        </div>
-      )
-    }
-
+  if (sessionLoading) {
     return (
-      <button
-        onClick={handleProceedToPayment}
-        className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl flex items-center justify-center gap-2"
-      >
-        <CreditCard size={15} />
-        Συνέχεια στην πληρωμή — €{total}
-      </button>
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xs text-gray-400">Φόρτωση...</p>
+      </div>
     )
   }
 
@@ -334,7 +312,17 @@ function BookingPageContent() {
           </Elements>
         ) : (
           <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
-            {renderBottomBar()}
+            {!canProceed ? (
+              <div className="w-full bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-xl flex items-center justify-center">
+                Συμπλήρωσε τα στοιχεία σου
+              </div>
+            ) : (
+              <button onClick={handleProceedToPayment}
+                className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl flex items-center justify-center gap-2">
+                <CreditCard size={15} />
+                Συνέχεια στην πληρωμή — €{total}
+              </button>
+            )}
           </div>
         )}
 
