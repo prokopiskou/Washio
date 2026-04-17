@@ -1,10 +1,11 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, CreditCard, Plus, Minus, Shield } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { createClient } from '@/lib/supabase/client'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -28,6 +29,12 @@ const addons = [
   { id: 3, name: 'Ψυκτικά υγρά', price: 8 },
   { id: 4, name: 'Αρωματικό εσωτερικού', price: 5 },
 ]
+
+type Vehicle = {
+  id: string
+  plate: string
+  type: string
+}
 
 function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret }: {
   total: number
@@ -122,6 +129,39 @@ function BookingPageContent() {
   const [selectedAddons, setSelectedAddons] = useState<number[]>([])
   const [showPayment, setShowPayment] = useState(false)
   const [clientSecret, setClientSecret] = useState('')
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [selectedVehicleId, setSelectedVehicleId] = useState('new')
+
+  useEffect(() => {
+    const loadUserAndVehicles = async () => {
+      const supabase = createClient()
+      const { data } = await supabase.auth.getSession()
+      const user = data.session?.user
+      if (!user) return
+
+      if (user.email) setEmail(user.email)
+
+      const fullName = (user.user_metadata?.full_name as string) || ''
+      if (fullName.trim()) {
+        const [first, ...lastParts] = fullName.trim().split(' ')
+        setFirstName(first || '')
+        setLastName(lastParts.join(' '))
+      }
+
+      const userPhone = (user.user_metadata?.phone as string) || ''
+      if (userPhone) setPhone(userPhone)
+
+      const { data: vehiclesData } = await supabase
+        .from('vehicles')
+        .select('id, plate, type')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      setVehicles((vehiclesData as Vehicle[]) || [])
+    }
+
+    loadUserAndVehicles()
+  }, [])
 
   const toggleAddon = (id: number) => {
     setSelectedAddons(prev =>
@@ -145,8 +185,19 @@ function BookingPageContent() {
     setShowPayment(true)
   }
 
+  const handleVehicleChange = (value: string) => {
+    setSelectedVehicleId(value)
+    if (value === 'new') {
+      setPlate('')
+      return
+    }
+    const selectedVehicle = vehicles.find(v => v.id === value)
+    setPlate(selectedVehicle?.plate || '')
+  }
+
   return (
-    <main className="min-h-screen bg-white max-w-md mx-auto pb-32">
+    <main className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full max-w-md pb-32">
       <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
         <button onClick={() => router.back()} className="text-gray-400"><ArrowLeft size={18} /></button>
         <span className="text-sm font-medium text-gray-900">Ολοκλήρωση κράτησης</span>
@@ -170,6 +221,20 @@ function BookingPageContent() {
           <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Επώνυμο"
             className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
         </div>
+        {vehicles.length > 0 && (
+          <select
+            value={selectedVehicleId}
+            onChange={e => handleVehicleChange(e.target.value)}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400 mb-2"
+          >
+            <option value="new">Νέο όχημα</option>
+            {vehicles.map(vehicle => (
+              <option key={vehicle.id} value={vehicle.id}>
+                {vehicle.plate} · {vehicle.type}
+              </option>
+            ))}
+          </select>
+        )}
         <div className="flex gap-2 mb-2">
           <input type="text" value={plate} onChange={e => setPlate(e.target.value.toUpperCase())} placeholder="Πινακίδα"
             className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
@@ -248,6 +313,7 @@ function BookingPageContent() {
           )}
         </div>
       )}
+      </div>
     </main>
   )
 }
