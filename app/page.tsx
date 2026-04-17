@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { MapPin, Star, Clock, Calendar, Search } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { MapPin, Star, Clock, Calendar, Search, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
 const locations = [
@@ -17,6 +17,23 @@ const services = [
   { name: 'Μέσα-Έξω', price: 'από €12' },
   { name: 'Μέσα & Έξω', price: 'από €20' },
 ]
+
+function getTimeSlots() {
+  const slots: string[] = []
+  for (let h = 8; h < 22; h++) {
+    slots.push(`${String(h).padStart(2, '0')}:00`)
+    slots.push(`${String(h).padStart(2, '0')}:30`)
+  }
+  return slots
+}
+
+function getTodayFormatted() {
+  const d = new Date()
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yyyy = d.getFullYear()
+  return `${dd}/${mm}/${yyyy}`
+}
 
 function WashioLogo() {
   return (
@@ -37,12 +54,25 @@ export default function Home() {
   const router = useRouter()
   const [timing, setTiming] = useState<'now' | 'later'>('now')
   const [locationGranted, setLocationGranted] = useState(false)
+  const [selectedTime, setSelectedTime] = useState<string>('')
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const timePickerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     navigator.geolocation?.getCurrentPosition(
       () => setLocationGranted(true),
       () => setLocationGranted(false)
     )
+  }, [])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (timePickerRef.current && !timePickerRef.current.contains(e.target as Node)) {
+        setShowTimePicker(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const handleGPS = () => {
@@ -60,7 +90,7 @@ export default function Home() {
 
       {/* Navbar */}
       <nav className="flex justify-between items-center px-5 py-3 border-b border-gray-100">
-      <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto" />
+        <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto" />
         <Link href="/login" className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">
           Σύνδεση
         </Link>
@@ -114,7 +144,7 @@ export default function Home() {
             Τώρα
           </button>
           <button
-            onClick={() => setTiming('later')}
+            onClick={() => { setTiming('later'); setSelectedTime(''); setShowTimePicker(false) }}
             className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium border transition-all ${
               timing === 'later'
                 ? 'bg-gray-900 text-white border-gray-900'
@@ -128,8 +158,41 @@ export default function Home() {
 
         {timing === 'later' && (
           <div className="mt-2 flex gap-2">
-            <input type="date" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-gray-50" />
-            <input type="time" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-gray-50" />
+            {/* Date — σημερινή by default */}
+            <div className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-gray-50">
+              {getTodayFormatted()}
+            </div>
+
+            {/* Time picker ανά 30 λεπτά */}
+            <div className="flex-1 relative" ref={timePickerRef}>
+              <button
+                onClick={() => setShowTimePicker(!showTimePicker)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs bg-gray-50 flex items-center justify-between"
+              >
+                <span className={selectedTime ? 'text-gray-700' : 'text-gray-400'}>
+                  {selectedTime || 'Ώρα'}
+                </span>
+                <ChevronDown size={10} className="text-gray-400" />
+              </button>
+
+              {showTimePicker && (
+                <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-md z-10 max-h-44 overflow-y-auto">
+                  {getTimeSlots().map(slot => (
+                    <button
+                      key={slot}
+                      onClick={() => { setSelectedTime(slot); setShowTimePicker(false) }}
+                      className={`w-full text-left px-3 py-2 text-xs transition-colors ${
+                        selectedTime === slot
+                          ? 'bg-gray-900 text-white'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </section>
@@ -191,40 +254,40 @@ export default function Home() {
       </section>
 
       {/* Partner CTA */}
-<section className="px-5 mb-4">
-  <div className="bg-gray-900 rounded-xl p-4 flex items-center justify-between">
-    <div>
-      <p className="text-white text-xs font-medium">Είσαι πρατήριο;</p>
-      <p className="text-gray-500 text-xs mt-0.5">Αύξησε τις κρατήσεις σου.</p>
-    </div>
-    <button className="bg-white text-gray-900 text-xs font-medium px-3 py-1.5 rounded-lg shrink-0">
-      Μάθε περισσότερα
-    </button>
-  </div>
-</section>
+      <section className="px-5 mb-4">
+        <div className="bg-gray-900 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p className="text-white text-xs font-medium">Είσαι πρατήριο;</p>
+            <p className="text-gray-500 text-xs mt-0.5">Αύξησε τις κρατήσεις σου.</p>
+          </div>
+          <button className="bg-white text-gray-900 text-xs font-medium px-3 py-1.5 rounded-lg shrink-0">
+            Μάθε περισσότερα
+          </button>
+        </div>
+      </section>
 
-{/* Promo Banner */}
-<section className="px-5 mb-8">
-  <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
-    Προσφορές & Νέα
-  </p>
-  <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
-    <div className="min-w-[280px] h-32 bg-gradient-to-r from-blue-500 to-blue-700 rounded-2xl shrink-0 flex flex-col justify-between p-4">
-      <p className="text-white text-xs font-medium uppercase tracking-wider">Προσφορά</p>
-      <div>
-        <p className="text-white font-semibold text-sm">-20% σε όλες τις υπηρεσίες</p>
-        <p className="text-blue-200 text-xs mt-0.5">Ισχύει έως 30 Απρ</p>
-      </div>
-    </div>
-    <div className="min-w-[280px] h-32 bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl shrink-0 flex flex-col justify-between p-4">
-      <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Νέο</p>
-      <div>
-        <p className="text-white font-semibold text-sm">Νέο πρατήριο στη Βούλα</p>
-        <p className="text-gray-400 text-xs mt-0.5">Από 1 Μαΐου διαθέσιμο</p>
-      </div>
-    </div>
-  </div>
-</section>
+      {/* Promo Banner */}
+      <section className="px-5 mb-8">
+        <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
+          Προσφορές & Νέα
+        </p>
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+          <div className="min-w-[280px] h-32 bg-gradient-to-r from-blue-500 to-blue-700 rounded-2xl shrink-0 flex flex-col justify-between p-4">
+            <p className="text-white text-xs font-medium uppercase tracking-wider">Προσφορά</p>
+            <div>
+              <p className="text-white font-semibold text-sm">-20% σε όλες τις υπηρεσίες</p>
+              <p className="text-blue-200 text-xs mt-0.5">Ισχύει έως 30 Απρ</p>
+            </div>
+          </div>
+          <div className="min-w-[280px] h-32 bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl shrink-0 flex flex-col justify-between p-4">
+            <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Νέο</p>
+            <div>
+              <p className="text-white font-semibold text-sm">Νέο πρατήριο στη Βούλα</p>
+              <p className="text-gray-400 text-xs mt-0.5">Από 1 Μαΐου διαθέσιμο</p>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md flex justify-around items-center py-3 border-t border-gray-100 bg-white">
