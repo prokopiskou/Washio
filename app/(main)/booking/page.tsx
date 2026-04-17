@@ -111,6 +111,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
 function BookingPageContent() {
   const router = useRouter()
   const params = useSearchParams()
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   const serviceId = params.get('service') || '1'
   const slotId = params.get('slot') || '1'
@@ -137,6 +138,7 @@ function BookingPageContent() {
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
       const user = data.session?.user
+      setIsLoggedIn(!!user)
       if (!user) return
 
       if (user.email) setEmail(user.email)
@@ -175,6 +177,10 @@ function BookingPageContent() {
 
   const handleProceedToPayment = async () => {
     if (!canProceed) return
+    if (!isLoggedIn) {
+      router.push(`/login?redirect=${encodeURIComponent(window.location.href)}`)
+      return
+    }
     const res = await fetch('/api/payments/create-intent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

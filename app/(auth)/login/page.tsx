@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const router = useRouter()
+  const params = useSearchParams()
+  const redirectUrl = params.get('redirect') || '/'
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
@@ -51,7 +53,7 @@ export default function LoginPage() {
       setError('Λάθος κωδικός. Δοκίμασε ξανά.')
       setLoading(false)
     } else {
-      router.push('/')
+      router.push(redirectUrl)
     }
   }
 
@@ -91,13 +93,6 @@ export default function LoginPage() {
               {loading ? 'Αποστολή...' : 'Αποστολή κωδικού'}
             </button>
 
-            <button
-              onClick={() => router.push('/')}
-              className="w-full border border-gray-100 text-gray-400 text-sm py-3 rounded-xl"
-            >
-              Συνέχεια ως επισκέπτης
-            </button>
-
             <div className="flex items-center gap-3 my-3">
               <div className="flex-1 h-px bg-gray-100" />
               <span className="text-xs text-gray-300">ή</span>
@@ -107,9 +102,12 @@ export default function LoginPage() {
             <button
               onClick={async () => {
                 const supabase = createClient()
+                const oauthRedirectTo = redirectUrl.startsWith('http')
+                  ? redirectUrl
+                  : `${window.location.origin}${redirectUrl}`
                 await supabase.auth.signInWithOAuth({
                   provider: 'google',
-                  options: { redirectTo: `${window.location.origin}/` }
+                  options: { redirectTo: oauthRedirectTo }
                 })
               }}
               className="w-full border border-gray-200 text-gray-700 text-sm py-3 rounded-xl flex items-center justify-center gap-2 mb-2"
