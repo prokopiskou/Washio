@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ChevronRight, Heart, Calendar, User, Car, Bell, MessageCircle, LogOut, Star } from 'lucide-react'
@@ -17,10 +17,20 @@ const recentBookings = [
 
 export default function ProfilePage() {
   const router = useRouter()
-  const [notifications, setNotifications] = useState({
-    email: true,
-    sms: false,
-  })
+  const [notifications, setNotifications] = useState({ email: true, sms: false })
+  const [userEmail, setUserEmail] = useState('')
+  const [userInitial, setUserInitial] = useState('?')
+
+  useEffect(() => {
+    const loadUser = async () => {
+      const supabase = createClient()
+      const { data } = await supabase.auth.getSession()
+      const email = data.session?.user?.email || ''
+      setUserEmail(email)
+      setUserInitial(email ? email[0].toUpperCase() : '?')
+    }
+    loadUser()
+  }, [])
 
   const handleLogout = async () => {
     const supabase = createClient()
@@ -36,11 +46,11 @@ export default function ProfilePage() {
         <div className="bg-white px-5 pt-10 pb-6 border-b border-gray-100">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white text-xl font-semibold">
-              Π
+              {userInitial}
             </div>
             <div>
-              <p className="text-base font-semibold text-gray-900">Προκόπης</p>
-              <p className="text-xs text-gray-400 mt-0.5">withinsuccess@gmail.com</p>
+              <p className="text-base font-semibold text-gray-900">{userEmail || 'Επισκέπτης'}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{userEmail}</p>
             </div>
           </div>
         </div>
