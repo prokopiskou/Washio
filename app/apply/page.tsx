@@ -153,7 +153,7 @@ export default function ApplyPage() {
                   type="text"
                   value={values.contactName}
                   onChange={e => setValues(v => ({ ...v, contactName: e.target.value }))}
-                  placeholder="Όνομα υπεύθυνου"
+                  placeholder= "Ονοματεπώνυμο υπεύθυνου"
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
                 />
                 {errors.contactName && <p className="text-red-500 text-xs mt-1">{errors.contactName}</p>}
