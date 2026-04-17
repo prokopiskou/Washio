@@ -11,6 +11,8 @@ type FormValues = {
   phone: string
   email: string
   hours: string
+  hoursFrom: string
+  hoursTo: string
   lanes: string
   washType: string
   termsAccepted: boolean
@@ -27,10 +29,17 @@ const initialValues: FormValues = {
   phone: '',
   email: '',
   hours: '',
+  hoursFrom: '',
+  hoursTo: '',
   lanes: '',
   washType: '',
   termsAccepted: false,
 }
+
+const timeOptions = Array.from({ length: 17 }, (_, i) => {
+  const h = i + 6
+  return `${String(h).padStart(2, '0')}:00`
+})
 
 export default function ApplyPage() {
   const [values, setValues] = useState<FormValues>(initialValues)
@@ -46,10 +55,10 @@ export default function ApplyPage() {
     if (!values.address.trim()) nextErrors.address = 'Συμπλήρωσε τη διεύθυνση.'
     if (!values.city.trim()) nextErrors.city = 'Συμπλήρωσε πόλη ή περιοχή.'
     if (!values.taxId.trim()) nextErrors.taxId = 'Συμπλήρωσε το ΑΦΜ.'
-    if (!values.contactName.trim()) nextErrors.contactName = 'Συμπλήρωσε το όνομα υπεύθυνου.'
+    if (!values.contactName.trim()) nextErrors.contactName = 'Συμπλήρωσε το ονοματεπώνυμο υπεύθυνου.'
     if (!values.phone.trim()) nextErrors.phone = 'Συμπλήρωσε τηλέφωνο.'
     if (!values.email.trim()) nextErrors.email = 'Συμπλήρωσε email.'
-    if (!values.hours.trim()) nextErrors.hours = 'Συμπλήρωσε ωράριο λειτουργίας.'
+    if (!values.hoursFrom || !values.hoursTo) nextErrors.hours = 'Επίλεξε ωράριο λειτουργίας.'
     if (!values.lanes.trim()) nextErrors.lanes = 'Επίλεξε αριθμό διαδρομών.'
     if (!values.washType.trim()) nextErrors.washType = 'Επίλεξε τύπο πλυντηρίου.'
     if (!values.termsAccepted) nextErrors.termsAccepted = 'Πρέπει να αποδεχτείς τους όρους χρήσης.'
@@ -67,15 +76,18 @@ export default function ApplyPage() {
 
     setLoading(true)
     try {
+      const payload = {
+        ...values,
+        hours: `${values.hoursFrom}–${values.hoursTo}`,
+      }
+
       const res = await fetch('/api/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       })
 
-      if (!res.ok) {
-        throw new Error('Submit failed')
-      }
+      if (!res.ok) throw new Error('Submit failed')
 
       setSubmitted(true)
       setValues(initialValues)
@@ -153,7 +165,7 @@ export default function ApplyPage() {
                   type="text"
                   value={values.contactName}
                   onChange={e => setValues(v => ({ ...v, contactName: e.target.value }))}
-                  placeholder= "Ονοματεπώνυμο υπεύθυνου"
+                  placeholder="Ονοματεπώνυμο υπεύθυνου"
                   className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
                 />
                 {errors.contactName && <p className="text-red-500 text-xs mt-1">{errors.contactName}</p>}
@@ -185,13 +197,28 @@ export default function ApplyPage() {
             <h2 className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Λειτουργικά στοιχεία</h2>
             <div className="space-y-2">
               <div>
-                <input
-                  type="text"
-                  value={values.hours}
-                  onChange={e => setValues(v => ({ ...v, hours: e.target.value }))}
-                  placeholder="Ωράριο λειτουργίας (π.χ. 08:00–20:00)"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
-                />
+                <div className="flex gap-2">
+                  <select
+                    value={values.hoursFrom}
+                    onChange={e => setValues(v => ({ ...v, hoursFrom: e.target.value }))}
+                    className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400"
+                  >
+                    <option value="">Από</option>
+                    {timeOptions.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={values.hoursTo}
+                    onChange={e => setValues(v => ({ ...v, hoursTo: e.target.value }))}
+                    className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400"
+                  >
+                    <option value="">Έως</option>
+                    {timeOptions.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
                 {errors.hours && <p className="text-red-500 text-xs mt-1">{errors.hours}</p>}
               </div>
               <div>
