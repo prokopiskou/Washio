@@ -27,27 +27,8 @@ function getTimeSlots() {
   return slots
 }
 
-function getTodayFormatted() {
-  const d = new Date()
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = d.getFullYear()
-  return `${dd}/${mm}/${yyyy}`
-}
-
-function WashioLogo() {
-  return (
-    <svg width="110" height="30" viewBox="0 0 110 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7 19H5a1 1 0 0 1-1-1v-2l2.5-6H18l2.5 6v2a1 1 0 0 1-1 1h-2" stroke="#0A0A0A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M7 19h9" stroke="#0A0A0A" strokeWidth="1.5" strokeLinecap="round"/>
-      <circle cx="8" cy="20.5" r="1.8" stroke="#0A0A0A" strokeWidth="1.5"/>
-      <circle cx="17" cy="20.5" r="1.8" stroke="#0A0A0A" strokeWidth="1.5"/>
-      <circle cx="21.5" cy="10" r="1.2" fill="#38BDF8"/>
-      <circle cx="23.5" cy="13.5" r="0.8" fill="#38BDF8"/>
-      <circle cx="19.5" cy="12.5" r="0.7" fill="#38BDF8"/>
-      <text x="28" y="21" fontFamily="-apple-system, BlinkMacSystemFont, sans-serif" fontSize="14" fontWeight="800" letterSpacing="2" fill="#0A0A0A">WASHIO</text>
-    </svg>
-  )
+function getTodayValue() {
+  return new Date().toISOString().split('T')[0]
 }
 
 export default function Home() {
@@ -158,10 +139,12 @@ export default function Home() {
 
         {timing === 'later' && (
           <div className="mt-2 flex gap-2">
-            {/* Date — σημερινή by default */}
-            <div className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-gray-50">
-              {getTodayFormatted()}
-            </div>
+            {/* Date — σημερινή ως default, επεξεργάσιμη */}
+            <input
+              type="date"
+              defaultValue={getTodayValue()}
+              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-gray-50"
+            />
 
             {/* Time picker ανά 30 λεπτά */}
             <div className="flex-1 relative" ref={timePickerRef}>
