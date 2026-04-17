@@ -23,6 +23,7 @@ type Vehicle = {
 
 export default function ProfilePage() {
   const router = useRouter()
+  const [authLoading, setAuthLoading] = useState(true)
   const [notifications, setNotifications] = useState({ email: true, sms: false })
   const [userEmail, setUserEmail] = useState('')
   const [userInitial, setUserInitial] = useState('?')
@@ -56,6 +57,11 @@ export default function ProfilePage() {
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
       const user = data.session?.user
+      if (!user) {
+        router.push('/login')
+        setAuthLoading(false)
+        return
+      }
       const email = user?.email || ''
       setUserEmail(email)
       setUserInitial(email ? email[0].toUpperCase() : '?')
@@ -63,12 +69,19 @@ export default function ProfilePage() {
       setFullName((user?.user_metadata?.full_name as string) || '')
       setPhone((user?.user_metadata?.phone as string) || '')
 
-      if (user?.id) {
-        await loadVehicles(user.id)
-      }
+      await loadVehicles(user.id)
+      setAuthLoading(false)
     }
     loadUser()
-  }, [])
+  }, [router])
+
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-xs text-gray-400">Φόρτωση...</p>
+      </main>
+    )
+  }
 
   const handleSaveProfile = async () => {
     setProfileSaving(true)
