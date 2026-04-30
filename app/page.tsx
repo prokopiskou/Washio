@@ -89,10 +89,10 @@ export default function Home() {
       <div className="w-full max-w-md pb-24">
 
       {/* Navbar */}
-      <nav className="flex justify-between items-center px-5 py-3 border-b border-gray-100">
+      <nav className="relative flex justify-center items-center px-5 py-3 border-b border-gray-100">
         <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto" />
         {!isLoggedIn && (
-          <Link href="/login" className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">
+          <Link href="/login" className="absolute right-5 text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">
             Σύνδεση
           </Link>
         )}
