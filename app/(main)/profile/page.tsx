@@ -77,8 +77,10 @@ export default function ProfilePage() {
 
   if (authLoading) {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-xs text-gray-400">Φόρτωση...</p>
+      <main className="min-h-screen bg-white flex flex-col items-center">
+        <div className="w-full max-w-md min-h-screen flex items-center justify-center">
+          <p className="text-xs text-gray-400">Φόρτωση...</p>
+        </div>
       </main>
     )
   }
@@ -141,7 +143,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col items-center">
+    <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md pb-24">
 
         {/* Header */}

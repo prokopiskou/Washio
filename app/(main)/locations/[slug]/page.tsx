@@ -82,7 +82,8 @@ export default function LocationPage() {
   const isPast = viewMonth === today.getMonth() && viewYear === today.getFullYear()
 
   return (
-    <main className="min-h-screen bg-white max-w-md mx-auto pb-32">
+    <main className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full max-w-md pb-32">
 
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
@@ -241,6 +242,7 @@ export default function LocationPage() {
         )}
       </div>
 
+      </div>
     </main>
   )
 }

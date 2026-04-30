@@ -100,8 +100,8 @@ export default function ApplyPage() {
   }
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="w-full max-w-md mx-auto px-5 py-8">
+    <main className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full max-w-md px-5 py-8">
         <div className="mb-6">
           <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto mb-4" />
           <h1 className="text-lg font-semibold text-gray-900">Γίνε μέλος του Washio</h1>

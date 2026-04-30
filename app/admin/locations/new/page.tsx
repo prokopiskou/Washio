@@ -60,7 +60,8 @@ export default function NewLocationPage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 max-w-2xl mx-auto pb-20">
+    <main className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full max-w-md pb-20">
 
       <div className="bg-white border-b border-gray-100 px-6 py-5">
         <div className="flex items-center gap-3">
@@ -182,6 +183,7 @@ export default function NewLocationPage() {
           {loading ? 'Αποθήκευση...' : 'Αποθήκευση πρατηρίου'}
         </button>
 
+      </div>
       </div>
     </main>
   )

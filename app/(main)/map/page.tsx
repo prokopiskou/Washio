@@ -170,7 +170,8 @@ function MapPageContent() {
   }
 
   return (
-    <main className="h-screen w-full max-w-md mx-auto relative overflow-hidden">
+    <main className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full max-w-md h-screen relative overflow-hidden">
 
       {/* Search bar */}
       <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4">
@@ -330,13 +331,14 @@ function MapPageContent() {
         )}
       </div>
 
+      </div>
     </main>
   )
 }
 
 export default function MapPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-full max-w-md mx-auto flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-white flex flex-col items-center"><div className="w-full max-w-md h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div></div>}>
       <MapPageContent />
     </Suspense>
   )

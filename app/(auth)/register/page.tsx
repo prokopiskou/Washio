@@ -47,7 +47,8 @@ function RegisterPageContent() {
   }
 
   return (
-    <main className="min-h-screen bg-white max-w-md mx-auto flex flex-col px-5">
+    <main className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full max-w-md px-5">
 
       <div className="pt-16 pb-10 flex flex-col items-center">
         <img src="/logo.png" alt="Washio" className="h-14 w-auto mb-6" />
@@ -107,6 +108,7 @@ function RegisterPageContent() {
           Σύνδεση
         </Link>
       </p>
+      </div>
     </main>
   )
 }

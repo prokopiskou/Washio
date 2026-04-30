@@ -85,7 +85,8 @@ export default function Home() {
   })
 
   return (
-    <main className="min-h-screen bg-white max-w-md mx-auto pb-24">
+    <main className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full max-w-md pb-24">
 
       {/* Navbar */}
       <nav className="flex justify-between items-center px-5 py-3 border-b border-gray-100">
@@ -317,6 +318,7 @@ export default function Home() {
         </Link>
       </nav>
 
+      </div>
     </main>
   )
 }

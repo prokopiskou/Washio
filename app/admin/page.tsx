@@ -84,7 +84,8 @@ export default function AdminPage() {
     }
   }
   return (
-    <main className="min-h-screen bg-gray-50 max-w-2xl mx-auto pb-10">
+    <main className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full max-w-md pb-10">
 
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-6 py-5">
@@ -296,6 +297,7 @@ export default function AdminPage() {
           </div>
         )}
 
+      </div>
       </div>
     </main>
   )

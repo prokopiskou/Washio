@@ -7,7 +7,8 @@ export default function ConfirmedPage() {
   const router = useRouter()
 
   return (
-    <main className="min-h-screen bg-white max-w-md mx-auto flex flex-col items-center justify-center px-5 text-center">
+    <main className="min-h-screen bg-white flex flex-col items-center">
+      <div className="w-full max-w-md flex flex-col items-center justify-center px-5 text-center min-h-screen">
       <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mb-6">
         <Check size={28} className="text-white" />
       </div>
@@ -19,6 +20,7 @@ export default function ConfirmedPage() {
       >
         Πίσω στην αρχική
       </button>
+      </div>
     </main>
   )
 }
