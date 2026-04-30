@@ -163,10 +163,11 @@ export default function ProfilePage() {
         <section className="mt-4 mx-4">
           <div className="bg-white rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-              <div className="flex items-center gap-2">
+              <button onClick={() => router.push('/profile/favorites')} className="flex items-center gap-2">
                 <Heart size={14} className="text-gray-400" />
                 <p className="text-xs font-medium text-gray-900">Αγαπημένα</p>
-              </div>
+              </button>
+              <button onClick={() => router.push('/profile/favorites')} className="text-xs text-blue-500">Όλα →</button>
             </div>
             {favorites.map((fav, i) => (
               <button
@@ -196,11 +197,11 @@ export default function ProfilePage() {
         <section className="mt-3 mx-4">
           <div className="bg-white rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-              <div className="flex items-center gap-2">
+              <button onClick={() => router.push('/profile/bookings')} className="flex items-center gap-2">
                 <Calendar size={14} className="text-gray-400" />
                 <p className="text-xs font-medium text-gray-900">Κρατήσεις</p>
-              </div>
-              <button className="text-xs text-blue-500">Όλες →</button>
+              </button>
+              <button onClick={() => router.push('/profile/bookings')} className="text-xs text-blue-500">Όλες →</button>
             </div>
             {recentBookings.map((b, i) => (
               <div
