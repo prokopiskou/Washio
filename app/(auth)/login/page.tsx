@@ -7,7 +7,11 @@ import { createClient } from '@/lib/supabase/client'
 function LoginPageContent() {
   const router = useRouter()
   const params = useSearchParams()
-  const redirectUrl = params.get('redirect') || '/'
+  const rawRedirect = params.get('redirect') || '/'
+  const redirectUrl = rawRedirect.startsWith('http')
+    ? new URL(rawRedirect).pathname + new URL(rawRedirect).search
+    : rawRedirect
+
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,7 +22,6 @@ function LoginPageContent() {
     if (!email) return
     setLoading(true)
     setError('')
-
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -27,7 +30,6 @@ function LoginPageContent() {
         emailRedirectTo: undefined,
       }
     })
-
     if (error) {
       setError(error.message)
       setLoading(false)
@@ -41,14 +43,12 @@ function LoginPageContent() {
     if (!otp || otp.length < 8) return
     setLoading(true)
     setError('')
-
     const supabase = createClient()
     const { error } = await supabase.auth.verifyOtp({
       email,
       token: otp,
       type: 'email',
     })
-
     if (error) {
       setError('Λάθος κωδικός. Δοκίμασε ξανά.')
       setLoading(false)
@@ -57,8 +57,11 @@ function LoginPageContent() {
     }
   }
 
-  const getOauthRedirect = () =>
-    `https://washio-ten.vercel.app${redirectUrl.startsWith('/') ? redirectUrl : '/' + redirectUrl}`
+  const getOauthRedirect = () => {
+    const base = 'https://washio-ten.vercel.app'
+    const path = redirectUrl.startsWith('/') ? redirectUrl : '/' + redirectUrl
+    return `${base}${path}`
+  }
 
   const handleGoogleLogin = async () => {
     const supabase = createClient()
