@@ -115,7 +115,14 @@ function LoginPageContent() {
               {loading ? 'Αποστολή...' : 'Αποστολή κωδικού'}
             </button>
 
-            <div className="flex items-center gap-3 my-3">
+            <button
+              onClick={() => router.push('/')}
+              className="w-full text-xs text-gray-400 text-center py-2"
+            >
+              Συνέχεια ως επισκέπτης
+            </button>
+
+            <div className="flex items-center gap-3 my-1">
               <div className="flex-1 h-px bg-gray-100" />
               <span className="text-xs text-gray-300">ή</span>
               <div className="flex-1 h-px bg-gray-100" />
