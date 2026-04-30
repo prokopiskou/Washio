@@ -250,22 +250,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Services */}
-      <section className="px-5 mb-6">
-        <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-1">
-          Υπηρεσίες
-        </p>
-        <p className="text-xs text-gray-300 mb-3">Διαθέσιμες σε όλους τους σταθμούς</p>
-        <div className="flex gap-2">
-          {services.map(s => (
-            <div key={s.name} className="flex-1 border border-gray-100 rounded-xl p-2.5 text-center">
-              <p className="text-xs font-medium text-gray-900">{s.name}</p>
-              <p className="text-xs text-gray-400 mt-1">{s.price}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Partner CTA */}
       <section className="px-5 mb-4">
         <div className="bg-gray-900 rounded-xl p-4 flex items-center justify-between">
