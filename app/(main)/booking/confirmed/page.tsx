@@ -29,7 +29,7 @@ function ConfirmedContent() {
           ref = data.booking_ref
           setBookingRef(data.booking_ref)
         }
-        if ((data?.locations as any)?.name) {
+        if (data && (data.locations as any)?.name) {
           locName = (data.locations as any).name
           setLocationName(locName)
         }
