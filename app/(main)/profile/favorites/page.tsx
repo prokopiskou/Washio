@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Star } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 type FavoriteLocation = {
@@ -11,8 +11,8 @@ type FavoriteLocation = {
   locations?: {
     id?: string
     name?: string
-    distance_km?: number
-    rating?: number
+    slug?: string
+    city?: string
   } | null
 }
 
@@ -34,11 +34,11 @@ export default function ProfileFavoritesPage() {
 
       const { data } = await supabase
         .from('favorites')
-        .select('id, location_id, locations(id, name, distance_km, rating)')
+        .select('id, location_id, locations(id, name, slug, city)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      setFavorites((data as FavoriteLocation[]) || [])
+      setFavorites((data as unknown as FavoriteLocation[]) || [])
       setLoading(false)
     }
 
@@ -68,13 +68,15 @@ export default function ProfileFavoritesPage() {
             {favorites.map(fav => (
               <button
                 key={fav.id}
-                onClick={() => router.push(`/locations/${fav.locations?.id || fav.location_id}`)}
-                className="w-full bg-white border border-gray-100 rounded-xl p-3 text-left"
+                onClick={() => router.push(`/locations/${(fav.locations as any)?.slug || fav.location_id}`)}
+                className="w-full bg-white border border-gray-100 rounded-xl p-4 text-left flex items-center gap-3"
               >
-                <p className="text-sm text-gray-900">{fav.locations?.name || 'Πρατήριο'}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <Star size={11} className="text-amber-400 fill-amber-400" />
-                  <p className="text-xs text-gray-400">{fav.locations?.rating ?? '-'} · {(fav.locations?.distance_km ?? 0).toFixed(1)} km</p>
+                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-lg shrink-0">
+                  ⛽
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{(fav.locations as any)?.name || 'Πρατήριο'}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{(fav.locations as any)?.city || ''}</p>
                 </div>
               </button>
             ))}

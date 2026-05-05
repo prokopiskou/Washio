@@ -7,12 +7,39 @@ import { createClient } from '@/lib/supabase/client'
 
 type UserBooking = {
   id: string
+  booking_ref: string
   slot_date: string
-  slot_time: string
+  slot_start_time: string
   total_amount: number
   status: string
   locations?: { name?: string } | null
   services?: { name?: string } | null
+}
+
+const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
+
+const formatDate = (dateStr: string) => {
+  const d = new Date(dateStr)
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+}
+
+const statusLabel = (status: string) => {
+  switch (status) {
+    case 'confirmed': return 'Επιβεβαιώθηκε'
+    case 'completed': return 'Ολοκληρώθηκε'
+    case 'cancelled': return 'Ακυρώθηκε'
+    case 'pending': return 'Εκκρεμεί'
+    default: return status
+  }
+}
+
+const statusClass = (status: string) => {
+  switch (status) {
+    case 'confirmed': return 'bg-blue-50 text-blue-600'
+    case 'completed': return 'bg-green-50 text-green-600'
+    case 'cancelled': return 'bg-red-50 text-red-500'
+    default: return 'bg-gray-50 text-gray-500'
+  }
 }
 
 export default function ProfileBookingsPage() {
@@ -33,24 +60,16 @@ export default function ProfileBookingsPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select('id, slot_date, slot_time, total_amount, status, locations(name), services(name)')
-        .or(`user_id.eq.${user.id},profile_id.eq.${user.id}`)
+        .select('id, booking_ref, slot_date, slot_start_time, total_amount, status, locations(name), services(name)')
+        .eq('user_id', user.id)
         .order('slot_date', { ascending: false })
 
-      setBookings((data as UserBooking[]) || [])
+      setBookings((data as unknown as UserBooking[]) || [])
       setLoading(false)
     }
 
     loadBookings()
   }, [router])
-
-  const statusClass = (status?: string) => {
-    if (status === 'pending') return 'bg-amber-50 text-amber-600'
-    if (status === 'confirmed') return 'bg-blue-50 text-blue-600'
-    if (status === 'completed') return 'bg-green-50 text-green-600'
-    if (status === 'cancelled') return 'bg-red-50 text-red-500'
-    return 'bg-gray-50 text-gray-500'
-  }
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
@@ -68,20 +87,27 @@ export default function ProfileBookingsPage() {
           </div>
         ) : bookings.length === 0 ? (
           <div className="px-5 py-8">
-            <p className="text-sm text-gray-500">Δεν υπάρχουν κρατήσεις.</p>
+            <p className="text-sm text-gray-500">Δεν υπάρχουν κρατήσεις ακόμα.</p>
           </div>
         ) : (
           <div className="px-4 pt-4 flex flex-col gap-2">
             {bookings.map(booking => (
-              <div key={booking.id} className="bg-white border border-gray-100 rounded-xl p-3">
-                <div className="flex items-start justify-between">
+              <div key={booking.id} className="bg-white border border-gray-100 rounded-xl p-4">
+                <div className="flex items-start justify-between mb-2">
                   <div>
-                    <p className="text-sm text-gray-900">{booking.locations?.name || 'Πρατήριο'} · {booking.services?.name || 'Υπηρεσία'}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{booking.slot_date} · {booking.slot_time}</p>
+                    <p className="text-sm font-medium text-gray-900">{(booking.locations as any)?.name || 'Πρατήριο'}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {(booking.services as any)?.name} · {formatDate(booking.slot_date)} · {booking.slot_start_time?.slice(0, 5)}
+                    </p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(booking.status)}`}>{booking.status}</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-lg ${statusClass(booking.status)}`}>
+                    {statusLabel(booking.status)}
+                  </span>
                 </div>
-                <p className="text-sm font-medium text-gray-900 mt-2">€{Number(booking.total_amount || 0).toFixed(0)}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-gray-400 font-mono">{booking.booking_ref}</p>
+                  <p className="text-sm font-semibold text-gray-900">€{Number(booking.total_amount || 0).toFixed(0)}</p>
+                </div>
               </div>
             ))}
           </div>
