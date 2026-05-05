@@ -30,7 +30,7 @@ function confirmationEmail(data: {
           <div style="width: 48px; height: 48px; background: #0A0A0A; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
             <span style="color: white; font-size: 20px;">✓</span>
           </div>
-          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Κράτηση επιβεβαιώθηκε!</h2>
+          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Η κράτησή σου επιβεβαιώθηκε!</h2>
           <p style="color: #999; font-size: 13px; margin: 0;">Τα στοιχεία της κράτησής σου παρακάτω.</p>
         </div>
 
@@ -174,14 +174,13 @@ function followUpEmail(data: {
           </p>
         </div>
 
-        <!-- Rating -->
         <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center;">
           <p style="color: #666; font-size: 13px; margin: 0 0 16px;">Πώς βαθμολογείς την εμπειρία σου;</p>
           <div style="display: flex; justify-content: center; gap: 8px;">
             ${[1,2,3,4,5].map(n => `
               <a href="${BASE_URL}/review?ref=${data.bookingRef}&rating=${n}" 
                  style="display: inline-block; width: 44px; height: 44px; background: white; border: 1px solid #E5E5E5; border-radius: 10px; text-align: center; line-height: 44px; text-decoration: none; font-size: 20px;">
-                ${'⭐'.repeat(n).slice(0,2)}${n}
+                ${n}⭐
               </a>
             `).join('')}
           </div>
@@ -277,7 +276,7 @@ export async function POST(req: NextRequest) {
 
     switch (type) {
       case 'confirmation':
-        subject = `✓ Κράτηση επιβεβαιώθηκε — ${body.bookingRef}`
+        subject = `✓ Η κράτησή σου επιβεβαιώθηκε — ${body.bookingRef}`
         html = confirmationEmail(body)
         break
       case 'reminder':

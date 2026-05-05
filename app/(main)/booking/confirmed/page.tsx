@@ -43,8 +43,8 @@ function ConfirmedContent() {
           service: params.get('service') || '',
           date: params.get('date') || '',
           time: params.get('time') || '',
-          plate: '',
-          total: '',
+          plate: params.get('plate') || '',
+          total: params.get('total') || '',
         })
       })
     }

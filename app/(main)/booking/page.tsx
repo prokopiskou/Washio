@@ -42,13 +42,14 @@ type Location = {
   name: string
 }
 
-function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret }: {
+function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret, plate }: {
   total: number
   email: string
   service: { name: string; price: number }
   formattedDate: string
   slotTime: string
   clientSecret: string
+  plate: string
 }) {
   const stripe = useStripe()
   const elements = useElements()
@@ -72,7 +73,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
         elements,
         clientSecret,
         confirmParams: {
-          return_url: `${window.location.origin}/booking/confirmed?email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}`,
+          return_url: `${window.location.origin}/booking/confirmed?email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}&plate=${encodeURIComponent(plate)}&total=${encodeURIComponent(total.toString())}`,
         },
       })
       if (confirmError) {
@@ -148,7 +149,6 @@ function BookingPageContent() {
         return
       }
 
-      // Load service
       if (serviceId) {
         const { data: serviceData } = await supabase
           .from('services')
@@ -158,7 +158,6 @@ function BookingPageContent() {
         if (serviceData) setService(serviceData)
       }
 
-      // Load location
       if (locationId) {
         const { data: locationData } = await supabase
           .from('locations')
@@ -356,7 +355,7 @@ function BookingPageContent() {
             <CheckoutForm
               total={total} email={email} service={service}
               formattedDate={formattedDate} slotTime={slotTime}
-              clientSecret={clientSecret}
+              clientSecret={clientSecret} plate={plate}
             />
           </Elements>
         ) : (
