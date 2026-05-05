@@ -11,10 +11,10 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
-const services: Record<string, { name: string; price: number; duration: number }> = {
-  '1': { name: 'Μέσα', price: 5, duration: 30 },
-  '2': { name: 'Έξω', price: 7, duration: 15 },
-  '3': { name: 'Μέσα & Έξω', price: 10, duration: 45 },
+const services: Record<string, { name: string; price: number; duration: number; uuid: string }> = {
+  '1': { name: 'Μέσα', price: 5, duration: 30, uuid: '344696d7-64f3-4889-a924-369ca47b2299' },
+  '2': { name: 'Έξω', price: 7, duration: 15, uuid: '344696d7-64f3-4889-a924-369ca47b2299' },
+  '3': { name: 'Μέσα & Έξω', price: 10, duration: 45, uuid: '344696d7-64f3-4889-a924-369ca47b2299' },
 }
 
 const slots: Record<string, string> = {
@@ -178,10 +178,23 @@ function BookingPageContent() {
 
   const handleProceedToPayment = async () => {
     if (!canProceed) return
+
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+
     const res = await fetch('/api/payments/create-intent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount: total, serviceId, locationId: '1' }),
+      body: JSON.stringify({
+        amount: total,
+        serviceId: service.uuid,
+        locationId: '297af432-27da-4f83-8c01-4589dbc97bd6',
+        slotId: null,
+        slotDate: dateStr,
+        slotStartTime: slotTime,
+        carPlate: plate,
+        userId: session?.user?.id || '',
+      }),
     })
     const { clientSecret: secret } = await res.json()
     setClientSecret(secret)
