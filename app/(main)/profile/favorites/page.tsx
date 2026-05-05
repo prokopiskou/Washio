@@ -28,7 +28,7 @@ export default function ProfileFavoritesPage() {
       const user = sessionData.session?.user
 
       if (!user) {
-        router.push('/login')
+        router.push('/auth/login')
         return
       }
 

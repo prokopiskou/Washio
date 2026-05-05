@@ -27,7 +27,7 @@ export default function ProfileBookingsPage() {
       const user = sessionData.session?.user
 
       if (!user) {
-        router.push('/login')
+        router.push('/auth/login')
         return
       }
 
