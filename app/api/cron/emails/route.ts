@@ -15,24 +15,16 @@ export async function GET(req: Request) {
   }
 
   const now = new Date()
+  const todayDate = now.toISOString().split('T')[0]
 
-  // Reminder — κρατήσεις που ξεκινούν σε 50-70 λεπτά
   const reminderFrom = new Date(now.getTime() + 50 * 60 * 1000)
   const reminderTo = new Date(now.getTime() + 70 * 60 * 1000)
-
   const reminderFromTime = reminderFrom.toTimeString().slice(0, 5)
   const reminderToTime = reminderTo.toTimeString().slice(0, 5)
-  const todayDate = now.toISOString().split('T')[0]
 
   const { data: reminders } = await supabase
     .from('bookings')
-    .select(`
-      id, booking_ref, car_plate, slot_start_time, slot_date, total_amount,
-      reminder_sent,
-      locations (name, address, city),
-      services (name),
-      profiles (email, full_name)
-    `)
+    .select('id, booking_ref, car_plate, slot_start_time, slot_date, total_amount, reminder_sent, locations(name, address, city), services(name), profiles(email, full_name)')
     .eq('status', 'confirmed')
     .eq('reminder_sent', false)
     .eq('slot_date', todayDate)
@@ -43,7 +35,6 @@ export async function GET(req: Request) {
     const location = booking.locations as any
     const service = booking.services as any
     const profile = booking.profiles as any
-
     if (!profile?.email) continue
 
     await fetch(`${BASE_URL}/api/email`, {
@@ -62,28 +53,17 @@ export async function GET(req: Request) {
       })
     })
 
-    await supabase
-      .from('bookings')
-      .update({ reminder_sent: true })
-      .eq('id', booking.id)
+    await supabase.from('bookings').update({ reminder_sent: true }).eq('id', booking.id)
   }
 
-  // Follow-up — κρατήσεις που ξεκίνησαν 50-70 λεπτά πριν
   const followupFrom = new Date(now.getTime() - 70 * 60 * 1000)
   const followupTo = new Date(now.getTime() - 50 * 60 * 1000)
-
   const followupFromTime = followupFrom.toTimeString().slice(0, 5)
   const followupToTime = followupTo.toTimeString().slice(0, 5)
 
   const { data: followups } = await supabase
     .from('bookings')
-    .select(`
-      id, booking_ref, slot_start_time, slot_date,
-      followup_sent,
-      locations (name),
-      services (name),
-      profiles (email, full_name)
-    `)
+    .select('id, booking_ref, slot_start_time, slot_date, followup_sent, locations(name), services(name), profiles(email, full_name)')
     .eq('status', 'confirmed')
     .eq('followup_sent', false)
     .eq('slot_date', todayDate)
@@ -94,7 +74,6 @@ export async function GET(req: Request) {
     const location = booking.locations as any
     const service = booking.services as any
     const profile = booking.profiles as any
-
     if (!profile?.email) continue
 
     const firstName = profile.full_name?.split(' ')[0] || ''
@@ -112,10 +91,7 @@ export async function GET(req: Request) {
       })
     })
 
-    await supabase
-      .from('bookings')
-      .update({ followup_sent: true })
-      .eq('id', booking.id)
+    await supabase.from('bookings').update({ followup_sent: true }).eq('id', booking.id)
   }
 
   return NextResponse.json({
