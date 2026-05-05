@@ -13,7 +13,8 @@ function ConfirmedContent() {
   useEffect(() => {
     const fetchAndNotify = async () => {
       const intentId = params.get('payment_intent')
-      
+      let ref = 'WS-' + Math.random().toString(36).substring(2, 8).toUpperCase()
+
       if (intentId) {
         const supabase = createClient()
         const { data } = await supabase
@@ -21,20 +22,29 @@ function ConfirmedContent() {
           .select('booking_ref')
           .eq('stripe_payment_intent_id', intentId)
           .single()
-        
-        if (data) setBookingRef(data.booking_ref)
+
+        if (data?.booking_ref) {
+          ref = data.booking_ref
+          setBookingRef(data.booking_ref)
+        }
       }
+
+      const email = params.get('email') || ''
+      if (!email) return
 
       await fetch('/api/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: params.get('email') || '',
-          bookingRef: bookingRef || 'WS-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+          type: 'confirmation',
+          to: email,
+          bookingRef: ref,
           locationName: 'Avin Γλυφάδα',
           service: params.get('service') || '',
           date: params.get('date') || '',
           time: params.get('time') || '',
+          plate: '',
+          total: '',
         })
       })
     }

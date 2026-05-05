@@ -297,7 +297,7 @@ export async function POST(req: NextRequest) {
     }
 
     await resend.emails.send({
-      from: 'Washio <hello@washio.gr>',
+      from: 'Washio <onboarding@resend.dev>',
       to: body.to,
       subject,
       html,
