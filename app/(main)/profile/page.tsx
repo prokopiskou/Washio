@@ -94,7 +94,7 @@ export default function ProfilePage() {
       .eq('user_id', id)
       .order('created_at', { ascending: false })
       .limit(3)
-    setBookings((data as Booking[]) || [])
+      setBookings((data as unknown as Booking[]) || [])
   }
 
   const loadFavorites = async (id: string) => {
@@ -104,7 +104,7 @@ export default function ProfilePage() {
       .select('id, location_id, locations(id, name, slug)')
       .eq('user_id', id)
       .limit(3)
-    setFavorites((data as Favorite[]) || [])
+      setFavorites((data as unknown as Favorite[]) || [])
   }
 
   useEffect(() => {
