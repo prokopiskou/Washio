@@ -3,57 +3,309 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-export async function POST(req: NextRequest) {
-  const { to, bookingRef, locationName, service, date, time } = await req.json()
+const BASE_URL = 'https://washio-ten.vercel.app'
 
-  try {
-    await resend.emails.send({
-      from: 'Washio <onboarding@resend.dev>',
-      to,
-      subject: `Επιβεβαίωση κράτησης ${bookingRef}`,
-      html: `
-        <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
-          <h2 style="font-size: 20px; font-weight: 600; color: #0A0A0A; margin-bottom: 8px;">
-            Η κράτησή σου επιβεβαιώθηκε!
-          </h2>
-          <p style="color: #666; font-size: 14px; margin-bottom: 24px;">
-            Τα στοιχεία της κράτησής σου:
-          </p>
+function confirmationEmail(data: {
+  bookingRef: string
+  locationName: string
+  service: string
+  date: string
+  time: string
+  plate: string
+  total: string
+}) {
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
+      
+      <!-- Header -->
+      <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
+        <h1 style="color: white; font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">washio</h1>
+        <p style="color: #666; font-size: 12px; margin: 6px 0 0;">Πλύσιμο αυτοκινήτου με ένα tap</p>
+      </div>
 
-          <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-            <table style="width: 100%; font-size: 14px;">
-              <tr>
-                <td style="color: #999; padding: 4px 0;">Κωδικός</td>
-                <td style="color: #0A0A0A; font-weight: 500; text-align: right;">${bookingRef}</td>
-              </tr>
-              <tr>
-                <td style="color: #999; padding: 4px 0;">Σταθμός</td>
-                <td style="color: #0A0A0A; font-weight: 500; text-align: right;">${locationName}</td>
-              </tr>
-              <tr>
-                <td style="color: #999; padding: 4px 0;">Υπηρεσία</td>
-                <td style="color: #0A0A0A; font-weight: 500; text-align: right;">${service}</td>
-              </tr>
-              <tr>
-                <td style="color: #999; padding: 4px 0;">Ημερομηνία</td>
-                <td style="color: #0A0A0A; font-weight: 500; text-align: right;">${date}</td>
-              </tr>
-              <tr>
-                <td style="color: #999; padding: 4px 0;">Ώρα</td>
-                <td style="color: #0A0A0A; font-weight: 500; text-align: right;">${time}</td>
-              </tr>
-            </table>
+      <!-- Body -->
+      <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
+        
+        <div style="text-align: center; margin-bottom: 28px;">
+          <div style="width: 48px; height: 48px; background: #0A0A0A; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+            <span style="color: white; font-size: 20px;">✓</span>
           </div>
+          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Κράτηση επιβεβαιώθηκε!</h2>
+          <p style="color: #999; font-size: 13px; margin: 0;">Τα στοιχεία της κράτησής σου παρακάτω.</p>
+        </div>
 
-          <p style="color: #999; font-size: 12px; text-align: center;">
-            Washio — Πλύσιμο αυτοκινήτου με ένα tap
+        <!-- Booking details -->
+        <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Κωδικός κράτησης</td>
+              <td style="color: #0A0A0A; font-weight: 600; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF; font-family: monospace;">${data.bookingRef}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Σταθμός</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationName}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Υπηρεσία</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.service}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ημερομηνία</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.date}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ώρα</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.time}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Πινακίδα</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.plate}</td>
+            </tr>
+            <tr>
+              <td style="color: #0A0A0A; font-weight: 600; padding: 8px 0 0;">Σύνολο</td>
+              <td style="color: #0A0A0A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- Info box -->
+        <div style="background: #F0F7FF; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
+          <p style="color: #1A6FD4; font-size: 12px; margin: 0; line-height: 1.6;">
+            📍 Θα λάβεις υπενθύμιση <strong>1 ώρα πριν</strong> την κράτησή σου.<br/>
+            Κράτα τον κωδικό <strong>${data.bookingRef}</strong> για οποιαδήποτε αλλαγή.
           </p>
         </div>
-      `
+
+        <!-- CTA -->
+        <a href="${BASE_URL}" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px;">
+          Δες τις κρατήσεις σου →
+        </a>
+
+        <!-- Footer -->
+        <p style="color: #CCC; font-size: 11px; text-align: center; margin: 0;">
+          Washio · Γλυφάδα, Αθήνα · <a href="${BASE_URL}" style="color: #CCC;">washio.gr</a>
+        </p>
+      </div>
+    </div>
+  `
+}
+
+function reminderEmail(data: {
+  bookingRef: string
+  locationName: string
+  locationAddress: string
+  service: string
+  date: string
+  time: string
+  plate: string
+}) {
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
+      
+      <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
+        <h1 style="color: white; font-size: 22px; font-weight: 600; margin: 0;">washio</h1>
+        <p style="color: #666; font-size: 12px; margin: 6px 0 0;">Υπενθύμιση κράτησης</p>
+      </div>
+
+      <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
+
+        <div style="text-align: center; margin-bottom: 28px;">
+          <div style="font-size: 36px; margin-bottom: 12px;">⏰</div>
+          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Σε 1 ώρα η κράτησή σου!</h2>
+          <p style="color: #999; font-size: 13px; margin: 0;">Μην ξεχαστείς — σε περιμένουμε.</p>
+        </div>
+
+        <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Σταθμός</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationName}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Διεύθυνση</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationAddress}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ώρα</td>
+              <td style="color: #0A0A0A; font-weight: 600; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF; font-size: 15px;">${data.time}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0;">Πινακίδα</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0;">${data.plate}</td>
+            </tr>
+          </table>
+        </div>
+
+        <a href="https://maps.google.com/?q=${encodeURIComponent(data.locationAddress)}" 
+           style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 12px;">
+          📍 Οδηγίες στο χάρτη →
+        </a>
+
+        <p style="color: #CCC; font-size: 11px; text-align: center; margin: 16px 0 0;">
+          Washio · ${data.bookingRef}
+        </p>
+      </div>
+    </div>
+  `
+}
+
+function followUpEmail(data: {
+  bookingRef: string
+  locationName: string
+  service: string
+  firstName: string
+}) {
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
+      
+      <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
+        <h1 style="color: white; font-size: 22px; font-weight: 600; margin: 0;">washio</h1>
+      </div>
+
+      <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
+
+        <div style="text-align: center; margin-bottom: 28px;">
+          <div style="font-size: 36px; margin-bottom: 12px;">✨</div>
+          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">
+            Πώς πήγε το πλύσιμο${data.firstName ? ', ' + data.firstName : ''}?
+          </h2>
+          <p style="color: #999; font-size: 13px; margin: 0;">
+            Η εμπειρία σου μας βοηθάει να γίνουμε καλύτεροι.
+          </p>
+        </div>
+
+        <!-- Rating -->
+        <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center;">
+          <p style="color: #666; font-size: 13px; margin: 0 0 16px;">Πώς βαθμολογείς την εμπειρία σου;</p>
+          <div style="display: flex; justify-content: center; gap: 8px;">
+            ${[1,2,3,4,5].map(n => `
+              <a href="${BASE_URL}/review?ref=${data.bookingRef}&rating=${n}" 
+                 style="display: inline-block; width: 44px; height: 44px; background: white; border: 1px solid #E5E5E5; border-radius: 10px; text-align: center; line-height: 44px; text-decoration: none; font-size: 20px;">
+                ${'⭐'.repeat(n).slice(0,2)}${n}
+              </a>
+            `).join('')}
+          </div>
+        </div>
+
+        <div style="background: #F7F7F7; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
+          <p style="color: #666; font-size: 12px; margin: 0; line-height: 1.6;">
+            🚗 Κράτησε ξανά από <strong>${data.locationName}</strong> με 1 tap.
+          </p>
+        </div>
+
+        <a href="${BASE_URL}" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px;">
+          Νέα κράτηση →
+        </a>
+
+        <p style="color: #CCC; font-size: 11px; text-align: center; margin: 0;">
+          Washio · ${data.bookingRef}
+        </p>
+      </div>
+    </div>
+  `
+}
+
+function cancellationEmail(data: {
+  bookingRef: string
+  locationName: string
+  service: string
+  date: string
+  time: string
+  total: string
+}) {
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
+      
+      <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
+        <h1 style="color: white; font-size: 22px; font-weight: 600; margin: 0;">washio</h1>
+      </div>
+
+      <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
+
+        <div style="text-align: center; margin-bottom: 28px;">
+          <div style="font-size: 36px; margin-bottom: 12px;">❌</div>
+          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Η κράτηση ακυρώθηκε</h2>
+          <p style="color: #999; font-size: 13px; margin: 0;">Κωδικός: <strong>${data.bookingRef}</strong></p>
+        </div>
+
+        <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Σταθμός</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationName}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Υπηρεσία</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.service}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ημερομηνία</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.date}</td>
+            </tr>
+            <tr>
+              <td style="color: #999; padding: 6px 0;">Ώρα</td>
+              <td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0;">${data.time}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="background: #FFF5F5; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
+          <p style="color: #E53E3E; font-size: 12px; margin: 0; line-height: 1.6;">
+            Αν η χρέωση έχει ήδη πραγματοποιηθεί, η επιστροφή θα γίνει εντός <strong>5-7 εργάσιμων ημερών</strong>.
+          </p>
+        </div>
+
+        <a href="${BASE_URL}" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px;">
+          Νέα κράτηση →
+        </a>
+
+        <p style="color: #CCC; font-size: 11px; text-align: center; margin: 0;">
+          Washio · support@washio.gr
+        </p>
+      </div>
+    </div>
+  `
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { type = 'confirmation' } = body
+
+    let subject = ''
+    let html = ''
+
+    switch (type) {
+      case 'confirmation':
+        subject = `✓ Κράτηση επιβεβαιώθηκε — ${body.bookingRef}`
+        html = confirmationEmail(body)
+        break
+      case 'reminder':
+        subject = `⏰ Υπενθύμιση — Σε 1 ώρα η κράτησή σου`
+        html = reminderEmail(body)
+        break
+      case 'followup':
+        subject = `Πώς πήγε το πλύσιμο; — ${body.bookingRef}`
+        html = followUpEmail(body)
+        break
+      case 'cancellation':
+        subject = `Ακύρωση κράτησης — ${body.bookingRef}`
+        html = cancellationEmail(body)
+        break
+      default:
+        return NextResponse.json({ error: 'Unknown email type' }, { status: 400 })
+    }
+
+    await resend.emails.send({
+      from: 'Washio <hello@washio.gr>',
+      to: body.to,
+      subject,
+      html,
     })
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    console.error('Email error:', error)
     return NextResponse.json({ error: 'Failed to send email' }, { status: 500 })
   }
 }
