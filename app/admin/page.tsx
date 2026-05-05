@@ -30,12 +30,15 @@ export default function AdminPage() {
   const router = useRouter()
   const [authorized, setAuthorized] = useState(false)
   const [authChecking, setAuthChecking] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons'>('overview')
   const [bookings, setBookings] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
   const [applications, setApplications] = useState<any[]>([])
+  const [addons, setAddons] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [newAddon, setNewAddon] = useState({ name: '', price: '' })
+  const [addingAddon, setAddingAddon] = useState(false)
 
   const [bookingFilter, setBookingFilter] = useState({ status: '', location: '', date: '' })
   const [selectedUser, setSelectedUser] = useState<any>(null)
@@ -65,6 +68,7 @@ export default function AdminPage() {
       { data: locationsData },
       { data: profilesData },
       { data: applicationsData },
+      { data: addonsData },
     ] = await Promise.all([
       supabase.from('bookings')
         .select('*, locations(name, city), services(name, price), profiles(full_name, phone, email)')
@@ -79,12 +83,16 @@ export default function AdminPage() {
       supabase.from('applications')
         .select('*')
         .order('created_at', { ascending: false }),
+      supabase.from('addons')
+        .select('*')
+        .order('sort_order', { ascending: true }),
     ])
 
     setBookings(bookingsData || [])
     setLocations(locationsData || [])
     setUsers(profilesData || [])
     setApplications(applicationsData || [])
+    setAddons(addonsData || [])
     setLoading(false)
   }, [])
 
@@ -174,6 +182,20 @@ export default function AdminPage() {
     setUserBookings(data || [])
   }
 
+  const handleAddAddon = async () => {
+    if (!newAddon.name || !newAddon.price) return
+    const supabase = createClient()
+    await supabase.from('addons').insert({
+      name: newAddon.name,
+      price: parseFloat(newAddon.price),
+      sort_order: addons.length + 1,
+      is_active: true,
+    })
+    setNewAddon({ name: '', price: '' })
+    setAddingAddon(false)
+    fetchData()
+  }
+
   const exportCSV = () => {
     const headers = ['Ref', 'Χρήστης', 'Email', 'Σημείο', 'Υπηρεσία', 'Ημερομηνία', 'Ώρα', 'Σύνολο', 'Προμήθεια', 'Status']
     const rows = filteredBookings.map(b => [
@@ -235,6 +257,7 @@ export default function AdminPage() {
               { key: 'users', label: `Χρήστες (${users.length})` },
               { key: 'applications', label: `Αιτήσεις${pendingApplications > 0 ? ` (${pendingApplications})` : ''}` },
               { key: 'financials', label: 'Οικονομικά' },
+              { key: 'addons', label: `Υπηρεσίες (${addons.length})` },
             ].map(tab => (
               <button
                 key={tab.key}
@@ -331,46 +354,32 @@ export default function AdminPage() {
               {activeTab === 'bookings' && (
                 <div>
                   <div className="flex gap-2 mb-4 flex-wrap">
-                    <select
-                      value={bookingFilter.status}
+                    <select value={bookingFilter.status}
                       onChange={e => setBookingFilter(f => ({ ...f, status: e.target.value }))}
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none"
-                    >
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none">
                       <option value="">Όλα τα status</option>
                       {Object.entries(statusLabels).map(([k, v]) => (
                         <option key={k} value={k}>{v}</option>
                       ))}
                     </select>
-                    <select
-                      value={bookingFilter.location}
+                    <select value={bookingFilter.location}
                       onChange={e => setBookingFilter(f => ({ ...f, location: e.target.value }))}
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none"
-                    >
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none">
                       <option value="">Όλα τα σημεία</option>
                       {locations.map(loc => (
                         <option key={loc.id} value={loc.name}>{loc.name}</option>
                       ))}
                     </select>
-                    <input
-                      type="date"
-                      value={bookingFilter.date}
+                    <input type="date" value={bookingFilter.date}
                       onChange={e => setBookingFilter(f => ({ ...f, date: e.target.value }))}
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none"
-                    />
-                    <button
-                      onClick={exportCSV}
-                      className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-white"
-                    >
-                      <Download size={12} />
-                      Export CSV
+                      className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none" />
+                    <button onClick={exportCSV}
+                      className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-white">
+                      <Download size={12} /> Export CSV
                     </button>
                     {(bookingFilter.status || bookingFilter.location || bookingFilter.date) && (
-                      <button
-                        onClick={() => setBookingFilter({ status: '', location: '', date: '' })}
-                        className="text-xs text-red-500 px-2"
-                      >
-                        Καθαρισμός
-                      </button>
+                      <button onClick={() => setBookingFilter({ status: '', location: '', date: '' })}
+                        className="text-xs text-red-500 px-2">Καθαρισμός</button>
                     )}
                   </div>
 
@@ -398,21 +407,15 @@ export default function AdminPage() {
                             <div className="flex gap-1 mt-1 justify-end">
                               {b.status === 'pending' && (
                                 <button onClick={() => updateBookingStatus(b.id, 'confirmed')}
-                                  className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">
-                                  Confirm
-                                </button>
+                                  className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">Confirm</button>
                               )}
                               {b.status === 'confirmed' && (
                                 <button onClick={() => updateBookingStatus(b.id, 'completed')}
-                                  className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md">
-                                  Complete
-                                </button>
+                                  className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md">Complete</button>
                               )}
                               {b.status !== 'cancelled' && b.status !== 'completed' && (
                                 <button onClick={() => handleCancelBooking(b.id, b.stripe_payment_intent_id)}
-                                  className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-md">
-                                  Ακύρωση
-                                </button>
+                                  className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-md">Ακύρωση</button>
                               )}
                             </div>
                           </div>
@@ -481,8 +484,7 @@ export default function AdminPage() {
                     {users.map((u, i) => (
                       <button key={u.id}
                         onClick={async () => { setSelectedUser(u); await loadUserBookings(u.id) }}
-                        className={`w-full px-4 py-3 flex items-center justify-between text-left ${i < users.length - 1 ? 'border-b border-gray-50' : ''} ${selectedUser?.id === u.id ? 'bg-gray-50' : ''}`}
-                      >
+                        className={`w-full px-4 py-3 flex items-center justify-between text-left ${i < users.length - 1 ? 'border-b border-gray-50' : ''} ${selectedUser?.id === u.id ? 'bg-gray-50' : ''}`}>
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-gray-900 rounded-xl flex items-center justify-center text-white text-xs font-semibold">
                             {getUserInitial(u)}
@@ -501,9 +503,7 @@ export default function AdminPage() {
                     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                       <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
                         <p className="text-sm font-medium text-gray-900">{selectedUser.full_name || selectedUser.email || 'Χρήστης'}</p>
-                        <button onClick={() => setSelectedUser(null)} className="text-gray-400">
-                          <X size={14} />
-                        </button>
+                        <button onClick={() => setSelectedUser(null)} className="text-gray-400"><X size={14} /></button>
                       </div>
                       <div className="px-4 py-3 border-b border-gray-50">
                         <p className="text-xs text-gray-400">Email: {selectedUser.email || '—'}</p>
@@ -588,8 +588,7 @@ export default function AdminPage() {
                   <div className="flex justify-end mb-4">
                     <button onClick={exportCSV}
                       className="flex items-center gap-1.5 bg-gray-900 text-white text-xs px-4 py-2 rounded-xl">
-                      <Download size={12} />
-                      Export CSV
+                      <Download size={12} /> Export CSV
                     </button>
                   </div>
 
@@ -626,6 +625,92 @@ export default function AdminPage() {
                     ))}
                     {topLocations.length === 0 && (
                       <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν δεδομένα</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'addons' && (
+                <div>
+                  <div className="flex justify-end mb-4">
+                    <button onClick={() => setAddingAddon(v => !v)}
+                      className="text-xs bg-gray-900 text-white px-4 py-2 rounded-xl">
+                      + Νέα υπηρεσία
+                    </button>
+                  </div>
+
+                  {addingAddon && (
+                    <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 flex gap-2">
+                      <input
+                        value={newAddon.name}
+                        onChange={e => setNewAddon(n => ({ ...n, name: e.target.value }))}
+                        placeholder="Όνομα υπηρεσίας"
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400"
+                      />
+                      <input
+                        value={newAddon.price}
+                        onChange={e => setNewAddon(n => ({ ...n, price: e.target.value }))}
+                        placeholder="€"
+                        type="number"
+                        className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400"
+                      />
+                      <button onClick={handleAddAddon}
+                        className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg">
+                        Αποθήκευση
+                      </button>
+                      <button onClick={() => { setAddingAddon(false); setNewAddon({ name: '', price: '' }) }}
+                        className="text-gray-400 px-2">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-900">Global Υπηρεσίες</p>
+                      <span className="text-xs text-gray-400">{addons.length} σύνολο</span>
+                    </div>
+                    {addons.map((addon, i) => (
+                      <div key={addon.id} className={`px-4 py-3 flex items-center justify-between ${i < addons.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                        <p className="text-sm text-gray-900 flex-1">{addon.name}</p>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <input
+                            type="number"
+                            defaultValue={addon.price}
+                            onBlur={async e => {
+                              const supabase = createClient()
+                              await supabase.from('addons').update({ price: parseFloat(e.target.value) }).eq('id', addon.id)
+                              fetchData()
+                            }}
+                            className="w-16 text-xs border border-gray-200 rounded px-2 py-1 text-gray-700"
+                          />
+                          <span className="text-xs text-gray-400">€</span>
+                          <button
+                            onClick={async () => {
+                              const supabase = createClient()
+                              await supabase.from('addons').update({ is_active: !addon.is_active }).eq('id', addon.id)
+                              fetchData()
+                            }}
+                            className={`text-xs px-2 py-1 rounded-lg ${addon.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}
+                          >
+                            {addon.is_active ? 'Ενεργό' : 'Ανενεργό'}
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Διαγραφή υπηρεσίας;')) return
+                              const supabase = createClient()
+                              await supabase.from('addons').delete().eq('id', addon.id)
+                              fetchData()
+                            }}
+                            className="text-xs text-red-400 px-1"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {addons.length === 0 && (
+                      <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν υπηρεσίες</p>
                     )}
                   </div>
                 </div>
