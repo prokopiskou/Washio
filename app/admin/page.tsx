@@ -37,12 +37,10 @@ export default function AdminPage() {
   const [applications, setApplications] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Filters
   const [bookingFilter, setBookingFilter] = useState({ status: '', location: '', date: '' })
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [userBookings, setUserBookings] = useState<any[]>([])
 
-  // Auth check
   useEffect(() => {
     const checkAuth = async () => {
       const supabase = createClient()
@@ -69,7 +67,7 @@ export default function AdminPage() {
       { data: applicationsData },
     ] = await Promise.all([
       supabase.from('bookings')
-        .select('*, locations(name, city), services(name, price), profiles(full_name, phone)')
+        .select('*, locations(name, city), services(name, price), profiles(full_name, phone, email)')
         .order('created_at', { ascending: false })
         .limit(200),
       supabase.from('locations')
@@ -94,14 +92,12 @@ export default function AdminPage() {
     if (authorized) fetchData()
   }, [authorized])
 
-  // Computed stats
   const totalRevenue = bookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
   const totalCommission = bookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
   const completedBookings = bookings.filter(b => b.status === 'completed').length
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length
   const pendingApplications = applications.filter(a => a.status === 'pending').length
 
-  // Monthly revenue chart data
   const monthlyRevenue = Array.from({ length: 6 }, (_, i) => {
     const d = new Date()
     d.setMonth(d.getMonth() - (5 - i))
@@ -116,7 +112,6 @@ export default function AdminPage() {
     return { month: MONTHS_SHORT[month], revenue, commission }
   })
 
-  // Top locations
   const topLocations = locations.map(loc => ({
     ...loc,
     bookingCount: bookings.filter(b => b.locations?.name === loc.name).length,
@@ -124,7 +119,6 @@ export default function AdminPage() {
     commission: bookings.filter(b => b.locations?.name === loc.name).reduce((sum, b) => sum + Number(b.platform_fee || 0), 0),
   })).sort((a, b) => b.bookingCount - a.bookingCount)
 
-  // Filtered bookings
   const filteredBookings = bookings.filter(b => {
     if (bookingFilter.status && b.status !== bookingFilter.status) return false
     if (bookingFilter.location && b.locations?.name !== bookingFilter.location) return false
@@ -132,7 +126,9 @@ export default function AdminPage() {
     return true
   })
 
-  // Actions
+  const getUserDisplay = (profile: any) => profile?.full_name || profile?.email || 'Επισκέπτης'
+  const getUserInitial = (profile: any) => (profile?.full_name || profile?.email || '?').charAt(0).toUpperCase()
+
   const updateBookingStatus = async (id: string, status: string) => {
     const supabase = createClient()
     await supabase.from('bookings').update({ status }).eq('id', id)
@@ -178,12 +174,12 @@ export default function AdminPage() {
     setUserBookings(data || [])
   }
 
-  // Export CSV
   const exportCSV = () => {
-    const headers = ['Ref', 'Χρήστης', 'Σημείο', 'Υπηρεσία', 'Ημερομηνία', 'Ώρα', 'Σύνολο', 'Προμήθεια', 'Status']
+    const headers = ['Ref', 'Χρήστης', 'Email', 'Σημείο', 'Υπηρεσία', 'Ημερομηνία', 'Ώρα', 'Σύνολο', 'Προμήθεια', 'Status']
     const rows = filteredBookings.map(b => [
       b.booking_ref,
       b.profiles?.full_name || '',
+      b.profiles?.email || '',
       b.locations?.name || '',
       b.services?.name || '',
       b.slot_date,
@@ -215,7 +211,6 @@ export default function AdminPage() {
     <main className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto pb-10">
 
-        {/* Header */}
         <div className="bg-white border-b border-gray-100 px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -261,7 +256,6 @@ export default function AdminPage() {
             </div>
           ) : (
             <>
-              {/* OVERVIEW */}
               {activeTab === 'overview' && (
                 <div>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -278,7 +272,6 @@ export default function AdminPage() {
                     ))}
                   </div>
 
-                  {/* Revenue Chart */}
                   <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
                     <p className="text-sm font-medium text-gray-900 mb-4">Έσοδα τελευταίων 6 μηνών</p>
                     <ResponsiveContainer width="100%" height={200}>
@@ -292,7 +285,6 @@ export default function AdminPage() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Recent bookings */}
                   <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
                       <p className="text-sm font-medium text-gray-900">Πρόσφατες κρατήσεις</p>
@@ -302,7 +294,7 @@ export default function AdminPage() {
                       <div key={b.id} className={`px-4 py-3 ${i < 4 ? 'border-b border-gray-50' : ''}`}>
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm text-gray-900">{b.profiles?.full_name || 'Επισκέπτης'}</p>
+                            <p className="text-sm text-gray-900">{getUserDisplay(b.profiles)}</p>
                             <p className="text-xs text-gray-400">{b.locations?.name} · {b.slot_date}</p>
                           </div>
                           <div className="text-right">
@@ -316,7 +308,6 @@ export default function AdminPage() {
                     ))}
                   </div>
 
-                  {/* Top locations */}
                   <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50">
                       <p className="text-sm font-medium text-gray-900">Top Σημεία</p>
@@ -337,10 +328,8 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* BOOKINGS */}
               {activeTab === 'bookings' && (
                 <div>
-                  {/* Filters */}
                   <div className="flex gap-2 mb-4 flex-wrap">
                     <select
                       value={bookingFilter.status}
@@ -400,7 +389,7 @@ export default function AdminPage() {
                                 {statusLabels[b.status] || b.status}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-900">{b.profiles?.full_name || 'Επισκέπτης'}</p>
+                            <p className="text-sm text-gray-900">{getUserDisplay(b.profiles)}</p>
                             <p className="text-xs text-gray-400">{b.locations?.name} · {b.services?.name} · {b.slot_date} {b.slot_start_time?.slice(0, 5)}</p>
                           </div>
                           <div className="text-right shrink-0">
@@ -408,26 +397,20 @@ export default function AdminPage() {
                             <p className="text-xs text-gray-400">+€{b.platform_fee} fee</p>
                             <div className="flex gap-1 mt-1 justify-end">
                               {b.status === 'pending' && (
-                                <button
-                                  onClick={() => updateBookingStatus(b.id, 'confirmed')}
-                                  className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md"
-                                >
+                                <button onClick={() => updateBookingStatus(b.id, 'confirmed')}
+                                  className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">
                                   Confirm
                                 </button>
                               )}
                               {b.status === 'confirmed' && (
-                                <button
-                                  onClick={() => updateBookingStatus(b.id, 'completed')}
-                                  className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md"
-                                >
+                                <button onClick={() => updateBookingStatus(b.id, 'completed')}
+                                  className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md">
                                   Complete
                                 </button>
                               )}
                               {b.status !== 'cancelled' && b.status !== 'completed' && (
-                                <button
-                                  onClick={() => handleCancelBooking(b.id, b.stripe_payment_intent_id)}
-                                  className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-md"
-                                >
+                                <button onClick={() => handleCancelBooking(b.id, b.stripe_payment_intent_id)}
+                                  className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-md">
                                   Ακύρωση
                                 </button>
                               )}
@@ -443,14 +426,11 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* LOCATIONS */}
               {activeTab === 'locations' && (
                 <div>
                   <div className="flex justify-end mb-4">
-                    <button
-                      onClick={() => router.push('/admin/locations/new')}
-                      className="text-xs bg-gray-900 text-white px-4 py-2 rounded-xl"
-                    >
+                    <button onClick={() => router.push('/admin/locations/new')}
+                      className="text-xs bg-gray-900 text-white px-4 py-2 rounded-xl">
                       + Νέο σημείο
                     </button>
                   </div>
@@ -465,12 +445,9 @@ export default function AdminPage() {
                               <p className="text-xs text-gray-400">{loc.city} · {loc.address}</p>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-xs text-gray-400">Commission:</span>
-                                <input
-                                  type="number"
-                                  defaultValue={loc.commission_rate}
+                                <input type="number" defaultValue={loc.commission_rate}
                                   onBlur={e => updateCommissionRate(loc.id, parseFloat(e.target.value))}
-                                  className="w-14 text-xs border border-gray-200 rounded px-1 py-0.5 text-gray-700"
-                                />
+                                  className="w-14 text-xs border border-gray-200 rounded px-1 py-0.5 text-gray-700" />
                                 <span className="text-xs text-gray-400">%</span>
                               </div>
                             </div>
@@ -479,10 +456,8 @@ export default function AdminPage() {
                             <span className={`text-xs px-2 py-0.5 rounded-lg ${loc.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
                               {loc.is_active ? 'Ενεργό' : 'Ανενεργό'}
                             </span>
-                            <button
-                              onClick={() => toggleLocation(loc.id, loc.is_active)}
-                              className="p-1.5 border border-gray-200 rounded-lg text-gray-500"
-                            >
+                            <button onClick={() => toggleLocation(loc.id, loc.is_active)}
+                              className="p-1.5 border border-gray-200 rounded-lg text-gray-500">
                               <Power size={12} />
                             </button>
                           </div>
@@ -496,7 +471,6 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* USERS */}
               {activeTab === 'users' && (
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -505,21 +479,17 @@ export default function AdminPage() {
                       <span className="text-xs text-gray-400">{users.length} συνολικά</span>
                     </div>
                     {users.map((u, i) => (
-                      <button
-                        key={u.id}
-                        onClick={async () => {
-                          setSelectedUser(u)
-                          await loadUserBookings(u.id)
-                        }}
+                      <button key={u.id}
+                        onClick={async () => { setSelectedUser(u); await loadUserBookings(u.id) }}
                         className={`w-full px-4 py-3 flex items-center justify-between text-left ${i < users.length - 1 ? 'border-b border-gray-50' : ''} ${selectedUser?.id === u.id ? 'bg-gray-50' : ''}`}
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-gray-900 rounded-xl flex items-center justify-center text-white text-xs font-semibold">
-                            {u.full_name?.charAt(0) || '?'}
+                            {getUserInitial(u)}
                           </div>
                           <div>
-                            <p className="text-sm text-gray-900">{u.full_name || 'Χωρίς όνομα'}</p>
-                            <p className="text-xs text-gray-400">{u.phone || '—'}</p>
+                            <p className="text-sm text-gray-900">{u.full_name || u.email || 'Χωρίς όνομα'}</p>
+                            <p className="text-xs text-gray-400">{u.email || u.phone || '—'}</p>
                           </div>
                         </div>
                         <ChevronRight size={14} className="text-gray-300" />
@@ -530,17 +500,18 @@ export default function AdminPage() {
                   {selectedUser && (
                     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                       <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                        <p className="text-sm font-medium text-gray-900">{selectedUser.full_name || 'Χρήστης'}</p>
+                        <p className="text-sm font-medium text-gray-900">{selectedUser.full_name || selectedUser.email || 'Χρήστης'}</p>
                         <button onClick={() => setSelectedUser(null)} className="text-gray-400">
                           <X size={14} />
                         </button>
                       </div>
                       <div className="px-4 py-3 border-b border-gray-50">
-                        <p className="text-xs text-gray-400">Τηλέφωνο: {selectedUser.phone || '—'}</p>
+                        <p className="text-xs text-gray-400">Email: {selectedUser.email || '—'}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">Τηλέφωνο: {selectedUser.phone || '—'}</p>
                         <p className="text-xs text-gray-400 mt-0.5">Role: {selectedUser.role}</p>
                         <p className="text-xs text-gray-400 mt-0.5">Εγγραφή: {new Date(selectedUser.created_at).toLocaleDateString('el-GR')}</p>
                       </div>
-                      <div className="px-4 py-3 border-b border-gray-50">
+                      <div className="px-4 py-3">
                         <p className="text-xs font-medium text-gray-700 mb-2">Κρατήσεις ({userBookings.length})</p>
                         {userBookings.map((b, i) => (
                           <div key={b.id} className={`py-2 ${i < userBookings.length - 1 ? 'border-b border-gray-50' : ''}`}>
@@ -567,7 +538,6 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* APPLICATIONS */}
               {activeTab === 'applications' && (
                 <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
@@ -593,16 +563,12 @@ export default function AdminPage() {
                           </span>
                           {app.status === 'pending' && (
                             <div className="flex gap-1 mt-1">
-                              <button
-                                onClick={() => updateApplication(app.id, 'approved')}
-                                className="flex items-center gap-1 bg-green-50 text-green-600 text-xs px-2 py-1 rounded-lg"
-                              >
+                              <button onClick={() => updateApplication(app.id, 'approved')}
+                                className="flex items-center gap-1 bg-green-50 text-green-600 text-xs px-2 py-1 rounded-lg">
                                 <Check size={10} /> Έγκριση
                               </button>
-                              <button
-                                onClick={() => updateApplication(app.id, 'rejected')}
-                                className="flex items-center gap-1 bg-red-50 text-red-500 text-xs px-2 py-1 rounded-lg"
-                              >
+                              <button onClick={() => updateApplication(app.id, 'rejected')}
+                                className="flex items-center gap-1 bg-red-50 text-red-500 text-xs px-2 py-1 rounded-lg">
                                 <X size={10} /> Απόρριψη
                               </button>
                             </div>
@@ -617,20 +583,16 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {/* FINANCIALS */}
               {activeTab === 'financials' && (
                 <div>
                   <div className="flex justify-end mb-4">
-                    <button
-                      onClick={exportCSV}
-                      className="flex items-center gap-1.5 bg-gray-900 text-white text-xs px-4 py-2 rounded-xl"
-                    >
+                    <button onClick={exportCSV}
+                      className="flex items-center gap-1.5 bg-gray-900 text-white text-xs px-4 py-2 rounded-xl">
                       <Download size={12} />
                       Export CSV
                     </button>
                   </div>
 
-                  {/* Monthly breakdown */}
                   <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
                     <p className="text-sm font-medium text-gray-900 mb-4">Μηνιαία ανάλυση</p>
                     <ResponsiveContainer width="100%" height={220}>
@@ -644,7 +606,6 @@ export default function AdminPage() {
                     </ResponsiveContainer>
                   </div>
 
-                  {/* Per location */}
                   <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50">
                       <p className="text-sm font-medium text-gray-900">Ανά σημείο</p>
