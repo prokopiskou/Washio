@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Star, MapPin, Clock, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Star, MapPin, Clock, Check, ChevronLeft, ChevronRight, Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 type Location = {
@@ -10,8 +10,6 @@ type Location = {
   name: string
   address: string
   city: string
-  rating?: number
-  reviews?: number
 }
 
 type Service = {
@@ -64,6 +62,9 @@ export default function LocationPage() {
   const [location, setLocation] = useState<Location | null>(null)
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [favoriteId, setFavoriteId] = useState<string | null>(null)
 
   const [viewMonth, setViewMonth] = useState(today.getMonth())
   const [viewYear, setViewYear] = useState(today.getFullYear())
@@ -74,6 +75,10 @@ export default function LocationPage() {
   useEffect(() => {
     const loadData = async () => {
       const supabase = createClient()
+
+      const { data: sessionData } = await supabase.auth.getSession()
+      const uid = sessionData.session?.user?.id || null
+      setUserId(uid)
 
       const { data: locationData } = await supabase
         .from('locations')
@@ -96,11 +101,48 @@ export default function LocationPage() {
         .order('sort_order', { ascending: true })
 
       setServices(servicesData || [])
+
+      // Check if favorite
+      if (uid) {
+        const { data: favData } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', uid)
+          .eq('location_id', locationData.id)
+          .single()
+
+        if (favData) {
+          setIsFavorite(true)
+          setFavoriteId(favData.id)
+        }
+      }
+
       setLoading(false)
     }
 
     loadData()
   }, [slug])
+
+  const toggleFavorite = async () => {
+    if (!userId || !location) return
+    const supabase = createClient()
+
+    if (isFavorite && favoriteId) {
+      await supabase.from('favorites').delete().eq('id', favoriteId)
+      setIsFavorite(false)
+      setFavoriteId(null)
+    } else {
+      const { data } = await supabase
+        .from('favorites')
+        .insert({ user_id: userId, location_id: location.id })
+        .select('id')
+        .single()
+      if (data) {
+        setIsFavorite(true)
+        setFavoriteId(data.id)
+      }
+    }
+  }
 
   const dates = getDatesForMonth(viewYear, viewMonth)
   const service = services.find(s => s.id === selectedServiceId)
@@ -137,11 +179,21 @@ export default function LocationPage() {
       <div className="w-full max-w-md pb-32">
 
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-          <button onClick={() => router.back()} className="text-gray-400 p-2 -ml-2">
-            <ArrowLeft size={18} />
-          </button>
-          <span className="text-sm font-medium text-gray-900">{location.name}</span>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.back()} className="text-gray-400 p-2 -ml-2">
+              <ArrowLeft size={18} />
+            </button>
+            <span className="text-sm font-medium text-gray-900">{location.name}</span>
+          </div>
+          {userId && (
+            <button onClick={toggleFavorite} className="p-2">
+              <Heart
+                size={18}
+                className={isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300'}
+              />
+            </button>
+          )}
         </div>
 
         {/* Cover */}
@@ -166,18 +218,14 @@ export default function LocationPage() {
 
         {/* Services */}
         <section className="px-5 py-4 border-b border-gray-100">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
-            Υπηρεσία
-          </p>
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Υπηρεσία</p>
           <div className="flex flex-col gap-2">
             {services.map(s => (
               <button
                 key={s.id}
                 onClick={() => setSelectedServiceId(s.id)}
                 className={`flex items-center justify-between px-4 py-4 rounded-xl border text-left transition-all min-h-[64px] ${
-                  selectedServiceId === s.id
-                    ? 'border-gray-900 bg-gray-900'
-                    : 'border-gray-100 bg-white'
+                  selectedServiceId === s.id ? 'border-gray-900 bg-gray-900' : 'border-gray-100 bg-white'
                 }`}
               >
                 <div>
@@ -208,15 +256,10 @@ export default function LocationPage() {
         {/* Date picker */}
         <section className="px-5 py-4 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
-              Ημερομηνία
-            </p>
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Ημερομηνία</p>
             <div className="flex items-center gap-2">
-              <button
-                onClick={prevMonth}
-                disabled={isPast}
-                className={`p-2 rounded-lg ${isPast ? 'text-gray-200' : 'text-gray-400'}`}
-              >
+              <button onClick={prevMonth} disabled={isPast}
+                className={`p-2 rounded-lg ${isPast ? 'text-gray-200' : 'text-gray-400'}`}>
                 <ChevronLeft size={14} />
               </button>
               <span className="text-xs font-medium text-gray-700 min-w-[80px] text-center">
