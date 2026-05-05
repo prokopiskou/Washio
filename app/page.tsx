@@ -6,18 +6,14 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const locations = [
-  { id: 1, name: 'Avin Γλυφάδα', distance: '0.4 km', rating: 4.8, nextSlot: 'Τώρα' },
-  { id: 2, name: 'Shell Άλιμος', distance: '1.2 km', rating: 4.6, nextSlot: 'Σε 30λ' },
-  { id: 3, name: 'BP Ελληνικό', distance: '2.1 km', rating: 4.5, nextSlot: 'Τώρα' },
-  { id: 4, name: 'Revoil Βούλα', distance: '3.0 km', rating: 4.3, nextSlot: 'Σε 1ω' },
-]
-
-const services = [
-  { name: 'Μέσα', price: 'από €5' },
-  { name: 'Έξω', price: 'από €7' },
-  { name: 'Μέσα & Έξω', price: 'από €10' },
-]
+type Location = {
+  id: string
+  name: string
+  address: string
+  city: string
+  lat: number
+  lng: number
+}
 
 function getTimeSlots() {
   const slots: string[] = []
@@ -40,15 +36,27 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState(getTodayValue())
   const [selectedTime, setSelectedTime] = useState<string>('')
   const [showTimePicker, setShowTimePicker] = useState(false)
+  const [locations, setLocations] = useState<Location[]>([])
+  const [locationsLoading, setLocationsLoading] = useState(true)
   const timePickerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const loadSession = async () => {
+    const loadData = async () => {
       const supabase = createClient()
-      const { data } = await supabase.auth.getSession()
-      setIsLoggedIn(!!data.session)
+
+      const { data: sessionData } = await supabase.auth.getSession()
+      setIsLoggedIn(!!sessionData.session)
+
+      const { data: locationsData } = await supabase
+        .from('locations')
+        .select('id, name, address, city, lat, lng')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true })
+
+      setLocations(locationsData || [])
+      setLocationsLoading(false)
     }
-    loadSession()
+    loadData()
   }, [])
 
   useEffect(() => {
@@ -92,7 +100,7 @@ export default function Home() {
       <nav className="relative flex justify-center items-center px-5 py-3 border-b border-gray-100">
         <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto" />
         {!isLoggedIn && (
-          <Link href="/login" className="absolute right-5 text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">
+          <Link href="/auth/login" className="absolute right-5 text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">
             Σύνδεση
           </Link>
         )}
@@ -221,32 +229,32 @@ export default function Home() {
           </Link>
         </div>
         <div className="flex gap-2 px-5 overflow-x-auto scrollbar-hide pb-1">
-          {locations.map(loc => (
-            <Link
-              key={loc.id}
-              href={`/locations/${loc.id}`}
-              className="min-w-[130px] border border-gray-100 rounded-xl p-2.5 shrink-0 flex flex-col gap-1.5"
-            >
-              <div className="w-full h-14 bg-gray-100 rounded-lg flex items-center justify-center text-xl">
-                ⛽
-              </div>
-              <p className="text-xs font-medium text-gray-900 leading-tight">{loc.name}</p>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-400">{loc.distance}</span>
-                <span className={`text-xs font-medium px-1.5 py-0.5 rounded-md ${
-                  loc.nextSlot === 'Τώρα'
-                    ? 'bg-green-50 text-green-600'
-                    : 'bg-amber-50 text-amber-600'
-                }`}>
-                  {loc.nextSlot}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Star size={9} className="text-amber-400 fill-amber-400" />
-                <span className="text-xs text-gray-400">{loc.rating}</span>
-              </div>
-            </Link>
-          ))}
+          {locationsLoading ? (
+            <p className="text-xs text-gray-400 px-1">Φόρτωση...</p>
+          ) : (
+            locations.map(loc => (
+              <Link
+                key={loc.id}
+                href={`/locations/${loc.id}`}
+                className="min-w-[130px] border border-gray-100 rounded-xl p-2.5 shrink-0 flex flex-col gap-1.5"
+              >
+                <div className="w-full h-14 bg-gray-100 rounded-lg flex items-center justify-center text-xl">
+                  ⛽
+                </div>
+                <p className="text-xs font-medium text-gray-900 leading-tight">{loc.name}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400">{loc.city}</span>
+                  <span className="text-xs font-medium px-1.5 py-0.5 rounded-md bg-green-50 text-green-600">
+                    Τώρα
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Star size={9} className="text-amber-400 fill-amber-400" />
+                  <span className="text-xs text-gray-400">Νέο</span>
+                </div>
+              </Link>
+            ))
+          )}
         </div>
       </section>
 
@@ -257,9 +265,9 @@ export default function Home() {
             <p className="text-white text-xs font-medium">Είσαι πρατήριο;</p>
             <p className="text-gray-500 text-xs mt-0.5">Αύξησε τις κρατήσεις σου.</p>
           </div>
-          <button className="bg-white text-gray-900 text-xs font-medium px-3 py-1.5 rounded-lg shrink-0">
+          <Link href="/apply" className="bg-white text-gray-900 text-xs font-medium px-3 py-1.5 rounded-lg shrink-0">
             Μάθε περισσότερα
-          </button>
+          </Link>
         </div>
       </section>
 
