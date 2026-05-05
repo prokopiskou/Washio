@@ -27,9 +27,9 @@ function confirmationEmail(data: {
       <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
         
         <div style="text-align: center; margin-bottom: 28px;">
-          <div style="width: 48px; height: 48px; background: #0A0A0A; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-            <span style="color: white; font-size: 20px;">✓</span>
-          </div>
+         <div style="width: 48px; height: 48px; background: #0A0A0A; border-radius: 50%; margin: 0 auto 12px auto; text-align: center; line-height: 48px;">
+  <span style="color: white; font-size: 20px;">✓</span>
+</div>
           <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Η κράτησή σου επιβεβαιώθηκε!</h2>
           <p style="color: #999; font-size: 13px; margin: 0;">Τα στοιχεία της κράτησής σου παρακάτω.</p>
         </div>
