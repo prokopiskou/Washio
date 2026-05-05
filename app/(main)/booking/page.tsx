@@ -145,7 +145,7 @@ function BookingPageContent() {
       const user = data.session?.user
 
       if (!user) {
-        router.replace(`/auth/login?redirect=${encodeURIComponent(window.location.href)}`)
+        router.replace(`/login?redirect=${encodeURIComponent(window.location.href)}`)
         return
       }
 

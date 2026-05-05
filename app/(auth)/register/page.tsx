@@ -103,7 +103,7 @@ function RegisterPageContent() {
 
       <p className="text-center text-xs text-gray-400 mt-6">
         Έχεις ήδη λογαριασμό;{' '}
-        <Link href={`/auth/login${redirectUrl !== '/' ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''}`}
+        <Link href={`/login${redirectUrl !== '/' ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''}`}
           className="text-gray-900 font-medium">
           Σύνδεση
         </Link>

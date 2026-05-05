@@ -89,7 +89,7 @@ export default function DashboardPage() {
       const user = authData.session?.user
 
       if (!user) {
-        router.push('/auth/login')
+        router.push('/login')
         return
       }
 

@@ -113,7 +113,7 @@ export default function ProfilePage() {
       const { data } = await supabase.auth.getSession()
       const user = data.session?.user
       if (!user) {
-        router.push('/auth/login')
+        router.push('/login')
         setAuthLoading(false)
         return
       }
@@ -187,7 +187,7 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/auth/login')
+    router.push('/login')
   }
 
   return (
