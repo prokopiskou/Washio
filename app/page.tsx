@@ -13,6 +13,7 @@ type Location = {
   city: string
   lat: number
   lng: number
+  slug: string
 }
 
 function getTimeSlots() {
@@ -49,7 +50,7 @@ export default function Home() {
 
       const { data: locationsData } = await supabase
         .from('locations')
-        .select('id, name, address, city, lat, lng')
+        .select('id, name, address, city, lat, lng, slug')
         .eq('is_active', true)
         .order('created_at', { ascending: true })
 
@@ -235,7 +236,7 @@ export default function Home() {
             locations.map(loc => (
               <Link
                 key={loc.id}
-                href={`/locations/${loc.id}`}
+                href={`/locations/${loc.slug}`}
                 className="min-w-[130px] border border-gray-100 rounded-xl p-2.5 shrink-0 flex flex-col gap-1.5"
               >
                 <div className="w-full h-14 bg-gray-100 rounded-lg flex items-center justify-center text-xl">
