@@ -17,12 +17,11 @@ const slots: Record<string, string> = {
   '9': '13:00', '10': '13:30', '11': '14:00', '12': '14:30',
 }
 
-const addons = [
-  { id: 1, name: 'Αλλαγή λαδιών', price: 25 },
-  { id: 2, name: 'Αλλαγή υαλοκαθαριστήρων', price: 15 },
-  { id: 3, name: 'Ψυκτικά υγρά', price: 8 },
-  { id: 4, name: 'Αρωματικό εσωτερικού', price: 5 },
-]
+type Addon = {
+  id: string
+  name: string
+  price: number
+}
 
 type Vehicle = {
   id: string
@@ -117,6 +116,7 @@ function BookingPageContent() {
   const [sessionLoading, setSessionLoading] = useState(true)
   const [service, setService] = useState<Service | null>(null)
   const [location, setLocation] = useState<Location | null>(null)
+  const [addons, setAddons] = useState<Addon[]>([])
 
   const serviceId = params.get('service') || ''
   const locationId = params.get('location') || ''
@@ -132,7 +132,7 @@ function BookingPageContent() {
   const [email, setEmail] = useState('')
   const [plate, setPlate] = useState('')
   const [phone, setPhone] = useState('')
-  const [selectedAddons, setSelectedAddons] = useState<number[]>([])
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [showPayment, setShowPayment] = useState(false)
   const [clientSecret, setClientSecret] = useState('')
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
@@ -165,6 +165,17 @@ function BookingPageContent() {
           .eq('id', locationId)
           .single()
         if (locationData) setLocation(locationData)
+
+        const { data: addonsData } = await supabase
+          .from('location_addons')
+          .select('addon_id, price_override, addons(name, price, sort_order)')
+          .eq('location_id', locationId)
+
+        setAddons((addonsData || []).map((a: any) => ({
+          id: a.addon_id,
+          name: a.addons?.name || '',
+          price: a.price_override ?? a.addons?.price ?? 0,
+        })).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)))
       }
 
       setSessionLoading(false)
@@ -193,7 +204,7 @@ function BookingPageContent() {
     loadData()
   }, [])
 
-  const toggleAddon = (id: number) => {
+  const toggleAddon = (id: string) => {
     setSelectedAddons(prev =>
       prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
     )
@@ -282,11 +293,8 @@ function BookingPageContent() {
               className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
           </div>
           {vehicles.length > 0 && (
-            <select
-              value={selectedVehicleId}
-              onChange={e => handleVehicleChange(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400 mb-2"
-            >
+            <select value={selectedVehicleId} onChange={e => handleVehicleChange(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400 mb-2">
               <option value="new">Νέο όχημα</option>
               {vehicles.map(vehicle => (
                 <option key={vehicle.id} value={vehicle.id}>
@@ -305,26 +313,28 @@ function BookingPageContent() {
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
         </section>
 
-        <section className="px-5 py-4 border-b border-gray-100">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Πρόσθετες υπηρεσίες</p>
-          <div className="flex flex-col gap-2">
-            {addons.map(addon => {
-              const selected = selectedAddons.includes(addon.id)
-              return (
-                <button key={addon.id} onClick={() => toggleAddon(addon.id)}
-                  className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${selected ? 'border-gray-900 bg-gray-900' : 'border-gray-100 bg-white'}`}>
-                  <span className={`text-sm ${selected ? 'text-white' : 'text-gray-900'}`}>{addon.name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-sm font-medium ${selected ? 'text-white' : 'text-gray-900'}`}>+€{addon.price}</span>
-                    <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selected ? 'border-white' : 'border-gray-300'}`}>
-                      {selected ? <Minus size={10} className="text-white" /> : <Plus size={10} className="text-gray-400" />}
+        {addons.length > 0 && (
+          <section className="px-5 py-4 border-b border-gray-100">
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Πρόσθετες υπηρεσίες</p>
+            <div className="flex flex-col gap-2">
+              {addons.map(addon => {
+                const selected = selectedAddons.includes(addon.id)
+                return (
+                  <button key={addon.id} onClick={() => toggleAddon(addon.id)}
+                    className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${selected ? 'border-gray-900 bg-gray-900' : 'border-gray-100 bg-white'}`}>
+                    <span className={`text-sm ${selected ? 'text-white' : 'text-gray-900'}`}>{addon.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-medium ${selected ? 'text-white' : 'text-gray-900'}`}>+€{addon.price}</span>
+                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selected ? 'border-white' : 'border-gray-300'}`}>
+                        {selected ? <Minus size={10} className="text-white" /> : <Plus size={10} className="text-gray-400" />}
+                      </div>
                     </div>
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </section>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         <section className="px-5 py-4 border-b border-gray-100">
           <div className="flex justify-between items-center mb-1">
