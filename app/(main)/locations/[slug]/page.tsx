@@ -1,25 +1,28 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Star, MapPin, Clock, Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-const location = {
-  id: 1,
-  name: 'Avin Γλυφάδα',
-  address: 'Λεωφ. Βουλιαγμένης 20, Γλυφάδα',
-  rating: 4.8,
-  reviews: 124,
-  distance: '0.4 km',
+type Location = {
+  id: string
+  name: string
+  address: string
+  city: string
+  rating?: number
+  reviews?: number
 }
 
-const services = [
-  { id: 1, name: 'Μέσα', desc: 'Καθάρισμα εσωτερικού', price: 5, duration: 30 },
-  { id: 2, name: 'Έξω', desc: 'Πλύσιμο εξωτερικού', price: 7, duration: 15 },
-  { id: 3, name: 'Μέσα & Έξω', desc: 'Πλήρης περιποίηση', price: 10, duration: 45 },
-]
+type Service = {
+  id: string
+  name: string
+  description: string
+  price: number
+  duration_minutes: number
+}
 
-const slots = [
+const hardcodedSlots = [
   { id: 1, time: '09:00', available: true },
   { id: 2, time: '09:30', available: true },
   { id: 3, time: '10:00', available: false },
@@ -52,18 +55,56 @@ function getDatesForMonth(year: number, month: number) {
 
 export default function LocationPage() {
   const router = useRouter()
+  const params = useParams()
+  const slug = params.slug as string
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
+
+  const [location, setLocation] = useState<Location | null>(null)
+  const [services, setServices] = useState<Service[]>([])
+  const [loading, setLoading] = useState(true)
 
   const [viewMonth, setViewMonth] = useState(today.getMonth())
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [selectedDate, setSelectedDate] = useState(today)
-  const [selectedService, setSelectedService] = useState<number | null>(null)
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
 
+  useEffect(() => {
+    const loadData = async () => {
+      const supabase = createClient()
+
+      const { data: locationData } = await supabase
+        .from('locations')
+        .select('id, name, address, city')
+        .eq('slug', slug)
+        .single()
+
+      if (!locationData) {
+        router.push('/')
+        return
+      }
+
+      setLocation(locationData)
+
+      const { data: servicesData } = await supabase
+        .from('services')
+        .select('id, name, description, price, duration_minutes')
+        .eq('location_id', locationData.id)
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+
+      setServices(servicesData || [])
+      setLoading(false)
+    }
+
+    loadData()
+  }, [slug])
+
   const dates = getDatesForMonth(viewYear, viewMonth)
-  const service = services.find(s => s.id === selectedService)
-  const canBook = selectedService && selectedSlot
+  const service = services.find(s => s.id === selectedServiceId)
+  const canBook = selectedServiceId && selectedSlot
 
   const nextMonth = () => {
     if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
@@ -81,166 +122,172 @@ export default function LocationPage() {
   const isSelected = (d: Date) => d.toDateString() === selectedDate.toDateString()
   const isPast = viewMonth === today.getMonth() && viewYear === today.getFullYear()
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xs text-gray-400">Φόρτωση...</p>
+      </div>
+    )
+  }
+
+  if (!location) return null
+
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md pb-32">
 
-      {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-        <button
-          onClick={() => router.back()}
-          className="text-gray-400 p-2 -ml-2"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <span className="text-sm font-medium text-gray-900">{location.name}</span>
-      </div>
-
-      {/* Cover */}
-      <div className="w-full h-28 bg-gray-100 flex items-center justify-center text-4xl">
-        ⛽
-      </div>
-
-      {/* Info */}
-      <section className="px-5 py-3 border-b border-gray-100">
-        <div className="flex items-start justify-between mb-1">
-          <h1 className="text-sm font-semibold text-gray-900">{location.name}</h1>
-          <div className="flex items-center gap-1">
-            <Star size={11} className="text-amber-400 fill-amber-400" />
-            <span className="text-xs font-medium text-gray-700">{location.rating}</span>
-            <span className="text-xs text-gray-400">({location.reviews})</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 text-xs text-gray-400">
-          <MapPin size={10} />
-          <span>{location.address}</span>
-          <span className="mx-1">·</span>
-          <span>{location.distance}</span>
-        </div>
-      </section>
-
-      {/* Services */}
-      <section className="px-5 py-4 border-b border-gray-100">
-        <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
-          Υπηρεσία
-        </p>
-        <div className="flex flex-col gap-2">
-          {services.map(s => (
-            <button
-              key={s.id}
-              onClick={() => setSelectedService(s.id)}
-              className={`flex items-center justify-between px-4 py-4 rounded-xl border text-left transition-all min-h-[64px] ${
-                selectedService === s.id
-                  ? 'border-gray-900 bg-gray-900'
-                  : 'border-gray-100 bg-white'
-              }`}
-            >
-              <div>
-                <p className={`text-sm font-medium ${selectedService === s.id ? 'text-white' : 'text-gray-900'}`}>
-                  {s.name}
-                </p>
-                <p className="text-xs mt-0.5 text-gray-400">{s.desc}</p>
-                <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
-                  <Clock size={10} />
-                  {s.duration} λεπτά
-                </div>
-              </div>
-              <div className="text-right shrink-0 ml-4">
-                <p className={`text-sm font-semibold ${selectedService === s.id ? 'text-white' : 'text-gray-900'}`}>
-                  €{s.price}
-                </p>
-                {selectedService === s.id && (
-                  <Check size={14} className="text-white mt-1 ml-auto" />
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Date picker */}
-      <section className="px-5 py-4 border-b border-gray-100">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
-            Ημερομηνία
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={prevMonth}
-              disabled={isPast}
-              className={`p-2 rounded-lg ${isPast ? 'text-gray-200' : 'text-gray-400'}`}
-            >
-              <ChevronLeft size={14} />
-            </button>
-            <span className="text-xs font-medium text-gray-700 min-w-[80px] text-center">
-              {MONTHS[viewMonth]}
-            </span>
-            <button onClick={nextMonth} className="p-2 rounded-lg text-gray-400">
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-          {dates.map((d, i) => (
-            <button
-              key={i}
-              onClick={() => { setSelectedDate(d); setSelectedSlot(null) }}
-              className={`flex flex-col items-center min-w-[48px] py-3 px-1 rounded-xl border transition-all shrink-0 ${
-                isSelected(d) ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-100'
-              }`}
-            >
-              <span className="text-xs text-gray-400">{DAYS[d.getDay()]}</span>
-              <span className={`text-xs font-semibold mt-0.5 ${isSelected(d) ? 'text-white' : 'text-gray-900'}`}>
-                {d.getDate()}
-              </span>
-              {isToday(d) && (
-                <span className={`w-1 h-1 rounded-full mt-1 ${isSelected(d) ? 'bg-gray-500' : 'bg-blue-500'}`} />
-              )}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Time slots */}
-      <section className="px-5 py-4">
-        <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
-          Ώρα · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
-        </p>
-        <div className="grid grid-cols-4 gap-2">
-          {slots.map(slot => (
-            <button
-              key={slot.id}
-              disabled={!slot.available}
-              onClick={() => setSelectedSlot(slot.id)}
-              className={`py-3.5 rounded-xl text-xs font-medium border transition-all ${
-                !slot.available
-                  ? 'border-gray-100 text-gray-300 bg-gray-50 cursor-not-allowed'
-                  : selectedSlot === slot.id
-                  ? 'border-gray-900 bg-gray-900 text-white'
-                  : 'border-gray-200 text-gray-700 bg-white'
-              }`}
-            >
-              {slot.time}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Bottom CTA */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
-        {canBook ? (
-          <button
-            onClick={() => router.push(`/booking?location=1&service=${selectedService}&slot=${selectedSlot}&date=${selectedDate.toISOString().split('T')[0]}`)}
-            className="w-full bg-gray-900 text-white text-sm font-medium py-4 rounded-xl"
-          >
-            Κράτηση — €{service?.price} · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+          <button onClick={() => router.back()} className="text-gray-400 p-2 -ml-2">
+            <ArrowLeft size={18} />
           </button>
-        ) : (
-          <div className="w-full bg-gray-100 text-gray-400 text-sm font-medium py-4 rounded-xl flex items-center justify-center">
-            Επίλεξε υπηρεσία, ημερομηνία και ώρα
+          <span className="text-sm font-medium text-gray-900">{location.name}</span>
+        </div>
+
+        {/* Cover */}
+        <div className="w-full h-28 bg-gray-100 flex items-center justify-center text-4xl">
+          ⛽
+        </div>
+
+        {/* Info */}
+        <section className="px-5 py-3 border-b border-gray-100">
+          <div className="flex items-start justify-between mb-1">
+            <h1 className="text-sm font-semibold text-gray-900">{location.name}</h1>
+            <div className="flex items-center gap-1">
+              <Star size={11} className="text-amber-400 fill-amber-400" />
+              <span className="text-xs font-medium text-gray-700">Νέο</span>
+            </div>
           </div>
-        )}
-      </div>
+          <div className="flex items-center gap-1 text-xs text-gray-400">
+            <MapPin size={10} />
+            <span>{location.address}, {location.city}</span>
+          </div>
+        </section>
+
+        {/* Services */}
+        <section className="px-5 py-4 border-b border-gray-100">
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
+            Υπηρεσία
+          </p>
+          <div className="flex flex-col gap-2">
+            {services.map(s => (
+              <button
+                key={s.id}
+                onClick={() => setSelectedServiceId(s.id)}
+                className={`flex items-center justify-between px-4 py-4 rounded-xl border text-left transition-all min-h-[64px] ${
+                  selectedServiceId === s.id
+                    ? 'border-gray-900 bg-gray-900'
+                    : 'border-gray-100 bg-white'
+                }`}
+              >
+                <div>
+                  <p className={`text-sm font-medium ${selectedServiceId === s.id ? 'text-white' : 'text-gray-900'}`}>
+                    {s.name}
+                  </p>
+                  {s.description && (
+                    <p className="text-xs mt-0.5 text-gray-400">{s.description}</p>
+                  )}
+                  <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                    <Clock size={10} />
+                    {s.duration_minutes} λεπτά
+                  </div>
+                </div>
+                <div className="text-right shrink-0 ml-4">
+                  <p className={`text-sm font-semibold ${selectedServiceId === s.id ? 'text-white' : 'text-gray-900'}`}>
+                    €{s.price}
+                  </p>
+                  {selectedServiceId === s.id && (
+                    <Check size={14} className="text-white mt-1 ml-auto" />
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Date picker */}
+        <section className="px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">
+              Ημερομηνία
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={prevMonth}
+                disabled={isPast}
+                className={`p-2 rounded-lg ${isPast ? 'text-gray-200' : 'text-gray-400'}`}
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <span className="text-xs font-medium text-gray-700 min-w-[80px] text-center">
+                {MONTHS[viewMonth]}
+              </span>
+              <button onClick={nextMonth} className="p-2 rounded-lg text-gray-400">
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+            {dates.map((d, i) => (
+              <button
+                key={i}
+                onClick={() => { setSelectedDate(d); setSelectedSlot(null) }}
+                className={`flex flex-col items-center min-w-[48px] py-3 px-1 rounded-xl border transition-all shrink-0 ${
+                  isSelected(d) ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-100'
+                }`}
+              >
+                <span className="text-xs text-gray-400">{DAYS[d.getDay()]}</span>
+                <span className={`text-xs font-semibold mt-0.5 ${isSelected(d) ? 'text-white' : 'text-gray-900'}`}>
+                  {d.getDate()}
+                </span>
+                {isToday(d) && (
+                  <span className={`w-1 h-1 rounded-full mt-1 ${isSelected(d) ? 'bg-gray-500' : 'bg-blue-500'}`} />
+                )}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Time slots */}
+        <section className="px-5 py-4">
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
+            Ώρα · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
+          </p>
+          <div className="grid grid-cols-4 gap-2">
+            {hardcodedSlots.map(slot => (
+              <button
+                key={slot.id}
+                disabled={!slot.available}
+                onClick={() => setSelectedSlot(slot.id)}
+                className={`py-3.5 rounded-xl text-xs font-medium border transition-all ${
+                  !slot.available
+                    ? 'border-gray-100 text-gray-300 bg-gray-50 cursor-not-allowed'
+                    : selectedSlot === slot.id
+                    ? 'border-gray-900 bg-gray-900 text-white'
+                    : 'border-gray-200 text-gray-700 bg-white'
+                }`}
+              >
+                {slot.time}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Bottom CTA */}
+        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
+          {canBook ? (
+            <button
+              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${selectedSlot}&date=${selectedDate.toISOString().split('T')[0]}`)}
+              className="w-full bg-gray-900 text-white text-sm font-medium py-4 rounded-xl"
+            >
+              Κράτηση — €{service?.price} · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
+            </button>
+          ) : (
+            <div className="w-full bg-gray-100 text-gray-400 text-sm font-medium py-4 rounded-xl flex items-center justify-center">
+              Επίλεξε υπηρεσία, ημερομηνία και ώρα
+            </div>
+          )}
+        </div>
 
       </div>
     </main>

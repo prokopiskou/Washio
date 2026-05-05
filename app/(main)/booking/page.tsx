@@ -11,12 +11,6 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
-const services: Record<string, { name: string; price: number; duration: number; uuid: string }> = {
-  '1': { name: 'Μέσα', price: 5, duration: 30, uuid: '344696d7-64f3-4889-a924-369ca47b2299' },
-  '2': { name: 'Έξω', price: 7, duration: 15, uuid: '344696d7-64f3-4889-a924-369ca47b2299' },
-  '3': { name: 'Μέσα & Έξω', price: 10, duration: 45, uuid: '344696d7-64f3-4889-a924-369ca47b2299' },
-}
-
 const slots: Record<string, string> = {
   '1': '09:00', '2': '09:30', '3': '10:00', '4': '10:30',
   '5': '11:00', '6': '11:30', '7': '12:00', '8': '12:30',
@@ -34,6 +28,18 @@ type Vehicle = {
   id: string
   plate: string
   type: string
+}
+
+type Service = {
+  id: string
+  name: string
+  price: number
+  duration_minutes: number
+}
+
+type Location = {
+  id: string
+  name: string
 }
 
 function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret }: {
@@ -108,13 +114,15 @@ function BookingPageContent() {
   const router = useRouter()
   const params = useSearchParams()
   const [sessionLoading, setSessionLoading] = useState(true)
+  const [service, setService] = useState<Service | null>(null)
+  const [location, setLocation] = useState<Location | null>(null)
 
-  const serviceId = params.get('service') || '1'
+  const serviceId = params.get('service') || ''
+  const locationId = params.get('location') || ''
   const slotId = params.get('slot') || '1'
   const dateStr = params.get('date') || new Date().toISOString().split('T')[0]
 
-  const service = services[serviceId]
-  const slotTime = slots[slotId]
+  const slotTime = slots[slotId] || '09:00'
   const date = new Date(dateStr)
   const formattedDate = `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
 
@@ -130,14 +138,34 @@ function BookingPageContent() {
   const [selectedVehicleId, setSelectedVehicleId] = useState('new')
 
   useEffect(() => {
-    const loadUserAndVehicles = async () => {
+    const loadData = async () => {
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
       const user = data.session?.user
 
       if (!user) {
-        router.replace(`/login?redirect=${encodeURIComponent(window.location.href)}`)
+        router.replace(`/auth/login?redirect=${encodeURIComponent(window.location.href)}`)
         return
+      }
+
+      // Load service
+      if (serviceId) {
+        const { data: serviceData } = await supabase
+          .from('services')
+          .select('id, name, price, duration_minutes')
+          .eq('id', serviceId)
+          .single()
+        if (serviceData) setService(serviceData)
+      }
+
+      // Load location
+      if (locationId) {
+        const { data: locationData } = await supabase
+          .from('locations')
+          .select('id, name')
+          .eq('id', locationId)
+          .single()
+        if (locationData) setLocation(locationData)
       }
 
       setSessionLoading(false)
@@ -163,7 +191,7 @@ function BookingPageContent() {
       setVehicles((vehiclesData as Vehicle[]) || [])
     }
 
-    loadUserAndVehicles()
+    loadData()
   }, [])
 
   const toggleAddon = (id: number) => {
@@ -173,11 +201,11 @@ function BookingPageContent() {
   }
 
   const addonTotal = addons.filter(a => selectedAddons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)
-  const total = service.price + addonTotal
-  const canProceed = firstName.trim() && lastName.trim() && email.trim() && plate.trim() && phone.trim()
+  const total = (service?.price || 0) + addonTotal
+  const canProceed = firstName.trim() && lastName.trim() && email.trim() && plate.trim() && phone.trim() && service
 
   const handleProceedToPayment = async () => {
-    if (!canProceed) return
+    if (!canProceed || !service) return
 
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
@@ -187,8 +215,8 @@ function BookingPageContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         amount: total,
-        serviceId: service.uuid,
-        locationId: '297af432-27da-4f83-8c01-4589dbc97bd6',
+        serviceId: service.id,
+        locationId: locationId,
         slotId: null,
         slotDate: dateStr,
         slotStartTime: slotTime,
@@ -219,6 +247,14 @@ function BookingPageContent() {
     )
   }
 
+  if (!service) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-xs text-gray-400">Δεν βρέθηκε υπηρεσία.</p>
+      </div>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md pb-32">
@@ -231,7 +267,7 @@ function BookingPageContent() {
         <section className="px-5 py-4 border-b border-gray-100">
           <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-gray-900">Avin Γλυφάδα · {service.name}</p>
+              <p className="text-xs font-medium text-gray-900">{location?.name || 'Σημείο'} · {service.name}</p>
               <p className="text-xs text-gray-400 mt-0.5">{formattedDate} · {slotTime}</p>
             </div>
             <p className="text-sm font-semibold text-gray-900">€{service.price}</p>
