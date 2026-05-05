@@ -1,46 +1,65 @@
 'use client'
 
-import { useEffect, Suspense } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Check } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 function ConfirmedContent() {
   const router = useRouter()
   const params = useSearchParams()
+  const [bookingRef, setBookingRef] = useState('')
 
   useEffect(() => {
-    const sendConfirmation = async () => {
+    const fetchAndNotify = async () => {
+      const intentId = params.get('payment_intent')
+      
+      if (intentId) {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('bookings')
+          .select('booking_ref')
+          .eq('stripe_payment_intent_id', intentId)
+          .single()
+        
+        if (data) setBookingRef(data.booking_ref)
+      }
+
       await fetch('/api/email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: params.get('email') || 'test@example.com',
-          bookingRef: 'WS-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+          to: params.get('email') || '',
+          bookingRef: bookingRef || 'WS-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
           locationName: 'Avin Γλυφάδα',
-          service: params.get('service') || 'Έξω',
-          date: params.get('date') || 'Σήμερα',
-          time: params.get('time') || '09:00',
+          service: params.get('service') || '',
+          date: params.get('date') || '',
+          time: params.get('time') || '',
         })
       })
     }
-    sendConfirmation()
+
+    fetchAndNotify()
   }, [])
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md flex flex-col items-center justify-center px-5 text-center min-h-screen">
-      <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mb-6">
-        <Check size={28} className="text-white" />
-      </div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-2">Επιβεβαιώθηκε!</h1>
-      <p className="text-sm text-gray-400 mb-2">Στείλαμε επιβεβαίωση στο email σου.</p>
-      <p className="text-xs text-gray-300 mb-8">Θα λάβεις υπενθύμιση 1 ώρα πριν.</p>
-      <button
-        onClick={() => router.push('/')}
-        className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl"
-      >
-        Πίσω στην αρχική
-      </button>
+        <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mb-6">
+          <Check size={28} className="text-white" />
+        </div>
+        <h1 className="text-xl font-semibold text-gray-900 mb-2">Επιβεβαιώθηκε!</h1>
+        {bookingRef && (
+          <p className="text-sm font-medium text-gray-900 mb-1">{bookingRef}</p>
+        )}
+        <p className="text-sm text-gray-400 mb-2">Στείλαμε επιβεβαίωση στο email σου.</p>
+        <p className="text-xs text-gray-300 mb-8">Θα λάβεις υπενθύμιση 1 ώρα πριν.</p>
+        <button
+          onClick={() => router.push('/')}
+          className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl"
+        >
+          Πίσω στην αρχική
+        </button>
       </div>
     </main>
   )
