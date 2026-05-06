@@ -85,16 +85,6 @@ function getTimeSlots() {
   return slots
 }
 
-// Επιστρέφει το πρώτο διαθέσιμο slot με buffer 15 λεπτών από τώρα
-function getNextAvailableSlot(allSlots: string[], bookedTimes: Set<string>, now: Date): string | null {
-  const nowMinutes = now.getHours() * 60 + now.getMinutes() + BUFFER_MINUTES
-  return allSlots.find(time => {
-    const [h, m] = time.split(':').map(Number)
-    const slotMinutes = h * 60 + m
-    return slotMinutes >= nowMinutes && !bookedTimes.has(time)
-  }) || null
-}
-
 function MapPageContent() {
   const router = useRouter()
   const params = useSearchParams()
@@ -166,8 +156,18 @@ function MapPageContent() {
           hasAvailability = allSlots.includes(checkTime) && !booked.has(checkTime)
           nextSlot = checkTime
         } else {
-          // Τώρα: επόμενο διαθέσιμο με 15 λεπτά buffer
-          nextSlot = getNextAvailableSlot(allSlots, booked, now)
+          // Τώρα: επόμενο διαθέσιμο με 15 λεπτά buffer ΚΑΙ εντός 1 ώρας
+          const nowMinutes = now.getHours() * 60 + now.getMinutes()
+          const maxMinutes = nowMinutes + 60
+
+          nextSlot = allSlots.find(t => {
+            const [h, m] = t.split(':').map(Number)
+            const slotMinutes = h * 60 + m
+            return slotMinutes >= nowMinutes + BUFFER_MINUTES
+              && slotMinutes <= maxMinutes
+              && !booked.has(t)
+          }) || null
+
           hasAvailability = nextSlot !== null
         }
       }
@@ -188,7 +188,16 @@ function MapPageContent() {
     }
 
     setAllLocations(locs)
-    setFilteredLocations(locs.filter(l => l.hasAvailability))
+    const available = locs.filter(l => l.hasAvailability)
+
+    if (timing === 'now') {
+      available.sort((a, b) => {
+        if (!a.nextSlot || !b.nextSlot) return 0
+        return a.nextSlot.localeCompare(b.nextSlot)
+      })
+    }
+
+    setFilteredLocations(available)
   }, [timing, selectedDate, selectedTime])
 
   useEffect(() => {
