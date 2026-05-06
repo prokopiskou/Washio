@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 
 type TabKey = 'overview' | 'bookings' | 'services' | 'hours' | 'staff' | 'feedback'
+type Period = '7D' | '30D' | '3M' | '6M' | '12M'
+type Metric = 'revenue' | 'bookings'
 
 type Booking = {
   id: string
@@ -61,6 +63,19 @@ const defaultHours: LocationHour[] = DAYS.map((_, idx) => ({
   close_time: '20:00',
 }))
 
+const PERIODS: { key: Period; label: string }[] = [
+  { key: '7D', label: '7Μ' },
+  { key: '30D', label: '30Μ' },
+  { key: '3M', label: '3Μη' },
+  { key: '6M', label: '6Μη' },
+  { key: '12M', label: '12Μη' },
+]
+
+const METRICS: { key: Metric; label: string }[] = [
+  { key: 'revenue', label: 'Έσοδα' },
+  { key: 'bookings', label: 'Κρατήσεις' },
+]
+
 export default function DashboardPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
@@ -76,6 +91,8 @@ export default function DashboardPage() {
   const [newStaffRole, setNewStaffRole] = useState('Τεχνικός')
   const [newStaffPhone, setNewStaffPhone] = useState('')
   const [newBookingsCount, setNewBookingsCount] = useState(0)
+  const [chartPeriod, setChartPeriod] = useState<Period>('6M')
+  const [chartMetric, setChartMetric] = useState<Metric>('revenue')
   const locationIdRef = useRef<string | null>(null)
 
   useEffect(() => {
@@ -105,52 +122,23 @@ export default function DashboardPage() {
       const locationId = ownerLocation.id
       locationIdRef.current = locationId
 
-      const [
-        bookingsRes,
-        addonsRes,
-        locationAddonsRes,
-        hoursRes,
-        staffRes,
-        reviewsRes,
-      ] = await Promise.all([
-        supabase
-          .from('bookings')
+      const [bookingsRes, addonsRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
+        supabase.from('bookings')
           .select('id, slot_date, slot_start_time, total_amount, status, customer_name, profiles(full_name), services(name)')
           .eq('location_id', locationId)
           .order('slot_date', { ascending: false }),
-        supabase
-          .from('addons')
-          .select('id, name, price, sort_order')
-          .eq('is_active', true)
-          .order('sort_order', { ascending: true }),
-        supabase
-          .from('location_addons')
-          .select('addon_id, price_override')
-          .eq('location_id', locationId),
-        supabase
-          .from('location_hours')
-          .select('id, day_of_week, is_open, open_time, close_time')
-          .eq('location_id', locationId)
-          .order('day_of_week', { ascending: true }),
-        supabase
-          .from('staff')
-          .select('id, full_name, role, phone')
-          .eq('location_id', locationId)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('reviews')
-          .select('id, rating, comment, created_at')
-          .eq('location_id', locationId)
-          .order('created_at', { ascending: false }),
+        supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
+        supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
+        supabase.from('location_hours').select('id, day_of_week, is_open, open_time, close_time').eq('location_id', locationId).order('day_of_week', { ascending: true }),
+        supabase.from('staff').select('id, full_name, role, phone').eq('location_id', locationId).order('created_at', { ascending: false }),
+        supabase.from('reviews').select('id, rating, comment, created_at').eq('location_id', locationId).order('created_at', { ascending: false }),
       ])
 
       setBookings((bookingsRes.data as Booking[]) || [])
 
       const allAddons = (addonsRes.data as any[]) || []
       const locationAddonsMap: Record<string, any> = {}
-      ;(locationAddonsRes.data || []).forEach((a: any) => {
-        locationAddonsMap[a.addon_id] = a
-      })
+      ;(locationAddonsRes.data || []).forEach((a: any) => { locationAddonsMap[a.addon_id] = a })
       const activeIds = new Set(Object.keys(locationAddonsMap))
 
       setServices(allAddons.map((a: any) => ({
@@ -163,66 +151,73 @@ export default function DashboardPage() {
 
       setStaff((staffRes.data as StaffMember[]) || [])
       setReviews((reviewsRes.data as Review[]) || [])
-
-      if ((hoursRes.data as LocationHour[] | null)?.length) {
-        setHours(hoursRes.data as LocationHour[])
-      }
+      if ((hoursRes.data as LocationHour[] | null)?.length) setHours(hoursRes.data as LocationHour[])
 
       setLoading(false)
 
-      // Real-time subscription
-      const channel = supabase
-        .channel('bookings-changes')
-        .on('postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
-          (payload) => {
-            setBookings(prev => [payload.new as Booking, ...prev])
-            setNewBookingsCount(prev => prev + 1)
-          }
-        )
-        .on('postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
-          (payload) => {
-            setBookings(prev => prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b))
-          }
-        )
+      const channel = supabase.channel('bookings-changes')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
+          (payload) => { setBookings(prev => [payload.new as Booking, ...prev]); setNewBookingsCount(prev => prev + 1) })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
+          (payload) => { setBookings(prev => prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b)) })
         .subscribe()
 
-      // Auto-refresh κάθε 30 δευτερόλεπτα
       const interval = setInterval(async () => {
-        const { data } = await supabase
-          .from('bookings')
+        const { data } = await supabase.from('bookings')
           .select('id, slot_date, slot_start_time, total_amount, status, customer_name, profiles(full_name), services(name)')
-          .eq('location_id', locationId)
-          .order('slot_date', { ascending: false })
+          .eq('location_id', locationId).order('slot_date', { ascending: false })
         if (data) setBookings(data as Booking[])
       }, 30000)
 
-      return () => {
-        supabase.removeChannel(channel)
-        clearInterval(interval)
-      }
+      return () => { supabase.removeChannel(channel); clearInterval(interval) }
     }
-
     loadDashboard()
   }, [router])
 
-  const monthlyRevenueData = useMemo(() => {
+  // Chart data based on period and metric
+  const chartData = useMemo(() => {
     const now = new Date()
-    const points = Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
+
+    if (chartPeriod === '7D' || chartPeriod === '30D') {
+      const days = chartPeriod === '7D' ? 7 : 30
+      const points = Array.from({ length: days }, (_, i) => {
+        const d = new Date(now)
+        d.setDate(now.getDate() - (days - 1 - i))
+        const dateStr = d.toISOString().split('T')[0]
+        return {
+          label: `${d.getDate()}/${d.getMonth() + 1}`,
+          dateStr,
+          revenue: 0,
+          bookings: 0,
+        }
+      })
+      bookings.forEach(b => {
+        if (!b.slot_date) return
+        const point = points.find(p => p.dateStr === b.slot_date)
+        if (!point) return
+        if (b.status !== 'cancelled') point.bookings++
+        if (b.status === 'completed') point.revenue += Number(b.total_amount || 0)
+      })
+      return points.map(({ label, revenue, bookings: bCount }) => ({ label, revenue, bookings: bCount }))
+    }
+
+    const months = chartPeriod === '3M' ? 3 : chartPeriod === '6M' ? 6 : 12
+    const points = Array.from({ length: months }, (_, i) => {
+      const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1)
       const key = `${d.getFullYear()}-${d.getMonth()}`
-      return { key, month: d.toLocaleDateString('el-GR', { month: 'short' }), revenue: 0 }
+      return { key, label: d.toLocaleDateString('el-GR', { month: 'short' }), revenue: 0, bookings: 0 }
     })
-    bookings.forEach(booking => {
-      if (!booking.slot_date || booking.status !== 'completed') return
-      const d = new Date(booking.slot_date)
+    bookings.forEach(b => {
+      if (!b.slot_date) return
+      const d = new Date(b.slot_date)
       const key = `${d.getFullYear()}-${d.getMonth()}`
-      const target = points.find(p => p.key === key)
-      if (target) target.revenue += Number(booking.total_amount || 0)
+      const point = points.find(p => p.key === key)
+      if (!point) return
+      if (b.status !== 'cancelled') point.bookings++
+      if (b.status === 'completed') point.revenue += Number(b.total_amount || 0)
     })
-    return points.map(({ month, revenue }) => ({ month, revenue }))
-  }, [bookings])
+    return points.map(({ label, revenue, bookings: bCount }) => ({ label, revenue, bookings: bCount }))
+  }, [bookings, chartPeriod])
 
   const avgRating = useMemo(() => {
     if (!reviews.length) return 0
@@ -231,10 +226,7 @@ export default function DashboardPage() {
 
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   const monthlyBookings = bookings.filter(b => b.slot_date && new Date(b.slot_date) >= monthStart)
-  const monthlyRevenue = monthlyBookings
-    .filter(b => b.status === 'completed')
-    .reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
-
+  const monthlyRevenue = monthlyBookings.filter(b => b.status === 'completed').reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
   const todayBookings = bookings.filter(b => b.slot_date === new Date().toISOString().split('T')[0])
 
   const statusClass = (status?: string) => {
@@ -256,24 +248,17 @@ export default function DashboardPage() {
   const toggleAddon = async (service: DashboardService) => {
     const supabase = createClient()
     if (service.is_active) {
-      await supabase.from('location_addons')
-        .delete()
-        .eq('location_id', location.id)
-        .eq('addon_id', service.id)
+      await supabase.from('location_addons').delete().eq('location_id', location.id).eq('addon_id', service.id)
       setServices(prev => prev.map(s => s.id === service.id ? { ...s, is_active: false, price_override: undefined } : s))
     } else {
-      await supabase.from('location_addons')
-        .insert({ location_id: location.id, addon_id: service.id })
+      await supabase.from('location_addons').insert({ location_id: location.id, addon_id: service.id })
       setServices(prev => prev.map(s => s.id === service.id ? { ...s, is_active: true } : s))
     }
   }
 
   const updatePriceOverride = async (service: DashboardService, val: number) => {
     const supabase = createClient()
-    await supabase.from('location_addons')
-      .update({ price_override: val })
-      .eq('location_id', location.id)
-      .eq('addon_id', service.id)
+    await supabase.from('location_addons').update({ price_override: val }).eq('location_id', location.id).eq('addon_id', service.id)
     setServices(prev => prev.map(s => s.id === service.id ? { ...s, price_override: val } : s))
   }
 
@@ -281,40 +266,23 @@ export default function DashboardPage() {
     if (!location?.id) return
     setSavingHours(true)
     const supabase = createClient()
-    await Promise.all(
-      hours.map(row =>
-        supabase.from('location_hours').upsert(
-          {
-            location_id: location.id,
-            day_of_week: row.day_of_week,
-            is_open: row.is_open,
-            open_time: row.open_time,
-            close_time: row.close_time,
-          },
-          { onConflict: 'location_id,day_of_week' }
-        )
+    await Promise.all(hours.map(row =>
+      supabase.from('location_hours').upsert(
+        { location_id: location.id, day_of_week: row.day_of_week, is_open: row.is_open, open_time: row.open_time, close_time: row.close_time },
+        { onConflict: 'location_id,day_of_week' }
       )
-    )
+    ))
     setSavingHours(false)
   }
 
   const addStaff = async () => {
     if (!location?.id || !newStaffName.trim() || !newStaffPhone.trim()) return
     const supabase = createClient()
-    const { data } = await supabase
-      .from('staff')
-      .insert({
-        location_id: location.id,
-        full_name: newStaffName.trim(),
-        role: newStaffRole,
-        phone: newStaffPhone.trim(),
-      })
-      .select('id, full_name, role, phone')
-      .single()
+    const { data } = await supabase.from('staff')
+      .insert({ location_id: location.id, full_name: newStaffName.trim(), role: newStaffRole, phone: newStaffPhone.trim() })
+      .select('id, full_name, role, phone').single()
     if (data) setStaff(prev => [data as StaffMember, ...prev])
-    setNewStaffName('')
-    setNewStaffRole('Τεχνικός')
-    setNewStaffPhone('')
+    setNewStaffName(''); setNewStaffRole('Τεχνικός'); setNewStaffPhone('')
   }
 
   const deleteStaff = async (id: string) => {
@@ -329,21 +297,8 @@ export default function DashboardPage() {
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status: 'cancelled' } : b))
   }
 
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-xs text-gray-400">Φόρτωση...</p>
-      </main>
-    )
-  }
-
-  if (!location?.id) {
-    return (
-      <main className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-sm text-gray-500">Δεν έχεις συνδεδεμένο πλυντήριο.</p>
-      </main>
-    )
-  }
+  if (loading) return <main className="min-h-screen bg-white flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>
+  if (!location?.id) return <main className="min-h-screen bg-white flex items-center justify-center"><p className="text-sm text-gray-500">Δεν έχεις συνδεδεμένο πλυντήριο.</p></main>
 
   return (
     <main className="min-h-screen bg-white">
@@ -363,13 +318,9 @@ export default function DashboardPage() {
             ['staff', 'Προσωπικό'],
             ['feedback', 'Feedback'],
           ] as [TabKey, string][]).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => {
-                setActiveTab(key)
-                if (key === 'bookings') setNewBookingsCount(0)
-              }}
-              className={`shrink-0 px-4 py-3 text-xs font-medium border-b-2 transition-all relative ${
+            <button key={key}
+              onClick={() => { setActiveTab(key); if (key === 'bookings') setNewBookingsCount(0) }}
+              className={`shrink-0 px-4 py-3 text-xs font-medium border-b-2 transition-all ${
                 activeTab === key ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400'
               } ${key === 'bookings' && newBookingsCount > 0 ? 'text-blue-600' : ''}`}
             >
@@ -396,7 +347,6 @@ export default function DashboardPage() {
                 ))}
               </div>
 
-              {/* Σήμερα */}
               {todayBookings.length > 0 && (
                 <div className="border border-gray-100 rounded-xl overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
@@ -438,17 +388,50 @@ export default function DashboardPage() {
                 </div>
               </div>
 
+              {/* Chart με controls */}
               <div className="border border-gray-100 rounded-xl p-4">
-                <p className="text-sm font-medium text-gray-900 mb-3">Έσοδα 6 μηνών</p>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex gap-1">
+                    {METRICS.map(m => (
+                      <button key={m.key} onClick={() => setChartMetric(m.key)}
+                        className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                          chartMetric === m.key ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-600'
+                        }`}>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-1">
+                    {PERIODS.map(p => (
+                      <button key={p.key} onClick={() => setChartPeriod(p.key)}
+                        className={`text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all ${
+                          chartPeriod === p.key ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-600'
+                        }`}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyRevenueData}>
+                    <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                      <YAxis tick={{ fontSize: 11 }} />
-                      <Tooltip />
-                      <Bar dataKey="revenue" fill="#111827" radius={[4, 4, 0, 0]} />
-                    </BarChart>
+                      <XAxis dataKey="label" tick={{ fontSize: 10 }}
+                        interval={chartPeriod === '30D' ? 4 : chartPeriod === '7D' ? 0 : 0} />
+                      <YAxis tick={{ fontSize: 10 }}
+                        tickFormatter={chartMetric === 'revenue' ? (v) => `€${v}` : undefined} />
+                      <Tooltip
+                        formatter={(value: any) => chartMetric === 'revenue' ? [`€${value}`, 'Έσοδα'] : [value, 'Κρατήσεις']} />
+                      <Line
+                        type="monotone"
+                        dataKey={chartMetric}
+                        stroke="#111827"
+                        strokeWidth={2}
+                        dot={false}
+                        activeDot={{ r: 4 }}
+                      />
+                    </LineChart>
                   </ResponsiveContainer>
                 </div>
               </div>
@@ -485,27 +468,17 @@ export default function DashboardPage() {
                 <div key={service.id} className="border border-gray-100 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-medium text-gray-900">{service.service_name}</p>
-                    <button
-                      onClick={() => toggleAddon(service)}
-                      className={`text-xs rounded-xl px-4 py-2 transition-all ${service.is_active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}
-                    >
+                    <button onClick={() => toggleAddon(service)}
+                      className={`text-xs rounded-xl px-4 py-2 transition-all ${service.is_active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}>
                       {service.is_active ? '✓ Ενεργή' : 'Ανενεργή'}
                     </button>
                   </div>
                   {service.is_active && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400">Τιμή:</span>
-                      <input
-                        type="number"
-                        defaultValue={service.price_override ?? ''}
-                        placeholder="π.χ. 25"
-                        onBlur={async e => {
-                          const val = parseFloat(e.target.value)
-                          if (isNaN(val)) return
-                          await updatePriceOverride(service, val)
-                        }}
-                        className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400"
-                      />
+                      <input type="number" defaultValue={service.price_override ?? ''} placeholder="π.χ. 25"
+                        onBlur={async e => { const val = parseFloat(e.target.value); if (isNaN(val)) return; await updatePriceOverride(service, val) }}
+                        className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400" />
                       <span className="text-xs text-gray-400">€</span>
                     </div>
                   )}
@@ -521,23 +494,19 @@ export default function DashboardPage() {
                 <div key={row.day_of_week} className="border border-gray-100 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-medium text-gray-900">{DAYS[idx]}</p>
-                    <button
-                      onClick={() => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, is_open: !h.is_open } : h))}
-                      className={`text-xs rounded-lg px-3 py-1.5 ${row.is_open ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}
-                    >
+                    <button onClick={() => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, is_open: !h.is_open } : h))}
+                      className={`text-xs rounded-lg px-3 py-1.5 ${row.is_open ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
                       {row.is_open ? 'Ανοιχτό' : 'Κλειστό'}
                     </button>
                   </div>
                   {row.is_open && (
                     <div className="flex gap-2">
-                      <select value={row.open_time}
-                        onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, open_time: e.target.value } : h))}
+                      <select value={row.open_time} onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, open_time: e.target.value } : h))}
                         className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                         {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
                       </select>
                       <span className="text-gray-400 flex items-center text-xs">έως</span>
-                      <select value={row.close_time}
-                        onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, close_time: e.target.value } : h))}
+                      <select value={row.close_time} onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, close_time: e.target.value } : h))}
                         className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                         {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
                       </select>
@@ -567,18 +536,17 @@ export default function DashboardPage() {
 
               <div className="border border-gray-100 rounded-xl p-4 space-y-2">
                 <p className="text-xs font-medium text-gray-700">Νέο μέλος</p>
-                <input value={newStaffName} onChange={e => setNewStaffName(e.target.value)}
-                  placeholder="Όνομα" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+                <input value={newStaffName} onChange={e => setNewStaffName(e.target.value)} placeholder="Όνομα"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
                 <select value={newStaffRole} onChange={e => setNewStaffRole(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white">
                   <option value="Τεχνικός">Τεχνικός</option>
                   <option value="Ταμίας">Ταμίας</option>
                   <option value="Διευθυντής">Διευθυντής</option>
                 </select>
-                <input value={newStaffPhone} onChange={e => setNewStaffPhone(e.target.value)}
-                  placeholder="Τηλέφωνο" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                <button onClick={addStaff}
-                  className="w-full bg-gray-900 text-white text-sm rounded-xl px-3 py-2.5">Προσθήκη</button>
+                <input value={newStaffPhone} onChange={e => setNewStaffPhone(e.target.value)} placeholder="Τηλέφωνο"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+                <button onClick={addStaff} className="w-full bg-gray-900 text-white text-sm rounded-xl px-3 py-2.5">Προσθήκη</button>
               </div>
             </div>
           )}
