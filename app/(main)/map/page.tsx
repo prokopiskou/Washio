@@ -484,10 +484,17 @@ function MapPageContent() {
           )}
 
           {!selectedLocation && filteredLocations.length === 0 && allLocations.length > 0 && (
-            <div className="pb-4 px-4">
-              <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100 text-center">
-                <p className="text-sm text-gray-500">Δεν υπάρχουν διαθέσιμα σημεία</p>
-                <p className="text-xs text-gray-400 mt-1">Δοκίμασε άλλη ώρα ή ημερομηνία</p>
+            <div className="pb-6 px-4">
+              <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 text-center">
+                <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν διαθέσιμα σημεία</p>
+                <p className="text-xs text-gray-400 mb-4">Δοκίμασε να προγραμματίσεις για αργότερα</p>
+                <button
+                  onClick={() => setShowSchedule(true)}
+                  className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-2"
+                >
+                  <Calendar size={14} />
+                  Προγραμματισμός
+                </button>
               </div>
             </div>
           )}
@@ -513,7 +520,7 @@ function MapPageContent() {
                 {locationServices.map(s => (
                   <button key={s.id} onClick={() => setSelectedService(s.id)}
                     className={`flex-1 py-2.5 rounded-xl border text-center transition-all ${
-                      selectedService === s.id ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-200'
+                      selectedService === s.id ? 'bg-gray-600 border-gray-600' : 'bg-white border-gray-200'
                     }`}>
                     <p className={`text-xs font-medium ${selectedService === s.id ? 'text-white' : 'text-gray-900'}`}>{s.name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">€{s.price}</p>
@@ -531,7 +538,7 @@ function MapPageContent() {
                       <button key={slot.time} onClick={() => setSelectedSlot(slot.time)}
                         className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
                           selectedSlot === slot.time
-                            ? 'bg-gray-900 border-gray-900 text-white'
+                            ? 'bg-gray-600 border-gray-600 text-white'
                             : 'bg-white border-gray-200 text-gray-700'
                         }`}>
                         {slot.time}
