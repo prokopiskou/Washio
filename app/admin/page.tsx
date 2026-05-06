@@ -30,15 +30,21 @@ export default function AdminPage() {
   const router = useRouter()
   const [authorized, setAuthorized] = useState(false)
   const [authChecking, setAuthChecking] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons' | 'payouts'>('overview')
   const [bookings, setBookings] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
   const [applications, setApplications] = useState<any[]>([])
   const [addons, setAddons] = useState<any[]>([])
+  const [payouts, setPayouts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [newAddon, setNewAddon] = useState({ name: '', price: '' })
   const [addingAddon, setAddingAddon] = useState(false)
+  const [payoutMonth, setPayoutMonth] = useState(() => {
+    const d = new Date()
+    d.setMonth(d.getMonth() - 1)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  })
 
   const [bookingFilter, setBookingFilter] = useState({ status: '', location: '', date: '' })
   const [selectedUser, setSelectedUser] = useState<any>(null)
@@ -49,10 +55,7 @@ export default function AdminPage() {
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
       const email = data.session?.user?.email
-      if (email !== ADMIN_EMAIL) {
-        router.replace('/')
-        return
-      }
+      if (email !== ADMIN_EMAIL) { router.replace('/'); return }
       setAuthorized(true)
       setAuthChecking(false)
     }
@@ -69,23 +72,16 @@ export default function AdminPage() {
       { data: profilesData },
       { data: applicationsData },
       { data: addonsData },
+      { data: payoutsData },
     ] = await Promise.all([
       supabase.from('bookings')
         .select('*, locations(name, city), services(name, price), profiles(full_name, phone, email)')
-        .order('created_at', { ascending: false })
-        .limit(200),
-      supabase.from('locations')
-        .select('*')
-        .order('created_at', { ascending: false }),
-      supabase.from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false }),
-      supabase.from('applications')
-        .select('*')
-        .order('created_at', { ascending: false }),
-      supabase.from('addons')
-        .select('*')
-        .order('sort_order', { ascending: true }),
+        .order('created_at', { ascending: false }).limit(200),
+      supabase.from('locations').select('*').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      supabase.from('applications').select('*').order('created_at', { ascending: false }),
+      supabase.from('addons').select('*').order('sort_order', { ascending: true }),
+      supabase.from('payouts').select('*, locations(name)').order('created_at', { ascending: false }),
     ])
 
     setBookings(bookingsData || [])
@@ -93,12 +89,11 @@ export default function AdminPage() {
     setUsers(profilesData || [])
     setApplications(applicationsData || [])
     setAddons(addonsData || [])
+    setPayouts(payoutsData || [])
     setLoading(false)
   }, [])
 
-  useEffect(() => {
-    if (authorized) fetchData()
-  }, [authorized])
+  useEffect(() => { if (authorized) fetchData() }, [authorized])
 
   const totalRevenue = bookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
   const totalCommission = bookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
@@ -115,9 +110,11 @@ export default function AdminPage() {
       const bd = new Date(b.created_at)
       return bd.getMonth() === month && bd.getFullYear() === year
     })
-    const revenue = monthBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
-    const commission = monthBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
-    return { month: MONTHS_SHORT[month], revenue, commission }
+    return {
+      month: MONTHS_SHORT[month],
+      revenue: monthBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0),
+      commission: monthBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0),
+    }
   })
 
   const topLocations = locations.map(loc => ({
@@ -133,6 +130,59 @@ export default function AdminPage() {
     if (bookingFilter.date && b.slot_date !== bookingFilter.date) return false
     return true
   })
+
+  // Payouts για επιλεγμένο μήνα
+  const payoutData = locations.map(loc => {
+    const [year, month] = payoutMonth.split('-').map(Number)
+    const monthBookings = bookings.filter(b => {
+      if (b.locations?.name !== loc.name) return false
+      if (!b.slot_date) return false
+      if (b.status === 'cancelled') return false
+      const d = new Date(b.slot_date)
+      return d.getFullYear() === year && d.getMonth() + 1 === month
+    })
+    const totalRevenue = monthBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
+    const commission = monthBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
+    const owedAmount = totalRevenue - commission
+
+    const existingPayout = payouts.find(p => p.location_id === loc.id && p.month === payoutMonth)
+
+    return {
+      ...loc,
+      monthBookings: monthBookings.length,
+      totalRevenue,
+      commission,
+      owedAmount,
+      existingPayout,
+    }
+  }).filter(loc => loc.monthBookings > 0 || loc.existingPayout)
+
+  const markAsPaid = async (locationId: string, amount: number, existingId?: string) => {
+    const supabase = createClient()
+    if (existingId) {
+      await supabase.from('payouts').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', existingId)
+    } else {
+      await supabase.from('payouts').insert({
+        location_id: locationId,
+        amount,
+        month: payoutMonth,
+        status: 'paid',
+        paid_at: new Date().toISOString(),
+      })
+    }
+    fetchData()
+  }
+
+  const markAsPending = async (existingId: string) => {
+    const supabase = createClient()
+    await supabase.from('payouts').update({ status: 'pending', paid_at: null }).eq('id', existingId)
+    fetchData()
+  }
+
+  const updateLocationBankInfo = async (id: string, field: 'iban' | 'bank_name', value: string) => {
+    const supabase = createClient()
+    await supabase.from('locations').update({ [field]: value }).eq('id', id)
+  }
 
   const getUserDisplay = (profile: any) => profile?.full_name || profile?.email || 'Επισκέπτης'
   const getUserInitial = (profile: any) => (profile?.full_name || profile?.email || '?').charAt(0).toUpperCase()
@@ -174,11 +224,8 @@ export default function AdminPage() {
 
   const loadUserBookings = async (userId: string) => {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('bookings')
-      .select('*, locations(name), services(name)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+    const { data } = await supabase.from('bookings').select('*, locations(name), services(name)')
+      .eq('user_id', userId).order('created_at', { ascending: false })
     setUserBookings(data || [])
   }
 
@@ -219,14 +266,12 @@ export default function AdminPage() {
     a.click()
   }
 
-  if (authChecking) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xs text-gray-400">Έλεγχος πρόσβασης...</p>
-      </div>
-    )
+  const formatMonth = (monthStr: string) => {
+    const [year, month] = monthStr.split('-').map(Number)
+    return new Date(year, month - 1).toLocaleDateString('el-GR', { month: 'long', year: 'numeric' })
   }
 
+  if (authChecking) return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Έλεγχος πρόσβασης...</p></div>
   if (!authorized) return null
 
   return (
@@ -240,12 +285,8 @@ export default function AdminPage() {
               <p className="text-xs text-gray-400">{new Date().toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button onClick={fetchData} className="p-2 text-gray-400 hover:text-gray-600">
-                <RefreshCw size={16} />
-              </button>
-              <button onClick={() => router.push('/')} className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">
-                ← App
-              </button>
+              <button onClick={fetchData} className="p-2 text-gray-400 hover:text-gray-600"><RefreshCw size={16} /></button>
+              <button onClick={() => router.push('/')} className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">← App</button>
             </div>
           </div>
 
@@ -257,15 +298,13 @@ export default function AdminPage() {
               { key: 'users', label: `Χρήστες (${users.length})` },
               { key: 'applications', label: `Αιτήσεις${pendingApplications > 0 ? ` (${pendingApplications})` : ''}` },
               { key: 'financials', label: 'Οικονομικά' },
+              { key: 'payouts', label: 'Εκκαθαρίσεις' },
               { key: 'addons', label: `Υπηρεσίες (${addons.length})` },
             ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
+              <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                   activeTab === tab.key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
+                }`}>
                 {tab.label}
               </button>
             ))}
@@ -274,9 +313,7 @@ export default function AdminPage() {
 
         <div className="px-6 pt-5">
           {loading ? (
-            <div className="text-center py-10">
-              <p className="text-xs text-gray-400">Φόρτωση...</p>
-            </div>
+            <div className="text-center py-10"><p className="text-xs text-gray-400">Φόρτωση...</p></div>
           ) : (
             <>
               {activeTab === 'overview' && (
@@ -358,17 +395,13 @@ export default function AdminPage() {
                       onChange={e => setBookingFilter(f => ({ ...f, status: e.target.value }))}
                       className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none">
                       <option value="">Όλα τα status</option>
-                      {Object.entries(statusLabels).map(([k, v]) => (
-                        <option key={k} value={k}>{v}</option>
-                      ))}
+                      {Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                     </select>
                     <select value={bookingFilter.location}
                       onChange={e => setBookingFilter(f => ({ ...f, location: e.target.value }))}
                       className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none">
                       <option value="">Όλα τα σημεία</option>
-                      {locations.map(loc => (
-                        <option key={loc.id} value={loc.name}>{loc.name}</option>
-                      ))}
+                      {locations.map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
                     </select>
                     <input type="date" value={bookingFilter.date}
                       onChange={e => setBookingFilter(f => ({ ...f, date: e.target.value }))}
@@ -422,9 +455,7 @@ export default function AdminPage() {
                         </div>
                       </div>
                     ))}
-                    {filteredBookings.length === 0 && (
-                      <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν κρατήσεις</p>
-                    )}
+                    {filteredBookings.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν κρατήσεις</p>}
                   </div>
                 </div>
               )}
@@ -433,9 +464,7 @@ export default function AdminPage() {
                 <div>
                   <div className="flex justify-end mb-4">
                     <button onClick={() => router.push('/admin/locations/new')}
-                      className="text-xs bg-gray-900 text-white px-4 py-2 rounded-xl">
-                      + Νέο σημείο
-                    </button>
+                      className="text-xs bg-gray-900 text-white px-4 py-2 rounded-xl">+ Νέο σημείο</button>
                   </div>
                   <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                     {locations.map((loc, i) => (
@@ -460,16 +489,12 @@ export default function AdminPage() {
                               {loc.is_active ? 'Ενεργό' : 'Ανενεργό'}
                             </span>
                             <button onClick={() => toggleLocation(loc.id, loc.is_active)}
-                              className="p-1.5 border border-gray-200 rounded-lg text-gray-500">
-                              <Power size={12} />
-                            </button>
+                              className="p-1.5 border border-gray-200 rounded-lg text-gray-500"><Power size={12} /></button>
                           </div>
                         </div>
                       </div>
                     ))}
-                    {locations.length === 0 && (
-                      <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν σημεία</p>
-                    )}
+                    {locations.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν σημεία</p>}
                   </div>
                 </div>
               )}
@@ -508,7 +533,6 @@ export default function AdminPage() {
                       <div className="px-4 py-3 border-b border-gray-50">
                         <p className="text-xs text-gray-400">Email: {selectedUser.email || '—'}</p>
                         <p className="text-xs text-gray-400 mt-0.5">Τηλέφωνο: {selectedUser.phone || '—'}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Role: {selectedUser.role}</p>
                         <p className="text-xs text-gray-400 mt-0.5">Εγγραφή: {new Date(selectedUser.created_at).toLocaleDateString('el-GR')}</p>
                       </div>
                       <div className="px-4 py-3">
@@ -529,9 +553,7 @@ export default function AdminPage() {
                             </div>
                           </div>
                         ))}
-                        {userBookings.length === 0 && (
-                          <p className="text-xs text-gray-400">Δεν υπάρχουν κρατήσεις</p>
-                        )}
+                        {userBookings.length === 0 && <p className="text-xs text-gray-400">Δεν υπάρχουν κρατήσεις</p>}
                       </div>
                     </div>
                   )}
@@ -556,8 +578,7 @@ export default function AdminPage() {
                         <div className="flex flex-col gap-1 items-end shrink-0">
                           <span className={`text-xs px-2 py-0.5 rounded-md ${
                             app.status === 'approved' ? 'bg-green-50 text-green-600' :
-                            app.status === 'rejected' ? 'bg-red-50 text-red-500' :
-                            'bg-amber-50 text-amber-600'
+                            app.status === 'rejected' ? 'bg-red-50 text-red-500' : 'bg-amber-50 text-amber-600'
                           }`}>
                             {app.status === 'approved' ? 'Εγκρίθηκε' : app.status === 'rejected' ? 'Απορρίφθηκε' : 'Εκκρεμεί'}
                           </span>
@@ -577,9 +598,7 @@ export default function AdminPage() {
                       </div>
                     </div>
                   ))}
-                  {applications.length === 0 && (
-                    <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν αιτήσεις</p>
-                  )}
+                  {applications.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν αιτήσεις</p>}
                 </div>
               )}
 
@@ -591,7 +610,6 @@ export default function AdminPage() {
                       <Download size={12} /> Export CSV
                     </button>
                   </div>
-
                   <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
                     <p className="text-sm font-medium text-gray-900 mb-4">Μηνιαία ανάλυση</p>
                     <ResponsiveContainer width="100%" height={220}>
@@ -604,7 +622,6 @@ export default function AdminPage() {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-
                   <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
                     <div className="px-4 py-3 border-b border-gray-50">
                       <p className="text-sm font-medium text-gray-900">Ανά σημείο</p>
@@ -623,9 +640,114 @@ export default function AdminPage() {
                         </div>
                       </div>
                     ))}
-                    {topLocations.length === 0 && (
-                      <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν δεδομένα</p>
+                    {topLocations.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν δεδομένα</p>}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'payouts' && (
+                <div>
+                  {/* Month selector */}
+                  <div className="flex items-center gap-3 mb-5">
+                    <p className="text-sm font-medium text-gray-700">Μήνας:</p>
+                    <input type="month" value={payoutMonth}
+                      onChange={e => setPayoutMonth(e.target.value)}
+                      className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none" />
+                    <p className="text-xs text-gray-400">{formatMonth(payoutMonth)}</p>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="grid grid-cols-3 gap-3 mb-5">
+                    {[
+                      { label: 'Συνολικά έσοδα', value: `€${payoutData.reduce((s, l) => s + l.totalRevenue, 0).toFixed(0)}` },
+                      { label: 'Προμήθεια Washio', value: `€${payoutData.reduce((s, l) => s + l.commission, 0).toFixed(0)}` },
+                      { label: 'Οφείλεται', value: `€${payoutData.reduce((s, l) => s + (l.existingPayout?.status === 'paid' ? 0 : l.owedAmount), 0).toFixed(0)}` },
+                    ].map(s => (
+                      <div key={s.label} className="bg-white rounded-2xl p-4 border border-gray-100">
+                        <p className="text-xs text-gray-400 mb-1">{s.label}</p>
+                        <p className="text-xl font-semibold text-gray-900">{s.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Locations list */}
+                  <div className="space-y-3">
+                    {payoutData.length === 0 && (
+                      <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+                        <p className="text-sm text-gray-400">Δεν υπάρχουν κρατήσεις για αυτό τον μήνα</p>
+                      </div>
                     )}
+                    {payoutData.map(loc => {
+                      const isPaid = loc.existingPayout?.status === 'paid'
+                      return (
+                        <div key={loc.id} className="bg-white rounded-2xl border border-gray-100 p-4">
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                              <p className="text-sm font-semibold text-gray-900">{loc.name}</p>
+                              <p className="text-xs text-gray-400">{loc.city}</p>
+                            </div>
+                            <span className={`text-xs px-2 py-1 rounded-lg font-medium ${isPaid ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                              {isPaid ? '✓ Πληρώθηκε' : 'Εκκρεμεί'}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-2 mb-3">
+                            <div className="bg-gray-50 rounded-xl p-3">
+                              <p className="text-xs text-gray-400">Κρατήσεις</p>
+                              <p className="text-sm font-semibold text-gray-900">{loc.monthBookings}</p>
+                            </div>
+                            <div className="bg-gray-50 rounded-xl p-3">
+                              <p className="text-xs text-gray-400">Έσοδα</p>
+                              <p className="text-sm font-semibold text-gray-900">€{loc.totalRevenue.toFixed(0)}</p>
+                            </div>
+                            <div className="bg-gray-50 rounded-xl p-3">
+                              <p className="text-xs text-gray-400">Να αποδοθεί</p>
+                              <p className="text-sm font-semibold text-gray-900">€{loc.owedAmount.toFixed(0)}</p>
+                            </div>
+                          </div>
+
+                          {/* IBAN */}
+                          <div className="flex gap-2 mb-3">
+                            <div className="flex-1">
+                              <p className="text-xs text-gray-400 mb-1">IBAN</p>
+                              <input
+                                defaultValue={loc.iban || ''}
+                                onBlur={e => updateLocationBankInfo(loc.id, 'iban', e.target.value)}
+                                placeholder="GR00 0000 0000 0000 0000 0000 000"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-gray-400"
+                              />
+                            </div>
+                            <div className="w-32">
+                              <p className="text-xs text-gray-400 mb-1">Τράπεζα</p>
+                              <input
+                                defaultValue={loc.bank_name || ''}
+                                onBlur={e => updateLocationBankInfo(loc.id, 'bank_name', e.target.value)}
+                                placeholder="π.χ. Eurobank"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-gray-400"
+                              />
+                            </div>
+                          </div>
+
+                          {isPaid ? (
+                            <div className="flex items-center justify-between">
+                              <p className="text-xs text-gray-400">
+                                Πληρώθηκε: {loc.existingPayout?.paid_at ? new Date(loc.existingPayout.paid_at).toLocaleDateString('el-GR') : '—'}
+                              </p>
+                              <button onClick={() => markAsPending(loc.existingPayout.id)}
+                                className="text-xs text-red-500 border border-red-100 px-3 py-1.5 rounded-lg">
+                                Αναίρεση
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => markAsPaid(loc.id, loc.owedAmount, loc.existingPayout?.id)}
+                              className="w-full bg-gray-900 text-white text-xs font-medium py-2.5 rounded-xl">
+                              Σήμανση ως Πληρωμένο — €{loc.owedAmount.toFixed(0)}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -634,34 +756,19 @@ export default function AdminPage() {
                 <div>
                   <div className="flex justify-end mb-4">
                     <button onClick={() => setAddingAddon(v => !v)}
-                      className="text-xs bg-gray-900 text-white px-4 py-2 rounded-xl">
-                      + Νέα υπηρεσία
-                    </button>
+                      className="text-xs bg-gray-900 text-white px-4 py-2 rounded-xl">+ Νέα υπηρεσία</button>
                   </div>
 
                   {addingAddon && (
                     <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 flex gap-2">
-                      <input
-                        value={newAddon.name}
-                        onChange={e => setNewAddon(n => ({ ...n, name: e.target.value }))}
+                      <input value={newAddon.name} onChange={e => setNewAddon(n => ({ ...n, name: e.target.value }))}
                         placeholder="Όνομα υπηρεσίας"
-                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400"
-                      />
-                      <input
-                        value={newAddon.price}
-                        onChange={e => setNewAddon(n => ({ ...n, price: e.target.value }))}
-                        placeholder="€"
-                        type="number"
-                        className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400"
-                      />
-                      <button onClick={handleAddAddon}
-                        className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg">
-                        Αποθήκευση
-                      </button>
-                      <button onClick={() => { setAddingAddon(false); setNewAddon({ name: '', price: '' }) }}
-                        className="text-gray-400 px-2">
-                        <X size={14} />
-                      </button>
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
+                      <input value={newAddon.price} onChange={e => setNewAddon(n => ({ ...n, price: e.target.value }))}
+                        placeholder="€" type="number"
+                        className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
+                      <button onClick={handleAddAddon} className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg">Αποθήκευση</button>
+                      <button onClick={() => { setAddingAddon(false); setNewAddon({ name: '', price: '' }) }} className="text-gray-400 px-2"><X size={14} /></button>
                     </div>
                   )}
 
@@ -674,33 +781,16 @@ export default function AdminPage() {
                       <div key={addon.id} className={`px-4 py-3 flex items-center justify-between ${i < addons.length - 1 ? 'border-b border-gray-50' : ''}`}>
                         <p className="text-sm text-gray-900 flex-1">{addon.name}</p>
                         <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={async () => {
-                              const supabase = createClient()
-                              await supabase.from('addons').update({ is_active: !addon.is_active }).eq('id', addon.id)
-                              fetchData()
-                            }}
-                            className={`text-xs px-2 py-1 rounded-lg ${addon.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}
-                          >
+                          <button onClick={async () => { const supabase = createClient(); await supabase.from('addons').update({ is_active: !addon.is_active }).eq('id', addon.id); fetchData() }}
+                            className={`text-xs px-2 py-1 rounded-lg ${addon.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
                             {addon.is_active ? 'Ενεργό' : 'Ανενεργό'}
                           </button>
-                          <button
-                            onClick={async () => {
-                              if (!confirm('Διαγραφή υπηρεσίας;')) return
-                              const supabase = createClient()
-                              await supabase.from('addons').delete().eq('id', addon.id)
-                              fetchData()
-                            }}
-                            className="text-xs text-red-400 px-1"
-                          >
-                            <X size={12} />
-                          </button>
+                          <button onClick={async () => { if (!confirm('Διαγραφή υπηρεσίας;')) return; const supabase = createClient(); await supabase.from('addons').delete().eq('id', addon.id); fetchData() }}
+                            className="text-xs text-red-400 px-1"><X size={12} /></button>
                         </div>
                       </div>
                     ))}
-                    {addons.length === 0 && (
-                      <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν υπηρεσίες</p>
-                    )}
+                    {addons.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν υπηρεσίες</p>}
                   </div>
                 </div>
               )}
