@@ -674,17 +674,6 @@ export default function AdminPage() {
                       <div key={addon.id} className={`px-4 py-3 flex items-center justify-between ${i < addons.length - 1 ? 'border-b border-gray-50' : ''}`}>
                         <p className="text-sm text-gray-900 flex-1">{addon.name}</p>
                         <div className="flex items-center gap-2 shrink-0">
-                          <input
-                            type="number"
-                            defaultValue={addon.price}
-                            onBlur={async e => {
-                              const supabase = createClient()
-                              await supabase.from('addons').update({ price: parseFloat(e.target.value) }).eq('id', addon.id)
-                              fetchData()
-                            }}
-                            className="w-16 text-xs border border-gray-200 rounded px-2 py-1 text-gray-700"
-                          />
-                          <span className="text-xs text-gray-400">€</span>
                           <button
                             onClick={async () => {
                               const supabase = createClient()
