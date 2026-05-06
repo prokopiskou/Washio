@@ -142,6 +142,17 @@ export default function Home() {
           )}
         </nav>
 
+        {/* Hero Banner */}
+        <section className="px-5 pt-6 pb-2">
+          <h1 className="text-2xl font-semibold tracking-tight text-gray-900 leading-tight mb-1">
+            Πλύνε το αυτοκίνητό σου<br />
+            <span className="text-gray-400">σε 3 δευτερόλεπτα.</span>
+          </h1>
+          <p className="text-xs text-gray-400">
+            Βρες κοντινό πλυντήριο, κλείσε θέση, πήγαινε.
+          </p>
+        </section>
+
         {/* Timing selector */}
         <section className="px-5 mb-5">
           <div className="flex gap-2">
