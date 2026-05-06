@@ -32,6 +32,7 @@ type LocationHour = {
   id?: string
   day_of_week: number
   is_open: boolean
+  is_closed?: boolean
   open_time: string
   close_time: string
 }
@@ -129,7 +130,7 @@ export default function DashboardPage() {
           .order('slot_date', { ascending: false }),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
         supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
-        supabase.from('location_hours').select('id, day_of_week, is_open, open_time, close_time').eq('location_id', locationId).order('day_of_week', { ascending: true }),
+        supabase.from('location_hours').select('id, day_of_week, is_closed, open_time, close_time').eq('location_id', locationId).order('day_of_week', { ascending: true }),
         supabase.from('staff').select('id, full_name, role, phone').eq('location_id', locationId).order('created_at', { ascending: false }),
         supabase.from('reviews').select('id, rating, comment, created_at').eq('location_id', locationId).order('created_at', { ascending: false }),
       ])
@@ -151,7 +152,16 @@ export default function DashboardPage() {
 
       setStaff((staffRes.data as StaffMember[]) || [])
       setReviews((reviewsRes.data as Review[]) || [])
-      if ((hoursRes.data as LocationHour[] | null)?.length) setHours(hoursRes.data as LocationHour[])
+      if ((hoursRes.data as any[] | null)?.length) {
+        const normalizedHours = (hoursRes.data as any[]).map(h => ({
+          id: h.id,
+          day_of_week: h.day_of_week,
+          is_open: !h.is_closed,
+          open_time: h.open_time,
+          close_time: h.close_time,
+        }))
+        setHours(normalizedHours)
+      }
 
       setLoading(false)
 
@@ -268,7 +278,7 @@ export default function DashboardPage() {
     const supabase = createClient()
     await Promise.all(hours.map(row =>
       supabase.from('location_hours').upsert(
-        { location_id: location.id, day_of_week: row.day_of_week, is_open: row.is_open, open_time: row.open_time, close_time: row.close_time },
+        { location_id: location.id, day_of_week: row.day_of_week, is_closed: !row.is_open, open_time: row.open_time, close_time: row.close_time },
         { onConflict: 'location_id,day_of_week' }
       )
     ))

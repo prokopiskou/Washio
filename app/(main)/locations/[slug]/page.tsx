@@ -117,7 +117,7 @@ export default function LocationPage() {
           .order('sort_order', { ascending: true }),
         supabase
           .from('location_hours')
-          .select('day_of_week, is_open, open_time, close_time')
+          .select('day_of_week, is_closed, open_time, close_time')
           .eq('location_id', locationData.id),
       ])
 
@@ -151,7 +151,7 @@ export default function LocationPage() {
     const dayOfWeek = jsDayToSupabase(date.getDay())
     const dayHours = locationHours.find(h => h.day_of_week === dayOfWeek)
 
-    if (!dayHours || !dayHours.is_open) {
+    if (!dayHours || dayHours.is_closed) {
       setSlots([])
       setSlotsLoading(false)
       return
