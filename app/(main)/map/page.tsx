@@ -1,8 +1,8 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, X, ChevronRight } from 'lucide-react'
+import { ArrowLeft, X, ChevronRight, Clock, Calendar, ChevronDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 declare global {
@@ -17,6 +17,9 @@ type Location = {
   slug: string
   lat: number
   lng: number
+  distance?: number
+  bookingCount?: number
+  hasAvailability?: boolean
 }
 
 type Service = {
@@ -29,6 +32,8 @@ type Slot = {
   time: string
   available: boolean
 }
+
+type Timing = 'now' | 'later'
 
 function generateSlots(openTime: string, closeTime: string): string[] {
   const slots: string[] = []
@@ -49,6 +54,34 @@ function jsDayToSupabase(jsDay: number): number {
   return jsDay === 0 ? 7 : jsDay
 }
 
+function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2)
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function formatDistance(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)} μ`
+  return `${km.toFixed(1)} χλμ`
+}
+
+function getTodayValue() {
+  return new Date().toISOString().split('T')[0]
+}
+
+function getTimeSlots() {
+  const slots: string[] = []
+  for (let h = 8; h < 22; h++) {
+    slots.push(`${String(h).padStart(2, '0')}:00`)
+    slots.push(`${String(h).padStart(2, '0')}:30`)
+  }
+  return slots
+}
+
 function MapPageContent() {
   const router = useRouter()
   const params = useSearchParams()
@@ -60,7 +93,10 @@ function MapPageContent() {
   const placesServiceRef = useRef<any>(null)
 
   const [mapLoaded, setMapLoaded] = useState(false)
-  const [locations, setLocations] = useState<Location[]>([])
+  const [userLat, setUserLat] = useState<number | null>(null)
+  const [userLng, setUserLng] = useState<number | null>(null)
+  const [allLocations, setAllLocations] = useState<Location[]>([])
+  const [filteredLocations, setFilteredLocations] = useState<Location[]>([])
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const [locationServices, setLocationServices] = useState<Service[]>([])
   const [selectedService, setSelectedService] = useState<string | null>(null)
@@ -70,78 +106,148 @@ function MapPageContent() {
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
 
-  const today = new Date().toISOString().split('T')[0]
+  // Timing
+  const [timing, setTiming] = useState<Timing>('now')
+  const [showSchedule, setShowSchedule] = useState(false)
+  const [selectedDate, setSelectedDate] = useState(getTodayValue())
+  const [selectedTime, setSelectedTime] = useState('')
+  const [showTimePicker, setShowTimePicker] = useState(false)
+  const timePickerRef = useRef<HTMLDivElement>(null)
+
+  const activeDate = timing === 'now' ? getTodayValue() : selectedDate
+  const activeTime = timing === 'now' ? null : selectedTime
+
   const service = locationServices.find(s => s.id === selectedService)
   const canBook = selectedService && selectedSlot
 
-  // Load locations from Supabase
-  useEffect(() => {
-    const loadLocations = async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('locations')
-        .select('id, name, address, city, slug, lat, lng')
-        .eq('is_active', true)
-      setLocations((data as Location[]) || [])
+  // Load all locations with hours and booking counts
+  const loadLocations = useCallback(async (lat?: number, lng?: number) => {
+    const supabase = createClient()
+    const now = new Date()
+    const dayOfWeek = jsDayToSupabase(now.getDay())
+    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    const checkDate = timing === 'later' ? selectedDate : getTodayValue()
+    const checkTime = timing === 'later' ? selectedTime : currentTime
+
+    const [{ data: locsData }, { data: hoursData }, { data: bookingsData }] = await Promise.all([
+      supabase.from('locations').select('id, name, address, city, slug, lat, lng').eq('is_active', true),
+      supabase.from('location_hours').select('location_id, open_time, close_time, is_closed').eq('day_of_week', dayOfWeek),
+      supabase.from('bookings').select('location_id, slot_start_time').eq('slot_date', checkDate).not('status', 'in', '("cancelled")'),
+    ])
+
+    const hoursMap: Record<string, any> = {}
+    ;(hoursData || []).forEach((h: any) => { hoursMap[h.location_id] = h })
+
+    const bookingsMap: Record<string, Set<string>> = {}
+    ;(bookingsData || []).forEach((b: any) => {
+      if (!bookingsMap[b.location_id]) bookingsMap[b.location_id] = new Set()
+      bookingsMap[b.location_id].add(b.slot_start_time?.slice(0, 5))
+    })
+
+    let locs: Location[] = (locsData || []).map((loc: any) => {
+      const hours = hoursMap[loc.id]
+      let hasAvailability = false
+
+      if (hours && !hours.is_closed) {
+        const allSlots = generateSlots(hours.open_time, hours.close_time)
+        const booked = bookingsMap[loc.id] || new Set()
+
+        if (checkTime) {
+          // Filter: check if specific time slot is available
+          hasAvailability = allSlots.includes(checkTime) && !booked.has(checkTime)
+        } else {
+          // Now: check if any future slot is available
+          hasAvailability = allSlots.some(t => {
+            const [h, m] = t.split(':').map(Number)
+            const isPast = h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())
+            return !isPast && !booked.has(t)
+          })
+        }
+      }
+
+      return {
+        ...loc,
+        distance: lat && lng ? getDistance(lat, lng, loc.lat, loc.lng) : undefined,
+        hasAvailability,
+        bookingCount: (bookingsMap[loc.id]?.size || 0),
+      }
+    })
+
+    // Sort: αν έχει location → απόσταση, αλλιώς → popularity
+    if (lat && lng) {
+      locs = locs.sort((a, b) => (a.distance || 0) - (b.distance || 0))
+    } else {
+      locs = locs.sort((a, b) => (b.bookingCount || 0) - (a.bookingCount || 0))
     }
-    loadLocations()
+
+    setAllLocations(locs)
+    setFilteredLocations(locs.filter(l => l.hasAvailability))
+  }, [timing, selectedDate, selectedTime])
+
+  // GPS
+  useEffect(() => {
+    navigator.geolocation?.getCurrentPosition(
+      pos => {
+        setUserLat(pos.coords.latitude)
+        setUserLng(pos.coords.longitude)
+        loadLocations(pos.coords.latitude, pos.coords.longitude)
+        mapInstanceRef.current?.setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        mapInstanceRef.current?.setZoom(14)
+      },
+      () => loadLocations()
+    )
   }, [])
+
+  useEffect(() => {
+    if (allLocations.length > 0) {
+      loadLocations(userLat ?? undefined, userLng ?? undefined)
+    }
+  }, [timing, selectedDate, selectedTime])
 
   // Load services for selected location
   useEffect(() => {
     if (!selectedLocation) return
     const loadServices = async () => {
       const supabase = createClient()
-      const { data } = await supabase
-        .from('services')
-        .select('id, name, price')
-        .eq('location_id', selectedLocation.id)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
+      const { data } = await supabase.from('services').select('id, name, price')
+        .eq('location_id', selectedLocation.id).eq('is_active', true).order('sort_order', { ascending: true })
       setLocationServices((data as Service[]) || [])
     }
     loadServices()
   }, [selectedLocation])
 
-  // Load slots for selected location and today
+  // Load slots for selected location
   useEffect(() => {
     if (!selectedLocation) return
     const loadSlots = async () => {
       const supabase = createClient()
-      const dayOfWeek = jsDayToSupabase(new Date().getDay())
+      const checkDate = timing === 'now' ? getTodayValue() : selectedDate
+      const dateObj = new Date(checkDate)
+      const dayOfWeek = jsDayToSupabase(dateObj.getDay())
 
-      const { data: hoursData } = await supabase
-        .from('location_hours')
+      const { data: hoursData } = await supabase.from('location_hours')
         .select('open_time, close_time, is_closed')
-        .eq('location_id', selectedLocation.id)
-        .eq('day_of_week', dayOfWeek)
-        .single()
+        .eq('location_id', selectedLocation.id).eq('day_of_week', dayOfWeek).single()
 
-      if (!hoursData || hoursData.is_closed) {
-        setSlots([])
-        return
-      }
+      if (!hoursData || hoursData.is_closed) { setSlots([]); return }
 
       const allTimes = generateSlots(hoursData.open_time, hoursData.close_time)
 
-      const { data: bookedData } = await supabase
-        .from('bookings')
-        .select('slot_start_time')
-        .eq('location_id', selectedLocation.id)
-        .eq('slot_date', today)
-        .not('status', 'in', '("cancelled")')
+      const { data: bookedData } = await supabase.from('bookings').select('slot_start_time')
+        .eq('location_id', selectedLocation.id).eq('slot_date', checkDate).not('status', 'in', '("cancelled")')
 
       const bookedTimes = new Set((bookedData || []).map((b: any) => b.slot_start_time?.slice(0, 5)))
       const now = new Date()
+      const isToday = checkDate === getTodayValue()
 
       setSlots(allTimes.map(time => {
         const [h, m] = time.split(':').map(Number)
-        const isPast = h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())
+        const isPast = isToday && (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes()))
         return { time, available: !bookedTimes.has(time) && !isPast }
       }))
     }
     loadSlots()
-  }, [selectedLocation])
+  }, [selectedLocation, timing, selectedDate])
 
   const selectLocation = (loc: Location) => {
     setSelectedLocation(loc)
@@ -150,49 +256,13 @@ function MapPageContent() {
     mapInstanceRef.current?.panTo({ lat: loc.lat, lng: loc.lng })
   }
 
-  // Init Google Maps
-  useEffect(() => {
-    window.initMap = () => {
-      if (!mapRef.current) return
-
-      const map = new window.google.maps.Map(mapRef.current, {
-        center: { lat: 37.8878, lng: 23.7436 },
-        zoom: 13,
-        disableDefaultUI: true,
-        styles: [
-          { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-          { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-        ],
-      })
-
-      mapInstanceRef.current = map
-      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
-      placesServiceRef.current = new window.google.maps.places.PlacesService(map)
-      setMapLoaded(true)
-
-      if (params.get('source') === 'gps') {
-        navigator.geolocation?.getCurrentPosition(pos => {
-          map.setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-          map.setZoom(14)
-        })
-      }
-    }
-
-    const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initMap&libraries=places`
-    script.async = true
-    document.head.appendChild(script)
-    return () => { document.head.removeChild(script) }
-  }, [])
-
-  // Add markers when locations load and map is ready
-  useEffect(() => {
-    if (!mapLoaded || !mapInstanceRef.current || locations.length === 0) return
-
+  // Update markers
+  const updateMarkers = useCallback(() => {
+    if (!mapLoaded || !mapInstanceRef.current) return
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
 
-    locations.forEach(loc => {
+    filteredLocations.forEach(loc => {
       const marker = new window.google.maps.Marker({
         position: { lat: loc.lat, lng: loc.lng },
         map: mapInstanceRef.current,
@@ -208,23 +278,46 @@ function MapPageContent() {
       marker.addListener('click', () => selectLocation(loc))
       markersRef.current.push(marker)
     })
-  }, [mapLoaded, locations])
+  }, [mapLoaded, filteredLocations])
+
+  useEffect(() => { updateMarkers() }, [updateMarkers])
+
+  // Init Google Maps
+  useEffect(() => {
+    window.initMap = () => {
+      if (!mapRef.current) return
+      const map = new window.google.maps.Map(mapRef.current, {
+        center: { lat: 37.8878, lng: 23.7436 },
+        zoom: 13,
+        disableDefaultUI: true,
+        styles: [
+          { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+          { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+        ],
+      })
+      mapInstanceRef.current = map
+      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
+      placesServiceRef.current = new window.google.maps.places.PlacesService(map)
+      setMapLoaded(true)
+    }
+
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initMap&libraries=places`
+    script.async = true
+    document.head.appendChild(script)
+    return () => { document.head.removeChild(script) }
+  }, [])
 
   // Autocomplete
   useEffect(() => {
     if (!search.trim() || !autocompleteServiceRef.current || !window.google?.maps?.places) {
-      setSuggestions([])
-      return
+      setSuggestions([]); return
     }
     const timeoutId = window.setTimeout(() => {
       autocompleteServiceRef.current.getPlacePredictions(
         { input: search, componentRestrictions: { country: 'gr' } },
         (predictions: any[] | null, status: string) => {
-          if (status !== window.google.maps.places.PlacesServiceStatus.OK || !predictions) {
-            setSuggestions([])
-            return
-          }
-          setSuggestions(predictions)
+          setSuggestions(status === window.google.maps.places.PlacesServiceStatus.OK && predictions ? predictions : [])
         }
       )
     }, 200)
@@ -234,6 +327,7 @@ function MapPageContent() {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!searchContainerRef.current?.contains(event.target as Node)) setShowSuggestions(false)
+      if (timePickerRef.current && !timePickerRef.current.contains(event.target as Node)) setShowTimePicker(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -253,12 +347,23 @@ function MapPageContent() {
     )
   }
 
+  const handleApplySchedule = () => {
+    setTiming('later')
+    setShowSchedule(false)
+  }
+
+  const formattedSchedule = timing === 'later' && selectedDate && selectedTime
+    ? `${new Date(selectedDate).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · ${selectedTime}`
+    : null
+
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md h-screen relative overflow-hidden">
 
-        {/* Search bar */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4">
+        {/* Top bar */}
+        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4 flex flex-col gap-2">
+
+          {/* Search */}
           <div ref={searchContainerRef} className="relative">
             <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
               <button onClick={() => router.back()} className="text-gray-400 shrink-0">
@@ -285,6 +390,28 @@ function MapPageContent() {
               </div>
             )}
           </div>
+
+          {/* Timing selector */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setTiming('now'); setSelectedTime('') }}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium shadow-sm transition-all ${
+                timing === 'now' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-100'
+              }`}
+            >
+              <Clock size={11} />
+              Τώρα
+            </button>
+            <button
+              onClick={() => setShowSchedule(true)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium shadow-sm transition-all ${
+                timing === 'later' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-100'
+              }`}
+            >
+              <Calendar size={11} />
+              {formattedSchedule || 'Προγραμματισμός'}
+            </button>
+          </div>
         </div>
 
         {/* Map */}
@@ -299,20 +426,33 @@ function MapPageContent() {
         {/* Bottom panel */}
         <div className="absolute bottom-0 left-0 right-0 z-10">
 
-          {!selectedLocation && locations.length > 0 && (
+          {!selectedLocation && filteredLocations.length > 0 && (
             <div className="pb-4 pt-2">
               <div className="flex gap-3 px-4 overflow-x-auto scrollbar-hide pb-2">
-                {locations.map(loc => (
+                {filteredLocations.map(loc => (
                   <button key={loc.id} onClick={() => selectLocation(loc)}
                     className="min-w-[200px] bg-white rounded-2xl p-4 shrink-0 text-left shadow-lg border border-gray-100">
-                    <p className="text-sm font-semibold text-gray-900 mb-1">{loc.name}</p>
-                    <p className="text-xs text-gray-400 mb-2">{loc.address}, {loc.city}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">⛽</span>
-                      <ChevronRight size={12} className="text-gray-300" />
+                    <div className="flex items-start justify-between mb-1">
+                      <p className="text-sm font-semibold text-gray-900">{loc.name}</p>
+                      <span className="text-xs px-1.5 py-0.5 rounded-md bg-green-50 text-green-600 shrink-0 ml-2">
+                        {timing === 'now' ? 'Τώρα' : 'Διαθέσιμο'}
+                      </span>
                     </div>
+                    <p className="text-xs text-gray-400 mb-2">{loc.address}</p>
+                    {loc.distance !== undefined && (
+                      <p className="text-xs text-gray-400">{formatDistance(loc.distance)}</p>
+                    )}
                   </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {!selectedLocation && filteredLocations.length === 0 && allLocations.length > 0 && (
+            <div className="pb-4 px-4">
+              <div className="bg-white rounded-2xl p-4 shadow-lg border border-gray-100 text-center">
+                <p className="text-sm text-gray-500">Δεν υπάρχουν διαθέσιμα σημεία</p>
+                <p className="text-xs text-gray-400 mt-1">Δοκίμασε άλλη ώρα ή ημερομηνία</p>
               </div>
             </div>
           )}
@@ -325,13 +465,15 @@ function MapPageContent() {
                 <div>
                   <p className="text-base font-semibold text-gray-900">{selectedLocation.name}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{selectedLocation.address}, {selectedLocation.city}</p>
+                  {selectedLocation.distance !== undefined && (
+                    <p className="text-xs text-gray-400">{formatDistance(selectedLocation.distance)}</p>
+                  )}
                 </div>
                 <button onClick={() => setSelectedLocation(null)} className="text-gray-300">
                   <X size={16} />
                 </button>
               </div>
 
-              {/* Services */}
               <div className="flex gap-2 mb-3">
                 {locationServices.map(s => (
                   <button key={s.id} onClick={() => { setSelectedService(s.id); setSelectedSlot(null) }}
@@ -344,18 +486,15 @@ function MapPageContent() {
                 ))}
               </div>
 
-              {/* Slots */}
               {selectedService && (
                 <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-1">
                   {slots.filter(s => s.available).length === 0 ? (
-                    <p className="text-xs text-gray-400">Δεν υπάρχουν διαθέσιμες ώρες σήμερα.</p>
+                    <p className="text-xs text-gray-400">Δεν υπάρχουν διαθέσιμες ώρες.</p>
                   ) : (
                     slots.filter(s => s.available).map(slot => (
                       <button key={slot.time} onClick={() => setSelectedSlot(slot.time)}
                         className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
-                          selectedSlot === slot.time
-                            ? 'bg-gray-900 border-gray-900 text-white'
-                            : 'bg-white border-gray-200 text-gray-700'
+                          selectedSlot === slot.time ? 'bg-gray-900 border-gray-900 text-white' : 'bg-white border-gray-200 text-gray-700'
                         }`}>
                         {slot.time}
                       </button>
@@ -367,7 +506,7 @@ function MapPageContent() {
               <div className="flex gap-2">
                 {canBook ? (
                   <button
-                    onClick={() => router.push(`/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${today}`)}
+                    onClick={() => router.push(`/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${activeDate}`)}
                     className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-1">
                     Κράτηση — €{service?.price}
                     <ChevronRight size={14} />
@@ -377,8 +516,7 @@ function MapPageContent() {
                     {!selectedService ? 'Επίλεξε υπηρεσία' : 'Επίλεξε ώρα'}
                   </div>
                 )}
-                <button
-                  onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
+                <button onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
                   className="border border-gray-200 text-gray-500 text-xs px-3 py-3 rounded-xl">
                   Άλλη μέρα
                 </button>
@@ -387,6 +525,62 @@ function MapPageContent() {
           )}
         </div>
       </div>
+
+      {/* Schedule Bottom Sheet */}
+      {showSchedule && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowSchedule(false)} />
+          <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 z-10">
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+            <div className="flex items-center justify-between mb-5">
+              <p className="text-base font-semibold text-gray-900">Πότε θέλεις;</p>
+              <button onClick={() => setShowSchedule(false)} className="text-gray-400"><X size={18} /></button>
+            </div>
+
+            <div className="mb-3">
+              <p className="text-xs text-gray-400 mb-1.5">Ημερομηνία</p>
+              <div className="relative">
+                <input type="date" value={selectedDate}
+                  onChange={e => setSelectedDate(e.target.value)}
+                  min={getTodayValue()}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 flex items-center justify-between bg-gray-50">
+                  <span>{new Date(selectedDate).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                  <ChevronDown size={14} className="text-gray-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-5" ref={timePickerRef}>
+              <p className="text-xs text-gray-400 mb-1.5">Ώρα</p>
+              <button onClick={() => setShowTimePicker(!showTimePicker)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm flex items-center justify-between bg-gray-50">
+                <span className={selectedTime ? 'text-gray-900' : 'text-gray-400'}>
+                  {selectedTime || 'Επίλεξε ώρα'}
+                </span>
+                <ChevronDown size={14} className="text-gray-400" />
+              </button>
+              {showTimePicker && (
+                <div className="mt-1 border border-gray-200 rounded-xl bg-white shadow-md max-h-44 overflow-y-auto">
+                  {getTimeSlots().map(slot => (
+                    <button key={slot} onClick={() => { setSelectedTime(slot); setShowTimePicker(false) }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                        selectedTime === slot ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'
+                      }`}>
+                      {slot}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <button onClick={handleApplySchedule} disabled={!selectedDate || !selectedTime}
+              className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40">
+              Εφαρμογή
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
