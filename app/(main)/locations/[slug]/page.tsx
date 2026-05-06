@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ArrowLeft, Star, MapPin, Clock, Check, ChevronLeft, ChevronRight, Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -20,24 +20,36 @@ type Service = {
   duration_minutes: number
 }
 
-const hardcodedSlots = [
-  { id: 1, time: '09:00', available: true },
-  { id: 2, time: '09:30', available: true },
-  { id: 3, time: '10:00', available: false },
-  { id: 4, time: '10:30', available: true },
-  { id: 5, time: '11:00', available: true },
-  { id: 6, time: '11:30', available: false },
-  { id: 7, time: '12:00', available: true },
-  { id: 8, time: '12:30', available: true },
-  { id: 9, time: '13:00', available: true },
-  { id: 10, time: '13:30', available: false },
-  { id: 11, time: '14:00', available: true },
-  { id: 12, time: '14:30', available: true },
-]
+type Slot = {
+  id: string
+  time: string
+  available: boolean
+}
 
-const DAYS = ['Κυ', 'Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα']
+const DAYS_JS = ['Κυ', 'Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα']
 const MONTHS = ['Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος']
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
+
+// day_of_week: 1=Δε, 2=Τρ, ..., 7=Κυ (Supabase convention)
+// JS getDay(): 0=Κυ, 1=Δε, ..., 6=Σα
+function jsDayToSupabase(jsDay: number): number {
+  return jsDay === 0 ? 7 : jsDay
+}
+
+function generateSlots(openTime: string, closeTime: string): string[] {
+  const slots: string[] = []
+  const [openH, openM] = openTime.split(':').map(Number)
+  const [closeH, closeM] = closeTime.split(':').map(Number)
+  let current = openH * 60 + openM
+  const end = closeH * 60 + closeM
+  while (current < end) {
+    const h = Math.floor(current / 60).toString().padStart(2, '0')
+    const m = (current % 60).toString().padStart(2, '0')
+    slots.push(`${h}:${m}`)
+    current += 30
+  }
+  return slots
+}
 
 function getDatesForMonth(year: number, month: number) {
   const today = new Date()
@@ -65,12 +77,15 @@ export default function LocationPage() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [favoriteId, setFavoriteId] = useState<string | null>(null)
+  const [locationHours, setLocationHours] = useState<any[]>([])
+  const [slots, setSlots] = useState<Slot[]>([])
+  const [slotsLoading, setSlotsLoading] = useState(false)
 
   const [viewMonth, setViewMonth] = useState(today.getMonth())
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [selectedDate, setSelectedDate] = useState(today)
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
-  const [selectedSlot, setSelectedSlot] = useState<number | null>(null)
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -93,16 +108,22 @@ export default function LocationPage() {
 
       setLocation(locationData)
 
-      const { data: servicesData } = await supabase
-        .from('services')
-        .select('id, name, description, price, duration_minutes')
-        .eq('location_id', locationData.id)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
+      const [servicesRes, hoursRes] = await Promise.all([
+        supabase
+          .from('services')
+          .select('id, name, description, price, duration_minutes')
+          .eq('location_id', locationData.id)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('location_hours')
+          .select('day_of_week, is_open, open_time, close_time')
+          .eq('location_id', locationData.id),
+      ])
 
-      setServices(servicesData || [])
+      setServices(servicesRes.data || [])
+      setLocationHours(hoursRes.data || [])
 
-      // Check if favorite
       if (uid) {
         const { data: favData } = await supabase
           .from('favorites')
@@ -122,6 +143,56 @@ export default function LocationPage() {
 
     loadData()
   }, [slug])
+
+  const loadSlots = useCallback(async (date: Date, locationId: string) => {
+    setSlotsLoading(true)
+    const supabase = createClient()
+
+    const dayOfWeek = jsDayToSupabase(date.getDay())
+    const dayHours = locationHours.find(h => h.day_of_week === dayOfWeek)
+
+    if (!dayHours || !dayHours.is_open) {
+      setSlots([])
+      setSlotsLoading(false)
+      return
+    }
+
+    const allTimes = generateSlots(dayHours.open_time, dayHours.close_time)
+    const dateStr = date.toISOString().split('T')[0]
+
+    // Παίρνουμε τις ήδη κρατημένες ώρες
+    const { data: bookedData } = await supabase
+      .from('bookings')
+      .select('slot_start_time')
+      .eq('location_id', locationId)
+      .eq('slot_date', dateStr)
+      .not('status', 'in', '("cancelled")')
+
+    const bookedTimes = new Set((bookedData || []).map((b: any) => b.slot_start_time?.slice(0, 5)))
+
+    // Αν είναι σήμερα, εξαιρούμε τα περασμένα slots
+    const now = new Date()
+    const isToday = date.toDateString() === now.toDateString()
+
+    setSlots(allTimes.map(time => {
+      const [h, m] = time.split(':').map(Number)
+      const isPast = isToday && (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes()))
+      return {
+        id: time,
+        time,
+        available: !bookedTimes.has(time) && !isPast,
+      }
+    }))
+
+    setSlotsLoading(false)
+  }, [locationHours])
+
+  useEffect(() => {
+    if (location && locationHours.length > 0) {
+      loadSlots(selectedDate, location.id)
+      setSelectedSlot(null)
+    }
+  }, [selectedDate, location, locationHours])
 
   const toggleFavorite = async () => {
     if (!userId || !location) return
@@ -188,18 +259,13 @@ export default function LocationPage() {
           </div>
           {userId && (
             <button onClick={toggleFavorite} className="p-2">
-              <Heart
-                size={18}
-                className={isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300'}
-              />
+              <Heart size={18} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300'} />
             </button>
           )}
         </div>
 
         {/* Cover */}
-        <div className="w-full h-28 bg-gray-100 flex items-center justify-center text-4xl">
-          ⛽
-        </div>
+        <div className="w-full h-28 bg-gray-100 flex items-center justify-center text-4xl">⛽</div>
 
         {/* Info */}
         <section className="px-5 py-3 border-b border-gray-100">
@@ -279,7 +345,7 @@ export default function LocationPage() {
                   isSelected(d) ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-100'
                 }`}
               >
-                <span className="text-xs text-gray-400">{DAYS[d.getDay()]}</span>
+                <span className="text-xs text-gray-400">{DAYS_JS[d.getDay()]}</span>
                 <span className={`text-xs font-semibold mt-0.5 ${isSelected(d) ? 'text-white' : 'text-gray-900'}`}>
                   {d.getDate()}
                 </span>
@@ -296,31 +362,37 @@ export default function LocationPage() {
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
             Ώρα · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
           </p>
-          <div className="grid grid-cols-4 gap-2">
-            {hardcodedSlots.map(slot => (
-              <button
-                key={slot.id}
-                disabled={!slot.available}
-                onClick={() => setSelectedSlot(slot.id)}
-                className={`py-3.5 rounded-xl text-xs font-medium border transition-all ${
-                  !slot.available
-                    ? 'border-gray-100 text-gray-300 bg-gray-50 cursor-not-allowed'
-                    : selectedSlot === slot.id
-                    ? 'border-gray-900 bg-gray-900 text-white'
-                    : 'border-gray-200 text-gray-700 bg-white'
-                }`}
-              >
-                {slot.time}
-              </button>
-            ))}
-          </div>
+          {slotsLoading ? (
+            <p className="text-xs text-gray-400">Φόρτωση ωρών...</p>
+          ) : slots.length === 0 ? (
+            <p className="text-xs text-gray-400">Δεν υπάρχουν διαθέσιμα slots για αυτή την ημέρα.</p>
+          ) : (
+            <div className="grid grid-cols-4 gap-2">
+              {slots.map(slot => (
+                <button
+                  key={slot.id}
+                  disabled={!slot.available}
+                  onClick={() => setSelectedSlot(slot.id)}
+                  className={`py-3.5 rounded-xl text-xs font-medium border transition-all ${
+                    !slot.available
+                      ? 'border-gray-100 text-gray-300 bg-gray-50 cursor-not-allowed'
+                      : selectedSlot === slot.id
+                      ? 'border-gray-900 bg-gray-900 text-white'
+                      : 'border-gray-200 text-gray-700 bg-white'
+                  }`}
+                >
+                  {slot.time}
+                </button>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Bottom CTA */}
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
           {canBook ? (
             <button
-              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${selectedSlot}&date=${selectedDate.toISOString().split('T')[0]}`)}
+              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${selectedDate.toISOString().split('T')[0]}`)}
               className="w-full bg-gray-900 text-white text-sm font-medium py-4 rounded-xl"
             >
               Κράτηση — €{service?.price} · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
