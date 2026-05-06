@@ -62,9 +62,7 @@ function ConfirmedContent() {
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md flex flex-col items-center justify-center px-5 text-center min-h-screen">
         <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mb-6">
-          <div style={{ width: 48, height: 48, background: '#0A0A0A', borderRadius: '50%', margin: '0 auto 12px', textAlign: 'center', lineHeight: '48px' }}>
-            <Check size={28} color="white" />
-          </div>
+          <Check size={28} color="white" />
         </div>
         <h1 className="text-xl font-semibold text-gray-900 mb-2">Η κράτησή σου επιβεβαιώθηκε!</h1>
         {bookingRef && (
