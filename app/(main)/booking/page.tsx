@@ -11,12 +11,6 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
 
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
-const slots: Record<string, string> = {
-  '1': '09:00', '2': '09:30', '3': '10:00', '4': '10:30',
-  '5': '11:00', '6': '11:30', '7': '12:00', '8': '12:30',
-  '9': '13:00', '10': '13:30', '11': '14:00', '12': '14:30',
-}
-
 type Addon = {
   id: string
   name: string
@@ -120,10 +114,9 @@ function BookingPageContent() {
 
   const serviceId = params.get('service') || ''
   const locationId = params.get('location') || ''
-  const slotId = params.get('slot') || '1'
   const dateStr = params.get('date') || new Date().toISOString().split('T')[0]
+  const slotTime = decodeURIComponent(params.get('slot') || '09:00')
 
-  const slotTime = slots[slotId] || '09:00'
   const date = new Date(dateStr)
   const formattedDate = `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
 
