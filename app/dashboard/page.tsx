@@ -171,7 +171,6 @@ export default function DashboardPage() {
       const key = `${d.getFullYear()}-${d.getMonth()}`
       return { key, month: d.toLocaleDateString('el-GR', { month: 'short' }), revenue: 0 }
     })
-
     bookings.forEach(booking => {
       if (!booking.slot_date || booking.status !== 'completed') return
       const d = new Date(booking.slot_date)
@@ -179,7 +178,6 @@ export default function DashboardPage() {
       const target = points.find(p => p.key === key)
       if (target) target.revenue += Number(booking.total_amount || 0)
     })
-
     return points.map(({ month, revenue }) => ({ month, revenue }))
   }, [bookings])
 
@@ -258,7 +256,6 @@ export default function DashboardPage() {
       })
       .select('id, full_name, role, phone')
       .single()
-
     if (data) setStaff(prev => [data as StaffMember, ...prev])
     setNewStaffName('')
     setNewStaffRole('Τεχνικός')
@@ -294,219 +291,225 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md p-4">
-        <div className="grid grid-cols-[220px_1fr] gap-6">
-          <aside className="bg-gray-50 rounded-2xl p-3 h-fit">
-            {([
-              ['overview', 'Overview'],
-              ['bookings', 'Κρατήσεις'],
-              ['services', 'Υπηρεσίες'],
-              ['hours', 'Ωράριο'],
-              ['staff', 'Προσωπικό'],
-              ['feedback', 'Feedback'],
-            ] as [TabKey, string][]).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={`w-full text-left px-3 py-2 rounded-xl text-sm mb-1 ${
-                  activeTab === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </aside>
+    <main className="min-h-screen bg-white">
+      <div className="max-w-3xl mx-auto">
 
-          <section>
-            {activeTab === 'overview' && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Έσοδα μήνα', value: `€${monthlyRevenue.toFixed(0)}` },
-                    { label: 'Κρατήσεις μήνα', value: monthlyBookings.length },
-                    { label: 'Μέση βαθμολογία', value: avgRating.toFixed(1) },
-                    { label: 'Ενεργές υπηρεσίες', value: services.filter(s => s.is_active).length },
-                  ].map(s => (
-                    <div key={s.label} className="border border-gray-100 rounded-xl p-4">
-                      <p className="text-xs text-gray-400">{s.label}</p>
-                      <p className="text-xl font-semibold text-gray-900">{s.value}</p>
-                    </div>
-                  ))}
-                </div>
+        {/* Header */}
+        <div className="px-5 pt-8 pb-4 border-b border-gray-100">
+          <h1 className="text-base font-semibold text-gray-900">{location.name}</h1>
+          <p className="text-xs text-gray-400 mt-0.5">{location.address}, {location.city}</p>
+        </div>
 
-                <div className="border border-gray-100 rounded-xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-50">
-                    <p className="text-sm font-medium text-gray-900">Πρόσφατες κρατήσεις</p>
-                  </div>
-                  <div className="divide-y divide-gray-50">
-                    {bookings.slice(0, 5).map(b => (
-                      <div key={b.id} className="px-4 py-3 text-sm flex items-center justify-between">
-                        <div>
-                          <p className="text-gray-900">{b.slot_date} · {b.services?.name || '—'}</p>
-                          <p className="text-xs text-gray-400">{b.profiles?.full_name || b.customer_name || 'Πελάτης'}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
-                          <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
-                        </div>
-                      </div>
-                    ))}
-                    {bookings.length === 0 && <p className="text-xs text-gray-400 px-4 py-6">Δεν υπάρχουν κρατήσεις ακόμα.</p>}
-                  </div>
-                </div>
+        {/* Tabs */}
+        <div className="flex overflow-x-auto scrollbar-hide border-b border-gray-100">
+          {([
+            ['overview', 'Overview'],
+            ['bookings', 'Κρατήσεις'],
+            ['services', 'Υπηρεσίες'],
+            ['hours', 'Ωράριο'],
+            ['staff', 'Προσωπικό'],
+            ['feedback', 'Feedback'],
+          ] as [TabKey, string][]).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`shrink-0 px-4 py-3 text-xs font-medium border-b-2 transition-all ${
+                activeTab === key
+                  ? 'border-gray-900 text-gray-900'
+                  : 'border-transparent text-gray-400'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-                <div className="border border-gray-100 rounded-xl p-4">
-                  <p className="text-sm font-medium text-gray-900 mb-3">Έσοδα 6 μηνών</p>
-                  <div className="h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={monthlyRevenueData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip />
-                        <Bar dataKey="revenue" fill="#111827" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-            )}
+        {/* Content */}
+        <div className="px-5 py-5">
 
-            {activeTab === 'bookings' && (
-              <div className="border border-gray-100 rounded-xl overflow-hidden">
-                <div className="grid grid-cols-7 px-4 py-3 text-xs text-gray-400 border-b border-gray-50">
-                  <span>Ημερομηνία</span>
-                  <span>Ώρα</span>
-                  <span>Υπηρεσία</span>
-                  <span>Πελάτης</span>
-                  <span>Ποσό</span>
-                  <span>Κατάσταση</span>
-                  <span></span>
-                </div>
-                {bookings.map(b => (
-                  <div key={b.id} className="grid grid-cols-7 px-4 py-3 text-sm border-b border-gray-50 items-center">
-                    <span>{b.slot_date || '—'}</span>
-                    <span>{b.slot_start_time?.slice(0, 5) || '—'}</span>
-                    <span>{b.services?.name || '—'}</span>
-                    <span>{b.profiles?.full_name || b.customer_name || 'Πελάτης'}</span>
-                    <span>€{Number(b.total_amount || 0).toFixed(0)}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-md w-fit ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
-                    <span>
-                      {(b.status === 'pending' || b.status === 'confirmed') && (
-                        <button onClick={() => cancelBooking(b.id)} className="text-xs text-red-500">Ακύρωση</button>
-                      )}
-                    </span>
+          {activeTab === 'overview' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { label: 'Έσοδα μήνα', value: `€${monthlyRevenue.toFixed(0)}` },
+                  { label: 'Κρατήσεις μήνα', value: monthlyBookings.length },
+                  { label: 'Μέση βαθμολογία', value: avgRating.toFixed(1) },
+                  { label: 'Ενεργές υπηρεσίες', value: services.filter(s => s.is_active).length },
+                ].map(s => (
+                  <div key={s.label} className="border border-gray-100 rounded-xl p-4">
+                    <p className="text-xs text-gray-400">{s.label}</p>
+                    <p className="text-xl font-semibold text-gray-900">{s.value}</p>
                   </div>
                 ))}
-                {bookings.length === 0 && <p className="text-xs text-gray-400 px-4 py-6">Δεν υπάρχουν κρατήσεις ακόμα.</p>}
               </div>
-            )}
 
-            {activeTab === 'services' && (
-              <div className="space-y-3">
-                <p className="text-xs text-gray-400 px-1">Επίλεξε ποιες πρόσθετες υπηρεσίες προσφέρεις στο πρατήριό σου.</p>
-                {services.map(service => (
-                  <div key={service.id} className="border border-gray-100 rounded-xl p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-gray-900">{service.service_name}</p>
-                      <p className="text-xs text-gray-400">€{service.price}</p>
+              <div className="border border-gray-100 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-50">
+                  <p className="text-sm font-medium text-gray-900">Πρόσφατες κρατήσεις</p>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {bookings.slice(0, 5).map(b => (
+                    <div key={b.id} className="px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-900">{b.slot_date} · {b.services?.name || '—'}</p>
+                        <p className="text-xs text-gray-400">{b.profiles?.full_name || b.customer_name || 'Πελάτης'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
+                      </div>
                     </div>
+                  ))}
+                  {bookings.length === 0 && <p className="text-xs text-gray-400 px-4 py-6">Δεν υπάρχουν κρατήσεις ακόμα.</p>}
+                </div>
+              </div>
+
+              <div className="border border-gray-100 rounded-xl p-4">
+                <p className="text-sm font-medium text-gray-900 mb-3">Έσοδα 6 μηνών</p>
+                <div className="h-48">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={monthlyRevenueData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} />
+                      <Tooltip />
+                      <Bar dataKey="revenue" fill="#111827" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'bookings' && (
+            <div className="space-y-2">
+              {bookings.map(b => (
+                <div key={b.id} className="border border-gray-100 rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{b.profiles?.full_name || b.customer_name || 'Πελάτης'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{b.services?.name || '—'} · {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
+                      <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
+                      {(b.status === 'pending' || b.status === 'confirmed') && (
+                        <button onClick={() => cancelBooking(b.id)} className="block text-xs text-red-500 mt-1">Ακύρωση</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {bookings.length === 0 && <p className="text-xs text-gray-400 py-6">Δεν υπάρχουν κρατήσεις ακόμα.</p>}
+            </div>
+          )}
+
+          {activeTab === 'services' && (
+            <div className="space-y-3">
+              <p className="text-xs text-gray-400">Επίλεξε ποιες πρόσθετες υπηρεσίες προσφέρεις.</p>
+              {services.map(service => (
+                <div key={service.id} className="border border-gray-100 rounded-xl p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-900">{service.service_name}</p>
+                    <p className="text-xs text-gray-400">€{service.price}</p>
+                  </div>
+                  <button
+                    onClick={() => toggleAddon(service)}
+                    className={`text-xs rounded-xl px-4 py-2 transition-all ${service.is_active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}
+                  >
+                    {service.is_active ? '✓ Ενεργή' : 'Ανενεργή'}
+                  </button>
+                </div>
+              ))}
+              {services.length === 0 && <p className="text-xs text-gray-400">Δεν υπάρχουν διαθέσιμες υπηρεσίες.</p>}
+            </div>
+          )}
+
+          {activeTab === 'hours' && (
+            <div className="space-y-3">
+              {hours.map((row, idx) => (
+                <div key={row.day_of_week} className="border border-gray-100 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-medium text-gray-900">{DAYS[idx]}</p>
                     <button
-                      onClick={() => toggleAddon(service)}
-                      className={`text-xs rounded-xl px-4 py-2 transition-all ${service.is_active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}
+                      onClick={() => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, is_open: !h.is_open } : h))}
+                      className={`text-xs rounded-lg px-3 py-1.5 ${row.is_open ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}
                     >
-                      {service.is_active ? '✓ Ενεργή' : 'Ανενεργή'}
+                      {row.is_open ? 'Ανοιχτό' : 'Κλειστό'}
                     </button>
                   </div>
-                ))}
-                {services.length === 0 && <p className="text-xs text-gray-400">Δεν υπάρχουν διαθέσιμες υπηρεσίες.</p>}
-              </div>
-            )}
-
-            {activeTab === 'hours' && (
-              <div className="border border-gray-100 rounded-xl p-4">
-                <div className="space-y-2">
-                  {hours.map((row, idx) => (
-                    <div key={row.day_of_week} className="grid grid-cols-4 gap-2 items-center">
-                      <p className="text-sm text-gray-900">{DAYS[idx]}</p>
-                      <button
-                        onClick={() => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, is_open: !h.is_open } : h))}
-                        className={`text-xs rounded-lg px-3 py-2 ${row.is_open ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}
-                      >
-                        {row.is_open ? 'Ανοιχτό' : 'Κλειστό'}
-                      </button>
+                  {row.is_open && (
+                    <div className="flex gap-2">
                       <select value={row.open_time}
                         onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, open_time: e.target.value } : h))}
-                        className="border border-gray-200 rounded-lg px-2 py-2 text-sm">
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                         {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
                       </select>
+                      <span className="text-gray-400 flex items-center text-xs">έως</span>
                       <select value={row.close_time}
                         onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, close_time: e.target.value } : h))}
-                        className="border border-gray-200 rounded-lg px-2 py-2 text-sm">
+                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
                         {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
                       </select>
                     </div>
-                  ))}
+                  )}
                 </div>
-                <button onClick={saveHours} disabled={savingHours}
-                  className="mt-4 bg-gray-900 text-white text-sm rounded-xl px-4 py-2 disabled:opacity-40">
-                  {savingHours ? 'Αποθήκευση...' : 'Αποθήκευση'}
-                </button>
-              </div>
-            )}
+              ))}
+              <button onClick={saveHours} disabled={savingHours}
+                className="w-full bg-gray-900 text-white text-sm rounded-xl px-4 py-3 disabled:opacity-40">
+                {savingHours ? 'Αποθήκευση...' : 'Αποθήκευση ωραρίου'}
+              </button>
+            </div>
+          )}
 
-            {activeTab === 'staff' && (
-              <div className="space-y-3">
-                <div className="border border-gray-100 rounded-xl overflow-hidden">
-                  {staff.map(member => (
-                    <div key={member.id} className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-900">{member.full_name}</p>
-                        <p className="text-xs text-gray-400">{member.role} · {member.phone}</p>
-                      </div>
-                      <button onClick={() => deleteStaff(member.id)} className="text-xs text-red-500">Διαγραφή</button>
-                    </div>
-                  ))}
-                  {!staff.length && <p className="text-xs text-gray-400 px-4 py-6">Δεν υπάρχει προσωπικό.</p>}
+          {activeTab === 'staff' && (
+            <div className="space-y-3">
+              {staff.map(member => (
+                <div key={member.id} className="border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-900">{member.full_name}</p>
+                    <p className="text-xs text-gray-400">{member.role} · {member.phone}</p>
+                  </div>
+                  <button onClick={() => deleteStaff(member.id)} className="text-xs text-red-500">Διαγραφή</button>
                 </div>
+              ))}
+              {!staff.length && <p className="text-xs text-gray-400">Δεν υπάρχει προσωπικό.</p>}
 
-                <div className="border border-gray-100 rounded-xl p-4 grid grid-cols-4 gap-2">
-                  <input value={newStaffName} onChange={e => setNewStaffName(e.target.value)}
-                    placeholder="Όνομα" className="border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                  <select value={newStaffRole} onChange={e => setNewStaffRole(e.target.value)}
-                    className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white">
-                    <option value="Τεχνικός">Τεχνικός</option>
-                    <option value="Ταμίας">Ταμίας</option>
-                    <option value="Διευθυντής">Διευθυντής</option>
-                  </select>
-                  <input value={newStaffPhone} onChange={e => setNewStaffPhone(e.target.value)}
-                    placeholder="Τηλέφωνο" className="border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                  <button onClick={addStaff}
-                    className="bg-gray-900 text-white text-sm rounded-xl px-3 py-2">Προσθήκη</button>
-                </div>
+              <div className="border border-gray-100 rounded-xl p-4 space-y-2">
+                <p className="text-xs font-medium text-gray-700">Νέο μέλος</p>
+                <input value={newStaffName} onChange={e => setNewStaffName(e.target.value)}
+                  placeholder="Όνομα" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+                <select value={newStaffRole} onChange={e => setNewStaffRole(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white">
+                  <option value="Τεχνικός">Τεχνικός</option>
+                  <option value="Ταμίας">Ταμίας</option>
+                  <option value="Διευθυντής">Διευθυντής</option>
+                </select>
+                <input value={newStaffPhone} onChange={e => setNewStaffPhone(e.target.value)}
+                  placeholder="Τηλέφωνο" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+                <button onClick={addStaff}
+                  className="w-full bg-gray-900 text-white text-sm rounded-xl px-3 py-2.5">Προσθήκη</button>
               </div>
-            )}
+            </div>
+          )}
 
-            {activeTab === 'feedback' && (
-              <div className="space-y-3">
-                <div className="border border-gray-100 rounded-xl p-4">
-                  <p className="text-sm text-gray-400">Μέση βαθμολογία</p>
-                  <p className="text-2xl font-semibold text-gray-900">{avgRating.toFixed(1)}</p>
-                </div>
-                <div className="border border-gray-100 rounded-xl overflow-hidden">
-                  {reviews.map(review => (
-                    <div key={review.id} className="px-4 py-3 border-b border-gray-50">
-                      <p className="text-amber-500 text-sm">{'★'.repeat(Number(review.rating || 0))}{'☆'.repeat(5 - Number(review.rating || 0))}</p>
-                      <p className="text-sm text-gray-900 mt-1">{review.comment || '—'}</p>
-                      <p className="text-xs text-gray-400 mt-1">{new Date(review.created_at).toLocaleDateString('el-GR')}</p>
-                    </div>
-                  ))}
-                  {!reviews.length && <p className="text-xs text-gray-400 px-4 py-6">Δεν υπάρχουν αξιολογήσεις ακόμα.</p>}
-                </div>
+          {activeTab === 'feedback' && (
+            <div className="space-y-3">
+              <div className="border border-gray-100 rounded-xl p-4">
+                <p className="text-xs text-gray-400">Μέση βαθμολογία</p>
+                <p className="text-2xl font-semibold text-gray-900">{avgRating.toFixed(1)}</p>
               </div>
-            )}
-          </section>
+              {reviews.map(review => (
+                <div key={review.id} className="border border-gray-100 rounded-xl px-4 py-3">
+                  <p className="text-amber-500 text-sm">{'★'.repeat(Number(review.rating || 0))}{'☆'.repeat(5 - Number(review.rating || 0))}</p>
+                  <p className="text-sm text-gray-900 mt-1">{review.comment || '—'}</p>
+                  <p className="text-xs text-gray-400 mt-1">{new Date(review.created_at).toLocaleDateString('el-GR')}</p>
+                </div>
+              ))}
+              {!reviews.length && <p className="text-xs text-gray-400">Δεν υπάρχουν αξιολογήσεις ακόμα.</p>}
+            </div>
+          )}
+
         </div>
       </div>
     </main>
