@@ -210,25 +210,24 @@ export default function AdminPage() {
     fetchData()
   }
 
-  const updateApplication = async (id: string, status: 'approved' | 'rejected') => {
+  const updateApplication = async (id: string, status: 'approved' | 'rejected' | 'pre_approved') => {
     const supabase = createClient()
     await supabase.from('applications').update({ status }).eq('id', id)
 
-    if (status === 'approved') {
-      const app = applications.find(a => a.id === id)
-      if (app?.email) {
-        await fetch('/api/admin/invite-partner', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: app.email,
-            businessName: app.business_name,
-            city: app.city,
-            address: app.address || '',
-          }),
-        })
-      }
+    const app = applications.find(a => a.id === id)
+
+    if (status === 'pre_approved' && app?.email) {
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'partner_preapproval',
+          to: app.email,
+          businessName: app.business_name,
+        }),
+      })
     }
+
     fetchData()
   }
 
@@ -608,21 +607,27 @@ export default function AdminPage() {
                         <div className="flex flex-col gap-1 items-end shrink-0">
                           <span className={`text-xs px-2 py-0.5 rounded-md ${
                             app.status === 'approved' ? 'bg-green-50 text-green-600' :
-                            app.status === 'rejected' ? 'bg-red-50 text-red-500' : 'bg-amber-50 text-amber-600'
+                            app.status === 'rejected' ? 'bg-red-50 text-red-500' :
+                            app.status === 'pre_approved' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
                           }`}>
-                            {app.status === 'approved' ? 'Εγκρίθηκε' : app.status === 'rejected' ? 'Απορρίφθηκε' : 'Εκκρεμεί'}
+                            {app.status === 'approved' ? 'Εγκρίθηκε' :
+                              app.status === 'rejected' ? 'Απορρίφθηκε' :
+                              app.status === 'pre_approved' ? 'Προεγγραφή' : 'Εκκρεμεί'}
                           </span>
                           {app.status === 'pending' && (
                             <div className="flex gap-1 mt-1">
-                              <button onClick={() => updateApplication(app.id, 'approved')}
-                                className="flex items-center gap-1 bg-green-50 text-green-600 text-xs px-2 py-1 rounded-lg">
-                                <Check size={10} /> Έγκριση
+                              <button onClick={() => updateApplication(app.id, 'pre_approved')}
+                                className="flex items-center gap-1 bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded-lg">
+                                <Check size={10} /> Προεγγραφή
                               </button>
                               <button onClick={() => updateApplication(app.id, 'rejected')}
                                 className="flex items-center gap-1 bg-red-50 text-red-500 text-xs px-2 py-1 rounded-lg">
                                 <X size={10} /> Απόρριψη
                               </button>
                             </div>
+                          )}
+                          {app.status === 'pre_approved' && (
+                            <div className="text-xs text-blue-600 mt-1">Αναμονή εγγράφων</div>
                           )}
                         </div>
                       </div>
