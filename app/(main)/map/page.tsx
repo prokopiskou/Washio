@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, X, ChevronRight, Clock, Calendar, ChevronDown } from 'lucide-react'
+import { ArrowLeft, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 declare global {
@@ -37,14 +37,16 @@ type Slot = {
 type Timing = 'now' | 'later'
 
 const BUFFER_MINUTES = 15
+const TIGHT_SLOT_THRESHOLD = 20 // λεπτά — αν το slot είναι εντός 20 λεπτών → προειδοποίηση
 
 function generateSlots(openTime: string, closeTime: string): string[] {
   const slots: string[] = []
   const [openH, openM] = openTime.split(':').map(Number)
   const [closeH, closeM] = closeTime.split(':').map(Number)
   let current = openH * 60 + openM
-  const end = closeH * 60 + closeM
-  while (current < end) {
+  const end = closeH * 60 + closeTime.split(':').map(Number)[1]
+  const endMinutes = closeH * 60 + closeM
+  while (current < endMinutes) {
     const h = Math.floor(current / 60).toString().padStart(2, '0')
     const m = (current % 60).toString().padStart(2, '0')
     slots.push(`${h}:${m}`)
@@ -85,6 +87,14 @@ function getTimeSlots() {
   return slots
 }
 
+function getMinutesUntilSlot(slotTime: string): number {
+  const now = new Date()
+  const [h, m] = slotTime.split(':').map(Number)
+  const slotMinutes = h * 60 + m
+  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  return slotMinutes - nowMinutes
+}
+
 function MapPageContent() {
   const router = useRouter()
   const params = useSearchParams()
@@ -108,6 +118,9 @@ function MapPageContent() {
   const [search, setSearch] = useState('')
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showTightSlotModal, setShowTightSlotModal] = useState(false)
+  const [pendingBookingUrl, setPendingBookingUrl] = useState<string | null>(null)
+  const [minutesUntilSlot, setMinutesUntilSlot] = useState(0)
 
   const [timing, setTiming] = useState<Timing>('now')
   const [showSchedule, setShowSchedule] = useState(false)
@@ -152,11 +165,9 @@ function MapPageContent() {
         const booked = bookingsMap[loc.id] || new Set()
 
         if (timing === 'later' && checkTime) {
-          // Προγραμματισμός: ελέγχουμε συγκεκριμένη ώρα
           hasAvailability = allSlots.includes(checkTime) && !booked.has(checkTime)
           nextSlot = checkTime
         } else {
-          // Τώρα: επόμενο διαθέσιμο με 15 λεπτά buffer ΚΑΙ εντός 1 ώρας
           const nowMinutes = now.getHours() * 60 + now.getMinutes()
           const maxMinutes = nowMinutes + 60
 
@@ -219,7 +230,6 @@ function MapPageContent() {
     }
   }, [timing, selectedDate, selectedTime])
 
-  // Load services
   useEffect(() => {
     if (!selectedLocation) return
     const loadServices = async () => {
@@ -231,7 +241,6 @@ function MapPageContent() {
     loadServices()
   }, [selectedLocation])
 
-  // Load slots
   useEffect(() => {
     if (!selectedLocation) return
     const loadSlots = async () => {
@@ -259,19 +268,16 @@ function MapPageContent() {
         const [h, m] = time.split(':').map(Number)
         const slotMinutes = h * 60 + m
         const nowMinutes = now.getHours() * 60 + now.getMinutes()
-        // Buffer 15 λεπτών για σήμερα
         const isPast = isToday && slotMinutes < nowMinutes + BUFFER_MINUTES
         return { time, available: !bookedTimes.has(time) && !isPast }
       })
 
       setSlots(computedSlots)
 
-      // Προεπιλογή slot
       if (timing === 'later' && selectedTime) {
         const isAvailable = computedSlots.find(s => s.time === selectedTime && s.available)
         if (isAvailable) setSelectedSlot(selectedTime)
       } else if (timing === 'now') {
-        // Προεπιλογή: το επόμενο διαθέσιμο
         const next = computedSlots.find(s => s.available)
         if (next) setSelectedSlot(next.time)
       }
@@ -286,8 +292,6 @@ function MapPageContent() {
     mapInstanceRef.current?.panTo({ lat: loc.lat, lng: loc.lng })
   }
 
-  // Visible slots στο panel: για "later" → η επιλεγμένη + 2 πριν + 2 μετά
-  // για "now" → όλα τα διαθέσιμα
   const visibleSlots = (() => {
     const available = slots.filter(s => s.available)
     if (timing === 'now') return available
@@ -301,6 +305,25 @@ function MapPageContent() {
     }
     return available
   })()
+
+  const handleBookingAttempt = () => {
+    if (!canBook || !selectedLocation) return
+
+    const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${activeDate}`
+
+    // Έλεγχος αν το slot είναι πολύ κοντά (εντός 20 λεπτών) — μόνο για σήμερα
+    if (timing === 'now' && activeDate === getTodayValue()) {
+      const minutes = getMinutesUntilSlot(selectedSlot!)
+      if (minutes <= TIGHT_SLOT_THRESHOLD) {
+        setMinutesUntilSlot(minutes)
+        setPendingBookingUrl(bookingUrl)
+        setShowTightSlotModal(true)
+        return
+      }
+    }
+
+    router.push(bookingUrl)
+  }
 
   const updateMarkers = useCallback(() => {
     if (!mapLoaded || !mapInstanceRef.current) return
@@ -399,6 +422,10 @@ function MapPageContent() {
     ? `${new Date(selectedDate).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · ${selectedTime}`
     : null
 
+  const mapsUrl = selectedLocation
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedLocation.address}, ${selectedLocation.city}`)}`
+    : '#'
+
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md h-screen relative overflow-hidden">
@@ -463,15 +490,12 @@ function MapPageContent() {
                   <button key={loc.id} onClick={() => selectLocation(loc)}
                     className="min-w-[200px] bg-white rounded-2xl p-4 shrink-0 text-left shadow-lg border border-gray-100">
                     <p className="text-sm font-semibold text-gray-900 mb-1">{loc.name}</p>
-                    {/* Απόσταση μόνο αν έχουμε location */}
                     {loc.distance !== undefined && (
                       <p className="text-xs text-gray-400 mb-1">{formatDistance(loc.distance)}</p>
                     )}
-                    {/* "Διαθέσιμο από" μόνο στο Τώρα mode */}
                     {timing === 'now' && loc.nextSlot && (
                       <p className="text-xs text-green-600 font-medium">Διαθέσιμο από {loc.nextSlot}</p>
                     )}
-                    {/* Ημερομηνία στο Προγραμματισμός mode */}
                     {timing === 'later' && (
                       <p className="text-xs text-blue-600 font-medium">
                         {new Date(selectedDate).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · {selectedTime}
@@ -488,10 +512,8 @@ function MapPageContent() {
               <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 text-center">
                 <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν διαθέσιμα σημεία</p>
                 <p className="text-xs text-gray-400 mb-4">Δοκίμασε να προγραμματίσεις για αργότερα</p>
-                <button
-                  onClick={() => setShowSchedule(true)}
-                  className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-2"
-                >
+                <button onClick={() => setShowSchedule(true)}
+                  className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-2">
                   <Calendar size={14} />
                   Προγραμματισμός
                 </button>
@@ -515,7 +537,6 @@ function MapPageContent() {
                 </button>
               </div>
 
-              {/* Services */}
               <div className="flex gap-2 mb-3">
                 {locationServices.map(s => (
                   <button key={s.id} onClick={() => setSelectedService(s.id)}
@@ -528,7 +549,6 @@ function MapPageContent() {
                 ))}
               </div>
 
-              {/* Slots */}
               {selectedService && (
                 <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-1">
                   {visibleSlots.length === 0 ? (
@@ -551,7 +571,7 @@ function MapPageContent() {
               <div className="flex gap-2">
                 {canBook ? (
                   <button
-                    onClick={() => router.push(`/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${activeDate}`)}
+                    onClick={handleBookingAttempt}
                     className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-1">
                     Κράτηση — €{service?.price}
                     <ChevronRight size={14} />
@@ -571,6 +591,61 @@ function MapPageContent() {
         </div>
       </div>
 
+      {/* Tight Slot Modal */}
+      {showTightSlotModal && selectedLocation && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowTightSlotModal(false)} />
+          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10">
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-9 h-9 bg-amber-50 rounded-full flex items-center justify-center shrink-0">
+                <AlertTriangle size={18} className="text-amber-500" />
+              </div>
+              <p className="text-base font-semibold text-gray-900">
+                Το ραντεβού είναι σε {minutesUntilSlot} λεπτά
+              </p>
+            </div>
+
+            {/* Tappable address → Google Maps */}
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3 mb-4 active:bg-gray-100 transition-colors"
+            >
+              <MapPin size={14} className="text-gray-400 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-gray-900">{selectedLocation.name}</p>
+                <p className="text-xs text-gray-400">{selectedLocation.address}, {selectedLocation.city}</p>
+              </div>
+              <ChevronRight size={14} className="text-gray-300 ml-auto shrink-0" />
+            </a>
+
+            <p className="text-sm text-gray-500 mb-6 text-center">
+              Αν καθυστερήσεις, το πλύσιμο ενδέχεται να ακυρωθεί από το σημείο.
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowTightSlotModal(false)}
+                className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl">
+                Επίλεξε άλλη ώρα
+              </button>
+              <button
+                onClick={() => {
+                  setShowTightSlotModal(false)
+                  if (pendingBookingUrl) router.push(pendingBookingUrl)
+                }}
+                className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl">
+                Κατανοώ, συνέχεια
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Bottom Sheet */}
       {showSchedule && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowSchedule(false)} />
