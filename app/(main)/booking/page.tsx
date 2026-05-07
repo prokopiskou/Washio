@@ -254,6 +254,8 @@ function BookingPageContent() {
         slotStartTime: slotTime,
         carPlate: plate,
         userId: session?.user?.id || '',
+        userEmail: session?.user?.email || '',
+        serviceName: service.name,
       }),
     })
     const { clientSecret: secret } = await res.json()

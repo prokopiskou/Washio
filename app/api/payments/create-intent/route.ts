@@ -5,20 +5,25 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 export async function POST(req: NextRequest) {
   try {
-    const { amount, serviceId, locationId, slotId, slotDate, slotStartTime, carPlate, userId } = await req.json()
+    const { 
+      amount, serviceId, locationId, slotId, slotDate, 
+      slotStartTime, carPlate, userId, userEmail, serviceName 
+    } = await req.json()
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
       currency: 'eur',
       payment_method_types: ['card'],
       metadata: {
-        serviceId,
-        locationId,
+        serviceId: serviceId || '',
+        locationId: locationId || '',
         slotId: slotId || '',
-        slotDate,
-        slotStartTime,
+        slotDate: slotDate || '',
+        slotStartTime: slotStartTime || '',
         carPlate: carPlate || '',
         userId: userId || '',
+        userEmail: userEmail || '',
+        serviceName: serviceName || '',
         amount: amount.toString(),
       },
     })
