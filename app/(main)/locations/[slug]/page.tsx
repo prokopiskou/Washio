@@ -160,6 +160,7 @@ export default function LocationPage() {
       .eq('location_id', locationId)
       .eq('exception_date', dateStr)
       .maybeSingle()
+    console.log('Exception check for', dateStr, ':', exceptionData)
 
     let allTimes: string[] = []
 
