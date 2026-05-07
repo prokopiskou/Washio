@@ -30,6 +30,7 @@ export default function RootLayout({
       <head>
         <meta name="theme-color" content="#0A0A0A" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Washio" />
         <link rel="apple-touch-icon" href="/washio-logo.png" />
