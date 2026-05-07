@@ -154,8 +154,7 @@ export default function DashboardPage() {
   const [newStaffPhone, setNewStaffPhone] = useState('')
   const [newBookingsCount, setNewBookingsCount] = useState(0)
   const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [filterBookingDate, setFilterBookingDate] = useState<string>('')
-  const [filterSlotDate, setFilterSlotDate] = useState<string>('')
+  const [sortBy, setSortBy] = useState<'created_at' | 'slot_date'>('created_at')
   const [notifPermission, setNotifPermission] = useState<string>('default')
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
@@ -560,41 +559,50 @@ export default function DashboardPage() {
             <div className="space-y-3">
               {/* Filters */}
               <div className="flex gap-2 flex-wrap">
-                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                  className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none">
-                  <option value="all">Όλες</option>
-                  <option value="confirmed">Επιβεβαιωμένες</option>
-                  <option value="completed">Ολοκληρωμένες</option>
-                  <option value="cancelled">Ακυρωμένες</option>
-                  <option value="pending">Εκκρεμείς</option>
-                </select>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-gray-400">Κλείστηκε:</span>
-                  <input type="date" value={filterBookingDate}
-                    onChange={e => setFilterBookingDate(e.target.value)}
-                    className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none" />
+                {/* Status filter */}
+                <div className="flex gap-1">
+                  {[
+                    { value: 'all', label: 'Όλες' },
+                    { value: 'confirmed', label: 'Επιβεβαιωμένες' },
+                    { value: 'completed', label: 'Ολοκληρωμένες' },
+                    { value: 'cancelled', label: 'Ακυρωμένες' },
+                    { value: 'pending', label: 'Εκκρεμείς' },
+                  ].map(opt => (
+                    <button key={opt.value} onClick={() => setFilterStatus(opt.value)}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                        filterStatus === opt.value ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-gray-400">Υπηρεσία:</span>
-                  <input type="date" value={filterSlotDate}
-                    onChange={e => setFilterSlotDate(e.target.value)}
-                    className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none" />
-                </div>
-                {(filterStatus !== 'all' || filterBookingDate || filterSlotDate) && (
-                  <button onClick={() => { setFilterStatus('all'); setFilterBookingDate(''); setFilterSlotDate('') }}
-                    className="text-xs text-red-500 px-2">
-                    Καθαρισμός
+
+                {/* Sort */}
+                <div className="flex items-center gap-1.5 ml-auto">
+                  <span className="text-xs text-gray-400">Ταξινόμηση:</span>
+                  <button onClick={() => setSortBy('created_at')}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                      sortBy === 'created_at' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                    Κλείσιμο
                   </button>
-                )}
+                  <button onClick={() => setSortBy('slot_date')}
+                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                      sortBy === 'slot_date' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                    Πλύσιμο
+                  </button>
+                </div>
               </div>
 
-              {/* Filtered list */}
-              {bookings
-                .filter(b => {
-                  if (filterStatus !== 'all' && b.status !== filterStatus) return false
-                  if (filterBookingDate && b.created_at?.slice(0, 10) !== filterBookingDate) return false
-                  if (filterSlotDate && b.slot_date !== filterSlotDate) return false
-                  return true
+              {/* List */}
+              {[...bookings]
+                .filter(b => filterStatus === 'all' || b.status === filterStatus)
+                .sort((a, b) => {
+                  if (sortBy === 'created_at') {
+                    return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+                  }
+                  return new Date(b.slot_date || '').getTime() - new Date(a.slot_date || '').getTime()
                 })
                 .map(b => (
                   <div key={b.id} className="border border-gray-100 rounded-xl p-4">
@@ -607,7 +615,7 @@ export default function DashboardPage() {
                           {b.profiles?.phone || b.profiles?.email || '—'}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          Υπηρεσία: {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}
+                          🚿 {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}
                         </p>
                         <p className="text-xs text-gray-300 mt-0.5">
                           Κλείστηκε: {b.created_at ? new Date(b.created_at).toLocaleDateString('el-GR') : '—'}
