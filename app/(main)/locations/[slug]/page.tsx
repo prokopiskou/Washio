@@ -17,6 +17,7 @@ type Service = {
   name: string
   description: string
   price: number
+  price_moto?: number
   duration_minutes: number
 }
 
@@ -86,6 +87,7 @@ export default function LocationPage() {
   const [selectedDate, setSelectedDate] = useState(today)
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
+  const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'Μοτοσικλέτα'>('ΙΧ')
 
   useEffect(() => {
     const loadData = async () => {
@@ -111,7 +113,7 @@ export default function LocationPage() {
       const [servicesRes, hoursRes] = await Promise.all([
         supabase
           .from('services')
-          .select('id, name, description, price, duration_minutes')
+          .select('id, name, description, price, price_moto, duration_minutes')
           .eq('location_id', locationData.id)
           .eq('is_active', true)
           .order('sort_order', { ascending: true }),
@@ -285,6 +287,19 @@ export default function LocationPage() {
         {/* Services */}
         <section className="px-5 py-4 border-b border-gray-100">
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Υπηρεσία</p>
+
+          {/* Vehicle type selector */}
+          <div className="flex gap-2 mb-3">
+            {(['ΙΧ', 'Μοτοσικλέτα'] as const).map(type => (
+              <button key={type} onClick={() => setVehicleType(type)}
+                className={`px-4 py-2 rounded-xl text-xs font-medium border transition-all ${
+                  vehicleType === type ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'
+                }`}>
+                {type === 'ΙΧ' ? '🚗 ΙΧ' : '🏍 Μοτο'}
+              </button>
+            ))}
+          </div>
+
           <div className="flex flex-col gap-2">
             {services.map(s => (
               <button
@@ -308,7 +323,7 @@ export default function LocationPage() {
                 </div>
                 <div className="text-right shrink-0 ml-4">
                   <p className={`text-sm font-semibold ${selectedServiceId === s.id ? 'text-white' : 'text-gray-900'}`}>
-                    €{s.price}
+                    €{vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto : s.price}
                   </p>
                   {selectedServiceId === s.id && (
                     <Check size={14} className="text-white mt-1 ml-auto" />
@@ -392,10 +407,10 @@ export default function LocationPage() {
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
           {canBook ? (
             <button
-              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${selectedDate.toISOString().split('T')[0]}`)}
+              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${selectedDate.toISOString().split('T')[0]}&vehicleType=${encodeURIComponent(vehicleType)}`)}
               className="w-full bg-gray-900 text-white text-sm font-medium py-4 rounded-xl"
             >
-              Κράτηση — €{service?.price} · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
+              Κράτηση — €{vehicleType === 'Μοτοσικλέτα' && service?.price_moto ? service.price_moto : service?.price} · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
             </button>
           ) : (
             <div className="w-full bg-gray-100 text-gray-400 text-sm font-medium py-4 rounded-xl flex items-center justify-center">

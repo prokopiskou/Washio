@@ -25,6 +25,7 @@ type DashboardService = {
   service_name: string
   price: number
   price_override?: number
+  price_moto?: number
   is_active: boolean
 }
 
@@ -123,12 +124,13 @@ export default function DashboardPage() {
       const locationId = ownerLocation.id
       locationIdRef.current = locationId
 
-      const [bookingsRes, addonsRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
+      const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
         supabase.from('bookings')
           .select('id, slot_date, slot_start_time, total_amount, status, customer_name, profiles(full_name), services(name)')
           .eq('location_id', locationId)
           .order('slot_date', { ascending: false }),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
+        supabase.from('services').select('id, price_moto').eq('location_id', locationId),
         supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
         supabase.from('location_hours').select('id, day_of_week, is_closed, open_time, close_time').eq('location_id', locationId).order('day_of_week', { ascending: true }),
         supabase.from('staff').select('id, full_name, role, phone').eq('location_id', locationId).order('created_at', { ascending: false }),
@@ -147,6 +149,7 @@ export default function DashboardPage() {
         service_name: a.name,
         price: a.price,
         price_override: locationAddonsMap[a.id]?.price_override ?? undefined,
+        price_moto: (servicesRes.data as any[]).find((s: any) => s.id === a.id)?.price_moto ?? undefined,
         is_active: activeIds.has(a.id),
       })))
 
@@ -484,12 +487,39 @@ export default function DashboardPage() {
                     </button>
                   </div>
                   {service.is_active && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-400">Τιμή:</span>
-                      <input type="number" defaultValue={service.price_override ?? ''} placeholder="π.χ. 25"
-                        onBlur={async e => { const val = parseFloat(e.target.value); if (isNaN(val)) return; await updatePriceOverride(service, val) }}
-                        className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400" />
-                      <span className="text-xs text-gray-400">€</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 w-20">ΙΧ:</span>
+                        <input
+                          type="number"
+                          defaultValue={service.price_override ?? ''}
+                          placeholder="π.χ. 10"
+                          onBlur={async e => {
+                            const val = parseFloat(e.target.value)
+                            if (isNaN(val)) return
+                            await updatePriceOverride(service, val)
+                          }}
+                          className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400"
+                        />
+                        <span className="text-xs text-gray-400">€</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 w-20">Μοτοσικλέτα:</span>
+                        <input
+                          type="number"
+                          defaultValue={service.price_moto ?? ''}
+                          placeholder="π.χ. 6"
+                          onBlur={async e => {
+                            const val = parseFloat(e.target.value)
+                            if (isNaN(val)) return
+                            const supabase = createClient()
+                            await supabase.from('services').update({ price_moto: val }).eq('id', service.id)
+                            setServices(prev => prev.map(s => s.id === service.id ? { ...s, price_moto: val } : s))
+                          }}
+                          className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400"
+                        />
+                        <span className="text-xs text-gray-400">€</span>
+                      </div>
                     </div>
                   )}
                 </div>

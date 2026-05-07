@@ -27,6 +27,7 @@ type Service = {
   id: string
   name: string
   price: number
+  price_moto?: number
   duration_minutes: number
 }
 
@@ -119,12 +120,14 @@ function BookingPageContent() {
   const [clientSecret, setClientSecret] = useState('')
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('')
-  const [vehicleType, setVehicleType] = useState('ΙΧ')
+  const [vehicleFormType, setVehicleFormType] = useState('ΙΧ')
+  const [servicePrice, setServicePrice] = useState(0)
 
   const serviceId = params.get('service') || ''
   const locationId = params.get('location') || ''
   const dateStr = params.get('date') || new Date().toISOString().split('T')[0]
   const slotTime = decodeURIComponent(params.get('slot') || '09:00')
+  const vehicleType = decodeURIComponent(params.get('vehicleType') || 'ΙΧ')
 
   const date = new Date(dateStr)
   const formattedDate = `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
@@ -142,9 +145,15 @@ function BookingPageContent() {
 
       if (serviceId) {
         const { data: serviceData } = await supabase
-          .from('services').select('id, name, price, duration_minutes')
+          .from('services').select('id, name, price, price_moto, duration_minutes')
           .eq('id', serviceId).single()
-        if (serviceData) setService(serviceData)
+        if (serviceData) {
+          setService(serviceData)
+          const price = vehicleType === 'Μοτοσικλέτα' && serviceData.price_moto
+            ? serviceData.price_moto
+            : serviceData.price
+          setServicePrice(price)
+        }
       }
 
       if (locationId) {
@@ -185,7 +194,7 @@ function BookingPageContent() {
       if (vList.length > 0) {
         setSelectedVehicleId(vList[0].id)
         setPlate(vList[0].plate)
-        setVehicleType(vList[0].type || 'ΙΧ')
+        setVehicleFormType(vList[0].type || 'ΙΧ')
       } else {
         setSelectedVehicleId('new')
       }
@@ -200,7 +209,7 @@ function BookingPageContent() {
   }
 
   const addonTotal = addons.filter(a => selectedAddons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)
-  const total = (service?.price || 0) + addonTotal
+  const total = servicePrice + addonTotal
   const canProceed = phone.trim() && email.trim() && service && (
     selectedVehicleId !== 'new' ? true : plate.trim().length > 0
   )
@@ -217,7 +226,7 @@ function BookingPageContent() {
         await supabase.from('vehicles').insert({
           user_id: session?.user?.id,
           plate: plate.trim(),
-          type: vehicleType,
+          type: vehicleFormType,
         })
       }
     }
@@ -250,11 +259,11 @@ function BookingPageContent() {
     setSelectedVehicleId(value)
     if (value === 'new') {
       setPlate('')
-      setVehicleType('ΙΧ')
+      setVehicleFormType('ΙΧ')
     } else {
       const v = vehicles.find(v => v.id === value)
       setPlate(v?.plate || '')
-      setVehicleType(v?.type || 'ΙΧ')
+      setVehicleFormType(v?.type || 'ΙΧ')
     }
   }
 
@@ -282,7 +291,7 @@ function BookingPageContent() {
               <p className="text-xs font-medium text-gray-900">{location?.name || 'Σημείο'} · {service.name}</p>
               <p className="text-xs text-gray-400 mt-0.5">{formattedDate} · {slotTime}</p>
             </div>
-            <p className="text-sm font-semibold text-gray-900">€{service.price}</p>
+            <p className="text-sm font-semibold text-gray-900">€{servicePrice}</p>
           </div>
         </section>
 
@@ -315,9 +324,9 @@ function BookingPageContent() {
                   <button
                     key={type}
                     type="button"
-                    onClick={() => setVehicleType(type)}
+                    onClick={() => setVehicleFormType(type)}
                     className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                      vehicleType === type
+                      vehicleFormType === type
                         ? 'bg-gray-900 border-gray-900 text-white'
                         : 'bg-white border-gray-200 text-gray-600'
                     }`}
@@ -374,7 +383,7 @@ function BookingPageContent() {
         <section className="px-5 py-4 border-b border-gray-100">
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs text-gray-400">Βασική υπηρεσία</span>
-            <span className="text-xs text-gray-700">€{service.price}</span>
+            <span className="text-xs text-gray-700">€{servicePrice}</span>
           </div>
           {selectedAddons.length > 0 && (
             <div className="flex justify-between items-center mb-1">

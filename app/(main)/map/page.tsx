@@ -28,6 +28,7 @@ type Service = {
   id: string
   name: string
   price: number
+  price_moto?: number
 }
 
 type Slot = {
@@ -128,10 +129,12 @@ function MapPageContent() {
   const [selectedDate, setSelectedDate] = useState(getTodayValue())
   const [selectedTime, setSelectedTime] = useState('')
   const [showTimePicker, setShowTimePicker] = useState(false)
+  const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'Μοτοσικλέτα'>('ΙΧ')
   const timePickerRef = useRef<HTMLDivElement>(null)
 
   const activeDate = timing === 'now' ? getTodayValue() : selectedDate
   const service = locationServices.find(s => s.id === selectedService)
+  const selectedServicePrice = service ? (vehicleType === 'Μοτοσικλέτα' && service.price_moto ? service.price_moto : service.price) : undefined
   const canBook = selectedService && selectedSlot
 
   const loadLocations = useCallback(async (lat?: number, lng?: number) => {
@@ -235,7 +238,7 @@ function MapPageContent() {
     if (!selectedLocation) return
     const loadServices = async () => {
       const supabase = createClient()
-      const { data } = await supabase.from('services').select('id, name, price')
+      const { data } = await supabase.from('services').select('id, name, price, price_moto')
         .eq('location_id', selectedLocation.id).eq('is_active', true).order('sort_order', { ascending: true })
       setLocationServices((data as Service[]) || [])
     }
@@ -310,7 +313,7 @@ function MapPageContent() {
   const handleBookingAttempt = () => {
     if (!canBook || !selectedLocation) return
 
-    const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${activeDate}`
+    const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${activeDate}&vehicleType=${encodeURIComponent(vehicleType)}`
 
     // Έλεγχος αν το slot είναι πολύ κοντά (εντός 20 λεπτών) — μόνο για σήμερα
     if (timing === 'now' && activeDate === getTodayValue()) {
@@ -538,16 +541,32 @@ function MapPageContent() {
                 </button>
               </div>
 
+              {/* Vehicle type selector */}
               <div className="flex gap-2 mb-3">
-                {locationServices.map(s => (
-                  <button key={s.id} onClick={() => setSelectedService(s.id)}
-                    className={`flex-1 py-2.5 rounded-xl border text-center transition-all ${
-                      selectedService === s.id ? 'bg-gray-600 border-gray-600' : 'bg-white border-gray-200'
+                {(['ΙΧ', 'Μοτοσικλέτα'] as const).map(type => (
+                  <button key={type} onClick={() => setVehicleType(type)}
+                    className={`px-4 py-2 rounded-xl text-xs font-medium border transition-all ${
+                      vehicleType === type ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'
                     }`}>
-                    <p className={`text-xs font-medium ${selectedService === s.id ? 'text-white' : 'text-gray-900'}`}>{s.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">€{s.price}</p>
+                    {type === 'ΙΧ' ? '🚗 ΙΧ' : '🏍 Μοτο'}
                   </button>
                 ))}
+              </div>
+
+              {/* Services */}
+              <div className="flex gap-2 mb-3">
+                {locationServices.map(s => {
+                  const price = vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto : s.price
+                  return (
+                    <button key={s.id} onClick={() => setSelectedService(s.id)}
+                      className={`flex-1 py-2.5 rounded-xl border text-center transition-all ${
+                        selectedService === s.id ? 'bg-gray-600 border-gray-600' : 'bg-white border-gray-200'
+                      }`}>
+                      <p className={`text-xs font-medium ${selectedService === s.id ? 'text-white' : 'text-gray-900'}`}>{s.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">€{price}</p>
+                    </button>
+                  )
+                })}
               </div>
 
               {selectedService && (
@@ -574,7 +593,7 @@ function MapPageContent() {
                   <button
                     onClick={handleBookingAttempt}
                     className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-1">
-                    Κράτηση — €{service?.price}
+                    Κράτηση — €{selectedServicePrice}
                     <ChevronRight size={14} />
                   </button>
                 ) : (
