@@ -133,7 +133,15 @@ function MapPageContent() {
   const timePickerRef = useRef<HTMLDivElement>(null)
 
   const activeDate = timing === 'now' ? getTodayValue() : selectedDate
-  const service = locationServices.find(s => s.id === selectedService)
+
+  // Φιλτράρισμα υπηρεσιών ανά vehicle type
+  const visibleServices = locationServices.filter(s => {
+    if (vehicleType === 'ΙΧ') return s.name !== 'Πλύσιμο'
+    if (vehicleType === 'Μοτοσικλέτα') return s.name === 'Πλύσιμο'
+    return true
+  })
+
+  const service = visibleServices.find(s => s.id === selectedService)
   const selectedServicePrice = service ? (vehicleType === 'Μοτοσικλέτα' && service.price_moto ? service.price_moto : service.price) : undefined
   const canBook = selectedService && selectedSlot
 
@@ -555,7 +563,7 @@ function MapPageContent() {
 
               {/* Services */}
               <div className="flex gap-2 mb-3">
-                {locationServices.map(s => {
+                {visibleServices.map(s => {
                   const price = vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto : s.price
                   return (
                     <button key={s.id} onClick={() => setSelectedService(s.id)}

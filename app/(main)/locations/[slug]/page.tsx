@@ -218,7 +218,15 @@ export default function LocationPage() {
   }
 
   const dates = getDatesForMonth(viewYear, viewMonth)
-  const service = services.find(s => s.id === selectedServiceId)
+
+  // Φιλτράρισμα υπηρεσιών ανά vehicle type
+  const visibleServices = services.filter(s => {
+    if (vehicleType === 'ΙΧ') return s.name !== 'Πλύσιμο'
+    if (vehicleType === 'Μοτοσικλέτα') return s.name === 'Πλύσιμο'
+    return true
+  })
+
+  const service = visibleServices.find(s => s.id === selectedServiceId)
   const canBook = selectedServiceId && selectedSlot
 
   const nextMonth = () => {
@@ -301,7 +309,7 @@ export default function LocationPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            {services.map(s => (
+            {visibleServices.map(s => (
               <button
                 key={s.id}
                 onClick={() => setSelectedServiceId(s.id)}
