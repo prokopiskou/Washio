@@ -212,7 +212,13 @@ export default function AdminPage() {
 
   const updateApplication = async (id: string, status: 'approved' | 'rejected' | 'pre_approved') => {
     const supabase = createClient()
-    await supabase.from('applications').update({ status }).eq('id', id)
+    const { error } = await supabase.from('applications').update({ status }).eq('id', id)
+
+    if (error) {
+      console.error('Update error:', error)
+      alert('Σφάλμα: ' + error.message)
+      return
+    }
 
     const app = applications.find(a => a.id === id)
 
