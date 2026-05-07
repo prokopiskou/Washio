@@ -72,7 +72,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
       if (confirmError) {
         setError(confirmError.message || 'Η πληρωμή απέτυχε.')
       }
-    } catch (err) {
+    } catch {
       setError('Άγνωστο σφάλμα. Δοκίμασε ξανά.')
     } finally {
       setLoading(false)
@@ -111,6 +111,14 @@ function BookingPageContent() {
   const [service, setService] = useState<Service | null>(null)
   const [location, setLocation] = useState<Location | null>(null)
   const [addons, setAddons] = useState<Addon[]>([])
+  const [email, setEmail] = useState('')
+  const [plate, setPlate] = useState('')
+  const [phone, setPhone] = useState('')
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([])
+  const [showPayment, setShowPayment] = useState(false)
+  const [clientSecret, setClientSecret] = useState('')
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [selectedVehicleId, setSelectedVehicleId] = useState<string>('')
 
   const serviceId = params.get('service') || ''
   const locationId = params.get('location') || ''
@@ -119,17 +127,6 @@ function BookingPageContent() {
 
   const date = new Date(dateStr)
   const formattedDate = `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
-
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [email, setEmail] = useState('')
-  const [plate, setPlate] = useState('')
-  const [phone, setPhone] = useState('')
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([])
-  const [showPayment, setShowPayment] = useState(false)
-  const [clientSecret, setClientSecret] = useState('')
-  const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [selectedVehicleId, setSelectedVehicleId] = useState('new')
 
   useEffect(() => {
     const loadData = async () => {
@@ -144,19 +141,14 @@ function BookingPageContent() {
 
       if (serviceId) {
         const { data: serviceData } = await supabase
-          .from('services')
-          .select('id, name, price, duration_minutes')
-          .eq('id', serviceId)
-          .single()
+          .from('services').select('id, name, price, duration_minutes')
+          .eq('id', serviceId).single()
         if (serviceData) setService(serviceData)
       }
 
       if (locationId) {
         const { data: locationData } = await supabase
-          .from('locations')
-          .select('id, name')
-          .eq('id', locationId)
-          .single()
+          .from('locations').select('id, name').eq('id', locationId).single()
         if (locationData) setLocation(locationData)
 
         const { data: addonsData } = await supabase
@@ -171,45 +163,46 @@ function BookingPageContent() {
         })).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)))
       }
 
-      setSessionLoading(false)
-
+      // Email από session
       if (user.email) setEmail(user.email)
 
-      const fullName = (user.user_metadata?.full_name as string) || ''
-      if (fullName.trim()) {
-        const [first, ...lastParts] = fullName.trim().split(' ')
-        setFirstName(first || '')
-        setLastName(lastParts.join(' '))
+      // Τηλέφωνο από profile
+      const { data: profileData } = await supabase
+        .from('profiles').select('phone').eq('id', user.id).single()
+      if (profileData?.phone) setPhone(profileData.phone)
+      else if (user.user_metadata?.phone) setPhone(user.user_metadata.phone as string)
+
+      // Οχήματα
+      const { data: vehiclesData } = await supabase
+        .from('vehicles').select('id, plate, type')
+        .eq('user_id', user.id).order('created_at', { ascending: false })
+
+      const vList = (vehiclesData as Vehicle[]) || []
+      setVehicles(vList)
+
+      // Προεπιλογή πρώτου οχήματος
+      if (vList.length > 0) {
+        setSelectedVehicleId(vList[0].id)
+        setPlate(vList[0].plate)
+      } else {
+        setSelectedVehicleId('new')
       }
 
-      const userPhone = (user.user_metadata?.phone as string) || ''
-      if (userPhone) setPhone(userPhone)
-
-      const { data: vehiclesData } = await supabase
-        .from('vehicles')
-        .select('id, plate, type')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-
-      setVehicles((vehiclesData as Vehicle[]) || [])
+      setSessionLoading(false)
     }
-
     loadData()
   }, [])
 
   const toggleAddon = (id: string) => {
-    setSelectedAddons(prev =>
-      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
-    )
+    setSelectedAddons(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id])
   }
 
   const addonTotal = addons.filter(a => selectedAddons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)
   const total = (service?.price || 0) + addonTotal
-  const canProceed = firstName.trim() && lastName.trim() && email.trim() && plate.trim() && phone.trim() && service
+  const canProceed = plate.trim() && phone.trim() && email.trim() && service
 
   const handleProceedToPayment = async () => {
     if (!canProceed || !service) return
-
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
 
@@ -219,7 +212,7 @@ function BookingPageContent() {
       body: JSON.stringify({
         amount: total,
         serviceId: service.id,
-        locationId: locationId,
+        locationId,
         slotId: null,
         slotDate: dateStr,
         slotStartTime: slotTime,
@@ -236,26 +229,18 @@ function BookingPageContent() {
     setSelectedVehicleId(value)
     if (value === 'new') {
       setPlate('')
-      return
+    } else {
+      const v = vehicles.find(v => v.id === value)
+      setPlate(v?.plate || '')
     }
-    const selectedVehicle = vehicles.find(v => v.id === value)
-    setPlate(selectedVehicle?.plate || '')
   }
 
   if (sessionLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xs text-gray-400">Φόρτωση...</p>
-      </div>
-    )
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div>
   }
 
   if (!service) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xs text-gray-400">Δεν βρέθηκε υπηρεσία.</p>
-      </div>
-    )
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Δεν βρέθηκε υπηρεσία.</p></div>
   }
 
   return (
@@ -267,6 +252,7 @@ function BookingPageContent() {
           <span className="text-sm font-medium text-gray-900">Ολοκλήρωση κράτησης</span>
         </div>
 
+        {/* Booking summary */}
         <section className="px-5 py-4 border-b border-gray-100">
           <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
             <div>
@@ -277,35 +263,41 @@ function BookingPageContent() {
           </div>
         </section>
 
+        {/* Στοιχεία — μόνο όχημα + τηλέφωνο */}
         <section className="px-5 py-4 border-b border-gray-100">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Στοιχεία</p>
-          <div className="flex gap-2 mb-2">
-            <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Όνομα"
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
-            <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Επώνυμο"
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
-          </div>
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Στοιχεία οχήματος</p>
+
+          {/* Vehicle selector */}
           {vehicles.length > 0 && (
             <select value={selectedVehicleId} onChange={e => handleVehicleChange(e.target.value)}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400 mb-2">
-              <option value="new">Νέο όχημα</option>
-              {vehicles.map(vehicle => (
-                <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.plate} · {vehicle.type}
-                </option>
+              {vehicles.map(v => (
+                <option key={v.id} value={v.id}>{v.plate} · {v.type}</option>
               ))}
+              <option value="new">+ Άλλο όχημα</option>
             </select>
           )}
-          <div className="flex gap-2 mb-2">
-            <input type="text" value={plate} onChange={e => setPlate(e.target.value.toUpperCase())} placeholder="Πινακίδα"
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
-            <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Τηλέφωνο"
-              className="flex-1 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
-          </div>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email για επιβεβαίωση"
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
+
+          {/* Plate — εμφανίζεται πάντα */}
+          <input
+            type="text"
+            value={plate}
+            onChange={e => setPlate(e.target.value.toUpperCase())}
+            placeholder="Πινακίδα"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400 mb-2"
+          />
+
+          {/* Τηλέφωνο */}
+          <input
+            type="tel"
+            value={phone}
+            onChange={e => setPhone(e.target.value)}
+            placeholder="Τηλέφωνο"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+          />
         </section>
 
+        {/* Addons */}
         {addons.length > 0 && (
           <section className="px-5 py-4 border-b border-gray-100">
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Πρόσθετες υπηρεσίες</p>
@@ -329,6 +321,7 @@ function BookingPageContent() {
           </section>
         )}
 
+        {/* Σύνολο */}
         <section className="px-5 py-4 border-b border-gray-100">
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs text-gray-400">Βασική υπηρεσία</span>
@@ -344,8 +337,10 @@ function BookingPageContent() {
             <span className="text-sm font-semibold text-gray-900">Σύνολο</span>
             <span className="text-base font-bold text-gray-900">€{total}</span>
           </div>
+          <p className="text-xs text-gray-400 mt-2">Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.</p>
         </section>
 
+        {/* Payment */}
         {showPayment && clientSecret ? (
           <Elements stripe={stripePromise} options={{
             clientSecret,
@@ -365,7 +360,7 @@ function BookingPageContent() {
           <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
             {!canProceed ? (
               <div className="w-full bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-xl flex items-center justify-center">
-                Συμπλήρωσε τα στοιχεία σου
+                Συμπλήρωσε πινακίδα και τηλέφωνο
               </div>
             ) : (
               <button onClick={handleProceedToPayment}
