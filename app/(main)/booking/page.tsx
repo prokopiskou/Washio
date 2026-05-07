@@ -222,6 +222,11 @@ function BookingPageContent() {
       }
     }
 
+    // Αποθήκευση τηλεφώνου στο profile αν δεν υπάρχει
+    if (phone.trim() && session?.user?.id) {
+      await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', session.user.id)
+    }
+
     const res = await fetch('/api/payments/create-intent', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -325,13 +330,20 @@ function BookingPageContent() {
           )}
 
           {/* Τηλέφωνο */}
-          <input
-            type="tel"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            placeholder="Τηλέφωνο"
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400 mt-2"
-          />
+          <div className="relative mt-2">
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              placeholder="Τηλέφωνο"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+            />
+            {phone && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                ✓
+              </span>
+            )}
+          </div>
         </section>
 
         {/* Addons */}
