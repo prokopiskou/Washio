@@ -16,6 +16,8 @@ type Booking = {
   total_amount?: number
   status?: string
   service_id?: string
+  user_id?: string
+  profiles?: { full_name?: string; phone?: string; email?: string } | null
 }
 
 type DashboardService = {
@@ -187,7 +189,7 @@ export default function DashboardPage() {
 
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
         supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id')
+          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, profiles(full_name, phone, email)')
           .eq('location_id', locationId)
           .order('slot_date', { ascending: false }),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
@@ -242,7 +244,7 @@ export default function DashboardPage() {
 
       const interval = setInterval(async () => {
         const { data } = await supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id')
+          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, profiles(full_name, phone, email)')
           .eq('location_id', locationId).order('slot_date', { ascending: false })
         if (data) setBookings(data as Booking[])
       }, 30000)
@@ -436,7 +438,7 @@ export default function DashboardPage() {
                       <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                         <div>
                           <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · {'—'}</p>
-                          <p className="text-xs text-gray-400">{'Πελάτης'}</p>
+                          <p className="text-xs text-gray-400">{b.profiles?.full_name || 'Πελάτης'}</p>
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
                       </div>
@@ -454,7 +456,7 @@ export default function DashboardPage() {
                     <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                       <div>
                         <p className="text-sm text-gray-900">{b.slot_date} · {'—'}</p>
-                        <p className="text-xs text-gray-400">{'Πελάτης'}</p>
+                        <p className="text-xs text-gray-400">{b.profiles?.full_name || 'Πελάτης'}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
@@ -522,7 +524,8 @@ export default function DashboardPage() {
                 <div key={b.id} className="border border-gray-100 rounded-xl p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{'Πελάτης'}</p>
+                      <p className="text-sm font-medium text-gray-900">{b.profiles?.full_name || 'Πελάτης'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{b.profiles?.phone || '—'} · {b.profiles?.email || '—'}</p>
                       <p className="text-xs text-gray-400 mt-0.5">{'—'} · {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}</p>
                     </div>
                     <div className="text-right shrink-0">
