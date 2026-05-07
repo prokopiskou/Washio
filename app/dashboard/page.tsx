@@ -16,7 +16,7 @@ type Booking = {
   total_amount?: number
   status?: string
   customer_name?: string
-  services?: { name?: string } | null
+  service_id?: string
 }
 
 type DashboardService = {
@@ -188,7 +188,7 @@ export default function DashboardPage() {
 
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
         supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, customer_name, services(name)')
+          .select('id, slot_date, slot_start_time, total_amount, status, customer_name, service_id')
           .eq('location_id', locationId)
           .order('slot_date', { ascending: false }),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
@@ -243,7 +243,7 @@ export default function DashboardPage() {
 
       const interval = setInterval(async () => {
         const { data } = await supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, customer_name, services(name)')
+          .select('id, slot_date, slot_start_time, total_amount, status, customer_name, service_id')
           .eq('location_id', locationId).order('slot_date', { ascending: false })
         if (data) setBookings(data as Booking[])
       }, 30000)
@@ -436,7 +436,7 @@ export default function DashboardPage() {
                     {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => (
                       <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · {b.services?.name || '—'}</p>
+                          <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · {'—'}</p>
                           <p className="text-xs text-gray-400">{b.customer_name || 'Πελάτης'}</p>
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
@@ -454,7 +454,7 @@ export default function DashboardPage() {
                   {bookings.slice(0, 5).map(b => (
                     <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-900">{b.slot_date} · {b.services?.name || '—'}</p>
+                        <p className="text-sm text-gray-900">{b.slot_date} · {'—'}</p>
                         <p className="text-xs text-gray-400">{b.customer_name || 'Πελάτης'}</p>
                       </div>
                       <div className="text-right">
@@ -524,7 +524,7 @@ export default function DashboardPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <p className="text-sm font-medium text-gray-900">{b.customer_name || 'Πελάτης'}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{b.services?.name || '—'} · {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{'—'} · {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-semibold text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
