@@ -244,6 +244,36 @@ export default function Home() {
           </div>
         </section>
 
+        {/* Promo Banners */}
+        <section className="px-5 mt-4 mb-8">
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
+            Προσφορές & Νέα
+          </p>
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1">
+            <div className="min-w-[280px] h-32 bg-gradient-to-r from-blue-500 to-blue-700 rounded-2xl shrink-0 flex flex-col justify-between p-4">
+              <p className="text-white text-xs font-medium uppercase tracking-wider">Προσφορά</p>
+              <div>
+                <p className="text-white font-semibold text-sm">-20% σε όλες τις υπηρεσίες</p>
+                <p className="text-blue-200 text-xs mt-0.5">Ισχύει έως 30 Μαΐου</p>
+              </div>
+            </div>
+            <div className="min-w-[280px] h-32 bg-gradient-to-r from-gray-800 to-gray-900 rounded-2xl shrink-0 flex flex-col justify-between p-4">
+              <p className="text-gray-400 text-xs font-medium uppercase tracking-wider">Νέο</p>
+              <div>
+                <p className="text-white font-semibold text-sm">Νέο πρατήριο στη Βούλα</p>
+                <p className="text-gray-400 text-xs mt-0.5">Από 1 Ιουνίου διαθέσιμο</p>
+              </div>
+            </div>
+            <div className="min-w-[280px] h-32 bg-gradient-to-r from-emerald-500 to-emerald-700 rounded-2xl shrink-0 flex flex-col justify-between p-4">
+              <p className="text-white text-xs font-medium uppercase tracking-wider">Tip</p>
+              <div>
+                <p className="text-white font-semibold text-sm">Κλείσε 5 πλυσίματα</p>
+                <p className="text-emerald-200 text-xs mt-0.5">Κέρδισε 1 δωρεάν</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Bottom Nav */}
         <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md flex justify-around items-center py-3 border-t border-gray-100 bg-white">
           <button className="flex flex-col items-center gap-1 text-blue-600">
