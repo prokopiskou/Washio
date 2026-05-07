@@ -78,6 +78,29 @@ const METRICS: { key: Metric; label: string }[] = [
   { key: 'bookings', label: 'Κρατήσεις' },
 ]
 
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const oscillator = ctx.createOscillator()
+    const gainNode = ctx.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(ctx.destination)
+
+    oscillator.type = 'sine'
+    oscillator.frequency.setValueAtTime(800, ctx.currentTime)
+    oscillator.frequency.setValueAtTime(600, ctx.currentTime + 0.1)
+
+    gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+
+    oscillator.start(ctx.currentTime)
+    oscillator.stop(ctx.currentTime + 0.5)
+  } catch (e) {
+    console.log('Audio not supported')
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
@@ -170,7 +193,11 @@ export default function DashboardPage() {
 
       const channel = supabase.channel('bookings-changes')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
-          (payload) => { setBookings(prev => [payload.new as Booking, ...prev]); setNewBookingsCount(prev => prev + 1) })
+          (payload) => {
+            setBookings(prev => [payload.new as Booking, ...prev])
+            setNewBookingsCount(prev => prev + 1)
+            playNotificationSound()
+          })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
           (payload) => { setBookings(prev => prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b)) })
         .subscribe()
