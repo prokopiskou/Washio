@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useRef, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeft, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -433,7 +434,7 @@ function MapPageContent() {
         <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4 flex flex-col gap-2">
           <div ref={searchContainerRef} className="relative">
             <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
-              <button onClick={() => router.back()} className="text-gray-400 shrink-0">
+              <button onClick={() => router.push('/')} className="text-gray-400 shrink-0">
                 <ArrowLeft size={16} />
               </button>
               <input type="text" value={search}
@@ -481,7 +482,7 @@ function MapPageContent() {
           </div>
         )}
 
-        <div className="absolute bottom-0 left-0 right-0 z-10">
+        <div className="absolute bottom-0 left-0 right-0 z-15 pb-16">
 
           {!selectedLocation && filteredLocations.length > 0 && (
             <div className="pb-4 pt-2">
@@ -589,6 +590,22 @@ function MapPageContent() {
             </div>
           )}
         </div>
+
+        {/* Bottom Nav */}
+        <nav className="absolute bottom-0 left-0 right-0 z-20 flex justify-around items-center py-3 border-t border-gray-100 bg-white">
+          <Link href="/" className="flex flex-col items-center gap-1 text-gray-300">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <span className="text-xs">Αρχική</span>
+          </Link>
+          <button className="flex flex-col items-center gap-1 text-blue-600">
+            <MapPin size={18} />
+            <span className="text-xs">Εύρεση</span>
+          </button>
+          <Link href="/profile" className="flex flex-col items-center gap-1 text-gray-300">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span className="text-xs">Προφίλ</span>
+          </Link>
+        </nav>
       </div>
 
       {/* Tight Slot Modal */}

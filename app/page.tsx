@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { MapPin, Star, Clock, Calendar, ChevronDown, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Location = {
@@ -47,13 +46,13 @@ function getTimeSlots() {
 }
 
 export default function Home() {
-  const router = useRouter()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [timing, setTiming] = useState<'now' | 'later'>('now')
   const [userLat, setUserLat] = useState<number | null>(null)
   const [userLng, setUserLng] = useState<number | null>(null)
   const [locations, setLocations] = useState<Location[]>([])
   const [locationsLoading, setLocationsLoading] = useState(true)
+  const [hasLocation, setHasLocation] = useState<boolean | null>(null)
   const [showSchedule, setShowSchedule] = useState(false)
   const [selectedDate, setSelectedDate] = useState(getTodayValue())
   const [selectedTime, setSelectedTime] = useState<string>('')
@@ -90,13 +89,15 @@ export default function Home() {
 
     navigator.geolocation?.getCurrentPosition(
       pos => {
+        setHasLocation(true)
         setUserLat(pos.coords.latitude)
         setUserLng(pos.coords.longitude)
         loadLocations(pos.coords.latitude, pos.coords.longitude)
       },
       () => {
-        // Δεν έδωσε permission → χάρτης
-        router.replace('/map')
+        // Δεν έδωσε permission → εμφανίζουμε no-location state
+        setHasLocation(false)
+        setLocationsLoading(false)
       },
       { timeout: 4000 }
     )
@@ -153,83 +154,99 @@ export default function Home() {
           </p>
         </section>
 
-        {/* Timing selector */}
-        <section className="px-5 mb-5">
-          <div className="flex gap-2">
-            <button
-              onClick={handleNow}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium border transition-all ${
-                timing === 'now'
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'bg-white text-gray-400 border-gray-200'
-              }`}
-            >
-              <Clock size={11} />
-              Τώρα
-            </button>
-            <button
-              onClick={() => setShowSchedule(true)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium border transition-all ${
-                timing === 'later'
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'bg-white text-gray-400 border-gray-200'
-              }`}
-            >
-              <Calendar size={11} />
-              {timing === 'later' && selectedDate && selectedTime
-                ? `${formattedDate} · ${selectedTime}`
-                : 'Προγραμματισμός'
-              }
-            </button>
-          </div>
-        </section>
-
-        {/* Locations list */}
-        <section className="px-5">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
-            {timing === 'now' ? 'Κοντά σου' : `Διαθέσιμα · ${formattedDate} ${selectedTime}`}
-          </p>
-
-          {locationsLoading ? (
-            <div className="flex flex-col gap-3">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="h-20 bg-gray-50 rounded-2xl animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {locations.map(loc => (
-                <Link
-                  key={loc.id}
-                  href={`/locations/${loc.slug}`}
-                  className="flex items-center gap-4 border border-gray-100 rounded-2xl p-4"
+        {hasLocation && (
+          <>
+            {/* Timing selector */}
+            <section className="px-5 mb-5">
+              <div className="flex gap-2">
+                <button
+                  onClick={handleNow}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium border transition-all ${
+                    timing === 'now'
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-400 border-gray-200'
+                  }`}
                 >
-                  <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl shrink-0">
-                    ⛽
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{loc.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5 truncate">{loc.address}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Star size={9} className="text-amber-400 fill-amber-400" />
-                      <span className="text-xs text-gray-400">Νέο</span>
-                      {loc.distance !== undefined && (
-                        <>
-                          <span className="text-gray-200">·</span>
-                          <MapPin size={9} className="text-gray-400" />
-                          <span className="text-xs text-gray-400">{formatDistance(loc.distance)}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-xs font-medium px-2 py-1 rounded-lg bg-green-50 text-green-600 shrink-0">
-                    Τώρα
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
+                  <Clock size={11} />
+                  Τώρα
+                </button>
+                <button
+                  onClick={() => setShowSchedule(true)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium border transition-all ${
+                    timing === 'later'
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-400 border-gray-200'
+                  }`}
+                >
+                  <Calendar size={11} />
+                  {timing === 'later' && selectedDate && selectedTime
+                    ? `${formattedDate} · ${selectedTime}`
+                    : 'Προγραμματισμός'
+                  }
+                </button>
+              </div>
+            </section>
+
+            {/* Locations list */}
+            <section className="px-5">
+              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
+                {timing === 'now' ? 'Κοντά σου' : `Διαθέσιμα · ${formattedDate} ${selectedTime}`}
+              </p>
+
+              {locationsLoading ? (
+                <div className="flex flex-col gap-3">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-20 bg-gray-50 rounded-2xl animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {locations.map(loc => (
+                    <Link
+                      key={loc.id}
+                      href={`/locations/${loc.slug}`}
+                      className="flex items-center gap-4 border border-gray-100 rounded-2xl p-4"
+                    >
+                      <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl shrink-0">
+                        ⛽
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{loc.name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{loc.address}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Star size={9} className="text-amber-400 fill-amber-400" />
+                          <span className="text-xs text-gray-400">Νέο</span>
+                          {loc.distance !== undefined && (
+                            <>
+                              <span className="text-gray-200">·</span>
+                              <MapPin size={9} className="text-gray-400" />
+                              <span className="text-xs text-gray-400">{formatDistance(loc.distance)}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-xs font-medium px-2 py-1 rounded-lg bg-green-50 text-green-600 shrink-0">
+                        Τώρα
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+
+        {hasLocation === false && (
+          <section className="px-5 mt-4">
+            <Link
+              href="/map?source=search"
+              className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3.5"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400 shrink-0"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <span className="text-sm text-gray-400">Αναζήτηση περιοχής...</span>
+            </Link>
+          </section>
+        )}
 
         {/* Partner CTA */}
         <section className="px-5 mt-6">
