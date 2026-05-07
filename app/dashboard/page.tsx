@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 
-type TabKey = 'overview' | 'bookings' | 'services' | 'hours' | 'staff' | 'feedback'
+type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'staff' | 'feedback'
 type Period = '7D' | '30D' | '3M' | '6M' | '12M'
 type Metric = 'revenue' | 'bookings'
 
@@ -155,6 +155,9 @@ export default function DashboardPage() {
   const [newBookingsCount, setNewBookingsCount] = useState(0)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'created_at' | 'slot_date'>('created_at')
+  const [calendarDate, setCalendarDate] = useState<Date>(new Date())
+  const [calendarBookings, setCalendarBookings] = useState<Booking[]>([])
+  const [calendarLoading, setCalendarLoading] = useState(false)
   const [notifPermission, setNotifPermission] = useState<string>('default')
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
@@ -170,6 +173,26 @@ export default function DashboardPage() {
     const permission = await Notification.requestPermission()
     setNotifPermission(permission)
   }
+
+  const loadCalendarBookings = async (date: Date) => {
+    if (!location?.id) return
+    setCalendarLoading(true)
+    const supabase = createClient()
+    const dateStr = date.toISOString().split('T')[0]
+    const { data } = await supabase
+      .from('bookings')
+      .select('id, slot_start_time, total_amount, status, profiles(full_name)')
+      .eq('location_id', location.id)
+      .eq('slot_date', dateStr)
+      .not('status', 'in', '("cancelled")')
+      .order('slot_start_time', { ascending: true })
+    setCalendarBookings((data as Booking[]) || [])
+    setCalendarLoading(false)
+  }
+
+  useEffect(() => {
+    if (activeTab === 'calendar') loadCalendarBookings(calendarDate)
+  }, [activeTab, calendarDate, location])
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -430,6 +453,7 @@ export default function DashboardPage() {
           {([
             ['overview', 'Overview'],
             ['bookings', `Κρατήσεις${newBookingsCount > 0 ? ` (${newBookingsCount})` : ''}`],
+            ['calendar', 'Ημερολόγιο'],
             ['services', 'Υπηρεσίες'],
             ['hours', 'Ωράριο'],
             ['staff', 'Προσωπικό'],
@@ -639,6 +663,100 @@ export default function DashboardPage() {
               {bookings.length === 0 && (
                 <p className="text-xs text-gray-400 py-6">Δεν υπάρχουν κρατήσεις ακόμα.</p>
               )}
+            </div>
+          )}
+
+
+          {activeTab === 'calendar' && (
+            <div className="space-y-4">
+              {/* Month navigation */}
+              <div className="flex items-center justify-between">
+                <button onClick={() => {
+                  const d = new Date(calendarDate)
+                  d.setMonth(d.getMonth() - 1)
+                  setCalendarDate(d)
+                }} className="text-gray-400 px-2 py-1 rounded-lg hover:bg-gray-50 text-lg">‹</button>
+                <p className="text-sm font-medium text-gray-900">
+                  {calendarDate.toLocaleDateString('el-GR', { month: 'long', year: 'numeric' })}
+                </p>
+                <button onClick={() => {
+                  const d = new Date(calendarDate)
+                  d.setMonth(d.getMonth() + 1)
+                  setCalendarDate(d)
+                }} className="text-gray-400 px-2 py-1 rounded-lg hover:bg-gray-50 text-lg">›</button>
+              </div>
+
+              {/* Day grid */}
+              <div className="grid grid-cols-7 gap-1 text-center mb-1">
+                {['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ'].map(d => (
+                  <p key={d} className="text-xs text-gray-400 font-medium py-1">{d}</p>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {(() => {
+                  const year = calendarDate.getFullYear()
+                  const month = calendarDate.getMonth()
+                  const firstDay = new Date(year, month, 1)
+                  const lastDay = new Date(year, month + 1, 0)
+                  const startPad = (firstDay.getDay() + 6) % 7
+                  const days = []
+
+                  for (let i = 0; i < startPad; i++) {
+                    days.push(<div key={`pad-${i}`} />)
+                  }
+
+                  for (let d = 1; d <= lastDay.getDate(); d++) {
+                    const thisDate = new Date(year, month, d)
+                    const isToday = thisDate.toDateString() === new Date().toDateString()
+                    const isSelected = thisDate.toDateString() === calendarDate.toDateString()
+
+                    days.push(
+                      <button key={d}
+                        onClick={() => setCalendarDate(thisDate)}
+                        className={`aspect-square rounded-xl text-xs font-medium transition-all ${
+                          isSelected ? 'bg-gray-900 text-white' :
+                          isToday ? 'border-2 border-gray-900 text-gray-900' :
+                          'text-gray-600 hover:bg-gray-50'
+                        }`}>
+                        {d}
+                      </button>
+                    )
+                  }
+                  return days
+                })()}
+              </div>
+
+              {/* Selected day bookings */}
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-sm font-medium text-gray-900 mb-3">
+                  {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </p>
+
+                {calendarLoading ? (
+                  <p className="text-xs text-gray-400">Φόρτωση...</p>
+                ) : calendarBookings.length === 0 ? (
+                  <p className="text-xs text-gray-400">Δεν υπάρχουν κρατήσεις αυτή τη μέρα.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {calendarBookings.map(b => (
+                      <div key={b.id} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                        <div className="w-14 shrink-0">
+                          <p className="text-sm font-semibold text-gray-900">{b.slot_start_time?.slice(0, 5)}</p>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-900">{b.profiles?.full_name || 'Πελάτης'}</p>
+                        </div>
+                        <div className="shrink-0">
+                          <p className="text-sm font-medium text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
+                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-md shrink-0 ${statusClass(b.status)}`}>
+                          {statusLabel(b.status)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
