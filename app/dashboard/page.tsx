@@ -81,24 +81,60 @@ const METRICS: { key: Metric; label: string }[] = [
 function playNotificationSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
-    const oscillator = ctx.createOscillator()
-    const gainNode = ctx.createGain()
 
-    oscillator.connect(gainNode)
-    gainNode.connect(ctx.destination)
-
-    oscillator.type = 'sine'
-    oscillator.frequency.setValueAtTime(800, ctx.currentTime)
-    oscillator.frequency.setValueAtTime(600, ctx.currentTime + 0.1)
-
-    gainNode.gain.setValueAtTime(0.3, ctx.currentTime)
-    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
-
-    oscillator.start(ctx.currentTime)
-    oscillator.stop(ctx.currentTime + 0.5)
+    // Χαρακτηριστικός ήχος — 3 beeps
+    const beepTimes = [0, 0.3, 0.6]
+    beepTimes.forEach(startTime => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(880, ctx.currentTime + startTime)
+      gain.gain.setValueAtTime(0.5, ctx.currentTime + startTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + 0.25)
+      osc.start(ctx.currentTime + startTime)
+      osc.stop(ctx.currentTime + startTime + 0.25)
+    })
   } catch (e) {
     console.log('Audio not supported')
   }
+}
+
+function flashTabTitle(locationName: string) {
+  const originalTitle = document.title
+  const flashTitle = '🔔 Νέα Κράτηση!'
+  let count = 0
+  const interval = setInterval(() => {
+    document.title = count % 2 === 0 ? flashTitle : originalTitle
+    count++
+    if (count > 10) {
+      clearInterval(interval)
+      document.title = originalTitle
+    }
+  }, 800)
+}
+
+async function showBrowserNotification(locationName: string) {
+  if (!('Notification' in window)) return
+
+  if (Notification.permission === 'default') {
+    await Notification.requestPermission()
+  }
+
+  if (Notification.permission === 'granted') {
+    new Notification('🔔 Νέα Κράτηση! — Washio', {
+      body: `Νέα κράτηση στο ${locationName}`,
+      icon: '/washio_logo.png',
+      requireInteraction: true, // Δεν εξαφανίζεται μόνο του
+    })
+  }
+}
+
+function triggerNewBookingAlert(locationName: string) {
+  playNotificationSound()
+  flashTabTitle(locationName)
+  showBrowserNotification(locationName)
 }
 
 export default function DashboardPage() {
@@ -196,7 +232,7 @@ export default function DashboardPage() {
           (payload) => {
             setBookings(prev => [payload.new as Booking, ...prev])
             setNewBookingsCount(prev => prev + 1)
-            playNotificationSound()
+            triggerNewBookingAlert(location?.name || 'Washio')
           })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
           (payload) => { setBookings(prev => prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b)) })
