@@ -166,11 +166,15 @@ export default function DashboardPage() {
         return
       }
 
-      const { data: ownerLocation } = await supabase
+      const { data: ownerLocation, error: locationError } = await supabase
         .from('locations')
         .select('*')
         .eq('owner_id', user.id)
         .maybeSingle()
+
+      console.log('User ID:', user.id)
+      console.log('Location data:', ownerLocation)
+      console.log('Location error:', locationError)
 
       setLocation(ownerLocation)
 
