@@ -261,13 +261,29 @@ function MapPageContent() {
       const dateObj = new Date(checkDate)
       const dayOfWeek = jsDayToSupabase(dateObj.getDay())
 
-      const { data: hoursData } = await supabase.from('location_hours')
-        .select('open_time, close_time, is_closed')
-        .eq('location_id', selectedLocation.id).eq('day_of_week', dayOfWeek).single()
+      // Έλεγχος exception για τη συγκεκριμένη ημερομηνία
+      const { data: exceptionData } = await supabase
+        .from('location_hours_exceptions')
+        .select('periods, is_closed')
+        .eq('location_id', selectedLocation.id)
+        .eq('exception_date', checkDate)
+        .maybeSingle()
 
-      if (!hoursData || hoursData.is_closed) { setSlots([]); return }
+      let allTimes: string[] = []
 
-      const allTimes = generateSlots(hoursData.open_time, hoursData.close_time)
+      if (exceptionData) {
+        if (exceptionData.is_closed) { setSlots([]); return }
+        // Σπαστό ωράριο — generate slots από κάθε period
+        for (const period of exceptionData.periods) {
+          allTimes = [...allTimes, ...generateSlots(period.open, period.close)]
+        }
+      } else {
+        const { data: hoursData } = await supabase.from('location_hours')
+          .select('open_time, close_time, is_closed')
+          .eq('location_id', selectedLocation.id).eq('day_of_week', dayOfWeek).single()
+        if (!hoursData || hoursData.is_closed) { setSlots([]); return }
+        allTimes = generateSlots(hoursData.open_time, hoursData.close_time)
+      }
 
       const { data: bookedData } = await supabase.from('bookings').select('slot_start_time')
         .eq('location_id', selectedLocation.id).eq('slot_date', checkDate).not('status', 'in', '("cancelled")')

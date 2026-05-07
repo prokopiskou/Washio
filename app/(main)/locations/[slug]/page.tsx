@@ -151,16 +151,36 @@ export default function LocationPage() {
     const supabase = createClient()
 
     const dayOfWeek = jsDayToSupabase(date.getDay())
-    const dayHours = locationHours.find(h => h.day_of_week === dayOfWeek)
-
-    if (!dayHours || dayHours.is_closed) {
-      setSlots([])
-      setSlotsLoading(false)
-      return
-    }
-
-    const allTimes = generateSlots(dayHours.open_time, dayHours.close_time)
     const dateStr = date.toISOString().split('T')[0]
+
+    // Έλεγχος exception για τη συγκεκριμένη ημερομηνία
+    const { data: exceptionData } = await supabase
+      .from('location_hours_exceptions')
+      .select('periods, is_closed')
+      .eq('location_id', locationId)
+      .eq('exception_date', dateStr)
+      .maybeSingle()
+
+    let allTimes: string[] = []
+
+    if (exceptionData) {
+      if (exceptionData.is_closed) {
+        setSlots([])
+        setSlotsLoading(false)
+        return
+      }
+      for (const period of exceptionData.periods) {
+        allTimes = [...allTimes, ...generateSlots(period.open, period.close)]
+      }
+    } else {
+      const dayHours = locationHours.find(h => h.day_of_week === dayOfWeek)
+      if (!dayHours || dayHours.is_closed) {
+        setSlots([])
+        setSlotsLoading(false)
+        return
+      }
+      allTimes = generateSlots(dayHours.open_time, dayHours.close_time)
+    }
 
     // Παίρνουμε τις ήδη κρατημένες ώρες
     const { data: bookedData } = await supabase
