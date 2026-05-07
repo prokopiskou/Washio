@@ -17,6 +17,7 @@ type Booking = {
   status?: string
   service_id?: string
   user_id?: string
+  created_at?: string
   profiles?: { full_name?: string; phone?: string; email?: string } | null
 }
 
@@ -152,6 +153,9 @@ export default function DashboardPage() {
   const [newStaffRole, setNewStaffRole] = useState('Τεχνικός')
   const [newStaffPhone, setNewStaffPhone] = useState('')
   const [newBookingsCount, setNewBookingsCount] = useState(0)
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterBookingDate, setFilterBookingDate] = useState<string>('')
+  const [filterSlotDate, setFilterSlotDate] = useState<string>('')
   const [notifPermission, setNotifPermission] = useState<string>('default')
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
@@ -201,9 +205,9 @@ export default function DashboardPage() {
 
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
         supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, profiles(full_name, phone, email)')
+          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, profiles(full_name, phone, email)')
           .eq('location_id', locationId)
-          .order('slot_date', { ascending: false }),
+          .order('created_at', { ascending: false }),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
         supabase.from('services').select('id, price_moto').eq('location_id', locationId),
         supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
@@ -256,8 +260,8 @@ export default function DashboardPage() {
 
       const interval = setInterval(async () => {
         const { data } = await supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, profiles(full_name, phone, email)')
-          .eq('location_id', locationId).order('slot_date', { ascending: false })
+          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, profiles(full_name, phone, email)')
+          .eq('location_id', locationId).order('created_at', { ascending: false })
         if (data) setBookings(data as Booking[])
       }, 30000)
 
@@ -553,26 +557,80 @@ export default function DashboardPage() {
           )}
 
           {activeTab === 'bookings' && (
-            <div className="space-y-2">
-              {bookings.map(b => (
-                <div key={b.id} className="border border-gray-100 rounded-xl p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{b.profiles?.full_name || 'Πελάτης'}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{b.profiles?.phone || '—'} · {b.profiles?.email || '—'}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">{'—'} · {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-sm font-semibold text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
-                      {(b.status === 'pending' || b.status === 'confirmed') && (
-                        <button onClick={() => cancelBooking(b.id)} className="block text-xs text-red-500 mt-1">Ακύρωση</button>
-                      )}
+            <div className="space-y-3">
+              {/* Filters */}
+              <div className="flex gap-2 flex-wrap">
+                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none">
+                  <option value="all">Όλες</option>
+                  <option value="confirmed">Επιβεβαιωμένες</option>
+                  <option value="completed">Ολοκληρωμένες</option>
+                  <option value="cancelled">Ακυρωμένες</option>
+                  <option value="pending">Εκκρεμείς</option>
+                </select>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400">Κλείστηκε:</span>
+                  <input type="date" value={filterBookingDate}
+                    onChange={e => setFilterBookingDate(e.target.value)}
+                    className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none" />
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-gray-400">Υπηρεσία:</span>
+                  <input type="date" value={filterSlotDate}
+                    onChange={e => setFilterSlotDate(e.target.value)}
+                    className="border border-gray-200 rounded-xl px-3 py-2 text-xs bg-white focus:outline-none" />
+                </div>
+                {(filterStatus !== 'all' || filterBookingDate || filterSlotDate) && (
+                  <button onClick={() => { setFilterStatus('all'); setFilterBookingDate(''); setFilterSlotDate('') }}
+                    className="text-xs text-red-500 px-2">
+                    Καθαρισμός
+                  </button>
+                )}
+              </div>
+
+              {/* Filtered list */}
+              {bookings
+                .filter(b => {
+                  if (filterStatus !== 'all' && b.status !== filterStatus) return false
+                  if (filterBookingDate && b.created_at?.slice(0, 10) !== filterBookingDate) return false
+                  if (filterSlotDate && b.slot_date !== filterSlotDate) return false
+                  return true
+                })
+                .map(b => (
+                  <div key={b.id} className="border border-gray-100 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {b.profiles?.full_name || 'Πελάτης'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {b.profiles?.phone || b.profiles?.email || '—'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Υπηρεσία: {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}
+                        </p>
+                        <p className="text-xs text-gray-300 mt-0.5">
+                          Κλείστηκε: {b.created_at ? new Date(b.created_at).toLocaleDateString('el-GR') : '—'}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-semibold text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>
+                          {statusLabel(b.status)}
+                        </span>
+                        {(b.status === 'pending' || b.status === 'confirmed') && (
+                          <button onClick={() => cancelBooking(b.id)} className="block text-xs text-red-500 mt-1">
+                            Ακύρωση
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              {bookings.length === 0 && <p className="text-xs text-gray-400 py-6">Δεν υπάρχουν κρατήσεις ακόμα.</p>}
+                ))
+              }
+              {bookings.length === 0 && (
+                <p className="text-xs text-gray-400 py-6">Δεν υπάρχουν κρατήσεις ακόμα.</p>
+              )}
             </div>
           )}
 
