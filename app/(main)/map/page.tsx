@@ -257,7 +257,10 @@ function MapPageContent() {
     if (!selectedLocation) return
     const loadSlots = async () => {
       const supabase = createClient()
-      const checkDate = timing === 'now' ? getTodayValue() : selectedDate
+      const today = new Date()
+      const checkDate = timing === 'now'
+        ? `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+        : selectedDate
       const dateObj = new Date(checkDate)
       const dayOfWeek = jsDayToSupabase(dateObj.getDay())
 
