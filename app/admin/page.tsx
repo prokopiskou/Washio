@@ -212,13 +212,7 @@ export default function AdminPage() {
 
   const updateApplication = async (id: string, status: 'approved' | 'rejected' | 'pre_approved') => {
     const supabase = createClient()
-    const { error } = await supabase.from('applications').update({ status }).eq('id', id)
-
-    if (error) {
-      console.error('Update error:', error)
-      alert('Σφάλμα: ' + error.message)
-      return
-    }
+    await supabase.from('applications').update({ status }).eq('id', id)
 
     const app = applications.find(a => a.id === id)
 
@@ -234,6 +228,8 @@ export default function AdminPage() {
       })
     }
 
+    // Άμεση ενημέρωση local state χωρίς να περιμένει fetchData
+    setApplications(prev => prev.map(a => a.id === id ? { ...a, status } : a))
     fetchData()
   }
 
