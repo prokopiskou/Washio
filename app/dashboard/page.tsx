@@ -39,6 +39,13 @@ type LocationHour = {
   close_time: string
 }
 
+type HourException = {
+  id?: string
+  exception_date: string
+  periods: { open: string; close: string }[]
+  is_closed: boolean
+}
+
 type StaffMember = {
   id: string
   full_name: string
@@ -158,6 +165,11 @@ export default function DashboardPage() {
   const [calendarDate, setCalendarDate] = useState<Date>(new Date())
   const [calendarBookings, setCalendarBookings] = useState<Booking[]>([])
   const [calendarLoading, setCalendarLoading] = useState(false)
+  const [exceptions, setExceptions] = useState<HourException[]>([])
+  const [showExceptionPicker, setShowExceptionPicker] = useState(false)
+  const [exceptionDate, setExceptionDate] = useState('')
+  const [exceptionPeriods, setExceptionPeriods] = useState<{ open: string; close: string }[]>([{ open: '09:00', close: '17:00' }])
+  const [exceptionClosed, setExceptionClosed] = useState(false)
   const [notifPermission, setNotifPermission] = useState<string>('default')
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
@@ -266,6 +278,13 @@ export default function DashboardPage() {
         }))
         setHours(normalizedHours)
       }
+
+      const { data: exceptionsData } = await supabase
+        .from('location_hours_exceptions')
+        .select('id, exception_date, periods, is_closed')
+        .eq('location_id', locationId)
+        .order('exception_date', { ascending: true })
+      setExceptions((exceptionsData as HourException[]) || [])
 
       setLoading(false)
 
@@ -391,6 +410,36 @@ export default function DashboardPage() {
       )
     ))
     setSavingHours(false)
+  }
+
+  const saveException = async () => {
+    if (!location?.id || !exceptionDate) return
+    const supabase = createClient()
+    await supabase.from('location_hours_exceptions').upsert({
+      location_id: location.id,
+      exception_date: exceptionDate,
+      periods: exceptionClosed ? [] : exceptionPeriods,
+      is_closed: exceptionClosed,
+    }, { onConflict: 'location_id,exception_date' })
+
+    const { data } = await supabase
+      .from('location_hours_exceptions')
+      .select('id, exception_date, periods, is_closed')
+      .eq('location_id', location.id)
+      .order('exception_date', { ascending: true })
+    setExceptions((data as HourException[]) || [])
+    setShowExceptionPicker(false)
+    setExceptionDate('')
+    setExceptionPeriods([{ open: '09:00', close: '17:00' }])
+    setExceptionClosed(false)
+  }
+
+  const deleteException = async (date: string) => {
+    if (!location?.id) return
+    const supabase = createClient()
+    await supabase.from('location_hours_exceptions')
+      .delete().eq('location_id', location.id).eq('exception_date', date)
+    setExceptions(prev => prev.filter(e => e.exception_date !== date))
   }
 
   const addStaff = async () => {
@@ -844,6 +893,101 @@ export default function DashboardPage() {
                 className="w-full bg-gray-900 text-white text-sm rounded-xl px-4 py-3 disabled:opacity-40">
                 {savingHours ? 'Αποθήκευση...' : 'Αποθήκευση ωραρίου'}
               </button>
+
+              {/* Εξαιρέσεις */}
+              <div className="mt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-medium text-gray-900">Εξαιρέσεις ημερών</p>
+                  <button onClick={() => setShowExceptionPicker(true)}
+                    className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg">
+                    + Προσθήκη
+                  </button>
+                </div>
+
+                {exceptions.length === 0 && (
+                  <p className="text-xs text-gray-400">Δεν υπάρχουν εξαιρέσεις.</p>
+                )}
+
+                <div className="space-y-2">
+                  {exceptions.map(ex => (
+                    <div key={ex.exception_date} className="border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {new Date(ex.exception_date).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </p>
+                        {ex.is_closed ? (
+                          <p className="text-xs text-red-500 mt-0.5">Κλειστό</p>
+                        ) : (
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {ex.periods.map(p => `${p.open}–${p.close}`).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                      <button onClick={() => deleteException(ex.exception_date)}
+                        className="text-xs text-red-400">Διαγραφή</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Exception picker modal */}
+              {showExceptionPicker && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center">
+                  <div className="absolute inset-0 bg-black/30" onClick={() => setShowExceptionPicker(false)} />
+                  <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 w-full max-w-md z-10">
+                    <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+                    <p className="text-base font-semibold text-gray-900 mb-4">Εξαίρεση ημέρας</p>
+
+                    <div className="mb-4">
+                      <p className="text-xs text-gray-400 mb-1.5">Ημερομηνία</p>
+                      <input type="date" value={exceptionDate}
+                        onChange={e => setExceptionDate(e.target.value)}
+                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none" />
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-4">
+                      <button onClick={() => setExceptionClosed(!exceptionClosed)}
+                        className={`text-xs px-3 py-1.5 rounded-lg ${exceptionClosed ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-500'}`}>
+                        {exceptionClosed ? '✗ Κλειστό' : 'Ανοιχτό'}
+                      </button>
+                    </div>
+
+                    {!exceptionClosed && (
+                      <div className="space-y-2 mb-4">
+                        <p className="text-xs text-gray-400">Ώρες λειτουργίας</p>
+                        {exceptionPeriods.map((period, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <select value={period.open}
+                              onChange={e => setExceptionPeriods(prev => prev.map((p, i) => i === idx ? { ...p, open: e.target.value } : p))}
+                              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                              {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+                            </select>
+                            <span className="text-gray-400 text-xs">έως</span>
+                            <select value={period.close}
+                              onChange={e => setExceptionPeriods(prev => prev.map((p, i) => i === idx ? { ...p, close: e.target.value } : p))}
+                              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+                              {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+                            </select>
+                            {exceptionPeriods.length > 1 && (
+                              <button onClick={() => setExceptionPeriods(prev => prev.filter((_, i) => i !== idx))}
+                                className="text-red-400 text-xs px-1">✕</button>
+                            )}
+                          </div>
+                        ))}
+                        <button onClick={() => setExceptionPeriods(prev => [...prev, { open: '15:00', close: '20:00' }])}
+                          className="text-xs text-gray-500 border border-dashed border-gray-300 rounded-lg px-3 py-2 w-full">
+                          + Προσθήκη περιόδου
+                        </button>
+                      </div>
+                    )}
+
+                    <button onClick={saveException} disabled={!exceptionDate}
+                      className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40">
+                      Αποθήκευση
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
