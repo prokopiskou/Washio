@@ -77,7 +77,7 @@ export default function AdminPage() {
       supabase.from('bookings')
         .select('*, locations(name, city), services(name, price), profiles(full_name, phone, email)')
         .order('created_at', { ascending: false }).limit(200),
-      supabase.from('locations').select('*').order('created_at', { ascending: false }),
+      supabase.from('locations_checklist').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.from('applications').select('*').order('created_at', { ascending: false }),
       supabase.from('addons').select('*').order('sort_order', { ascending: true }),
@@ -213,6 +213,22 @@ export default function AdminPage() {
   const updateApplication = async (id: string, status: 'approved' | 'rejected') => {
     const supabase = createClient()
     await supabase.from('applications').update({ status }).eq('id', id)
+
+    if (status === 'approved') {
+      const app = applications.find(a => a.id === id)
+      if (app?.email) {
+        await fetch('/api/admin/invite-partner', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: app.email,
+            businessName: app.business_name,
+            city: app.city,
+            address: app.address || '',
+          }),
+        })
+      }
+    }
     fetchData()
   }
 
@@ -481,6 +497,20 @@ export default function AdminPage() {
                                   onBlur={e => updateCommissionRate(loc.id, parseFloat(e.target.value))}
                                   className="w-14 text-xs border border-gray-200 rounded px-1 py-0.5 text-gray-700" />
                                 <span className="text-xs text-gray-400">%</span>
+                              </div>
+                              <div className="flex gap-1.5 mt-2 flex-wrap">
+                                {[
+                                  { label: 'Ωράριο', done: loc.has_hours },
+                                  { label: 'Υπηρεσίες', done: loc.has_services },
+                                  { label: 'IBAN', done: !!loc.iban },
+                                  { label: 'Έγγραφα', done: loc.has_documents },
+                                ].map(item => (
+                                  <span key={item.label} className={`text-xs px-2 py-0.5 rounded-md ${
+                                    item.done ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'
+                                  }`}>
+                                    {item.done ? '✓' : '·'} {item.label}
+                                  </span>
+                                ))}
                               </div>
                             </div>
                           </div>
