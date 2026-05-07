@@ -719,6 +719,7 @@ export default function AdminPage() {
                                           const { data: urlData } = supabase.storage.from('location-docs').getPublicUrl(path)
                                           await supabase.from('applications').update({ [doc.key]: urlData.publicUrl }).eq('id', app.id)
                                           setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: urlData.publicUrl } : a))
+                                          await fetchData()
                                         }}
                                       />
                                     </label>
@@ -736,6 +737,7 @@ export default function AdminPage() {
                                         const { data: urlData } = supabase.storage.from('location-docs').getPublicUrl(path)
                                         await supabase.from('applications').update({ [doc.key]: urlData.publicUrl }).eq('id', app.id)
                                         setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: urlData.publicUrl } : a))
+                                        await fetchData()
                                       }}
                                     />
                                   </label>
