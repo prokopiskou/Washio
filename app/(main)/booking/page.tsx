@@ -119,6 +119,7 @@ function BookingPageContent() {
   const [clientSecret, setClientSecret] = useState('')
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('')
+  const [vehicleType, setVehicleType] = useState('ΙΧ')
 
   const serviceId = params.get('service') || ''
   const locationId = params.get('location') || ''
@@ -184,6 +185,7 @@ function BookingPageContent() {
       if (vList.length > 0) {
         setSelectedVehicleId(vList[0].id)
         setPlate(vList[0].plate)
+        setVehicleType(vList[0].type || 'ΙΧ')
       } else {
         setSelectedVehicleId('new')
       }
@@ -199,12 +201,26 @@ function BookingPageContent() {
 
   const addonTotal = addons.filter(a => selectedAddons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)
   const total = (service?.price || 0) + addonTotal
-  const canProceed = plate.trim() && phone.trim() && email.trim() && service
+  const canProceed = phone.trim() && email.trim() && service && (
+    selectedVehicleId !== 'new' ? true : plate.trim().length > 0
+  )
 
   const handleProceedToPayment = async () => {
     if (!canProceed || !service) return
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
+
+    // Αποθήκευση νέου οχήματος αν είναι νέο
+    if (selectedVehicleId === 'new' && plate.trim()) {
+      const existing = vehicles.find(v => v.plate === plate.trim())
+      if (!existing) {
+        await supabase.from('vehicles').insert({
+          user_id: session?.user?.id,
+          plate: plate.trim(),
+          type: vehicleType,
+        })
+      }
+    }
 
     const res = await fetch('/api/payments/create-intent', {
       method: 'POST',
@@ -229,9 +245,11 @@ function BookingPageContent() {
     setSelectedVehicleId(value)
     if (value === 'new') {
       setPlate('')
+      setVehicleType('ΙΧ')
     } else {
       const v = vehicles.find(v => v.id === value)
       setPlate(v?.plate || '')
+      setVehicleType(v?.type || 'ΙΧ')
     }
   }
 
@@ -263,29 +281,48 @@ function BookingPageContent() {
           </div>
         </section>
 
-        {/* Στοιχεία — μόνο όχημα + τηλέφωνο */}
         <section className="px-5 py-4 border-b border-gray-100">
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Στοιχεία οχήματος</p>
 
-          {/* Vehicle selector */}
+          {/* Vehicle selector — μόνο αν έχει αποθηκευμένα */}
           {vehicles.length > 0 && (
             <select value={selectedVehicleId} onChange={e => handleVehicleChange(e.target.value)}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400 mb-2">
               {vehicles.map(v => (
                 <option key={v.id} value={v.id}>{v.plate} · {v.type}</option>
               ))}
-              <option value="new">+ Άλλο όχημα</option>
+              <option value="new">+ Νέο όχημα</option>
             </select>
           )}
 
-          {/* Plate — εμφανίζεται πάντα */}
-          <input
-            type="text"
-            value={plate}
-            onChange={e => setPlate(e.target.value.toUpperCase())}
-            placeholder="Πινακίδα"
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400 mb-2"
-          />
+          {/* Νέο όχημα — πινακίδα + τύπος */}
+          {(vehicles.length === 0 || selectedVehicleId === 'new') && (
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={plate}
+                onChange={e => setPlate(e.target.value.toUpperCase())}
+                placeholder="Πινακίδα π.χ. ΑΒΓ1234"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+              />
+              <div className="grid grid-cols-4 gap-2">
+                {['ΙΧ', 'SUV', 'Μοτοσικλέτα', 'Φορτηγό'].map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setVehicleType(type)}
+                    className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${
+                      vehicleType === type
+                        ? 'bg-gray-900 border-gray-900 text-white'
+                        : 'bg-white border-gray-200 text-gray-600'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Τηλέφωνο */}
           <input
@@ -293,7 +330,7 @@ function BookingPageContent() {
             value={phone}
             onChange={e => setPhone(e.target.value)}
             placeholder="Τηλέφωνο"
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400 mt-2"
           />
         </section>
 
