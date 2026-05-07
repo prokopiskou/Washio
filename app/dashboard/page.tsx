@@ -152,9 +152,21 @@ export default function DashboardPage() {
   const [newStaffRole, setNewStaffRole] = useState('Τεχνικός')
   const [newStaffPhone, setNewStaffPhone] = useState('')
   const [newBookingsCount, setNewBookingsCount] = useState(0)
+  const [notifPermission, setNotifPermission] = useState<string>('default')
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
   const locationIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotifPermission(Notification.permission)
+    }
+  }, [])
+
+  const requestNotifications = async () => {
+    const permission = await Notification.requestPermission()
+    setNotifPermission(permission)
+  }
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -387,6 +399,28 @@ export default function DashboardPage() {
         <div className="px-5 pt-8 pb-4 border-b border-gray-100">
           <h1 className="text-base font-semibold text-gray-900">{location.name}</h1>
           <p className="text-xs text-gray-400 mt-0.5">{location.address}, {location.city}</p>
+
+          {notifPermission !== 'granted' && (
+            <button
+              onClick={requestNotifications}
+              className="mt-3 w-full flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3"
+            >
+              <div className="text-left">
+                <p className="text-xs font-medium text-amber-800">🔔 Ενεργοποίησε ειδοποιήσεις</p>
+                <p className="text-xs text-amber-600 mt-0.5">Μάθε άμεσα για νέες κρατήσεις</p>
+              </div>
+              <span className="text-xs bg-amber-800 text-white px-3 py-1.5 rounded-lg shrink-0 ml-3">
+                Ενεργοποίηση
+              </span>
+            </button>
+          )}
+
+          {notifPermission === 'granted' && (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              <p className="text-xs text-gray-400">Ειδοποιήσεις ενεργές</p>
+            </div>
+          )}
         </div>
 
         <div className="flex overflow-x-auto scrollbar-hide border-b border-gray-100">
