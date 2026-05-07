@@ -188,13 +188,19 @@ function BookingPageContent() {
         .eq('user_id', user.id).order('created_at', { ascending: false })
 
       const vList = (vehiclesData as Vehicle[]) || []
-      setVehicles(vList)
+      // Φιλτράρισμα οχημάτων βάσει vehicle type της κράτησης
+      const filteredVehicles = vList.filter(v => {
+        if (vehicleType === 'ΙΧ') return v.type !== 'Μοτοσικλέτα'
+        if (vehicleType === 'Μοτοσικλέτα') return v.type === 'Μοτοσικλέτα'
+        return true
+      })
+      setVehicles(filteredVehicles)
 
-      // Προεπιλογή πρώτου οχήματος
-      if (vList.length > 0) {
-        setSelectedVehicleId(vList[0].id)
-        setPlate(vList[0].plate)
-        setVehicleFormType(vList[0].type || 'ΙΧ')
+      if (filteredVehicles.length > 0) {
+        const matchingVehicle = filteredVehicles.find(v => v.type === vehicleType) || filteredVehicles[0]
+        setSelectedVehicleId(matchingVehicle.id)
+        setPlate(matchingVehicle.plate)
+        setVehicleFormType(matchingVehicle.type as 'ΙΧ' | 'Μοτοσικλέτα')
       } else {
         setSelectedVehicleId('new')
       }
