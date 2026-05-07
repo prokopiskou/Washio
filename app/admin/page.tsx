@@ -610,7 +610,7 @@ export default function AdminPage() {
                           <span className={`text-xs px-2 py-0.5 rounded-md ${
                             app.status === 'approved' ? 'bg-green-50 text-green-600' : app.status === 'rejected' ? 'bg-red-50 text-red-500' : app.status === 'pre_approved' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
                           }`}>
-                            {app.status === 'approved' ? 'Εγκρίθηκε' : app.status === 'rejected' ? 'Απορρίφθηκε' : app.status === 'pre_approved' ? 'Προεγγραφή ✓' : 'Εκκρεμεί'}
+                            {app.status === 'approved' ? 'Εγκρίθηκε' : app.status === 'rejected' ? 'Απορρίφθηκε' : app.status === 'pre_approved' ? 'Προεγγραφή' : 'Εκκρεμεί'}
                           </span>
                           {app.status === 'pending' && (
                             <div className="flex gap-1 mt-1">
@@ -624,11 +624,101 @@ export default function AdminPage() {
                               </button>
                             </div>
                           )}
-                          {app.status === 'pre_approved' && (
-                            <p className="text-xs text-blue-500 mt-1">Αναμονή εγγράφων</p>
-                          )}
                         </div>
                       </div>
+                      {app.status === 'pre_approved' && (
+                        <div className="mt-3 border-t border-gray-50 pt-3 space-y-2">
+                          <p className="text-xs font-medium text-gray-700 mb-2">Στοιχεία εγγραφής</p>
+
+                          <div>
+                            <p className="text-xs text-gray-400 mb-1">ΑΦΜ</p>
+                            <input
+                              defaultValue={app.afm || ''}
+                              placeholder="π.χ. 123456789"
+                              onBlur={async e => {
+                                const supabase = createClient()
+                                const v = e.target.value
+                                await supabase.from('applications').update({ afm: v }).eq('id', app.id)
+                                setApplications(prev => prev.map(a => a.id === app.id ? { ...a, afm: v } : a))
+                              }}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-gray-400"
+                            />
+                          </div>
+
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <p className="text-xs text-gray-400 mb-1">IBAN</p>
+                              <input
+                                defaultValue={app.iban || ''}
+                                placeholder="GR00 0000..."
+                                onBlur={async e => {
+                                  const supabase = createClient()
+                                  const v = e.target.value
+                                  await supabase.from('applications').update({ iban: v }).eq('id', app.id)
+                                  setApplications(prev => prev.map(a => a.id === app.id ? { ...a, iban: v } : a))
+                                }}
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-gray-400"
+                              />
+                            </div>
+                            <div className="w-28">
+                              <p className="text-xs text-gray-400 mb-1">Τράπεζα</p>
+                              <input
+                                defaultValue={app.bank_name || ''}
+                                placeholder="π.χ. Eurobank"
+                                onBlur={async e => {
+                                  const supabase = createClient()
+                                  const v = e.target.value
+                                  await supabase.from('applications').update({ bank_name: v }).eq('id', app.id)
+                                  setApplications(prev => prev.map(a => a.id === app.id ? { ...a, bank_name: v } : a))
+                                }}
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-gray-400"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2 flex-wrap pt-1">
+                            {([
+                              { key: 'doc_afm_url' as const, label: 'ΑΦΜ' },
+                              { key: 'doc_declaration_url' as const, label: 'Υπ. Δήλωση' },
+                              { key: 'doc_agreement_url' as const, label: 'Συμφωνητικό' },
+                            ]).map(doc => (
+                              <label key={doc.key} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${
+                                app[doc.key] ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500'
+                              }`}>
+                                <input type="checkbox" className="hidden"
+                                  checked={!!app[doc.key]}
+                                  onChange={async e => {
+                                    const supabase = createClient()
+                                    await supabase.from('applications').update({
+                                      [doc.key]: e.target.checked ? 'received' : null,
+                                    }).eq('id', app.id)
+                                    setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: e.target.checked ? 'received' : null } : a))
+                                  }}
+                                />
+                                {app[doc.key] ? '✓' : '·'} {doc.label}
+                              </label>
+                            ))}
+                          </div>
+
+                          {(() => {
+                            const allDone = !!(app.afm && app.iban && app.doc_afm_url && app.doc_declaration_url && app.doc_agreement_url)
+                            return (
+                              <button
+                                type="button"
+                                disabled={!allDone}
+                                onClick={() => updateApplication(app.id, 'approved')}
+                                className={`w-full text-xs font-medium py-2.5 rounded-xl mt-1 transition-all ${
+                                  allDone
+                                    ? 'bg-gray-900 text-white'
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                              >
+                                {allDone ? '✓ Τελική Έγκριση & Ενεργοποίηση' : 'Συμπλήρωσε όλα τα πεδία'}
+                              </button>
+                            )
+                          })()}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {applications.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν αιτήσεις</p>}
