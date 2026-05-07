@@ -53,13 +53,13 @@ function generateSlots(openTime: string, closeTime: string): string[] {
 }
 
 function getDatesForMonth(year: number, month: number) {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const dates = []
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, month, d)
-    if (date >= today) dates.push(date)
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    if (dateStr >= todayStr) dates.push(new Date(year, month, d))
   }
   return dates
 }
@@ -70,7 +70,6 @@ export default function LocationPage() {
   const slug = params.slug as string
 
   const today = new Date()
-  today.setHours(0, 0, 0, 0)
 
   const [location, setLocation] = useState<Location | null>(null)
   const [services, setServices] = useState<Service[]>([])
@@ -195,7 +194,8 @@ export default function LocationPage() {
 
     // Αν είναι σήμερα, εξαιρούμε τα περασμένα slots
     const now = new Date()
-    const isToday = date.toDateString() === now.toDateString()
+    const todayLocalStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    const isToday = dateStr === todayLocalStr
 
     setSlots(allTimes.map(time => {
       const [h, m] = time.split(':').map(Number)
