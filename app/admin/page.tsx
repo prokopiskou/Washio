@@ -602,9 +602,26 @@ export default function AdminPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">{app.business_name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{app.city} · {app.owner_name}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{app.owner_name}</p>
+                          <p className="text-xs text-gray-400">{app.address}, {app.city}</p>
                           <p className="text-xs text-gray-400">{app.phone} · {app.email}</p>
-                          {app.notes && <p className="text-xs text-gray-500 mt-1 italic">"{app.notes}"</p>}
+                          <div className="flex gap-2 mt-1.5 flex-wrap">
+                            {app.hours && (
+                              <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-md">
+                                🕐 {app.hours}
+                              </span>
+                            )}
+                            {app.lanes && (
+                              <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-md">
+                                🚗 {app.lanes} lanes
+                              </span>
+                            )}
+                            {app.wash_type && (
+                              <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-md">
+                                💧 {app.wash_type}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex flex-col gap-1 items-end shrink-0">
                           <span className={`text-xs px-2 py-0.5 rounded-md ${
@@ -676,27 +693,57 @@ export default function AdminPage() {
                             </div>
                           </div>
 
-                          <div className="flex gap-2 flex-wrap pt-1">
+                          <div className="space-y-2 pt-1">
                             {([
                               { key: 'doc_afm_url' as const, label: 'ΑΦΜ' },
                               { key: 'doc_declaration_url' as const, label: 'Υπ. Δήλωση' },
                               { key: 'doc_agreement_url' as const, label: 'Συμφωνητικό' },
                             ]).map(doc => (
-                              <label key={doc.key} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${
-                                app[doc.key] ? 'bg-green-50 border-green-200 text-green-700' : 'bg-gray-50 border-gray-200 text-gray-500'
-                              }`}>
-                                <input type="checkbox" className="hidden"
-                                  checked={!!app[doc.key]}
-                                  onChange={async e => {
-                                    const supabase = createClient()
-                                    await supabase.from('applications').update({
-                                      [doc.key]: e.target.checked ? 'received' : null,
-                                    }).eq('id', app.id)
-                                    setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: e.target.checked ? 'received' : null } : a))
-                                  }}
-                                />
-                                {app[doc.key] ? '✓' : '·'} {doc.label}
-                              </label>
+                              <div key={doc.key} className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500 w-24 shrink-0">{doc.label}</span>
+                                {app[doc.key] ? (
+                                  <div className="flex items-center gap-2 flex-1">
+                                    <a href={app[doc.key]} target="_blank" rel="noopener noreferrer"
+                                      className="text-xs text-blue-600 underline truncate flex-1">
+                                      Προβολή PDF
+                                    </a>
+                                    <label className="text-xs text-gray-400 cursor-pointer border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50">
+                                      Αντικατάσταση
+                                      <input type="file" accept=".pdf" className="hidden"
+                                        onChange={async e => {
+                                          const file = e.target.files?.[0]
+                                          if (!file) return
+                                          const supabase = createClient()
+                                          const path = `${app.id}/${doc.key}-${Date.now()}.pdf`
+                                          await supabase.storage.from('location-docs').upload(path, file, { upsert: true })
+                                          const { data: urlData } = supabase.storage.from('location-docs').getPublicUrl(path)
+                                          await supabase.from('applications').update({ [doc.key]: urlData.publicUrl }).eq('id', app.id)
+                                          setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: urlData.publicUrl } : a))
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+                                ) : (
+                                  <label className="flex items-center gap-1.5 text-xs text-gray-500 border border-dashed border-gray-300 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50 flex-1">
+                                    <span>+ Ανέβασμα PDF</span>
+                                    <input type="file" accept=".pdf" className="hidden"
+                                      onChange={async e => {
+                                        const file = e.target.files?.[0]
+                                        if (!file) return
+                                        const supabase = createClient()
+                                        const path = `${app.id}/${doc.key}-${Date.now()}.pdf`
+                                        await supabase.storage.from('location-docs').upload(path, file, { upsert: true })
+                                        const { data: urlData } = supabase.storage.from('location-docs').getPublicUrl(path)
+                                        await supabase.from('applications').update({ [doc.key]: urlData.publicUrl }).eq('id', app.id)
+                                        setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: urlData.publicUrl } : a))
+                                      }}
+                                    />
+                                  </label>
+                                )}
+                                <span className={`text-xs w-4 ${app[doc.key] ? 'text-green-500' : 'text-gray-300'}`}>
+                                  {app[doc.key] ? '✓' : '·'}
+                                </span>
+                              </div>
                             ))}
                           </div>
 
