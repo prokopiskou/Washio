@@ -133,7 +133,7 @@ export default function LandingPage() {
             {[
               { step: '01', title: 'Βρες σημείο', desc: 'Δες τα κοντινά πλυντήρια με διαθέσιμες θέσεις σε πραγματικό χρόνο.' },
               { step: '02', title: 'Κλείσε θέση', desc: 'Επίλεξε υπηρεσία, ώρα και πλήρωσε με ασφάλεια μέσα από την εφαρμογή.' },
-              { step: '03', title: 'Πήγαινε', desc: 'Παρουσιάσου στην ώρα σου. Χωρίς αναμονή, χωρίς ουρές.' },
+              { step: '03', title: 'Πλύνε', desc: 'Παρουσιάσου στην ώρα σου. Χωρίς αναμονή, χωρίς ουρές.' },
             ].map(item => (
               <div key={item.step} className="bg-white rounded-2xl p-6">
                 <p className="text-xs font-mono text-gray-300 mb-3">{item.step}</p>
