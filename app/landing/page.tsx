@@ -61,8 +61,8 @@ export default function LandingPage() {
       <section className="pt-32 pb-24 px-6 text-center bg-white">
         <div className="max-w-2xl mx-auto">
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Το πλύσιμο αυτοκινήτου αλλάζει</p>
-          <h1 className="text-4xl md:text-6xl font-semibold tracking-tight text-gray-900 leading-tight mb-6">
-            Πλύνε το αυτοκίνητό σου<br />
+          <h1 className="text-2xl md:text-6xl font-semibold tracking-tight text-gray-900 leading-tight mb-6">
+            <span className="block whitespace-nowrap">Πλύνε το αυτοκίνητό σου</span>
             <span className="text-gray-400">σε 3 δευτερόλεπτα.</span>
           </h1>
           <p className="text-base text-gray-500 mb-10 leading-relaxed">
