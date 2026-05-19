@@ -317,6 +317,15 @@ export async function POST(req: NextRequest) {
         subject = `🎉 Καλωσορίσατε στο Washio — ${body.businessName}`
         html = partnerWelcomeEmail(body)
         break
+      case 'contact':
+        subject = `Νέο μήνυμα από ${body.name} — Washio`
+        html = `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
+    <h2 style="color: #0A0A0A;">Νέο μήνυμα επικοινωνίας</h2>
+    <p><strong>Όνομα:</strong> ${body.name}</p>
+    <p><strong>Email:</strong> ${body.email}</p>
+    <p><strong>Μήνυμα:</strong> ${body.message}</p>
+  </div>`
+        break
       default:
         return NextResponse.json({ error: 'Unknown email type' }, { status: 400 })
     }

@@ -1,0 +1,230 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+
+export default function LandingPage() {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [formData, setFormData] = useState({ name: '', email: '', message: '' })
+  const [sent, setSent] = useState(false)
+
+  const handleSubmit = async () => {
+    if (!formData.name || !formData.email || !formData.message) return
+    await fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'contact',
+        to: 'withinsuccess@gmail.com',
+        ...formData,
+      }),
+    })
+    setSent(true)
+  }
+
+  return (
+    <main className="min-h-screen bg-white text-gray-900 font-sans">
+
+      {/* Nav */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <img src="/washio_logo.png" alt="Washio" className="h-8 w-auto" />
+          <div className="hidden md:flex items-center gap-8">
+            <a href="#about" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Για εμάς</a>
+            <a href="#how" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Πώς λειτουργεί</a>
+            <a href="#partners" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Πρατήρια</a>
+            <a href="#contact" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Επικοινωνία</a>
+            <Link href="/" className="bg-gray-900 text-white text-sm px-4 py-2 rounded-xl">
+              Κάνε κράτηση
+            </Link>
+          </div>
+          <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden text-gray-500">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              {menuOpen ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></> : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>}
+            </svg>
+          </button>
+        </div>
+        {menuOpen && (
+          <div className="md:hidden px-6 pb-4 flex flex-col gap-4 border-t border-gray-100 pt-4">
+            <a href="#about" onClick={() => setMenuOpen(false)} className="text-sm text-gray-600">Για εμάς</a>
+            <a href="#how" onClick={() => setMenuOpen(false)} className="text-sm text-gray-600">Πώς λειτουργεί</a>
+            <a href="#partners" onClick={() => setMenuOpen(false)} className="text-sm text-gray-600">Πρατήρια</a>
+            <a href="#contact" onClick={() => setMenuOpen(false)} className="text-sm text-gray-600">Επικοινωνία</a>
+            <Link href="/" className="bg-gray-900 text-white text-sm px-4 py-2 rounded-xl text-center">
+              Κάνε κράτηση
+            </Link>
+          </div>
+        )}
+      </nav>
+
+      {/* Hero */}
+      <section className="pt-32 pb-24 px-6 text-center bg-white">
+        <div className="max-w-2xl mx-auto">
+          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Το πλύσιμο αυτοκινήτου αλλάζει</p>
+          <h1 className="text-4xl md:text-6xl font-semibold tracking-tight text-gray-900 leading-tight mb-6">
+            Πλύνε το αυτοκίνητό σου<br />
+            <span className="text-gray-400">σε 3 δευτερόλεπτα.</span>
+          </h1>
+          <p className="text-base text-gray-500 mb-10 leading-relaxed">
+            Βρες κοντινό πλυντήριο, κλείσε θέση, πήγαινε.<br />
+            Χωρίς αναμονή. Χωρίς ουρές.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link href="/" className="bg-gray-900 text-white text-sm font-medium px-8 py-4 rounded-2xl">
+              Κάνε κράτηση τώρα →
+            </Link>
+            <a href="#how" className="border border-gray-200 text-gray-600 text-sm font-medium px-8 py-4 rounded-2xl">
+              Πώς λειτουργεί
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats */}
+      <section className="py-16 px-6 bg-gray-50">
+        <div className="max-w-4xl mx-auto grid grid-cols-3 gap-8 text-center">
+          {[
+            { value: '3″', label: 'για κράτηση' },
+            { value: '0€', label: 'χρέωση εγγραφής' },
+            { value: '24/7', label: 'διαθέσιμο' },
+          ].map(s => (
+            <div key={s.label}>
+              <p className="text-3xl md:text-4xl font-semibold text-gray-900">{s.value}</p>
+              <p className="text-xs text-gray-400 mt-1">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* About */}
+      <section id="about" className="py-24 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-16 items-center">
+            <div>
+              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Για εμάς</p>
+              <h2 className="text-3xl font-semibold tracking-tight text-gray-900 mb-6 leading-tight">
+                Φτιάξαμε το Washio γιατί μισούσαμε τις ουρές.
+              </h2>
+              <p className="text-gray-500 leading-relaxed mb-4">
+                Κάθε φορά που πήγαινες να πλύνεις το αυτοκίνητό σου, έχανες χρόνο περιμένοντας. Δεν ήξερες αν θα βρεις θέση. Δεν ήξερες πότε θα τελειώσεις.
+              </p>
+              <p className="text-gray-500 leading-relaxed">
+                Το Washio λύνει αυτό το πρόβλημα. Ανοίγεις την εφαρμογή, βλέπεις διαθέσιμα σημεία κοντά σου, κλείνεις θέση, πηγαίνεις. Τέλος.
+              </p>
+            </div>
+            <div className="bg-gray-50 rounded-3xl p-8 text-center">
+              <div className="text-6xl mb-4">⛽</div>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Συνεργαζόμαστε με επιλεγμένα πρατήρια και πλυντήρια σε όλη την Αθήνα για να σου προσφέρουμε την καλύτερη εμπειρία.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section id="how" className="py-24 px-6 bg-gray-50">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-16">
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Πώς λειτουργεί</p>
+            <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Τρία βήματα. Τίποτα άλλο.</h2>
+          </div>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              { step: '01', title: 'Βρες σημείο', desc: 'Δες τα κοντινά πλυντήρια με διαθέσιμες θέσεις σε πραγματικό χρόνο.' },
+              { step: '02', title: 'Κλείσε θέση', desc: 'Επίλεξε υπηρεσία, ώρα και πλήρωσε με ασφάλεια μέσα από την εφαρμογή.' },
+              { step: '03', title: 'Πήγαινε', desc: 'Παρουσιάσου στην ώρα σου. Χωρίς αναμονή, χωρίς ουρές.' },
+            ].map(item => (
+              <div key={item.step} className="bg-white rounded-2xl p-6">
+                <p className="text-xs font-mono text-gray-300 mb-3">{item.step}</p>
+                <p className="text-base font-semibold text-gray-900 mb-2">{item.title}</p>
+                <p className="text-sm text-gray-500 leading-relaxed">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Partners CTA */}
+      <section id="partners" className="py-24 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-gray-900 rounded-3xl p-10 md:p-16 text-center">
+            <p className="text-xs font-medium tracking-widest text-gray-500 uppercase mb-4">Για πρατήρια</p>
+            <h2 className="text-3xl font-semibold text-white mb-4 leading-tight">
+              Αύξησε τις κρατήσεις σου<br />χωρίς κόστος εγκατάστασης.
+            </h2>
+            <p className="text-gray-400 mb-8 leading-relaxed max-w-lg mx-auto">
+              Μηδέν κόστος εγκατάστασης. Μηδέν μηνιαία συνδρομή. Πληρώνεις μόνο όταν έρχεται πελάτης — 10% προμήθεια ανά κράτηση.
+            </p>
+            <Link href="/apply" className="inline-block bg-white text-gray-900 text-sm font-medium px-8 py-4 rounded-2xl">
+              Γίνε συνεργάτης →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section id="contact" className="py-24 px-6 bg-gray-50">
+        <div className="max-w-xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Επικοινωνία</p>
+            <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Στείλε μας μήνυμα.</h2>
+          </div>
+          {sent ? (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-4">✓</div>
+              <p className="text-gray-900 font-medium">Το μήνυμά σου εστάλη!</p>
+              <p className="text-gray-400 text-sm mt-2">Θα επικοινωνήσουμε σύντομα.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Όνομα"
+                value={formData.name}
+                onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
+                className="w-full border border-gray-200 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-gray-400"
+              />
+              <input
+                type="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
+                className="w-full border border-gray-200 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-gray-400"
+              />
+              <textarea
+                placeholder="Μήνυμα"
+                rows={4}
+                value={formData.message}
+                onChange={e => setFormData(p => ({ ...p, message: e.target.value }))}
+                className="w-full border border-gray-200 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-gray-400 resize-none"
+              />
+              <button
+                onClick={handleSubmit}
+                disabled={!formData.name || !formData.email || !formData.message}
+                className="w-full bg-gray-900 text-white text-sm font-medium py-4 rounded-2xl disabled:opacity-40"
+              >
+                Αποστολή
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-10 px-6 border-t border-gray-100">
+        <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <img src="/washio_logo.png" alt="Washio" className="h-7 w-auto" />
+          <div className="flex gap-6">
+            <a href="#about" className="text-xs text-gray-400 hover:text-gray-600">Για εμάς</a>
+            <a href="#how" className="text-xs text-gray-400 hover:text-gray-600">Πώς λειτουργεί</a>
+            <Link href="/apply" className="text-xs text-gray-400 hover:text-gray-600">Συνεργάτες</Link>
+            <a href="#contact" className="text-xs text-gray-400 hover:text-gray-600">Επικοινωνία</a>
+          </div>
+          <p className="text-xs text-gray-300">© 2026 Washio. All rights reserved.</p>
+        </div>
+      </footer>
+
+    </main>
+  )
+}
