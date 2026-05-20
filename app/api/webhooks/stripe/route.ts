@@ -10,7 +10,7 @@ const supabase = createClient(
 )
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const BASE_URL = 'https://washio-ten.vercel.app'
+const BASE_URL = 'https://washio.gr'
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
 function confirmationEmailHtml(data: {

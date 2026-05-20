@@ -6,7 +6,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const BASE_URL = 'https://washio-ten.vercel.app'
+const BASE_URL = 'https://washio.gr'
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')

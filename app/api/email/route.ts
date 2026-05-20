@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const BASE_URL = 'https://washio-ten.vercel.app'
+const BASE_URL = 'https://washio.gr'
 
 function confirmationEmail(data: {
   bookingRef: string

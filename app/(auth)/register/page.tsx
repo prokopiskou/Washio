@@ -41,7 +41,7 @@ function RegisterPageContent() {
   }
 
   const getOauthRedirect = () => {
-    const base = 'https://washio-ten.vercel.app'
+    const base = 'https://washio.gr'
     const path = redirectUrl.startsWith('/') ? redirectUrl : '/' + redirectUrl
     return `${base}${path}`
   }
