@@ -251,9 +251,10 @@ export default function ProfilePage() {
               <p className="text-xs text-gray-400 px-4 py-3">Δεν υπάρχουν κρατήσεις ακόμα.</p>
             ) : (
               bookings.map((b, i) => (
-                <div
+                <button
                   key={b.id}
-                  className={`flex items-center justify-between px-4 py-3 ${i < bookings.length - 1 ? 'border-b border-gray-50' : ''}`}
+                  onClick={() => router.push(`/profile/bookings/${b.id}`)}
+                  className={`w-full flex items-center justify-between px-4 py-3 text-left ${i < bookings.length - 1 ? 'border-b border-gray-50' : ''}`}
                 >
                   <div>
                     <p className="text-sm text-gray-900">{(b.locations as any)?.name}</p>
@@ -262,7 +263,7 @@ export default function ProfilePage() {
                   <span className={`text-xs px-2 py-0.5 rounded-lg ${statusColor(b.status)}`}>
                     {statusLabel(b.status)}
                   </span>
-                </div>
+                </button>
               ))
             )}
           </div>

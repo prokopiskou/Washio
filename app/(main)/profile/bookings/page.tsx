@@ -92,7 +92,11 @@ export default function ProfileBookingsPage() {
         ) : (
           <div className="px-4 pt-4 flex flex-col gap-2">
             {bookings.map(booking => (
-              <div key={booking.id} className="bg-white border border-gray-100 rounded-xl p-4">
+              <button
+                key={booking.id}
+                onClick={() => router.push(`/profile/bookings/${booking.id}`)}
+                className="w-full bg-white border border-gray-100 rounded-xl p-4 text-left"
+              >
                 <div className="flex items-start justify-between mb-2">
                   <div>
                     <p className="text-sm font-medium text-gray-900">{(booking.locations as any)?.name || 'Πρατήριο'}</p>
@@ -108,7 +112,7 @@ export default function ProfileBookingsPage() {
                   <p className="text-xs text-gray-400 font-mono">{booking.booking_ref}</p>
                   <p className="text-sm font-semibold text-gray-900">€{Number(booking.total_amount || 0).toFixed(0)}</p>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
