@@ -331,7 +331,7 @@ export async function POST(req: NextRequest) {
     }
 
     await resend.emails.send({
-      from: 'Washio <onboarding@resend.dev>',
+      from: 'Washio <noreply@washio.gr>',
       to: body.to,
       subject,
       html,
