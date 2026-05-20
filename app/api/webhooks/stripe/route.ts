@@ -76,6 +76,18 @@ export async function POST(req: NextRequest) {
     const intent = event.data.object as Stripe.PaymentIntent
     const m = intent.metadata
 
+    // Idempotency check — αν υπάρχει ήδη booking για αυτό το payment, skip
+    const { data: existing } = await supabase
+      .from('bookings')
+      .select('id, booking_ref')
+      .eq('stripe_payment_intent_id', intent.id)
+      .maybeSingle()
+
+    if (existing) {
+      console.log('Booking already exists for payment:', intent.id, '— skipping')
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+
     const bookingRef = 'WS-' + Math.random().toString(16).slice(2, 10).toUpperCase()
 
     const { error } = await supabase.from('bookings').insert({
