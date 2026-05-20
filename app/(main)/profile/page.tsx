@@ -201,7 +201,7 @@ export default function ProfilePage() {
               {userInitial}
             </div>
             <div>
-              <p className="text-base font-semibold text-gray-900">{fullName || userEmail}</p>
+              <p className="text-base font-semibold text-gray-900">{fullName || 'Καλωσήρθες'}</p>
               <p className="text-xs text-gray-400 mt-0.5">{userEmail}</p>
             </div>
           </div>
