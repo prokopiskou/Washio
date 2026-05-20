@@ -288,16 +288,24 @@ export default function DashboardPage() {
 
       setLoading(false)
 
-      const channel = supabase.channel('bookings-changes')
+      const locationName = ownerLocation.name
+      const channel = supabase.channel(`bookings-changes-${locationId}`)
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
           (payload) => {
+            console.log('NEW BOOKING RECEIVED:', payload)
             setBookings(prev => [payload.new as Booking, ...prev])
             setNewBookingsCount(prev => prev + 1)
-            triggerNewBookingAlert(location?.name || 'Washio')
+            triggerNewBookingAlert(locationName)
           })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
-          (payload) => { setBookings(prev => prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b)) })
-        .subscribe()
+          (payload) => {
+            console.log('BOOKING UPDATED:', payload)
+            setBookings(prev => prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b))
+          })
+        .subscribe((status, err) => {
+          console.log('Realtime subscription status:', status)
+          if (err) console.error('Realtime error:', err)
+        })
 
       const interval = setInterval(async () => {
         const { data } = await supabase.from('bookings')
