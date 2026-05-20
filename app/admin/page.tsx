@@ -49,6 +49,10 @@ export default function AdminPage() {
   const [bookingFilter, setBookingFilter] = useState({ status: '', location: '', date: '' })
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [userBookings, setUserBookings] = useState<any[]>([])
+  const [refundModal, setRefundModal] = useState<{ booking: any } | null>(null)
+  const [refundType, setRefundType] = useState<'full' | 'partial'>('full')
+  const [refundAmount, setRefundAmount] = useState('')
+  const [refunding, setRefunding] = useState(false)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -193,15 +197,41 @@ export default function AdminPage() {
     fetchData()
   }
 
-  const handleCancelBooking = async (bookingId: string, paymentIntentId: string) => {
-    if (!confirm('Ακύρωση κράτησης και επιστροφή χρημάτων;')) return
+  const handleCancelBooking = (booking: any) => {
+    setRefundModal({ booking })
+    setRefundType('full')
+    setRefundAmount(String(booking.total_amount))
+  }
+
+  const confirmRefund = async () => {
+    if (!refundModal) return
+    const amount = refundType === 'full'
+      ? Number(refundModal.booking.total_amount)
+      : parseFloat(refundAmount)
+
+    if (!amount || amount <= 0 || amount > Number(refundModal.booking.total_amount)) {
+      alert('Μη έγκυρο ποσό επιστροφής')
+      return
+    }
+
+    setRefunding(true)
     const res = await fetch('/api/bookings/cancel', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bookingId, paymentIntentId }),
+      body: JSON.stringify({
+        bookingId: refundModal.booking.id,
+        refundAmount: amount,
+        isPartial: refundType === 'partial',
+      }),
     })
-    if (res.ok) fetchData()
-    else alert('Σφάλμα ακύρωσης')
+    setRefunding(false)
+
+    if (res.ok) {
+      setRefundModal(null)
+      fetchData()
+    } else {
+      alert('Σφάλμα ακύρωσης / επιστροφής')
+    }
   }
 
   const toggleLocation = async (id: string, isActive: boolean) => {
@@ -464,8 +494,8 @@ export default function AdminPage() {
                                   className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md">Complete</button>
                               )}
                               {b.status !== 'cancelled' && b.status !== 'completed' && (
-                                <button onClick={() => handleCancelBooking(b.id, b.stripe_payment_intent_id)}
-                                  className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-md">Ακύρωση</button>
+                                <button onClick={() => handleCancelBooking(b)}
+                                  className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-md">Refund</button>
                               )}
                             </div>
                           </div>
@@ -970,6 +1000,73 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      {/* Refund modal */}
+      {refundModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !refunding && setRefundModal(null)} />
+          <div className="relative bg-white rounded-2xl p-6 w-full max-w-md z-10">
+            <div className="mb-5">
+              <p className="text-base font-semibold text-gray-900 mb-1">Επιστροφή χρημάτων</p>
+              <p className="text-xs text-gray-400">
+                {refundModal.booking.booking_ref} · €{Number(refundModal.booking.total_amount).toFixed(0)}
+              </p>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              <button onClick={() => { setRefundType('full'); setRefundAmount(String(refundModal.booking.total_amount)) }}
+                className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-all ${
+                  refundType === 'full' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'
+                }`}>
+                Συνολικό
+              </button>
+              <button onClick={() => { setRefundType('partial'); setRefundAmount('') }}
+                className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-all ${
+                  refundType === 'partial' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'
+                }`}>
+                Μερικό
+              </button>
+            </div>
+
+            <div className="mb-5">
+              <p className="text-xs text-gray-400 mb-1.5">Ποσό επιστροφής</p>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">€</span>
+                <input
+                  type="number"
+                  value={refundAmount}
+                  onChange={e => setRefundAmount(e.target.value)}
+                  disabled={refundType === 'full'}
+                  min="0"
+                  max={refundModal.booking.total_amount}
+                  step="0.01"
+                  className="w-full border border-gray-200 rounded-xl pl-8 pr-4 py-3 text-sm focus:outline-none focus:border-gray-400 disabled:bg-gray-50"
+                />
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">
+                Μέγιστο: €{Number(refundModal.booking.total_amount).toFixed(2)}
+              </p>
+            </div>
+
+            <div className="bg-amber-50 rounded-xl p-3 mb-5">
+              <p className="text-xs text-amber-800 leading-relaxed">
+                ⚠️ Η κράτηση θα ακυρωθεί και το ποσό θα επιστραφεί αυτόματα στην κάρτα μέσω Stripe (5-7 εργάσιμες ημέρες).
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button onClick={() => setRefundModal(null)} disabled={refunding}
+                className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl">
+                Άκυρο
+              </button>
+              <button onClick={confirmRefund} disabled={refunding}
+                className="flex-1 bg-red-500 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40">
+                {refunding ? 'Επιστροφή...' : 'Επιστροφή & Ακύρωση'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
