@@ -1,16 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import { Resend } from 'resend'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
+const resend = new Resend(process.env.RESEND_API_KEY)
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://washio-ten.vercel.app'
-
+const BASE_URL = 'https://washio-ten.vercel.app'
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
+
+function confirmationEmailHtml(data: {
+  bookingRef: string
+  locationName: string
+  service: string
+  date: string
+  time: string
+  plate: string
+  total: string
+}) {
+  return `
+    <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
+      <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
+        <h1 style="color: white; font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">washio</h1>
+        <p style="color: #666; font-size: 12px; margin: 6px 0 0;">Πλύσιμο αυτοκινήτου με ένα tap</p>
+      </div>
+      <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
+        <div style="text-align: center; margin-bottom: 28px;">
+          <div style="width: 48px; height: 48px; background: #0A0A0A; border-radius: 50%; margin: 0 auto 12px auto; text-align: center; line-height: 48px;">
+            <span style="color: white; font-size: 20px;">✓</span>
+          </div>
+          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Η κράτησή σου επιβεβαιώθηκε!</h2>
+          <p style="color: #999; font-size: 13px; margin: 0;">Τα στοιχεία της κράτησής σου παρακάτω.</p>
+        </div>
+        <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+          <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Κωδικός κράτησης</td><td style="color: #0A0A0A; font-weight: 600; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF; font-family: monospace;">${data.bookingRef}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Σταθμός</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationName}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Υπηρεσία</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.service}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ημερομηνία</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.date}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ώρα</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.time}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Πινακίδα</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.plate}</td></tr>
+            <tr><td style="color: #0A0A0A; font-weight: 600; padding: 8px 0 0;">Σύνολο</td><td style="color: #0A0A0A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td></tr>
+          </table>
+        </div>
+        <div style="background: #F0F7FF; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
+          <p style="color: #1A6FD4; font-size: 12px; margin: 0; line-height: 1.6;">
+            📍 Θα λάβεις υπενθύμιση <strong>1 ώρα πριν</strong> την κράτησή σου.<br/>
+            Κράτα τον κωδικό <strong>${data.bookingRef}</strong> για οποιαδήποτε αλλαγή.
+          </p>
+        </div>
+        <a href="${BASE_URL}" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px;">Δες τις κρατήσεις σου →</a>
+        <p style="color: #CCC; font-size: 11px; text-align: center; margin: 0;">Washio · Γλυφάδα, Αττική</p>
+      </div>
+    </div>
+  `
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.text()
@@ -28,7 +76,6 @@ export async function POST(req: NextRequest) {
     const intent = event.data.object as Stripe.PaymentIntent
     const m = intent.metadata
 
-    // Generate booking_ref
     const bookingRef = 'WS-' + Math.random().toString(16).slice(2, 10).toUpperCase()
 
     const { error } = await supabase.from('bookings').insert({
@@ -53,14 +100,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Fetch location info for email
+    // Fetch location
     const { data: locationData } = await supabase
       .from('locations')
-      .select('name, address, city')
+      .select('name')
       .eq('id', m.locationId)
       .single()
 
-    // Fetch user email — first from metadata, fallback to profile
+    // Get user email
     let userEmail = m.userEmail || null
     if (!userEmail && m.userId) {
       const { data: profileData } = await supabase
@@ -72,21 +119,20 @@ export async function POST(req: NextRequest) {
     }
 
     if (!userEmail) {
-      console.error('No user email found for booking:', bookingRef)
+      console.error('No user email for booking:', bookingRef)
       return NextResponse.json({ received: true, warning: 'no_email' })
     }
 
     const date = new Date(m.slotDate)
     const formattedDate = `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
 
-    // Send confirmation email
+    // Send email DIRECTLY via Resend (no internal fetch)
     try {
-      const emailRes = await fetch(`${BASE_URL}/api/email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'confirmation',
-          to: userEmail,
+      await resend.emails.send({
+        from: 'Washio <noreply@washio.gr>',
+        to: userEmail,
+        subject: `✓ Η κράτησή σου επιβεβαιώθηκε — ${bookingRef}`,
+        html: confirmationEmailHtml({
           bookingRef,
           locationName: locationData?.name || 'Washio',
           service: m.serviceName || 'Υπηρεσία',
@@ -96,15 +142,9 @@ export async function POST(req: NextRequest) {
           total: parseFloat(m.amount).toFixed(0),
         }),
       })
-
-      if (!emailRes.ok) {
-        const errText = await emailRes.text()
-        console.error('Email send failed:', errText)
-      } else {
-        console.log('Confirmation email sent to:', userEmail)
-      }
-    } catch (emailErr) {
-      console.error('Email send error:', emailErr)
+      console.log('Confirmation email sent to:', userEmail)
+    } catch (emailErr: any) {
+      console.error('Email send error:', emailErr.message)
     }
   }
 
