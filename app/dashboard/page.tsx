@@ -350,7 +350,7 @@ export default function DashboardPage() {
     const points = Array.from({ length: months }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1)
       const key = `${d.getFullYear()}-${d.getMonth()}`
-      return { key, label: d.toLocaleDateString('el-GR', { month: 'short' }), revenue: 0, bookings: 0 }
+      return { key, label: d.toLocaleDateString('el-GR', { month: 'short', timeZone: 'Europe/Athens' }), revenue: 0, bookings: 0 }
     })
     bookings.forEach(b => {
       if (!b.slot_date) return
@@ -699,7 +699,13 @@ export default function DashboardPage() {
                           🚿 {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}
                         </p>
                         <p className="text-xs text-gray-300 mt-0.5">
-                          Κλείστηκε: {b.created_at ? new Date(b.created_at).toLocaleDateString('el-GR') : '—'}
+                          Κλείστηκε: {b.created_at ? new Date(b.created_at).toLocaleString('el-GR', {
+                            timeZone: 'Europe/Athens',
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : '—'}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -734,7 +740,7 @@ export default function DashboardPage() {
                   setCalendarDate(d)
                 }} className="text-gray-400 px-2 py-1 rounded-lg hover:bg-gray-50 text-lg">‹</button>
                 <p className="text-sm font-medium text-gray-900">
-                  {calendarDate.toLocaleDateString('el-GR', { month: 'long', year: 'numeric' })}
+                  {calendarDate.toLocaleDateString('el-GR', { month: 'long', year: 'numeric', timeZone: 'Europe/Athens' })}
                 </p>
                 <button onClick={() => {
                   const d = new Date(calendarDate)
@@ -786,7 +792,7 @@ export default function DashboardPage() {
               {/* Selected day bookings */}
               <div className="border-t border-gray-100 pt-4">
                 <p className="text-sm font-medium text-gray-900 mb-3">
-                  {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
                 </p>
 
                 {calendarLoading ? (
@@ -921,7 +927,7 @@ export default function DashboardPage() {
                     <div key={ex.exception_date} className="border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {new Date(ex.exception_date).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })}
+                          {new Date(ex.exception_date).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })}
                         </p>
                         {ex.is_closed ? (
                           <p className="text-xs text-red-500 mt-0.5">Κλειστό</p>
@@ -1039,7 +1045,7 @@ export default function DashboardPage() {
                 <div key={review.id} className="border border-gray-100 rounded-xl px-4 py-3">
                   <p className="text-amber-500 text-sm">{'★'.repeat(Number(review.rating || 0))}{'☆'.repeat(5 - Number(review.rating || 0))}</p>
                   <p className="text-sm text-gray-900 mt-1">{review.comment || '—'}</p>
-                  <p className="text-xs text-gray-400 mt-1">{new Date(review.created_at).toLocaleDateString('el-GR')}</p>
+                  <p className="text-xs text-gray-400 mt-1">{new Date(review.created_at).toLocaleDateString('el-GR', { timeZone: 'Europe/Athens' })}</p>
                 </div>
               ))}
               {!reviews.length && <p className="text-xs text-gray-400">Δεν υπάρχουν αξιολογήσεις ακόμα.</p>}
