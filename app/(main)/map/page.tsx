@@ -459,7 +459,7 @@ function MapPageContent() {
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md h-screen relative overflow-hidden">
+      <div className="w-full max-w-md relative overflow-hidden" style={{ height: '100dvh' }}>
 
         <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4 flex flex-col gap-2">
           <div ref={searchContainerRef} className="relative">
@@ -638,7 +638,7 @@ function MapPageContent() {
         </div>
 
         {/* Bottom Nav */}
-        <nav className="absolute bottom-0 left-0 right-0 z-20 flex justify-around items-center py-3 border-t border-gray-100 bg-white">
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-20 flex justify-around items-center py-3 border-t border-gray-100 bg-white" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <Link href="/" className="flex flex-col items-center gap-1 text-gray-300">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
             <span className="text-xs">Αρχική</span>
