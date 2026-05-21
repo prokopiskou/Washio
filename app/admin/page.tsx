@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ChevronRight, Download, RefreshCw, Check, X, Power } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 
-const ADMIN_EMAIL = 'withinsuccess@gmail.com'
+const ADMIN_EMAILS = ['withinsuccess@gmail.com', 'giwrgos2070@gmail.com']
 
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
@@ -59,7 +59,7 @@ export default function AdminPage() {
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
       const email = data.session?.user?.email
-      if (email !== ADMIN_EMAIL) { router.replace('/'); return }
+      if (!email || !ADMIN_EMAILS.includes(email)) { router.replace('/'); return }
       setAuthorized(true)
       setAuthChecking(false)
     }
