@@ -42,12 +42,12 @@ export default function WelcomePage() {
               Βρες πλυντήριο
               <ArrowRight size={18} />
             </button>
-            <Link
-              href="/register"
-              className="w-full h-14 rounded-xl bg-white border border-gray-200 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center"
-            >
-              Δημιουργία λογαριασμού
-            </Link>
+<Link
+  href="/login"
+  className="w-full h-14 rounded-xl bg-white border border-gray-200 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center"
+>
+  Δημιουργία λογαριασμού
+</Link>
           </div>
         </section>
 
