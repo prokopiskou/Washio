@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Star, Home as HomeIcon } from 'lucide-react'
+import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Home as HomeIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 declare global {
@@ -578,64 +578,48 @@ function MapPageContent() {
         )}
 
         {/* Bottom Sheet */}
-        <div className="absolute bottom-0 left-0 right-0 z-15 pb-16">
+        <div className="absolute left-0 right-0 z-15" style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
 
           {/* Collapsed peek — list of locations */}
           {!selectedLocation && filteredLocations.length > 0 && (
-            <div className="bg-white rounded-t-3xl"
+            <div className="bg-white rounded-t-2xl"
                  style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06), 0 -1px 0 rgba(0,0,0,0.04)' }}>
               {/* Drag handle */}
-              <div className="flex justify-center pt-2.5 pb-3.5">
+              <div className="flex justify-center pt-2 pb-2">
                 <div className="w-9 h-1 rounded-full bg-gray-200" />
               </div>
 
               {/* Header */}
-              <div className="flex justify-between items-baseline px-6 pb-3">
-                <p className="text-[18px] font-semibold tracking-tight text-gray-900">
+              <div className="flex justify-between items-baseline px-5 pb-2">
+                <p className="text-[14px] font-semibold tracking-tight text-gray-900">
                   {filteredLocations.length} {filteredLocations.length === 1 ? 'πλυντήριο' : 'πλυντήρια'} κοντά
                 </p>
-                <p className="text-[13px] font-medium text-blue-600">Λίστα</p>
+                <p className="text-[12px] font-medium text-blue-600">Λίστα</p>
               </div>
 
-              {/* Horizontal cards */}
-              <div className="flex gap-3 overflow-x-auto scrollbar-hide px-5 pb-3 pt-1">
+              {/* Horizontal compact cards */}
+              <div className="flex gap-2.5 overflow-x-auto scrollbar-hide px-4 pb-3">
                 {filteredLocations.map(loc => (
                   <button
                     key={loc.id}
                     onClick={() => selectLocation(loc)}
-                    className="shrink-0 w-[280px] bg-white rounded-2xl p-4 border border-gray-100 flex flex-col gap-3.5 text-left"
+                    className="shrink-0 w-[220px] bg-white rounded-xl p-3 border border-gray-100 flex flex-col gap-1 text-left"
                     style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
                   >
-                    {/* Photo placeholder */}
-                    <div
-                      className="h-[92px] rounded-[10px] relative overflow-hidden"
-                      style={{
-                        background: 'repeating-linear-gradient(135deg, #FAFAFA 0 12px, #F7F7F7 12px 24px)',
-                      }}
-                    >
-                      <div className="absolute top-2 left-2.5 font-mono text-[9px] text-gray-400 tracking-wider">
-                        // photo
-                      </div>
-                      {loc.distance !== undefined && (
-                        <div className="absolute top-2 right-2 px-2 py-1 bg-white rounded-md text-[11px] font-semibold text-gray-900">
-                          {formatDistance(loc.distance)}
-                        </div>
+                    <div className="flex justify-between items-start gap-2">
+                      <p className="text-[13px] font-semibold tracking-tight text-gray-900 leading-tight truncate">{loc.name}</p>
+                      {timing === 'now' && loc.nextSlot && (
+                        <p className="text-[13px] font-semibold text-green-600 shrink-0">{loc.nextSlot}</p>
                       )}
                     </div>
-
-                    <div>
-                      <div className="flex justify-between items-start gap-2">
-                        <p className="text-[15px] font-semibold tracking-tight text-gray-900 leading-[1.2]">{loc.name}</p>
-                        {timing === 'now' && loc.nextSlot && (
-                          <p className="text-[15px] font-semibold tracking-tight text-green-600 shrink-0">{loc.nextSlot}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                        <Star size={12} className="fill-gray-900 text-gray-900" strokeWidth={1} />
-                        <span className="text-[12px] font-medium text-gray-900">Νέο</span>
-                        <span className="w-[3px] h-[3px] rounded-full bg-gray-400 mx-0.5" />
-                        <span className="text-[12px] text-gray-500">{loc.city}</span>
-                      </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] text-gray-500">{loc.city}</span>
+                      {loc.distance !== undefined && (
+                        <>
+                          <span className="w-[3px] h-[3px] rounded-full bg-gray-300" />
+                          <span className="text-[11px] text-gray-500">{formatDistance(loc.distance)}</span>
+                        </>
+                      )}
                     </div>
                   </button>
                 ))}
@@ -645,7 +629,7 @@ function MapPageContent() {
 
           {/* No availability */}
           {!selectedLocation && filteredLocations.length === 0 && allLocations.length > 0 && (
-            <div className="bg-white rounded-t-3xl p-6"
+            <div className="bg-white rounded-t-2xl p-4"
                  style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06)' }}>
               <div className="flex justify-center pb-3">
                 <div className="w-9 h-1 rounded-full bg-gray-200" />
@@ -664,7 +648,7 @@ function MapPageContent() {
 
           {/* Selected location — booking flow */}
           {selectedLocation && (
-            <div className="bg-white rounded-t-3xl px-5 pt-4 pb-6"
+            <div className="bg-white rounded-t-2xl px-5 pt-3 pb-5"
                  style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06)' }}>
               <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
 
