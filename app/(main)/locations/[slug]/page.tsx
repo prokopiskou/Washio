@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ArrowLeft, Star, MapPin, Clock, Check, ChevronLeft, ChevronRight, Heart } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 type Location = {
@@ -27,12 +27,10 @@ type Slot = {
   available: boolean
 }
 
-const DAYS_JS = ['Κυ', 'Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα']
+const DAYS_JS = ['Κυρ', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ']
 const MONTHS = ['Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος']
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
-// day_of_week: 1=Δε, 2=Τρ, ..., 7=Κυ (Supabase convention)
-// JS getDay(): 0=Κυ, 1=Δε, ..., 6=Σα
 function jsDayToSupabase(jsDay: number): number {
   return jsDay === 0 ? 7 : jsDay
 }
@@ -152,14 +150,12 @@ export default function LocationPage() {
     const dayOfWeek = jsDayToSupabase(date.getDay())
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
-    // Έλεγχος exception για τη συγκεκριμένη ημερομηνία
     const { data: exceptionData } = await supabase
       .from('location_hours_exceptions')
       .select('periods, is_closed')
       .eq('location_id', locationId)
       .eq('exception_date', dateStr)
       .maybeSingle()
-    console.log('Exception check for', dateStr, ':', exceptionData)
 
     let allTimes: string[] = []
 
@@ -182,7 +178,6 @@ export default function LocationPage() {
       allTimes = generateSlots(dayHours.open_time, dayHours.close_time)
     }
 
-    // Παίρνουμε τις ήδη κρατημένες ώρες
     const { data: bookedData } = await supabase
       .from('bookings')
       .select('slot_start_time')
@@ -192,7 +187,6 @@ export default function LocationPage() {
 
     const bookedTimes = new Set((bookedData || []).map((b: any) => b.slot_start_time?.slice(0, 5)))
 
-    // Αν είναι σήμερα, εξαιρούμε τα περασμένα slots
     const now = new Date()
     const todayLocalStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const isToday = dateStr === todayLocalStr
@@ -240,7 +234,6 @@ export default function LocationPage() {
 
   const dates = getDatesForMonth(viewYear, viewMonth)
 
-  // Φιλτράρισμα υπηρεσιών ανά vehicle type
   const visibleServices = services.filter(s => {
     if (vehicleType === 'ΙΧ') return s.name !== 'Πλύσιμο'
     if (vehicleType === 'Μοτοσικλέτα') return s.name === 'Πλύσιμο'
@@ -249,6 +242,7 @@ export default function LocationPage() {
 
   const service = visibleServices.find(s => s.id === selectedServiceId)
   const canBook = selectedServiceId && selectedSlot
+  const selectedServicePrice = service ? (vehicleType === 'Μοτοσικλέτα' && service.price_moto ? service.price_moto : service.price) : null
 
   const nextMonth = () => {
     if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
@@ -263,14 +257,14 @@ export default function LocationPage() {
   }
 
   const isToday = (d: Date) => d.toDateString() === today.toDateString()
-  const isSelected = (d: Date) => d.toDateString() === selectedDate.toDateString()
+  const isSelectedDate = (d: Date) => d.toDateString() === selectedDate.toDateString()
   const isPast = viewMonth === today.getMonth() && viewYear === today.getFullYear()
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <main className="min-h-screen bg-white flex items-center justify-center">
         <p className="text-xs text-gray-400">Φόρτωση...</p>
-      </div>
+      </main>
     )
   }
 
@@ -278,132 +272,187 @@ export default function LocationPage() {
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md pb-32">
+      <div className="w-full max-w-md pb-32 relative">
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="text-gray-400 p-2 -ml-2">
-              <ArrowLeft size={18} />
-            </button>
-            <span className="text-sm font-medium text-gray-900">{location.name}</span>
+        {/* Hero photo strip with floating nav buttons */}
+        <div
+          className="h-[320px] relative"
+          style={{
+            background: 'repeating-linear-gradient(135deg, #FAFAFA 0 16px, #F7F7F7 16px 32px)',
+          }}
+        >
+          <div className="absolute top-3.5 left-3.5 font-mono text-[10px] text-gray-400 tracking-wider">
+            // photo
           </div>
-          {userId && (
-            <button onClick={toggleFavorite} className="p-2">
-              <Heart size={18} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-300'} />
+
+          {/* Nav buttons floating over hero */}
+          <div className="absolute top-14 left-4 right-4 flex justify-between">
+            <button
+              onClick={() => router.back()}
+              className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-900"
+              style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+            >
+              <ChevronLeft size={20} />
             </button>
-          )}
+            {userId && (
+              <button
+                onClick={toggleFavorite}
+                className="w-10 h-10 rounded-full bg-white flex items-center justify-center"
+                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+              >
+                <Heart size={18} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-900'} />
+              </button>
+            )}
+          </div>
+
+          {/* Photo dots */}
+          <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-900" />
+            <span className="w-1.5 h-1.5 rounded-full bg-white opacity-60" />
+            <span className="w-1.5 h-1.5 rounded-full bg-white opacity-60" />
+          </div>
         </div>
 
-        {/* Cover */}
-        <div className="w-full h-28 bg-gray-100 flex items-center justify-center text-4xl">⛽</div>
+        {/* Content */}
+        <div className="px-5 pt-5">
 
-        {/* Info */}
-        <section className="px-5 py-3 border-b border-gray-100">
-          <div className="flex items-start justify-between mb-1">
-            <h1 className="text-sm font-semibold text-gray-900">{location.name}</h1>
-            <div className="flex items-center gap-1">
-              <Star size={11} className="text-amber-400 fill-amber-400" />
-              <span className="text-xs font-medium text-gray-700">Νέο</span>
+          {/* Heading */}
+          <div className="flex justify-between items-start gap-3">
+            <div className="flex-1">
+              <h1 className="text-[24px] font-semibold tracking-tight leading-[1.15] text-gray-900">{location.name}</h1>
+              <div className="flex items-center gap-1.5 mt-2">
+                <MapPin size={13} className="text-gray-500" strokeWidth={1.6} />
+                <p className="text-[13px] text-gray-500">{location.address}, {location.city}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 rounded-lg">
+              <Star size={12} className="fill-gray-900 text-gray-900" strokeWidth={1} />
+              <span className="text-[12px] font-semibold text-gray-900">Νέο</span>
             </div>
           </div>
-          <div className="flex items-center gap-1 text-xs text-gray-400">
-            <MapPin size={10} />
-            <span>{location.address}, {location.city}</span>
+
+          {/* Vehicle type */}
+          <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mt-7 mb-2.5">
+            Όχημα
+          </p>
+          <div className="flex gap-2">
+            {(['ΙΧ', 'Μοτοσικλέτα'] as const).map(type => {
+              const active = vehicleType === type
+              return (
+                <button
+                  key={type}
+                  onClick={() => setVehicleType(type)}
+                  className={`px-3.5 py-2.5 rounded-full text-[13px] font-semibold border flex items-center gap-1.5 transition-all ${
+                    active
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-900 border-gray-200'
+                  }`}
+                >
+                  {type === 'ΙΧ' ? <Car size={15} /> : <Bike size={15} />}
+                  {type === 'ΙΧ' ? 'ΙΧ' : 'Μοτο'}
+                </button>
+              )
+            })}
           </div>
-        </section>
 
-        {/* Services */}
-        <section className="px-5 py-4 border-b border-gray-100">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Υπηρεσία</p>
-
-          {/* Vehicle type selector */}
-          <div className="flex gap-2 mb-3">
-            {(['ΙΧ', 'Μοτοσικλέτα'] as const).map(type => (
-              <button key={type} onClick={() => setVehicleType(type)}
-                className={`px-4 py-2 rounded-xl text-xs font-medium border transition-all ${
-                  vehicleType === type ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'
-                }`}>
-                {type === 'ΙΧ' ? '🚗 ΙΧ' : '🏍 Μοτο'}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {visibleServices.map(s => (
-              <button
-                key={s.id}
-                onClick={() => setSelectedServiceId(s.id)}
-                className={`flex items-center justify-between px-4 py-4 rounded-xl border text-left transition-all min-h-[64px] ${
-                  selectedServiceId === s.id ? 'border-gray-900 bg-gray-900' : 'border-gray-100 bg-white'
-                }`}
-              >
-                <div>
-                  <p className={`text-sm font-medium ${selectedServiceId === s.id ? 'text-white' : 'text-gray-900'}`}>
-                    {s.name}
-                  </p>
-                  {s.description && (
-                    <p className="text-xs mt-0.5 text-gray-400">{s.description}</p>
-                  )}
-                  <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
-                    <Clock size={10} />
-                    {s.duration_minutes} λεπτά
+          {/* Services */}
+          <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mt-6 mb-2.5">
+            Υπηρεσία
+          </p>
+          <div className="flex flex-col gap-2.5">
+            {visibleServices.map(s => {
+              const selected = selectedServiceId === s.id
+              const price = vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto : s.price
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setSelectedServiceId(s.id)}
+                  className={`flex items-center gap-3.5 p-[18px] rounded-2xl border transition-all text-left ${
+                    selected
+                      ? 'bg-gray-900 border-gray-900 text-white'
+                      : 'bg-white border-gray-100 text-gray-900'
+                  }`}
+                  style={!selected ? { boxShadow: '0 1px 3px rgba(0,0,0,0.03)' } : undefined}
+                >
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                      selected ? 'bg-white' : 'border-[1.5px] border-gray-200'
+                    }`}
+                  >
+                    {selected && <Check size={14} className="text-gray-900" strokeWidth={2.4} />}
                   </div>
-                </div>
-                <div className="text-right shrink-0 ml-4">
-                  <p className={`text-sm font-semibold ${selectedServiceId === s.id ? 'text-white' : 'text-gray-900'}`}>
-                    €{vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto : s.price}
+                  <div className="flex-1">
+                    <p className={`text-[15px] font-semibold tracking-tight ${selected ? 'text-white' : 'text-gray-900'}`}>
+                      {s.name}
+                    </p>
+                    {s.description && (
+                      <p className={`text-xs mt-0.5 ${selected ? 'text-white/60' : 'text-gray-500'}`}>
+                        {s.description} · {s.duration_minutes}′
+                      </p>
+                    )}
+                  </div>
+                  <p className={`text-[17px] font-semibold tracking-tight ${selected ? 'text-white' : 'text-gray-900'}`}>
+                    €{price}
                   </p>
-                  {selectedServiceId === s.id && (
-                    <Check size={14} className="text-white mt-1 ml-auto" />
-                  )}
-                </div>
-              </button>
-            ))}
+                </button>
+              )
+            })}
           </div>
-        </section>
 
-        {/* Date picker */}
-        <section className="px-5 py-4 border-b border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase">Ημερομηνία</p>
-            <div className="flex items-center gap-2">
-              <button onClick={prevMonth} disabled={isPast}
-                className={`p-2 rounded-lg ${isPast ? 'text-gray-200' : 'text-gray-400'}`}>
+          {/* Date picker */}
+          <div className="flex items-center justify-between mt-7 mb-2.5">
+            <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase">
+              Ημερομηνία
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={prevMonth}
+                disabled={isPast}
+                className={`p-1.5 rounded-lg ${isPast ? 'text-gray-200' : 'text-gray-500'}`}
+              >
                 <ChevronLeft size={14} />
               </button>
-              <span className="text-xs font-medium text-gray-700 min-w-[80px] text-center">
+              <span className="text-[12px] font-semibold text-gray-700 min-w-[90px] text-center">
                 {MONTHS[viewMonth]}
               </span>
-              <button onClick={nextMonth} className="p-2 rounded-lg text-gray-400">
+              <button onClick={nextMonth} className="p-1.5 rounded-lg text-gray-500">
                 <ChevronRight size={14} />
               </button>
             </div>
           </div>
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-            {dates.map((d, i) => (
-              <button
-                key={i}
-                onClick={() => { setSelectedDate(d); setSelectedSlot(null) }}
-                className={`flex flex-col items-center min-w-[48px] py-3 px-1 rounded-xl border transition-all shrink-0 ${
-                  isSelected(d) ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-100'
-                }`}
-              >
-                <span className="text-xs text-gray-400">{DAYS_JS[d.getDay()]}</span>
-                <span className={`text-xs font-semibold mt-0.5 ${isSelected(d) ? 'text-white' : 'text-gray-900'}`}>
-                  {d.getDate()}
-                </span>
-                {isToday(d) && (
-                  <span className={`w-1 h-1 rounded-full mt-1 ${isSelected(d) ? 'bg-gray-500' : 'bg-blue-500'}`} />
-                )}
-              </button>
-            ))}
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
+            {dates.map((d, i) => {
+              const selected = isSelectedDate(d)
+              const isSunday = d.getDay() === 0
+              return (
+                <button
+                  key={i}
+                  onClick={() => { setSelectedDate(d); setSelectedSlot(null) }}
+                  className={`shrink-0 w-14 h-[72px] rounded-[14px] border flex flex-col items-center justify-center gap-1 transition-all ${
+                    selected
+                      ? 'bg-gray-900 border-gray-900 text-white'
+                      : isSunday
+                      ? 'bg-gray-50 border-gray-100 text-gray-400'
+                      : 'bg-white border-gray-100 text-gray-900'
+                  }`}
+                >
+                  <span
+                    className={`text-[11px] font-medium uppercase tracking-wider ${
+                      selected ? 'text-white/70' : isSunday ? 'text-gray-400' : 'text-gray-500'
+                    }`}
+                  >
+                    {DAYS_JS[d.getDay()]}
+                  </span>
+                  <span className={`text-[20px] font-semibold tracking-tight ${selected ? 'text-white' : isSunday ? 'text-gray-400' : 'text-gray-900'}`}>
+                    {d.getDate()}
+                  </span>
+                </button>
+              )
+            })}
           </div>
-        </section>
 
-        {/* Time slots */}
-        <section className="px-5 py-4">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
+          {/* Time slots */}
+          <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mt-6 mb-2.5">
             Ώρα · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
           </p>
           {slotsLoading ? (
@@ -412,37 +461,55 @@ export default function LocationPage() {
             <p className="text-xs text-gray-400">Δεν υπάρχουν διαθέσιμα slots για αυτή την ημέρα.</p>
           ) : (
             <div className="grid grid-cols-4 gap-2">
-              {slots.map(slot => (
-                <button
-                  key={slot.id}
-                  disabled={!slot.available}
-                  onClick={() => setSelectedSlot(slot.id)}
-                  className={`py-3.5 rounded-xl text-xs font-medium border transition-all ${
-                    !slot.available
-                      ? 'border-gray-100 text-gray-300 bg-gray-50 cursor-not-allowed'
-                      : selectedSlot === slot.id
-                      ? 'border-gray-900 bg-gray-900 text-white'
-                      : 'border-gray-200 text-gray-700 bg-white'
-                  }`}
-                >
-                  {slot.time}
-                </button>
-              ))}
+              {slots.map(slot => {
+                const selected = selectedSlot === slot.id
+                if (!slot.available) {
+                  return (
+                    <div
+                      key={slot.id}
+                      className="h-11 rounded-xl border border-gray-100 bg-gray-50 flex items-center justify-center text-[14px] font-semibold text-gray-300"
+                      style={{ textDecoration: 'line-through' }}
+                    >
+                      {slot.time}
+                    </div>
+                  )
+                }
+                return (
+                  <button
+                    key={slot.id}
+                    onClick={() => setSelectedSlot(slot.id)}
+                    className={`h-11 rounded-xl border text-[14px] font-semibold transition-all ${
+                      selected
+                        ? 'bg-gray-900 border-gray-900 text-white'
+                        : 'bg-white border-gray-200 text-gray-900'
+                    }`}
+                  >
+                    {slot.time}
+                  </button>
+                )
+              })}
             </div>
           )}
-        </section>
+        </div>
 
-        {/* Bottom CTA */}
-        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
+        {/* Sticky CTA with gradient fade */}
+        <div
+          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 pt-3.5 pb-10"
+          style={{
+            background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 28%)',
+          }}
+        >
           {canBook ? (
             <button
               onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${selectedDate.toISOString().split('T')[0]}&vehicleType=${encodeURIComponent(vehicleType)}`)}
-              className="w-full bg-gray-900 text-white text-sm font-medium py-4 rounded-xl"
+              className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
             >
-              Κράτηση — €{vehicleType === 'Μοτοσικλέτα' && service?.price_moto ? service.price_moto : service?.price} · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
+              <span>Κράτηση</span>
+              <span className="w-px h-4 bg-white/25" />
+              <span>€{selectedServicePrice}</span>
             </button>
           ) : (
-            <div className="w-full bg-gray-100 text-gray-400 text-sm font-medium py-4 rounded-xl flex items-center justify-center">
+            <div className="w-full h-14 rounded-xl bg-gray-100 text-gray-400 text-[14px] font-medium flex items-center justify-center">
               Επίλεξε υπηρεσία, ημερομηνία και ώρα
             </div>
           )}
