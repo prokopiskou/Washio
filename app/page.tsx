@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { MapPin, Star, Clock, Calendar, ChevronDown, X } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 type Location = {
@@ -46,6 +47,7 @@ function getTimeSlots() {
 }
 
 export default function Home() {
+  const router = useRouter()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [timing, setTiming] = useState<'now' | 'later'>('now')
   const [userLat, setUserLat] = useState<number | null>(null)
@@ -62,8 +64,14 @@ export default function Home() {
   // Auth check
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getSession().then(({ data }) => setIsLoggedIn(!!data.session))
-  }, [])
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.replace('/welcome')
+        return
+      }
+      setIsLoggedIn(true)
+    })
+  }, [router])
 
   // Location permission + load locations
   useEffect(() => {
