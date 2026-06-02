@@ -384,7 +384,7 @@ function BookingPageContent() {
               </div>
               <div className="flex-1">
                 <p className="text-[13px] font-semibold text-amber-900">
-                  Δεν έχεις {vehicleType === 'Μοτοσικλέτα' ? 'μοτοσικλέτα' : 'ΙΧ'} καταχωρημένο
+                  {vehicleType === 'Μοτοσικλέτα' ? 'Δεν έχεις μοτοσικλέτα καταχωρημένη' : 'Δεν έχεις ΙΧ καταχωρημένο'}
                 </p>
                 <p className="text-[12px] text-amber-800 mt-0.5 leading-snug">
                   Πρόσθεσε την πινακίδα παρακάτω για να συνεχίσεις την κράτηση.
