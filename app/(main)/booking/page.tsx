@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, CreditCard, Plus, Minus, Shield } from 'lucide-react'
+import { ChevronLeft, Lock, Calendar, Sparkles, Mail } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createClient } from '@/lib/supabase/client'
@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
+const WEEKDAYS = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο']
 
 type Addon = {
   id: string
@@ -34,6 +35,27 @@ type Service = {
 type Location = {
   id: string
   name: string
+  address?: string
+  city?: string
+}
+
+function MapThumb() {
+  return (
+    <div
+      className="w-[52px] h-[52px] rounded-[10px] overflow-hidden relative shrink-0 border border-gray-100"
+      style={{ background: '#EEF0F2' }}
+    >
+      <svg width="52" height="52" viewBox="0 0 52 52">
+        <rect width="52" height="52" fill="#EEF0F2"/>
+        <path d="M0 18 L52 22 M0 38 L52 36 M22 0 L24 52" stroke="#fff" strokeWidth="4"/>
+        <rect x="6" y="6" width="14" height="10" fill="#F4F5F6" stroke="#E4E6E8"/>
+        <rect x="28" y="6" width="18" height="10" fill="#F4F5F6" stroke="#E4E6E8"/>
+        <rect x="6" y="28" width="14" height="6" fill="#F4F5F6" stroke="#E4E6E8"/>
+        <rect x="6" y="40" width="40" height="10" fill="#DEE6EC"/>
+        <circle cx="26" cy="28" r="4" fill="#0A0A0A"/>
+      </svg>
+    </div>
+  )
 }
 
 function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret, plate }: {
@@ -81,26 +103,45 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
   }
 
   return (
-    <div className="px-5 py-4">
-      <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Πληρωμή</p>
-      <div className="border border-gray-200 rounded-xl p-4 mb-2">
+    <div className="px-5">
+      <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+        Πληρωμή
+      </p>
+      <div className="bg-white border border-gray-200 rounded-xl p-3.5 mb-4">
         <PaymentElement options={{
           layout: 'tabs',
           wallets: { applePay: 'auto', googlePay: 'auto' },
         }} />
       </div>
-      <div className="flex items-center gap-2 mb-4 px-1">
-        <Shield size={12} className="text-green-500 shrink-0" />
-        <span className="text-xs text-gray-400">Ασφαλής πληρωμή 256-bit SSL · Powered by Stripe</span>
-      </div>
-      {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+
+      {error && (
+        <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-3">
+          <p className="text-xs text-red-600">{error}</p>
+        </div>
+      )}
+
       <button
         onClick={handleSubmit}
         disabled={loading || !stripe}
-        className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-40"
+        className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 disabled:opacity-40"
       >
-        {loading ? <span className="text-gray-400">Επεξεργασία...</span> : <><CreditCard size={15} />Πλήρωσε €{total}</>}
+        {loading ? (
+          'Επεξεργασία...'
+        ) : (
+          <>
+            <span>Πληρωμή</span>
+            <span className="w-px h-4 bg-white/25" />
+            <span>€{total}</span>
+          </>
+        )}
       </button>
+
+      <div className="flex items-center justify-center gap-1.5 mt-3">
+        <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
+        <p className="text-[11px] font-medium text-gray-400 tracking-tight">
+          Ασφαλής πληρωμή μέσω Stripe
+        </p>
+      </div>
     </div>
   )
 }
@@ -131,6 +172,7 @@ function BookingPageContent() {
 
   const date = new Date(dateStr)
   const formattedDate = `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
+  const fullFormattedDate = `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
 
   useEffect(() => {
     const loadData = async () => {
@@ -158,7 +200,7 @@ function BookingPageContent() {
 
       if (locationId) {
         const { data: locationData } = await supabase
-          .from('locations').select('id, name').eq('id', locationId).single()
+          .from('locations').select('id, name, address, city').eq('id', locationId).single()
         if (locationData) setLocation(locationData)
 
         const { data: addonsData } = await supabase
@@ -173,22 +215,18 @@ function BookingPageContent() {
         })).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)))
       }
 
-      // Email από session
       if (user.email) setEmail(user.email)
 
-      // Τηλέφωνο από profile
       const { data: profileData } = await supabase
         .from('profiles').select('phone').eq('id', user.id).single()
       if (profileData?.phone) setPhone(profileData.phone)
       else if (user.user_metadata?.phone) setPhone(user.user_metadata.phone as string)
 
-      // Οχήματα
       const { data: vehiclesData } = await supabase
         .from('vehicles').select('id, plate, type')
         .eq('user_id', user.id).order('created_at', { ascending: false })
 
       const vList = (vehiclesData as Vehicle[]) || []
-      // Φιλτράρισμα οχημάτων βάσει vehicle type της κράτησης
       const filteredVehicles = vList.filter(v => {
         if (vehicleType === 'ΙΧ') return v.type !== 'Μοτοσικλέτα'
         if (vehicleType === 'Μοτοσικλέτα') return v.type === 'Μοτοσικλέτα'
@@ -225,7 +263,6 @@ function BookingPageContent() {
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
 
-    // Αποθήκευση νέου οχήματος αν είναι νέο
     if (selectedVehicleId === 'new' && plate.trim()) {
       const existing = vehicles.find(v => v.plate === plate.trim())
       if (!existing) {
@@ -237,7 +274,6 @@ function BookingPageContent() {
       }
     }
 
-    // Αποθήκευση τηλεφώνου στο profile αν δεν υπάρχει
     if (phone.trim() && session?.user?.id) {
       await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', session.user.id)
     }
@@ -276,135 +312,202 @@ function BookingPageContent() {
   }
 
   if (sessionLoading) {
-    return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div>
+    return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>
   }
 
   if (!service) {
-    return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Δεν βρέθηκε υπηρεσία.</p></div>
+    return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-xs text-gray-400">Δεν βρέθηκε υπηρεσία.</p></main>
   }
 
   return (
-    <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md pb-32">
+    <main className="min-h-screen bg-gray-50 flex flex-col items-center">
+      <div className="w-full max-w-md pb-32 bg-gray-50">
 
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-          <button onClick={() => router.back()} className="text-gray-400"><ArrowLeft size={18} /></button>
-          <span className="text-sm font-medium text-gray-900">Ολοκλήρωση κράτησης</span>
+        {/* Header */}
+        <div className="px-5 pt-14 pb-4 flex items-center gap-3.5 bg-gray-50">
+          <button
+            onClick={() => router.back()}
+            className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-900"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <h1 className="text-[18px] font-semibold tracking-tight text-gray-900">Επιβεβαίωση</h1>
         </div>
 
-        {/* Booking summary */}
-        <section className="px-5 py-4 border-b border-gray-100">
-          <div className="bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-gray-900">{location?.name || 'Σημείο'} · {service.name}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{formattedDate} · {slotTime}</p>
-            </div>
-            <p className="text-sm font-semibold text-gray-900">€{servicePrice}</p>
-          </div>
-        </section>
+        <div className="px-5 pb-5 flex flex-col gap-5">
 
-        <section className="px-5 py-4 border-b border-gray-100">
-          <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Στοιχεία οχήματος</p>
-
-          {/* Vehicle selector — μόνο αν έχει αποθηκευμένα */}
-          {vehicles.length > 0 && (
-            <select value={selectedVehicleId} onChange={e => handleVehicleChange(e.target.value)}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400 mb-2">
-              {vehicles.map(v => (
-                <option key={v.id} value={v.id}>{v.plate} · {v.type}</option>
-              ))}
-              <option value="new">+ Νέο όχημα</option>
-            </select>
-          )}
-
-          {/* Νέο όχημα — πινακίδα + τύπος */}
-          {(vehicles.length === 0 || selectedVehicleId === 'new') && (
-            <div className="space-y-2">
-              <input
-                type="text"
-                value={plate}
-                onChange={e => setPlate(e.target.value.toUpperCase())}
-                placeholder="Πινακίδα π.χ. ΑΒΓ1234"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
-              />
-              <div className="grid grid-cols-4 gap-2">
-                {['ΙΧ', 'SUV', 'Μοτοσικλέτα', 'Φορτηγό'].map(type => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => setVehicleFormType(type)}
-                    className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                      vehicleFormType === type
-                        ? 'bg-gray-900 border-gray-900 text-white'
-                        : 'bg-white border-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {type}
-                  </button>
-                ))}
+          {/* Summary card */}
+          <div
+            className="bg-white rounded-2xl p-4 border border-gray-100"
+            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+          >
+            <div className="flex gap-3.5 items-start">
+              <MapThumb />
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-semibold tracking-tight text-gray-900">{location?.name}</p>
+                {location?.address && (
+                  <p className="text-xs text-gray-500 mt-0.5">{location.address}{location.city ? `, ${location.city}` : ''}</p>
+                )}
               </div>
             </div>
-          )}
 
-          {/* Τηλέφωνο */}
-          <div className="relative mt-2">
+            <div className="h-px bg-gray-100 my-3.5" />
+
+            <div className="flex flex-col gap-2.5">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Calendar size={14} className="text-gray-500" />
+                  <span className="text-[13px] text-gray-500">{fullFormattedDate}</span>
+                </div>
+                <span className="text-[13px] font-medium text-gray-900">{slotTime}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={14} className="text-gray-500" />
+                  <span className="text-[13px] text-gray-500">{service.name} · {vehicleType}</span>
+                </div>
+                <span className="text-[13px] font-medium text-gray-900">{service.duration_minutes}′</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Vehicle */}
+          <div>
+            <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+              Πινακίδα
+            </p>
+
+            {vehicles.length > 0 && selectedVehicleId !== 'new' ? (
+              <div className="bg-white rounded-xl h-[52px] border border-gray-200 px-4 flex items-center justify-between">
+                <span className="text-[15px] font-semibold text-gray-900 font-mono tracking-wider">
+                  {plate}
+                </span>
+                <select
+                  value={selectedVehicleId}
+                  onChange={e => handleVehicleChange(e.target.value)}
+                  className="text-[12px] font-medium text-blue-600 bg-transparent focus:outline-none"
+                >
+                  {vehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.plate} · {v.type}</option>
+                  ))}
+                  <option value="new">+ Νέο όχημα</option>
+                </select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={plate}
+                  onChange={e => setPlate(e.target.value.toUpperCase())}
+                  placeholder="π.χ. ΑΒΓ-1234"
+                  className="w-full bg-white border border-gray-200 rounded-xl h-[52px] px-4 text-[15px] font-mono tracking-wider text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                />
+                <div className="grid grid-cols-4 gap-2">
+                  {['ΙΧ', 'SUV', 'Μοτοσικλέτα', 'Φορτηγό'].map(type => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setVehicleFormType(type)}
+                      className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${
+                        vehicleFormType === type
+                          ? 'bg-gray-900 border-gray-900 text-white'
+                          : 'bg-white border-gray-200 text-gray-600'
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+                {vehicles.length > 0 && (
+                  <button
+                    onClick={() => handleVehicleChange(vehicles[0].id)}
+                    className="text-xs text-blue-600 font-medium"
+                  >
+                    ← Επιστροφή στα οχήματά μου
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Email */}
+          <div>
+            <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+              Email
+            </p>
+            <div className="bg-white rounded-xl h-[52px] border border-gray-200 px-4 flex items-center gap-2.5">
+              <Mail size={16} className="text-gray-500" />
+              <span className="text-[15px] text-gray-900">{email}</span>
+            </div>
+          </div>
+
+          {/* Phone */}
+          <div>
+            <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+              Τηλέφωνο
+            </p>
             <input
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
-              placeholder="Τηλέφωνο"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+              placeholder="69x xxx xxxx"
+              className="w-full bg-white border border-gray-200 rounded-xl h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
             />
-            {phone && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                ✓
-              </span>
-            )}
           </div>
-        </section>
 
-        {/* Addons */}
-        {addons.length > 0 && (
-          <section className="px-5 py-4 border-b border-gray-100">
-            <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Πρόσθετες υπηρεσίες</p>
-            <div className="flex flex-col gap-2">
-              {addons.map(addon => {
-                const selected = selectedAddons.includes(addon.id)
-                return (
-                  <button key={addon.id} onClick={() => toggleAddon(addon.id)}
-                    className={`flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${selected ? 'border-gray-900 bg-gray-900' : 'border-gray-100 bg-white'}`}>
-                    <span className={`text-sm ${selected ? 'text-white' : 'text-gray-900'}`}>{addon.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-medium ${selected ? 'text-white' : 'text-gray-900'}`}>+€{addon.price}</span>
-                      <div className={`w-5 h-5 rounded-full border flex items-center justify-center ${selected ? 'border-white' : 'border-gray-300'}`}>
-                        {selected ? <Minus size={10} className="text-white" /> : <Plus size={10} className="text-gray-400" />}
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* Σύνολο */}
-        <section className="px-5 py-4 border-b border-gray-100">
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-xs text-gray-400">Βασική υπηρεσία</span>
-            <span className="text-xs text-gray-700">€{servicePrice}</span>
-          </div>
-          {selectedAddons.length > 0 && (
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-xs text-gray-400">Πρόσθετες υπηρεσίες</span>
-              <span className="text-xs text-gray-700">€{addonTotal}</span>
+          {/* Addons */}
+          {addons.length > 0 && (
+            <div>
+              <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+                Πρόσθετες υπηρεσίες
+              </p>
+              <div className="flex flex-col gap-2">
+                {addons.map(addon => {
+                  const selected = selectedAddons.includes(addon.id)
+                  return (
+                    <button
+                      key={addon.id}
+                      onClick={() => toggleAddon(addon.id)}
+                      className={`flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all text-left ${
+                        selected ? 'border-gray-900 bg-gray-900' : 'border-gray-200 bg-white'
+                      }`}
+                    >
+                      <span className={`text-[14px] font-medium ${selected ? 'text-white' : 'text-gray-900'}`}>{addon.name}</span>
+                      <span className={`text-[14px] font-semibold ${selected ? 'text-white' : 'text-gray-900'}`}>
+                        {selected ? '−' : '+'} €{addon.price}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           )}
-          <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-            <span className="text-sm font-semibold text-gray-900">Σύνολο</span>
-            <span className="text-base font-bold text-gray-900">€{total}</span>
+
+          {/* Total breakdown */}
+          <div
+            className="bg-white rounded-2xl border border-gray-100 px-4"
+            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+          >
+            <div className="flex justify-between items-center py-3 border-b border-gray-100">
+              <span className="text-[13px] text-gray-500">{service.name}</span>
+              <span className="text-[14px] font-medium text-gray-900">€{servicePrice.toFixed(2)}</span>
+            </div>
+            {selectedAddons.length > 0 && (
+              <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                <span className="text-[13px] text-gray-500">Πρόσθετα</span>
+                <span className="text-[14px] font-medium text-gray-900">€{addonTotal.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center py-3.5">
+              <span className="text-[15px] font-semibold text-gray-900">Σύνολο</span>
+              <span className="text-[20px] font-bold tracking-tight text-gray-900">€{total.toFixed(2)}</span>
+            </div>
           </div>
-          <p className="text-xs text-gray-400 mt-2">Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.</p>
-        </section>
+
+          <p className="text-[11px] text-gray-400 text-center">
+            Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.
+          </p>
+        </div>
 
         {/* Payment */}
         {showPayment && clientSecret ? (
@@ -423,18 +526,33 @@ function BookingPageContent() {
             />
           </Elements>
         ) : (
-          <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 py-4 bg-white border-t border-gray-100">
+          <div
+            className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 pt-3.5 pb-8"
+            style={{
+              background: 'linear-gradient(180deg, rgba(249,250,251,0) 0%, #F9FAFB 28%)',
+              paddingBottom: 'calc(env(safe-area-inset-bottom) + 28px)',
+            }}
+          >
             {!canProceed ? (
-              <div className="w-full bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-xl flex items-center justify-center">
+              <div className="w-full h-14 bg-gray-100 text-gray-400 text-[14px] font-medium rounded-xl flex items-center justify-center">
                 Συμπλήρωσε πινακίδα και τηλέφωνο
               </div>
             ) : (
-              <button onClick={handleProceedToPayment}
-                className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl flex items-center justify-center gap-2">
-                <CreditCard size={15} />
-                Συνέχεια στην πληρωμή — €{total}
+              <button
+                onClick={handleProceedToPayment}
+                className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
+              >
+                <span>Πληρωμή</span>
+                <span className="w-px h-4 bg-white/25" />
+                <span>€{total}</span>
               </button>
             )}
+            <div className="flex items-center justify-center gap-1.5 mt-3">
+              <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
+              <p className="text-[11px] font-medium text-gray-400">
+                Ασφαλής πληρωμή μέσω Stripe
+              </p>
+            </div>
           </div>
         )}
 
@@ -445,7 +563,7 @@ function BookingPageContent() {
 
 export default function BookingPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div>}>
+    <Suspense fallback={<main className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>}>
       <BookingPageContent />
     </Suspense>
   )
