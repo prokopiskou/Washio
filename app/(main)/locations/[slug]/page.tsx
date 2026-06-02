@@ -276,7 +276,7 @@ export default function LocationPage() {
 
         {/* Hero photo strip with floating nav buttons */}
         <div
-          className="h-[320px] relative"
+          className="h-[160px] relative"
           style={{
             background: 'repeating-linear-gradient(135deg, #FAFAFA 0 16px, #F7F7F7 16px 32px)',
           }}
