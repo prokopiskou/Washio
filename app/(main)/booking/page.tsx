@@ -241,6 +241,7 @@ function BookingPageContent() {
         setVehicleFormType(matchingVehicle.type as 'ΙΧ' | 'Μοτοσικλέτα')
       } else {
         setSelectedVehicleId('new')
+        setVehicleFormType(vehicleType)
       }
 
       setSessionLoading(false)
@@ -303,11 +304,11 @@ function BookingPageContent() {
     setSelectedVehicleId(value)
     if (value === 'new') {
       setPlate('')
-      setVehicleFormType('ΙΧ')
+      setVehicleFormType(vehicleType)
     } else {
       const v = vehicles.find(v => v.id === value)
       setPlate(v?.plate || '')
-      setVehicleFormType(v?.type || 'ΙΧ')
+      setVehicleFormType(v?.type || vehicleType)
     }
   }
 
@@ -371,6 +372,27 @@ function BookingPageContent() {
             </div>
           </div>
 
+          {/* No matching vehicle warning */}
+          {vehicles.length === 0 && selectedVehicleId === 'new' && (
+            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3.5 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-[13px] font-semibold text-amber-900">
+                  Δεν έχεις {vehicleType === 'Μοτοσικλέτα' ? 'μοτοσικλέτα' : 'ΙΧ'} καταχωρημένο
+                </p>
+                <p className="text-[12px] text-amber-800 mt-0.5 leading-snug">
+                  Πρόσθεσε την πινακίδα παρακάτω για να συνεχίσεις την κράτηση.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Vehicle */}
           <div>
             <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
@@ -394,30 +416,22 @@ function BookingPageContent() {
                 </select>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
+                {/* Locked vehicle type info */}
+                <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                  <p className="text-[12px] text-blue-900 leading-snug">
+                    Η υπηρεσία είναι για <strong>{vehicleType}</strong>. Το όχημα που θα προσθέσεις θα καταχωρηθεί ως {vehicleType}.
+                  </p>
+                </div>
+
                 <input
                   type="text"
                   value={plate}
                   onChange={e => setPlate(e.target.value.toUpperCase())}
-                  placeholder="π.χ. ΑΒΓ-1234"
+                  placeholder={vehicleType === 'Μοτοσικλέτα' ? 'π.χ. ΑΒ-1234' : 'π.χ. ΑΒΓ-1234'}
                   className="w-full bg-white border border-gray-200 rounded-xl h-[52px] px-4 text-[15px] font-mono tracking-wider text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
                 />
-                <div className="grid grid-cols-4 gap-2">
-                  {['ΙΧ', 'SUV', 'Μοτοσικλέτα', 'Φορτηγό'].map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setVehicleFormType(type)}
-                      className={`py-2.5 rounded-xl border text-xs font-medium transition-all ${
-                        vehicleFormType === type
-                          ? 'bg-gray-900 border-gray-900 text-white'
-                          : 'bg-white border-gray-200 text-gray-600'
-                      }`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
+
                 {vehicles.length > 0 && (
                   <button
                     onClick={() => handleVehicleChange(vehicles[0].id)}
