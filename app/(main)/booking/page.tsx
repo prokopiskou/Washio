@@ -228,9 +228,9 @@ function BookingPageContent() {
 
       const vList = (vehiclesData as Vehicle[]) || []
       const filteredVehicles = vList.filter(v => {
-        if (vehicleType === 'ΙΧ') return v.type !== 'Μοτοσικλέτα'
         if (vehicleType === 'Μοτοσικλέτα') return v.type === 'Μοτοσικλέτα'
-        return true
+        // For ΙΧ booking: only show ΙΧ vehicles (not Motorcycles, not legacy SUV/Truck)
+        return v.type === 'ΙΧ'
       })
       setVehicles(filteredVehicles)
 
