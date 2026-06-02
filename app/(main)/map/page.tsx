@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ArrowLeft, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin } from 'lucide-react'
+import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Star, Home as HomeIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 declare global {
@@ -39,14 +39,13 @@ type Slot = {
 type Timing = 'now' | 'later'
 
 const BUFFER_MINUTES = 15
-const TIGHT_SLOT_THRESHOLD = 20 // λεπτά — αν το slot είναι εντός 20 λεπτών → προειδοποίηση
+const TIGHT_SLOT_THRESHOLD = 20
 
 function generateSlots(openTime: string, closeTime: string): string[] {
   const slots: string[] = []
   const [openH, openM] = openTime.split(':').map(Number)
   const [closeH, closeM] = closeTime.split(':').map(Number)
   let current = openH * 60 + openM
-  const end = closeH * 60 + closeTime.split(':').map(Number)[1]
   const endMinutes = closeH * 60 + closeM
   while (current < endMinutes) {
     const h = Math.floor(current / 60).toString().padStart(2, '0')
@@ -97,6 +96,23 @@ function getMinutesUntilSlot(slotTime: string): number {
   return slotMinutes - nowMinutes
 }
 
+// Mapbox-Light style for Google Maps
+const COOL_MAP_STYLES = [
+  { elementType: 'geometry', stylers: [{ color: '#EEF0F2' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#A7AAB0' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#EEF0F2' }] },
+  { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative.neighborhood', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#DEE6EC' }] },
+  { featureType: 'landscape.natural', stylers: [{ color: '#E6EBE7' }] },
+]
+
 function MapPageContent() {
   const router = useRouter()
   const params = useSearchParams()
@@ -134,7 +150,6 @@ function MapPageContent() {
 
   const activeDate = timing === 'now' ? getTodayValue() : selectedDate
 
-  // Φιλτράρισμα υπηρεσιών ανά vehicle type
   const visibleServices = locationServices.filter(s => {
     if (vehicleType === 'ΙΧ') return s.name !== 'Πλύσιμο'
     if (vehicleType === 'Μοτοσικλέτα') return s.name === 'Πλύσιμο'
@@ -144,6 +159,12 @@ function MapPageContent() {
   const service = visibleServices.find(s => s.id === selectedService)
   const selectedServicePrice = service ? (vehicleType === 'Μοτοσικλέτα' && service.price_moto ? service.price_moto : service.price) : undefined
   const canBook = selectedService && selectedSlot
+
+  // Get price for marker (lowest available service price for ΙΧ)
+  const getMarkerPrice = (loc: Location): number | null => {
+    // We don't have services loaded here, so return null and use distance/availability
+    return null
+  }
 
   const loadLocations = useCallback(async (lat?: number, lng?: number) => {
     const supabase = createClient()
@@ -264,7 +285,6 @@ function MapPageContent() {
       const dateObj = new Date(checkDate)
       const dayOfWeek = jsDayToSupabase(dateObj.getDay())
 
-      // Έλεγχος exception για τη συγκεκριμένη ημερομηνία
       const { data: exceptionData } = await supabase
         .from('location_hours_exceptions')
         .select('periods, is_closed')
@@ -276,7 +296,6 @@ function MapPageContent() {
 
       if (exceptionData) {
         if (exceptionData.is_closed) { setSlots([]); return }
-        // Σπαστό ωράριο — generate slots από κάθε period
         for (const period of exceptionData.periods) {
           allTimes = [...allTimes, ...generateSlots(period.open, period.close)]
         }
@@ -342,7 +361,6 @@ function MapPageContent() {
 
     const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${activeDate}&vehicleType=${encodeURIComponent(vehicleType)}`
 
-    // Έλεγχος αν το slot είναι πολύ κοντά (εντός 20 λεπτών) — μόνο για σήμερα
     if (timing === 'now' && activeDate === getTodayValue()) {
       const minutes = getMinutesUntilSlot(selectedSlot!)
       if (minutes <= TIGHT_SLOT_THRESHOLD) {
@@ -356,28 +374,78 @@ function MapPageContent() {
     router.push(bookingUrl)
   }
 
+  const handleLocateMe = () => {
+    if (userLat && userLng && mapInstanceRef.current) {
+      mapInstanceRef.current.panTo({ lat: userLat, lng: userLng })
+      mapInstanceRef.current.setZoom(15)
+    }
+  }
+
   const updateMarkers = useCallback(() => {
     if (!mapLoaded || !mapInstanceRef.current) return
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
 
     filteredLocations.forEach(loc => {
+      // Custom HTML marker via overlayView
+      const isSelected = selectedLocation?.id === loc.id
+      const markerDiv = document.createElement('div')
+      markerDiv.style.cssText = `
+        position: absolute;
+        transform: translate(-50%, -100%);
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      `
+      markerDiv.innerHTML = `
+        <div style="
+          background: ${isSelected ? '#0A0A0A' : '#fff'};
+          color: ${isSelected ? '#fff' : '#0A0A0A'};
+          padding: 7px 12px 6px;
+          border-radius: 999px;
+          font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: -0.2px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+          white-space: nowrap;
+        ">⛽</div>
+        <div style="
+          width: 0; height: 0;
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 6px solid ${isSelected ? '#0A0A0A' : '#fff'};
+          margin-top: -1px;
+        "></div>
+      `
+
       const marker = new window.google.maps.Marker({
         position: { lat: loc.lat, lng: loc.lng },
         map: mapInstanceRef.current,
         icon: {
-          path: window.google.maps.SymbolPath.CIRCLE,
-          scale: 20,
-          fillColor: '#0A0A0A',
-          fillOpacity: 1,
-          strokeWeight: 0,
+          url: 'data:image/svg+xml;base64,' + btoa(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="44" height="50" viewBox="0 0 44 50">
+              <defs>
+                <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+                </filter>
+              </defs>
+              <g filter="url(#shadow)">
+                <rect x="2" y="2" width="40" height="32" rx="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.04)" stroke-width="1"/>
+                <text x="22" y="23" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="16" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">⛽</text>
+                <path d="M16 34 L22 42 L28 34 Z" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
+              </g>
+            </svg>
+          `),
+          scaledSize: new window.google.maps.Size(44, 50),
+          anchor: new window.google.maps.Point(22, 42),
         },
-        label: { text: '⛽', color: '#fff', fontSize: '12px' },
       })
       marker.addListener('click', () => selectLocation(loc))
       markersRef.current.push(marker)
     })
-  }, [mapLoaded, filteredLocations])
+  }, [mapLoaded, filteredLocations, selectedLocation])
 
   useEffect(() => { updateMarkers() }, [updateMarkers])
 
@@ -388,10 +456,7 @@ function MapPageContent() {
         center: { lat: 37.8878, lng: 23.7436 },
         zoom: 13,
         disableDefaultUI: true,
-        styles: [
-          { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-          { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-        ],
+        styles: COOL_MAP_STYLES,
       })
       mapInstanceRef.current = map
       autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
@@ -461,21 +526,34 @@ function MapPageContent() {
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md relative overflow-hidden" style={{ height: '100dvh' }}>
 
-        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-4 flex flex-col gap-2">
-          <div ref={searchContainerRef} className="relative">
-            <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
-              <button onClick={() => router.push('/')} className="text-gray-400 shrink-0">
-                <ArrowLeft size={16} />
-              </button>
-              <input type="text" value={search}
+        {/* Top controls — search + time chips */}
+        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-14 flex flex-col gap-2.5">
+
+          {/* Search row */}
+          <div ref={searchContainerRef} className="relative flex gap-2.5">
+            <div className="flex-1 h-12 bg-white rounded-xl flex items-center px-3.5 gap-2.5"
+                 style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)' }}>
+              <Search size={18} className="text-gray-500 shrink-0" />
+              <input
+                type="text"
+                value={search}
                 onChange={e => { setSearch(e.target.value); setShowSuggestions(true) }}
                 onFocus={() => setShowSuggestions(true)}
-                placeholder="Αναζήτηση περιοχής..."
-                className="flex-1 text-sm text-gray-900 placeholder-gray-400 focus:outline-none bg-transparent"
-                autoFocus={params.get('source') === 'search'} />
+                placeholder="Αναζήτηση περιοχής"
+                className="flex-1 text-sm text-gray-900 placeholder-gray-500 focus:outline-none bg-transparent"
+                autoFocus={params.get('source') === 'search'}
+              />
             </div>
+            <button
+              onClick={() => router.push('/')}
+              className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-gray-900 shrink-0"
+              style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)' }}
+            >
+              <X size={18} />
+            </button>
+
             {showSuggestions && suggestions.length > 0 && (
-              <div className="mt-2 bg-white rounded-xl shadow-sm border border-gray-100 py-1 overflow-hidden">
+              <div className="absolute top-14 left-0 right-14 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden z-20">
                 {suggestions.map(suggestion => (
                   <button key={suggestion.place_id} onClick={() => handleSelectSuggestion(suggestion)}
                     className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
@@ -486,23 +564,40 @@ function MapPageContent() {
             )}
           </div>
 
-          <div className="flex gap-2">
-            <button onClick={() => { setTiming('now'); setSelectedTime(''); setSelectedSlot(null) }}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium shadow-sm transition-all ${
-                timing === 'now' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-100'
-              }`}>
-              <Clock size={11} />
+          {/* Segmented time chip */}
+          <div className="inline-flex bg-white rounded-full p-1 self-start"
+               style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)' }}>
+            <button
+              onClick={() => { setTiming('now'); setSelectedTime(''); setSelectedSlot(null) }}
+              className={`px-3.5 py-2 rounded-full text-[13px] font-semibold tracking-tight flex items-center gap-1.5 transition-all ${
+                timing === 'now' ? 'bg-gray-900 text-white' : 'text-gray-500'
+              }`}
+            >
+              {timing === 'now' && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
               Τώρα
             </button>
-            <button onClick={() => setShowSchedule(true)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium shadow-sm transition-all ${
-                timing === 'later' ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-100'
-              }`}>
-              <Calendar size={11} />
+            <button
+              onClick={() => setShowSchedule(true)}
+              className={`px-3.5 py-2 rounded-full text-[13px] font-medium tracking-tight flex items-center gap-1.5 transition-all ${
+                timing === 'later' ? 'bg-gray-900 text-white font-semibold' : 'text-gray-500'
+              }`}
+            >
+              <Clock size={13} />
               {formattedSchedule || 'Προγραμματισμός'}
             </button>
           </div>
         </div>
+
+        {/* Locate-me FAB */}
+        {userLat && userLng && (
+          <button
+            onClick={handleLocateMe}
+            className="absolute right-4 top-44 z-10 w-11 h-11 bg-white rounded-xl flex items-center justify-center text-gray-900"
+            style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)' }}
+          >
+            <Locate size={18} />
+          </button>
+        )}
 
         <div ref={mapRef} className="w-full h-full" />
 
@@ -512,35 +607,80 @@ function MapPageContent() {
           </div>
         )}
 
+        {/* Bottom Sheet */}
         <div className="absolute bottom-0 left-0 right-0 z-15 pb-16">
 
+          {/* Collapsed peek — list of locations */}
           {!selectedLocation && filteredLocations.length > 0 && (
-            <div className="pb-4 pt-2">
-              <div className="flex gap-3 px-4 overflow-x-auto scrollbar-hide pb-2">
+            <div className="bg-white rounded-t-3xl"
+                 style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06), 0 -1px 0 rgba(0,0,0,0.04)' }}>
+              {/* Drag handle */}
+              <div className="flex justify-center pt-2.5 pb-3.5">
+                <div className="w-9 h-1 rounded-full bg-gray-200" />
+              </div>
+
+              {/* Header */}
+              <div className="flex justify-between items-baseline px-6 pb-3">
+                <p className="text-[18px] font-semibold tracking-tight text-gray-900">
+                  {filteredLocations.length} {filteredLocations.length === 1 ? 'πλυντήριο' : 'πλυντήρια'} κοντά
+                </p>
+                <p className="text-[13px] font-medium text-blue-600">Λίστα</p>
+              </div>
+
+              {/* Horizontal cards */}
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide px-5 pb-3 pt-1">
                 {filteredLocations.map(loc => (
-                  <button key={loc.id} onClick={() => selectLocation(loc)}
-                    className="min-w-[200px] bg-white rounded-2xl p-4 shrink-0 text-left shadow-lg border border-gray-100">
-                    <p className="text-sm font-semibold text-gray-900 mb-1">{loc.name}</p>
-                    {loc.distance !== undefined && (
-                      <p className="text-xs text-gray-400 mb-1">{formatDistance(loc.distance)}</p>
-                    )}
-                    {timing === 'now' && loc.nextSlot && (
-                      <p className="text-xs text-green-600 font-medium">Διαθέσιμο από {loc.nextSlot}</p>
-                    )}
-                    {timing === 'later' && (
-                      <p className="text-xs text-blue-600 font-medium">
-                        {new Date(selectedDate).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · {selectedTime}
-                      </p>
-                    )}
+                  <button
+                    key={loc.id}
+                    onClick={() => selectLocation(loc)}
+                    className="shrink-0 w-[280px] bg-white rounded-2xl p-4 border border-gray-100 flex flex-col gap-3.5 text-left"
+                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                  >
+                    {/* Photo placeholder */}
+                    <div
+                      className="h-[92px] rounded-[10px] relative overflow-hidden"
+                      style={{
+                        background: 'repeating-linear-gradient(135deg, #FAFAFA 0 12px, #F7F7F7 12px 24px)',
+                      }}
+                    >
+                      <div className="absolute top-2 left-2.5 font-mono text-[9px] text-gray-400 tracking-wider">
+                        // photo
+                      </div>
+                      {loc.distance !== undefined && (
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-white rounded-md text-[11px] font-semibold text-gray-900">
+                          {formatDistance(loc.distance)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-start gap-2">
+                        <p className="text-[15px] font-semibold tracking-tight text-gray-900 leading-[1.2]">{loc.name}</p>
+                        {timing === 'now' && loc.nextSlot && (
+                          <p className="text-[15px] font-semibold tracking-tight text-green-600 shrink-0">{loc.nextSlot}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Star size={12} className="fill-gray-900 text-gray-900" strokeWidth={1} />
+                        <span className="text-[12px] font-medium text-gray-900">Νέο</span>
+                        <span className="w-[3px] h-[3px] rounded-full bg-gray-400 mx-0.5" />
+                        <span className="text-[12px] text-gray-500">{loc.city}</span>
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
+          {/* No availability */}
           {!selectedLocation && filteredLocations.length === 0 && allLocations.length > 0 && (
-            <div className="pb-6 px-4">
-              <div className="bg-white rounded-2xl p-5 shadow-lg border border-gray-100 text-center">
+            <div className="bg-white rounded-t-3xl p-6"
+                 style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06)' }}>
+              <div className="flex justify-center pb-3">
+                <div className="w-9 h-1 rounded-full bg-gray-200" />
+              </div>
+              <div className="text-center">
                 <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν διαθέσιμα σημεία</p>
                 <p className="text-xs text-gray-400 mb-4">Δοκίμασε να προγραμματίσεις για αργότερα</p>
                 <button onClick={() => setShowSchedule(true)}
@@ -552,30 +692,34 @@ function MapPageContent() {
             </div>
           )}
 
+          {/* Selected location — booking flow */}
           {selectedLocation && (
-            <div className="bg-white rounded-t-3xl shadow-2xl px-4 pt-4 pb-6">
+            <div className="bg-white rounded-t-3xl px-5 pt-4 pb-6"
+                 style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06)' }}>
               <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
 
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <p className="text-base font-semibold text-gray-900">{selectedLocation.name}</p>
+                  <p className="text-[16px] font-semibold tracking-tight text-gray-900">{selectedLocation.name}</p>
                   {selectedLocation.distance !== undefined && (
-                    <p className="text-xs text-gray-400 mt-0.5">{formatDistance(selectedLocation.distance)}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{formatDistance(selectedLocation.distance)} · {selectedLocation.city}</p>
                   )}
                 </div>
-                <button onClick={() => setSelectedLocation(null)} className="text-gray-300">
-                  <X size={16} />
+                <button onClick={() => setSelectedLocation(null)} className="text-gray-400 -mt-1 -mr-1 p-1">
+                  <X size={18} />
                 </button>
               </div>
 
-              {/* Vehicle type selector */}
+              {/* Vehicle type segmented */}
               <div className="flex gap-2 mb-3">
                 {(['ΙΧ', 'Μοτοσικλέτα'] as const).map(type => (
                   <button key={type} onClick={() => setVehicleType(type)}
-                    className={`px-4 py-2 rounded-xl text-xs font-medium border transition-all ${
-                      vehicleType === type ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'
+                    className={`px-4 py-2 rounded-full text-[13px] font-semibold border transition-all ${
+                      vehicleType === type
+                        ? 'bg-gray-900 text-white border-gray-900'
+                        : 'bg-white text-gray-700 border-gray-200'
                     }`}>
-                    {type === 'ΙΧ' ? '🚗 ΙΧ' : '🏍 Μοτο'}
+                    {type === 'ΙΧ' ? 'ΙΧ' : 'Μοτο'}
                   </button>
                 ))}
               </div>
@@ -584,52 +728,60 @@ function MapPageContent() {
               <div className="flex gap-2 mb-3">
                 {visibleServices.map(s => {
                   const price = vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto : s.price
+                  const isSelected = selectedService === s.id
                   return (
                     <button key={s.id} onClick={() => setSelectedService(s.id)}
                       className={`flex-1 py-2.5 rounded-xl border text-center transition-all ${
-                        selectedService === s.id ? 'bg-gray-600 border-gray-600' : 'bg-white border-gray-200'
+                        isSelected ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-200'
                       }`}>
-                      <p className={`text-xs font-medium ${selectedService === s.id ? 'text-white' : 'text-gray-900'}`}>{s.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">€{price}</p>
+                      <p className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>{s.name}</p>
+                      <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-gray-500'}`}>€{price}</p>
                     </button>
                   )
                 })}
               </div>
 
+              {/* Time slots */}
               {selectedService && (
                 <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-1">
                   {visibleSlots.length === 0 ? (
-                    <p className="text-xs text-gray-400">Δεν υπάρχουν διαθέσιμες ώρες.</p>
+                    <p className="text-xs text-gray-500">Δεν υπάρχουν διαθέσιμες ώρες.</p>
                   ) : (
-                    visibleSlots.map(slot => (
-                      <button key={slot.time} onClick={() => setSelectedSlot(slot.time)}
-                        className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
-                          selectedSlot === slot.time
-                            ? 'bg-gray-600 border-gray-600 text-white'
-                            : 'bg-white border-gray-200 text-gray-700'
-                        }`}>
-                        {slot.time}
-                      </button>
-                    ))
+                    visibleSlots.map(slot => {
+                      const isSelected = selectedSlot === slot.time
+                      return (
+                        <button key={slot.time} onClick={() => setSelectedSlot(slot.time)}
+                          className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                            isSelected
+                              ? 'bg-gray-900 border-gray-900 text-white'
+                              : 'bg-white border-gray-200 text-gray-900'
+                          }`}>
+                          {slot.time}
+                        </button>
+                      )
+                    })
                   )}
                 </div>
               )}
 
+              {/* CTAs */}
               <div className="flex gap-2">
                 {canBook ? (
                   <button
                     onClick={handleBookingAttempt}
-                    className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-1">
-                    Κράτηση — €{selectedServicePrice}
-                    <ChevronRight size={14} />
+                    className="flex-1 bg-gray-900 text-white text-sm font-semibold py-3.5 rounded-xl flex items-center justify-center gap-1.5">
+                    <span>Κράτηση</span>
+                    <span className="w-px h-4 bg-white/25" />
+                    <span>€{selectedServicePrice}</span>
                   </button>
                 ) : (
-                  <div className="flex-1 bg-gray-100 text-gray-400 text-sm font-medium py-3 rounded-xl flex items-center justify-center">
+                  <div className="flex-1 bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-xl flex items-center justify-center">
                     Επίλεξε υπηρεσία
                   </div>
                 )}
-                <button onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
-                  className="border border-gray-200 text-gray-500 text-xs px-3 py-3 rounded-xl">
+                <button
+                  onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
+                  className="border border-gray-200 text-gray-600 text-xs px-3 py-3.5 rounded-xl font-medium">
                   Άλλη μέρα
                 </button>
               </div>
@@ -640,7 +792,7 @@ function MapPageContent() {
         {/* Bottom Nav */}
         <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-20 flex justify-around items-center py-3 border-t border-gray-100 bg-white" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
           <Link href="/" className="flex flex-col items-center gap-1 text-gray-300">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            <HomeIcon size={18} />
             <span className="text-xs">Αρχική</span>
           </Link>
           <button className="flex flex-col items-center gap-1 text-blue-600">
@@ -670,7 +822,6 @@ function MapPageContent() {
               </p>
             </div>
 
-            {/* Tappable address → Google Maps */}
             <a
               href={mapsUrl}
               target="_blank"
