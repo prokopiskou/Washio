@@ -387,57 +387,27 @@ function MapPageContent() {
     markersRef.current = []
 
     filteredLocations.forEach(loc => {
-      // Custom HTML marker via overlayView
       const isSelected = selectedLocation?.id === loc.id
-      const markerDiv = document.createElement('div')
-      markerDiv.style.cssText = `
-        position: absolute;
-        transform: translate(-50%, -100%);
-        cursor: pointer;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      `
-      markerDiv.innerHTML = `
-        <div style="
-          background: ${isSelected ? '#0A0A0A' : '#fff'};
-          color: ${isSelected ? '#fff' : '#0A0A0A'};
-          padding: 7px 12px 6px;
-          border-radius: 999px;
-          font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-          font-size: 13px;
-          font-weight: 600;
-          letter-spacing: -0.2px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
-          white-space: nowrap;
-        ">⛽</div>
-        <div style="
-          width: 0; height: 0;
-          border-left: 5px solid transparent;
-          border-right: 5px solid transparent;
-          border-top: 6px solid ${isSelected ? '#0A0A0A' : '#fff'};
-          margin-top: -1px;
-        "></div>
-      `
+      const svgString = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="44" height="50" viewBox="0 0 44 50">
+    <defs>
+      <filter id="shadow-${loc.id}" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+      </filter>
+    </defs>
+    <g filter="url(#shadow-${loc.id})">
+      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}"/>
+      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
+    </g>
+  </svg>
+`
 
       const marker = new window.google.maps.Marker({
         position: { lat: loc.lat, lng: loc.lng },
         map: mapInstanceRef.current,
         icon: {
-          url: 'data:image/svg+xml;base64,' + btoa(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="44" height="50" viewBox="0 0 44 50">
-              <defs>
-                <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
-                </filter>
-              </defs>
-              <g filter="url(#shadow)">
-                <rect x="2" y="2" width="40" height="32" rx="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.04)" stroke-width="1"/>
-                <text x="22" y="23" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="16" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">⛽</text>
-                <path d="M16 34 L22 42 L28 34 Z" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
-              </g>
-            </svg>
-          `),
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
           scaledSize: new window.google.maps.Size(44, 50),
           anchor: new window.google.maps.Point(22, 42),
         },
@@ -465,7 +435,7 @@ function MapPageContent() {
     }
 
     const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initMap&libraries=places`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initMap&libraries=places&loading=async`
     script.async = true
     document.head.appendChild(script)
     return () => { document.head.removeChild(script) }
