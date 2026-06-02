@@ -11,30 +11,26 @@ export default function WelcomePage() {
     <main className="min-h-screen bg-white">
       <div className="max-w-md mx-auto">
 
-        {/* Sticky header */}
-        <header className="sticky top-0 z-10 bg-white px-5 pt-14 pb-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-[26px] h-[26px] rounded-lg bg-gray-900 flex items-center justify-center">
-              <div className="w-2 h-2 bg-white" style={{ borderRadius: '50% 50% 50% 0', transform: 'rotate(-45deg)' }} />
-            </div>
-            <span className="text-[15px] font-bold tracking-tight text-gray-900">Washio</span>
-          </div>
+        {/* Sticky header — only login button, no duplicate logo (logo is in hero) */}
+        <header className="sticky top-0 z-10 bg-white px-5 pt-14 pb-3.5 flex items-center justify-end">
           <Link href="/login" className="h-8 px-3 rounded-lg border border-gray-200 bg-white text-gray-900 text-xs font-semibold inline-flex items-center">
             Σύνδεση
           </Link>
         </header>
 
         {/* Hero */}
-        <section className="px-5 pt-[60px] pb-10">
-          <h1 className="text-[36px] font-bold leading-[1.05] tracking-[-1.4px] text-gray-900">
+        <section className="px-5 pt-12 pb-10 flex flex-col items-center text-center">
+          <img src="/washio_logo.png" alt="Washio" className="h-24 w-auto mb-8" />
+
+          <h1 className="text-[32px] font-bold leading-[1.1] tracking-[-1.2px] text-gray-900">
             Γρήγορο πλύσιμο.<br />
             <span className="text-gray-500">Έξυπνη εμπειρία.</span>
           </h1>
-          <p className="text-[15px] text-gray-500 leading-[1.45] mt-[18px] max-w-[320px]">
-            Βρες κοντινό πλυντήριο. Κλείσε θέση. Πήγαινε.
+          <p className="text-[15px] text-gray-500 leading-[1.45] mt-4 max-w-[300px]">
+            Βρες κοντινό πλυντήριο. Κλείσε θέση. Πλύνε.
           </p>
 
-          <div className="flex flex-col gap-2.5 mt-7">
+          <div className="w-full flex flex-col gap-2.5 mt-7">
             <button
               onClick={() => router.push('/map')}
               className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
@@ -42,12 +38,12 @@ export default function WelcomePage() {
               Βρες πλυντήριο
               <ArrowRight size={18} />
             </button>
-<Link
-  href="/login"
-  className="w-full h-14 rounded-xl bg-white border border-gray-200 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center"
->
-  Δημιουργία λογαριασμού
-</Link>
+            <Link
+              href="/login"
+              className="w-full h-14 rounded-xl bg-white border border-gray-200 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center"
+            >
+              Δημιουργία λογαριασμού
+            </Link>
           </div>
         </section>
 

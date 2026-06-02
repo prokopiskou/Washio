@@ -123,9 +123,9 @@ export default function HomePage() {
       <div className="w-full max-w-md pb-24">
         <div className="px-5 pt-16 pb-6 flex flex-col gap-5">
 
-          {/* Header */}
-          <div className="flex justify-between items-center mb-1">
-            <img src="/washio_logo.png" alt="Washio" className="h-9 w-auto" />
+          {/* Header — logo left, avatar right */}
+          <div className="flex justify-between items-center mb-4">
+            <img src="/washio_logo.png" alt="Washio" className="h-11 w-auto" />
             <Link href="/profile" className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center text-[15px] font-semibold">
               {userInitial}
             </Link>
