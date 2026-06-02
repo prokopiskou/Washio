@@ -28,17 +28,9 @@ type Favorite = {
 
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
-function getGreeting() {
-  const hour = new Date().getHours()
-  if (hour < 12) return 'Καλημέρα'
-  if (hour < 19) return 'Καλησπέρα'
-  return 'Καλό βράδυ'
-}
-
 export default function HomePage() {
   const router = useRouter()
   const [authChecking, setAuthChecking] = useState(true)
-  const [firstName, setFirstName] = useState('')
   const [userInitial, setUserInitial] = useState('?')
   const [upcomingBooking, setUpcomingBooking] = useState<Booking | null>(null)
   const [recentLocations, setRecentLocations] = useState<Location[]>([])
@@ -60,7 +52,6 @@ export default function HomePage() {
       const email = user.email || ''
       const fullName = (user.user_metadata?.full_name as string) || ''
       const first = fullName.split(' ')[0] || email.split('@')[0]
-      setFirstName(first.charAt(0).toUpperCase() + first.slice(1))
       setUserInitial((first.charAt(0) || email.charAt(0) || '?').toUpperCase())
 
       // Load all data in parallel
@@ -132,20 +123,16 @@ export default function HomePage() {
       <div className="w-full max-w-md pb-24">
         <div className="px-5 pt-16 pb-6 flex flex-col gap-5">
 
-          {/* Greeting */}
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-[26px] font-bold tracking-tight leading-[1.15] text-gray-900">
-                {getGreeting()}, {firstName}
-              </h1>
-              <p className="text-sm text-gray-500 mt-1.5">
-                Που θες πλύσιμο σήμερα;
-              </p>
-            </div>
+          {/* Header */}
+          <div className="flex justify-between items-center mb-1">
+            <img src="/washio_logo.png" alt="Washio" className="h-9 w-auto" />
             <Link href="/profile" className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center text-[15px] font-semibold">
               {userInitial}
             </Link>
           </div>
+          <h1 className="text-[26px] font-bold tracking-tight leading-[1.15] text-gray-900">
+            Που θες να κλείσεις ραντεβού;
+          </h1>
 
           {/* Hero CTA */}
           <button
