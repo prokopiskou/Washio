@@ -1470,22 +1470,125 @@ export default function DashboardPage() {
             )
           })()}
 
-          {activeTab === 'feedback' && (
-            <div className="space-y-3">
-              <div className="border border-gray-100 rounded-xl p-4">
-                <p className="text-xs text-gray-400">Μέση βαθμολογία</p>
-                <p className="text-2xl font-semibold text-gray-900">{avgRating.toFixed(1)}</p>
-              </div>
-              {reviews.map(review => (
-                <div key={review.id} className="border border-gray-100 rounded-xl px-4 py-3">
-                  <p className="text-amber-500 text-sm">{'★'.repeat(Number(review.rating || 0))}{'☆'.repeat(5 - Number(review.rating || 0))}</p>
-                  <p className="text-sm text-gray-900 mt-1">{review.comment || '—'}</p>
-                  <p className="text-xs text-gray-400 mt-1">{new Date(review.created_at).toLocaleDateString('el-GR', { timeZone: 'Europe/Athens' })}</p>
+          {activeTab === 'feedback' && (() => {
+            // Rating distribution
+            const distribution = [5, 4, 3, 2, 1].map(stars => {
+              const count = reviews.filter(r => Number(r.rating) === stars).length
+              const percent = reviews.length > 0 ? (count / reviews.length) * 100 : 0
+              return { stars, count, percent }
+            })
+
+            const Star = ({ filled, size = 14 }: { filled: boolean; size?: number }) => (
+              <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? '#F59E0B' : 'none'} stroke={filled ? '#F59E0B' : '#E5E5E5'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            )
+
+            return (
+              <div className="space-y-5">
+                {/* Summary card */}
+                <div
+                  className="bg-white border border-gray-100 rounded-2xl p-5"
+                  style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                >
+                  <div className="flex items-start gap-5">
+                    {/* Big number */}
+                    <div className="text-center">
+                      <p className="text-[42px] font-bold tracking-tight text-gray-900 leading-none" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                        {reviews.length > 0 ? avgRating.toFixed(1) : '—'}
+                      </p>
+                      <div className="flex items-center gap-0.5 mt-1.5 justify-center">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <Star key={s} filled={s <= Math.round(avgRating)} size={12} />
+                        ))}
+                      </div>
+                      <p className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-500 mt-1.5">
+                        {reviews.length} {reviews.length === 1 ? 'κριτική' : 'κριτικές'}
+                      </p>
+                    </div>
+
+                    {/* Distribution bars */}
+                    <div className="flex-1 flex flex-col gap-1.5">
+                      {distribution.map(d => (
+                        <div key={d.stars} className="flex items-center gap-2">
+                          <span className="text-[11px] font-semibold text-gray-500 w-3" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {d.stars}
+                          </span>
+                          <Star filled size={10} />
+                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-amber-400 rounded-full transition-all"
+                              style={{ width: `${d.percent}%` }}
+                            />
+                          </div>
+                          <span className="text-[11px] font-medium text-gray-500 w-5 text-right" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {d.count}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              ))}
-              {!reviews.length && <p className="text-xs text-gray-400">Δεν υπάρχουν αξιολογήσεις ακόμα.</p>}
-            </div>
-          )}
+
+                {/* Reviews list */}
+                {reviews.length > 0 ? (
+                  <div>
+                    <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-3">
+                      Πρόσφατες κριτικές
+                    </p>
+                    <div className="space-y-2">
+                      {reviews.map(review => {
+                        const rating = Number(review.rating || 0)
+                        return (
+                          <div
+                            key={review.id}
+                            className="bg-white border border-gray-100 rounded-2xl p-4"
+                            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-0.5">
+                                {[1, 2, 3, 4, 5].map(s => (
+                                  <Star key={s} filled={s <= rating} size={14} />
+                                ))}
+                              </div>
+                              <p className="text-[11px] font-medium text-gray-400">
+                                {new Date(review.created_at).toLocaleDateString('el-GR', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  timeZone: 'Europe/Athens',
+                                })}
+                              </p>
+                            </div>
+                            {review.comment && (
+                              <p className="text-[14px] text-gray-900 mt-2.5 leading-relaxed">
+                                {review.comment}
+                              </p>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center text-center pt-8">
+                    <div
+                      className="w-16 h-16 rounded-2xl bg-white border border-gray-100 flex items-center justify-center text-gray-400 mb-4"
+                      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                    >
+                      <Star filled={false} size={28} />
+                    </div>
+                    <p className="text-[15px] font-semibold tracking-tight text-gray-900">
+                      Δεν υπάρχουν αξιολογήσεις ακόμα
+                    </p>
+                    <p className="text-[13px] text-gray-500 mt-1.5 max-w-[280px]">
+                      Όταν οι πελάτες αξιολογήσουν τις κρατήσεις τους, θα εμφανιστούν εδώ.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
         </div>
       </div>
