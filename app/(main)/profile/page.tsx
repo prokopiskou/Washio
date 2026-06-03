@@ -210,7 +210,7 @@ export default function ProfilePage() {
 
           {/* Logo */}
           <div className="flex justify-center -mt-4 mb-2">
-            <img src="/washio-logo.png" alt="Washio" className="h-20 w-auto" />
+            <img src="/washio-logo.png" alt="Washio" className="h-32 w-auto" />
           </div>
 
           {/* Avatar + identity */}

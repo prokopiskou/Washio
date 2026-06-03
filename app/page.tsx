@@ -120,7 +120,7 @@ export default function HomePage() {
 
           {/* Header — centered logo */}
           <div className="flex justify-center items-center mb-4 -mt-4">
-            <img src="/washio-logo.png" alt="Washio" className="h-20 w-auto" />
+            <img src="/washio-logo.png" alt="Washio" className="h-32 w-auto" />
           </div>
           <h1 className="text-[26px] font-bold tracking-tight leading-[1.15] text-gray-900 text-center">
             Που θες να κλείσεις ραντεβού;
