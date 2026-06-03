@@ -325,36 +325,83 @@ export default function AdminPage() {
     <main className="min-h-screen bg-gray-50">
       <div className="max-w-5xl mx-auto pb-10">
 
-        <div className="bg-white border-b border-gray-100 px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">Washio Admin</h1>
-              <p className="text-xs text-gray-400">{new Date().toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        {/* Header */}
+        <div className="bg-white px-6 pt-14 pb-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <div className="w-[22px] h-[22px] rounded-[7px] bg-gray-900 flex items-center justify-center">
+                  <div
+                    className="w-1.5 h-1.5 bg-white"
+                    style={{
+                      borderRadius: '50% 50% 50% 0',
+                      transform: 'rotate(-45deg)',
+                    }}
+                  />
+                </div>
+                <h1 className="text-[20px] font-bold tracking-tight text-gray-900">Washio Admin</h1>
+              </div>
+              <p className="text-[12px] text-gray-500 mt-1 capitalize">
+                {new Date().toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={fetchData} className="p-2 text-gray-400 hover:text-gray-600"><RefreshCw size={16} /></button>
-              <button onClick={() => router.push('/')} className="text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-full">← App</button>
+            <div className="flex gap-2">
+              <button
+                onClick={fetchData}
+                className="w-9 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500"
+              >
+                <RefreshCw size={14} />
+              </button>
+              <button
+                onClick={() => router.push('/')}
+                className="h-8 px-2.5 rounded-lg bg-white border border-gray-200 inline-flex items-center gap-1 text-[12px] font-semibold text-gray-900"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+                App
+              </button>
             </div>
           </div>
+        </div>
 
-          <div className="flex gap-1 overflow-x-auto">
+        {/* Tabs */}
+        <div className="sticky top-0 z-20 bg-white border-b border-gray-100 mt-3.5 px-6 py-3">
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
             {[
               { key: 'overview', label: 'Overview' },
-              { key: 'bookings', label: `Κρατήσεις (${bookings.length})` },
-              { key: 'locations', label: `Πρατήρια (${locations.length})` },
-              { key: 'users', label: `Χρήστες (${users.length})` },
-              { key: 'applications', label: `Αιτήσεις${pendingApplications > 0 ? ` (${pendingApplications})` : ''}` },
+              { key: 'bookings', label: 'Κρατήσεις', count: bookings.length },
+              { key: 'locations', label: 'Πρατήρια', count: locations.length },
+              { key: 'users', label: 'Χρήστες', count: users.length },
+              { key: 'applications', label: 'Αιτήσεις', count: pendingApplications, highlight: pendingApplications > 0 },
               { key: 'financials', label: 'Οικονομικά' },
               { key: 'payouts', label: 'Εκκαθαρίσεις' },
-              { key: 'addons', label: `Υπηρεσίες (${addons.length})` },
-            ].map(tab => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                  activeTab === tab.key ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-700'
-                }`}>
-                {tab.label}
-              </button>
-            ))}
+              { key: 'addons', label: 'Υπηρεσίες', count: addons.length },
+            ].map((tab: any) => {
+              const active = activeTab === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key as any)}
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold tracking-tight transition-all border ${
+                    active
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-500 border-gray-200'
+                  }`}
+                >
+                  {tab.label}
+                  {tab.count !== undefined && tab.count > 0 && (
+                    <span
+                      className="px-1.5 rounded-full text-[10px] font-bold"
+                      style={{
+                        background: active ? 'rgba(255,255,255,0.22)' : tab.highlight ? '#FEF6E6' : '#F7F7F7',
+                        color: active ? '#fff' : tab.highlight ? '#8A6209' : '#666',
+                      }}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -364,71 +411,107 @@ export default function AdminPage() {
           ) : (
             <>
               {activeTab === 'overview' && (
-                <div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div className="space-y-3">
+
+                  {/* Dense 4-col stat grid */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
                     {[
-                      { label: 'Συνολικά Έσοδα', value: `€${totalRevenue.toFixed(0)}` },
-                      { label: 'Προμήθειες Washio', value: `€${totalCommission.toFixed(0)}` },
-                      { label: 'Επιβεβαιωμένες', value: confirmedBookings },
-                      { label: 'Ολοκληρωμένες', value: completedBookings },
+                      { label: 'Έσοδα', value: `€${totalRevenue.toFixed(0)}` },
+                      { label: 'Προμήθεια', value: `€${totalCommission.toFixed(0)}` },
+                      { label: 'Επιβεβ.', value: confirmedBookings },
+                      { label: 'Ολοκλ.', value: completedBookings },
                     ].map(s => (
-                      <div key={s.label} className="bg-white rounded-2xl p-4 border border-gray-100">
-                        <p className="text-xs text-gray-400 mb-1">{s.label}</p>
-                        <p className="text-2xl font-semibold text-gray-900">{s.value}</p>
+                      <div key={s.label} className="bg-white rounded-[11px] p-2.5 border border-gray-100">
+                        <p className="text-[9px] font-semibold tracking-[1.2px] uppercase text-gray-500 truncate">
+                          {s.label}
+                        </p>
+                        <p className="text-[18px] font-bold tracking-tight text-gray-900 mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {s.value}
+                        </p>
                       </div>
                     ))}
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-                    <p className="text-sm font-medium text-gray-900 mb-4">Έσοδα τελευταίων 6 μηνών</p>
-                    <ResponsiveContainer width="100%" height={200}>
+                  {/* Chart card */}
+                  <div className="bg-white rounded-[14px] border border-gray-100 p-4"
+                       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                    <div className="flex items-center justify-between mb-3.5">
+                      <p className="text-[13px] font-semibold tracking-tight text-gray-900">
+                        Έσοδα τελευταίων 6 μηνών
+                      </p>
+                      <div className="flex gap-2.5">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-sm bg-gray-900" />
+                          <span className="text-[10px] font-medium text-gray-500">Έσοδα</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-sm bg-gray-300" />
+                          <span className="text-[10px] font-medium text-gray-500">Προμήθεια</span>
+                        </div>
+                      </div>
+                    </div>
+                    <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={monthlyRevenue}>
-                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip />
-                        <Bar dataKey="revenue" fill="#0A0A0A" radius={[4, 4, 0, 0]} name="Έσοδα" />
-                        <Bar dataKey="commission" fill="#D1D5DB" radius={[4, 4, 0, 0]} name="Προμήθεια" />
+                        <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#999' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10, fill: '#999' }} axisLine={false} tickLine={false} />
+                        <Tooltip formatter={(value) => `€${value}`} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
+                        <Bar dataKey="revenue" fill="#0A0A0A" radius={[2, 2, 0, 0]} name="Έσοδα" />
+                        <Bar dataKey="commission" fill="#D1D5DB" radius={[2, 2, 0, 0]} name="Προμήθεια" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-                      <p className="text-sm font-medium text-gray-900">Πρόσφατες κρατήσεις</p>
-                      <button onClick={() => setActiveTab('bookings')} className="text-xs text-blue-500">Όλες →</button>
+                  {/* Recent bookings */}
+                  <div className="bg-white rounded-[14px] border border-gray-100 overflow-hidden"
+                       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                    <div className="flex items-center justify-between px-3.5 pt-3.5 pb-2">
+                      <p className="text-[13px] font-semibold tracking-tight text-gray-900">Πρόσφατες κρατήσεις</p>
+                      <button onClick={() => setActiveTab('bookings')} className="text-[12px] font-medium text-blue-600">
+                        Όλες →
+                      </button>
                     </div>
-                    {bookings.slice(0, 5).map((b, i) => (
-                      <div key={b.id} className={`px-4 py-3 ${i < 4 ? 'border-b border-gray-50' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-900">{getUserDisplay(b.profiles)}</p>
-                            <p className="text-xs text-gray-400">{b.locations?.name} · {b.slot_date}</p>
+                    {bookings.slice(0, 5).map((b, i) => {
+                      const pill = statusColors[b.status]
+                      return (
+                        <div key={b.id} className={`px-3.5 py-3 flex items-center gap-2.5 ${i < 4 ? 'border-t border-gray-100' : 'border-t border-gray-100'}`}>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] font-semibold text-gray-900 truncate">{getUserDisplay(b.profiles)}</p>
+                            <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+                              {b.locations?.name} · {new Date(b.slot_date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}
+                            </p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-gray-900">€{b.total_amount}</p>
-                            <span className={`text-xs px-1.5 py-0.5 rounded-md ${statusColors[b.status] || 'bg-gray-50 text-gray-500'}`}>
-                              {statusLabels[b.status] || b.status}
-                            </span>
-                          </div>
+                          <p className="text-[13px] font-semibold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            €{Number(b.total_amount).toFixed(0)}
+                          </p>
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${pill || 'bg-gray-50 text-gray-500'}`}>
+                            {statusLabels[b.status] || b.status}
+                          </span>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
+                    {bookings.length === 0 && (
+                      <p className="text-xs text-gray-400 text-center py-6">Δεν υπάρχουν κρατήσεις</p>
+                    )}
                   </div>
 
-                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-50">
-                      <p className="text-sm font-medium text-gray-900">Top Σημεία</p>
+                  {/* Top locations */}
+                  <div className="bg-white rounded-[14px] border border-gray-100 overflow-hidden"
+                       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                    <div className="px-3.5 pt-3.5 pb-2">
+                      <p className="text-[13px] font-semibold tracking-tight text-gray-900">Top σημεία</p>
                     </div>
                     {topLocations.slice(0, 5).map((loc, i) => (
-                      <div key={loc.id} className={`px-4 py-3 flex items-center justify-between ${i < 4 ? 'border-b border-gray-50' : ''}`}>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-gray-400 w-4">{i + 1}</span>
-                          <div>
-                            <p className="text-sm text-gray-900">{loc.name}</p>
-                            <p className="text-xs text-gray-400">{loc.bookingCount} κρατήσεις</p>
-                          </div>
+                      <div key={loc.id} className="px-3.5 py-2.5 flex items-center gap-3 border-t border-gray-100">
+                        <span className="text-[11px] font-bold text-gray-400 w-3.5 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold text-gray-900 truncate">{loc.name}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{loc.bookingCount} κρατήσεις</p>
                         </div>
-                        <p className="text-sm font-medium text-gray-900">€{loc.commission.toFixed(0)}</p>
+                        <p className="text-[13px] font-semibold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          €{loc.commission.toFixed(0)}
+                        </p>
                       </div>
                     ))}
                   </div>
