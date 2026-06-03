@@ -31,7 +31,6 @@ const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιου�
 export default function HomePage() {
   const router = useRouter()
   const [authChecking, setAuthChecking] = useState(true)
-  const [userInitial, setUserInitial] = useState('?')
   const [upcomingBooking, setUpcomingBooking] = useState<Booking | null>(null)
   const [recentLocations, setRecentLocations] = useState<Location[]>([])
   const [favorites, setFavorites] = useState<Favorite[]>([])
@@ -49,10 +48,6 @@ export default function HomePage() {
       }
 
       const user = sessionData.session.user
-      const email = user.email || ''
-      const fullName = (user.user_metadata?.full_name as string) || ''
-      const first = fullName.split(' ')[0] || email.split('@')[0]
-      setUserInitial((first.charAt(0) || email.charAt(0) || '?').toUpperCase())
 
       // Load all data in parallel
       const today = new Date().toISOString().split('T')[0]
@@ -123,12 +118,9 @@ export default function HomePage() {
       <div className="w-full max-w-md pb-24">
         <div className="px-5 pt-16 pb-6 flex flex-col gap-5">
 
-          {/* Header — logo left, avatar right */}
-          <div className="flex justify-between items-center mb-4">
-            <img src="/washio_logo.png" alt="Washio" className="h-11 w-auto" />
-            <Link href="/profile" className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center text-[15px] font-semibold">
-              {userInitial}
-            </Link>
+          {/* Header — centered logo */}
+          <div className="flex justify-center items-center mb-4">
+            <img src="/washio_logo.png" alt="Washio" className="h-12 w-auto" />
           </div>
           <h1 className="text-[26px] font-bold tracking-tight leading-[1.15] text-gray-900">
             Που θες να κλείσεις ραντεβού;
