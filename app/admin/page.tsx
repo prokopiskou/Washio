@@ -1526,48 +1526,151 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {activeTab === 'addons' && (
-                <div>
-                  <div className="flex justify-end mb-4">
-                    <button onClick={() => setAddingAddon(v => !v)}
-                      className="text-xs bg-gray-900 text-white px-4 py-2 rounded-xl">+ Νέα υπηρεσία</button>
-                  </div>
+              {activeTab === 'addons' && (() => {
+                const activeCount = addons.filter(a => a.is_active).length
 
-                  {addingAddon && (
-                    <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 flex gap-2">
-                      <input value={newAddon.name} onChange={e => setNewAddon(n => ({ ...n, name: e.target.value }))}
-                        placeholder="Όνομα υπηρεσίας"
-                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
-                      <input value={newAddon.price} onChange={e => setNewAddon(n => ({ ...n, price: e.target.value }))}
-                        placeholder="€" type="number"
-                        className="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
-                      <button onClick={handleAddAddon} className="bg-gray-900 text-white text-xs px-3 py-2 rounded-lg">Αποθήκευση</button>
-                      <button onClick={() => { setAddingAddon(false); setNewAddon({ name: '', price: '' }) }} className="text-gray-400 px-2"><X size={14} /></button>
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-3.5">
+                      <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                        {addons.length} υπηρεσίες · {activeCount} ενεργές
+                      </p>
+                      <button
+                        onClick={() => setAddingAddon(v => !v)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                        Νέα υπηρεσία
+                      </button>
                     </div>
-                  )}
 
-                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900">Global Υπηρεσίες</p>
-                      <span className="text-xs text-gray-400">{addons.length} σύνολο</span>
-                    </div>
-                    {addons.map((addon, i) => (
-                      <div key={addon.id} className={`px-4 py-3 flex items-center justify-between ${i < addons.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                        <p className="text-sm text-gray-900 flex-1">{addon.name}</p>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button onClick={async () => { const supabase = createClient(); await supabase.from('addons').update({ is_active: !addon.is_active }).eq('id', addon.id); fetchData() }}
-                            className={`text-xs px-2 py-1 rounded-lg ${addon.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
-                            {addon.is_active ? 'Ενεργό' : 'Ανενεργό'}
-                          </button>
-                          <button onClick={async () => { if (!confirm('Διαγραφή υπηρεσίας;')) return; const supabase = createClient(); await supabase.from('addons').delete().eq('id', addon.id); fetchData() }}
-                            className="text-xs text-red-400 px-1"><X size={12} /></button>
+                    {addingAddon && (
+                      <div className="bg-white rounded-[14px] border border-gray-100 p-4 mb-3.5"
+                           style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                        <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-3">
+                          Νέα υπηρεσία
+                        </p>
+
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">
+                              Όνομα υπηρεσίας
+                            </p>
+                            <input
+                              value={newAddon.name}
+                              onChange={e => setNewAddon(n => ({ ...n, name: e.target.value }))}
+                              placeholder="π.χ. Κερί προστασίας"
+                              className="w-full h-10 px-3 rounded-[9px] bg-white border border-gray-200 text-[13px] font-semibold text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                            />
+                          </div>
+
+                          <div>
+                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">
+                              Τιμή (€)
+                            </p>
+                            <div className="flex items-center bg-white border border-gray-200 rounded-[9px] h-10 px-3">
+                              <span className="text-[14px] font-semibold text-gray-400 mr-1.5">€</span>
+                              <input
+                                value={newAddon.price}
+                                onChange={e => setNewAddon(n => ({ ...n, price: e.target.value }))}
+                                placeholder="0"
+                                type="number"
+                                className="flex-1 bg-transparent text-[14px] font-bold tracking-tight text-gray-900 placeholder-gray-300 focus:outline-none"
+                                style={{ fontVariantNumeric: 'tabular-nums' }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setAddingAddon(false); setNewAddon({ name: '', price: '' }) }}
+                              className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-[13px] font-semibold"
+                            >
+                              Άκυρο
+                            </button>
+                            <button
+                              onClick={handleAddAddon}
+                              disabled={!newAddon.name || !newAddon.price}
+                              className="flex-1 h-11 rounded-xl bg-gray-900 text-white text-[13px] font-semibold disabled:opacity-40"
+                            >
+                              Αποθήκευση
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    ))}
-                    {addons.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν υπηρεσίες</p>}
+                    )}
+
+                    <div className="bg-white rounded-[14px] border border-gray-100 overflow-hidden"
+                         style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                      <div className="flex items-center justify-between px-3.5 pt-3.5 pb-2">
+                        <p className="text-[13px] font-semibold tracking-tight text-gray-900">
+                          Global υπηρεσίες
+                        </p>
+                        <span className="text-[11px] font-bold text-gray-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {addons.length}
+                        </span>
+                      </div>
+
+                      {addons.map((addon, i) => {
+                        const isLast = i === addons.length - 1
+                        return (
+                          <div
+                            key={addon.id}
+                            className={`px-3.5 py-3 flex items-center gap-2.5 ${isLast ? '' : 'border-t border-gray-100'}`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-[13px] font-semibold tracking-tight truncate ${addon.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                                {addon.name}
+                              </p>
+                              {addon.price !== undefined && addon.price !== null && (
+                                <p className="text-[11px] text-gray-400 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  €{Number(addon.price).toFixed(2)}
+                                </p>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={async () => {
+                                const supabase = createClient()
+                                await supabase.from('addons').update({ is_active: !addon.is_active }).eq('id', addon.id)
+                                fetchData()
+                              }}
+                              className="relative w-[44px] h-[26px] rounded-full transition-colors shrink-0"
+                              style={{ background: addon.is_active ? '#34C759' : '#E5E5E5' }}
+                            >
+                              <div
+                                className="absolute top-0.5 w-[22px] h-[22px] rounded-full bg-white transition-all"
+                                style={{
+                                  left: addon.is_active ? 20 : 2,
+                                  boxShadow: '0 2px 4px rgba(0,0,0,0.15), 0 1px 0 rgba(0,0,0,0.04)',
+                                }}
+                              />
+                            </button>
+
+                            <button
+                              onClick={async () => {
+                                if (!confirm('Διαγραφή υπηρεσίας;')) return
+                                const supabase = createClient()
+                                await supabase.from('addons').delete().eq('id', addon.id)
+                                fetchData()
+                              }}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 shrink-0"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                                <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>
+                              </svg>
+                            </button>
+                          </div>
+                        )
+                      })}
+
+                      {addons.length === 0 && (
+                        <p className="text-[13px] text-gray-400 text-center py-8">Δεν υπάρχουν υπηρεσίες</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </>
           )}
         </div>
