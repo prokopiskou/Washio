@@ -209,8 +209,8 @@ export default function ProfilePage() {
         <div className="px-5 pt-[70px] flex flex-col gap-3.5">
 
           {/* Logo */}
-          <div className="flex justify-center mb-2">
-            <img src="/washio_logo.png" alt="Washio" className="h-11 w-auto" />
+          <div className="flex justify-center -mt-4 mb-2">
+            <img src="/washio-logo.png" alt="Washio" className="h-20 w-auto" />
           </div>
 
           {/* Avatar + identity */}
