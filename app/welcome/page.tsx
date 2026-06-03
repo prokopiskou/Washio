@@ -27,7 +27,7 @@ export default function WelcomePage() {
             <span className="text-gray-500">Έξυπνη εμπειρία.</span>
           </h1>
           <p className="text-[15px] text-gray-500 leading-[1.45] mt-4 max-w-[300px]">
-            Βρες κοντινό πλυντήριο. Κλείσε θέση. Πλύνε.
+            Βρες σημείο. Κλείσε θέση. Πλύνε.
           </p>
 
           <div className="w-full flex flex-col gap-2.5 mt-7">
@@ -72,7 +72,7 @@ export default function WelcomePage() {
           {[
             { n: '01', t: 'Βρες σημείο', d: 'Δες τα κοντινά πλυντήρια με διαθέσιμες θέσεις σε πραγματικό χρόνο.' },
             { n: '02', t: 'Κλείσε θέση', d: 'Επίλεξε υπηρεσία, ώρα και πλήρωσε με ασφάλεια.' },
-            { n: '03', t: 'Πήγαινε', d: 'Παρουσιάσου στην ώρα σου. Χωρίς αναμονή.' },
+            { n: '03', t: 'Πλύνε', d: 'Χωρίς αναμονή.' },
           ].map((step, i, arr) => (
             <div
               key={step.n}
