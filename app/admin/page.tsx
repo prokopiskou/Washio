@@ -704,188 +704,321 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {activeTab === 'applications' && (
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">Αιτήσεις πλυντηρίων</p>
-                    <span className="text-xs text-gray-400">{applications.length} συνολικά</span>
-                  </div>
-                  {applications.map((app, i) => (
-                    <div key={app.id} className={`px-4 py-4 ${i < applications.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">{app.business_name}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{app.owner_name}</p>
-                          <p className="text-xs text-gray-400">{app.address}, {app.city}</p>
-                          <p className="text-xs text-gray-400">{app.phone} · {app.email}</p>
-                          <div className="flex gap-2 mt-1.5 flex-wrap">
-                            {app.hours && (
-                              <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-md">
-                                🕐 {app.hours}
-                              </span>
-                            )}
-                            {app.lanes && (
-                              <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-md">
-                                🚗 {app.lanes} lanes
-                              </span>
-                            )}
-                            {app.wash_type && (
-                              <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-md">
-                                💧 {app.wash_type}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-1 items-end shrink-0">
-                          <span className={`text-xs px-2 py-0.5 rounded-md ${
-                            app.status === 'approved' ? 'bg-green-50 text-green-600' : app.status === 'rejected' ? 'bg-red-50 text-red-500' : app.status === 'pre_approved' ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600'
-                          }`}>
-                            {app.status === 'approved' ? 'Εγκρίθηκε' : app.status === 'rejected' ? 'Απορρίφθηκε' : app.status === 'pre_approved' ? 'Προεγγραφή' : 'Εκκρεμεί'}
-                          </span>
-                          {app.status === 'pending' && (
-                            <div className="flex gap-1 mt-1">
-                              <button onClick={() => updateApplication(app.id, 'pre_approved')}
-                                className="flex items-center gap-1 bg-blue-50 text-blue-600 text-xs px-2 py-1 rounded-lg">
-                                <Check size={10} /> Προεγγραφή
-                              </button>
-                              <button onClick={() => updateApplication(app.id, 'rejected')}
-                                className="flex items-center gap-1 bg-red-50 text-red-500 text-xs px-2 py-1 rounded-lg">
-                                <X size={10} /> Απόρριψη
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {app.status === 'pre_approved' && (
-                        <div className="mt-3 border-t border-gray-50 pt-3 space-y-2">
-                          <p className="text-xs font-medium text-gray-700 mb-2">Στοιχεία εγγραφής</p>
+              {activeTab === 'applications' && (() => {
+                const pendingCount = applications.filter(a => a.status === 'pending').length
+                const preApprovedCount = applications.filter(a => a.status === 'pre_approved').length
 
-                          <div>
-                            <p className="text-xs text-gray-400 mb-1">ΑΦΜ</p>
-                            <input
-                              defaultValue={app.afm || ''}
-                              placeholder="π.χ. 123456789"
-                              onBlur={async e => {
-                                const supabase = createClient()
-                                const v = e.target.value
-                                await supabase.from('applications').update({ afm: v }).eq('id', app.id)
-                                setApplications(prev => prev.map(a => a.id === app.id ? { ...a, afm: v } : a))
-                              }}
-                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-gray-400"
-                            />
+                return (
+                  <div className="space-y-2.5">
+                    <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 py-1">
+                      {pendingCount} εκκρεμείς · {preApprovedCount} σε εξέλιξη
+                    </p>
+
+                    {applications.map(app => {
+                      const isPending = app.status === 'pending'
+                      const isPreApproved = app.status === 'pre_approved'
+                      const isApproved = app.status === 'approved'
+                      const isRejected = app.status === 'rejected'
+
+                      return (
+                        <div
+                          key={app.id}
+                          className="bg-white rounded-[14px] border border-gray-100 p-3.5"
+                          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                        >
+                          {/* Top section */}
+                          <div className="flex items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[14px] font-semibold tracking-tight text-gray-900">
+                                {app.business_name}
+                              </p>
+                              <p className="text-[12px] text-gray-500 mt-0.5">{app.owner_name}</p>
+                              <p className="text-[12px] text-gray-500 mt-1">{app.address}, {app.city}</p>
+                              <p className="text-[11px] text-gray-400 mt-1">{app.phone} · {app.email}</p>
+
+                              <div className="flex flex-wrap gap-1.5 mt-2">
+                                {app.hours && (
+                                  <span className="px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 text-[11px] font-medium">
+                                    {app.hours}
+                                  </span>
+                                )}
+                                {app.lanes && (
+                                  <span className="px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 text-[11px] font-medium">
+                                    {app.lanes} λάντζες
+                                  </span>
+                                )}
+                                {app.wash_type && (
+                                  <span className="px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 text-[11px] font-medium">
+                                    {app.wash_type}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Right column — status + actions */}
+                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                              {isPending && (
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-semibold"
+                                  style={{ background: '#FEF6E6', color: '#8A6209' }}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#F59E0B' }} />
+                                  Εκκρεμεί
+                                </span>
+                              )}
+                              {isPreApproved && (
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-semibold"
+                                  style={{ background: '#EAF2FD', color: '#1A6FD4' }}
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#1A6FD4' }} />
+                                  Προεγγραφή
+                                </span>
+                              )}
+                              {isApproved && (
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-semibold"
+                                  style={{ background: '#E7F6EF', color: '#0F7A5C' }}
+                                >
+                                  <Check size={10} strokeWidth={2.6} />
+                                  Εγκρίθηκε
+                                </span>
+                              )}
+                              {isRejected && (
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[11px] font-semibold"
+                                  style={{ background: '#FCEAEA', color: '#B43C3C' }}
+                                >
+                                  Απορρίφθηκε
+                                </span>
+                              )}
+
+                              {isPending && (
+                                <>
+                                  <button
+                                    onClick={() => updateApplication(app.id, 'pre_approved')}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold"
+                                    style={{ background: '#EAF2FD', color: '#1A6FD4' }}
+                                  >
+                                    Προεγγραφή
+                                    <Check size={11} strokeWidth={2.2} />
+                                  </button>
+                                  <button
+                                    onClick={() => updateApplication(app.id, 'rejected')}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold"
+                                    style={{ background: '#FCEAEA', color: '#B43C3C' }}
+                                  >
+                                    Απόρριψη
+                                    <X size={11} strokeWidth={2.2} />
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
 
-                          <div className="flex gap-2">
-                            <div className="flex-1">
-                              <p className="text-xs text-gray-400 mb-1">IBAN</p>
-                              <input
-                                defaultValue={app.iban || ''}
-                                placeholder="GR00 0000..."
-                                onBlur={async e => {
-                                  const supabase = createClient()
-                                  const v = e.target.value
-                                  await supabase.from('applications').update({ iban: v }).eq('id', app.id)
-                                  setApplications(prev => prev.map(a => a.id === app.id ? { ...a, iban: v } : a))
-                                }}
-                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-gray-400"
-                              />
-                            </div>
-                            <div className="w-28">
-                              <p className="text-xs text-gray-400 mb-1">Τράπεζα</p>
-                              <input
-                                defaultValue={app.bank_name || ''}
-                                placeholder="π.χ. Eurobank"
-                                onBlur={async e => {
-                                  const supabase = createClient()
-                                  const v = e.target.value
-                                  await supabase.from('applications').update({ bank_name: v }).eq('id', app.id)
-                                  setApplications(prev => prev.map(a => a.id === app.id ? { ...a, bank_name: v } : a))
-                                }}
-                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-gray-400"
-                              />
-                            </div>
-                          </div>
+                          {/* Pre-approved expansion */}
+                          {isPreApproved && (
+                            <>
+                              <div className="h-px bg-gray-100 my-3.5" />
 
-                          <div className="space-y-2 pt-1">
-                            {([
-                              { key: 'doc_afm_url' as const, label: 'ΑΦΜ' },
-                              { key: 'doc_declaration_url' as const, label: 'Υπ. Δήλωση' },
-                              { key: 'doc_agreement_url' as const, label: 'Συμφωνητικό' },
-                            ]).map(doc => (
-                              <div key={doc.key} className="flex items-center gap-2">
-                                <span className="text-xs text-gray-500 w-24 shrink-0">{doc.label}</span>
-                                {app[doc.key] ? (
-                                  <div className="flex items-center gap-2 flex-1">
-                                    <a href={app[doc.key]} target="_blank" rel="noopener noreferrer"
-                                      className="text-xs text-blue-600 underline truncate flex-1">
-                                      Προβολή PDF
-                                    </a>
-                                    <label className="text-xs text-gray-400 cursor-pointer border border-gray-200 px-2 py-1 rounded-lg hover:bg-gray-50">
-                                      Αντικατάσταση
-                                      <input type="file" accept=".pdf" className="hidden"
-                                        onChange={async e => {
-                                          const file = e.target.files?.[0]
-                                          if (!file) return
-                                          const supabase = createClient()
-                                          const path = `${app.id}/${doc.key}-${Date.now()}.pdf`
-                                          await supabase.storage.from('location-docs').upload(path, file, { upsert: true })
-                                          const { data: urlData } = supabase.storage.from('location-docs').getPublicUrl(path)
-                                          await supabase.from('applications').update({ [doc.key]: urlData.publicUrl }).eq('id', app.id)
-                                          setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: urlData.publicUrl } : a))
-                                          await fetchData()
-                                        }}
-                                      />
-                                    </label>
-                                  </div>
-                                ) : (
-                                  <label className="flex items-center gap-1.5 text-xs text-gray-500 border border-dashed border-gray-300 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-50 flex-1">
-                                    <span>+ Ανέβασμα PDF</span>
-                                    <input type="file" accept=".pdf" className="hidden"
-                                      onChange={async e => {
-                                        const file = e.target.files?.[0]
-                                        if (!file) return
+                              <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-2.5">
+                                Στοιχεία εγγραφής
+                              </p>
+
+                              <div className="space-y-2">
+                                <div>
+                                  <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">
+                                    ΑΦΜ
+                                  </p>
+                                  <input
+                                    defaultValue={app.afm || ''}
+                                    placeholder="000000000"
+                                    onBlur={async e => {
+                                      const supabase = createClient()
+                                      const v = e.target.value
+                                      await supabase.from('applications').update({ afm: v }).eq('id', app.id)
+                                      setApplications(prev => prev.map(a => a.id === app.id ? { ...a, afm: v } : a))
+                                    }}
+                                    className="w-full h-10 px-3 rounded-lg bg-white border border-gray-200 text-[13px] font-semibold text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                                    style={{ fontVariantNumeric: 'tabular-nums' }}
+                                  />
+                                </div>
+
+                                <div className="flex gap-2">
+                                  <div className="flex-[2]">
+                                    <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">
+                                      IBAN
+                                    </p>
+                                    <input
+                                      defaultValue={app.iban || ''}
+                                      placeholder="GR00 0000 0000..."
+                                      onBlur={async e => {
                                         const supabase = createClient()
-                                        const path = `${app.id}/${doc.key}-${Date.now()}.pdf`
-                                        await supabase.storage.from('location-docs').upload(path, file, { upsert: true })
-                                        const { data: urlData } = supabase.storage.from('location-docs').getPublicUrl(path)
-                                        await supabase.from('applications').update({ [doc.key]: urlData.publicUrl }).eq('id', app.id)
-                                        setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: urlData.publicUrl } : a))
-                                        await fetchData()
+                                        const v = e.target.value
+                                        await supabase.from('applications').update({ iban: v }).eq('id', app.id)
+                                        setApplications(prev => prev.map(a => a.id === app.id ? { ...a, iban: v } : a))
+                                      }}
+                                      className="w-full h-10 px-3 rounded-lg bg-white border border-gray-200 text-[13px] font-semibold text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                                      style={{
+                                        fontFamily: 'ui-monospace, "SF Mono", monospace',
+                                        letterSpacing: '0.4px',
                                       }}
                                     />
-                                  </label>
-                                )}
-                                <span className={`text-xs w-4 ${app[doc.key] ? 'text-green-500' : 'text-gray-300'}`}>
-                                  {app[doc.key] ? '✓' : '·'}
-                                </span>
+                                  </div>
+                                  <div className="flex-1">
+                                    <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">
+                                      Τράπεζα
+                                    </p>
+                                    <input
+                                      defaultValue={app.bank_name || ''}
+                                      placeholder="NBG"
+                                      onBlur={async e => {
+                                        const supabase = createClient()
+                                        const v = e.target.value
+                                        await supabase.from('applications').update({ bank_name: v }).eq('id', app.id)
+                                        setApplications(prev => prev.map(a => a.id === app.id ? { ...a, bank_name: v } : a))
+                                      }}
+                                      className="w-full h-10 px-3 rounded-lg bg-white border border-gray-200 text-[13px] font-semibold text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                                    />
+                                  </div>
+                                </div>
                               </div>
-                            ))}
-                          </div>
 
-                          {(() => {
-                            const allDone = !!(app.afm && app.iban && app.doc_afm_url && app.doc_declaration_url && app.doc_agreement_url)
-                            return (
-                              <button
-                                type="button"
-                                disabled={!allDone}
-                                onClick={() => updateApplication(app.id, 'approved')}
-                                className={`w-full text-xs font-medium py-2.5 rounded-xl mt-1 transition-all ${
-                                  allDone
-                                    ? 'bg-gray-900 text-white'
-                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                }`}
-                              >
-                                {allDone ? '✓ Τελική Έγκριση & Ενεργοποίηση' : 'Συμπλήρωσε όλα τα πεδία'}
-                              </button>
-                            )
-                          })()}
+                              <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mt-3.5 mb-1">
+                                Έγγραφα
+                              </p>
+
+                              <div>
+                                {([
+                                  { key: 'doc_afm_url' as const, label: 'ΑΦΜ' },
+                                  { key: 'doc_declaration_url' as const, label: 'Υπ. Δήλωση' },
+                                  { key: 'doc_agreement_url' as const, label: 'Συμφωνητικό' },
+                                ]).map((doc, idx, arr) => {
+                                  const uploaded = !!app[doc.key]
+                                  const isLast = idx === arr.length - 1
+                                  return (
+                                    <div
+                                      key={doc.key}
+                                      className={`flex items-center gap-2.5 py-2.5 ${isLast ? '' : 'border-b border-gray-100'}`}
+                                    >
+                                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                                        <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                                        <path d="M14 3v6h6"/>
+                                      </svg>
+                                      <p className="flex-1 text-[13px] font-medium text-gray-900">{doc.label}</p>
+
+                                      {uploaded ? (
+                                        <div className="flex items-center gap-2">
+                                          <a
+                                            href={app[doc.key]}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="text-[12px] font-medium text-blue-600 underline underline-offset-[2px]"
+                                          >
+                                            Προβολή PDF
+                                          </a>
+                                          <label className="text-[11px] text-gray-400 cursor-pointer">
+                                            · Αντικατάσταση
+                                            <input
+                                              type="file"
+                                              accept=".pdf"
+                                              className="hidden"
+                                              onChange={async e => {
+                                                const file = e.target.files?.[0]
+                                                if (!file) return
+                                                const supabase = createClient()
+                                                const path = `${app.id}/${doc.key}-${Date.now()}.pdf`
+                                                await supabase.storage.from('location-docs').upload(path, file, { upsert: true })
+                                                const { data: urlData } = supabase.storage.from('location-docs').getPublicUrl(path)
+                                                await supabase.from('applications').update({ [doc.key]: urlData.publicUrl }).eq('id', app.id)
+                                                setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: urlData.publicUrl } : a))
+                                                await fetchData()
+                                              }}
+                                            />
+                                          </label>
+                                          <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center">
+                                            <Check size={10} className="text-white" strokeWidth={3} />
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-dashed border-gray-300 text-gray-500 text-[11px] font-semibold cursor-pointer">
+                                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M21 15v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3M7 9l5-5 5 5M12 4v12"/>
+                                          </svg>
+                                          Ανέβασμα PDF
+                                          <input
+                                            type="file"
+                                            accept=".pdf"
+                                            className="hidden"
+                                            onChange={async e => {
+                                              const file = e.target.files?.[0]
+                                              if (!file) return
+                                              const supabase = createClient()
+                                              const path = `${app.id}/${doc.key}-${Date.now()}.pdf`
+                                              await supabase.storage.from('location-docs').upload(path, file, { upsert: true })
+                                              const { data: urlData } = supabase.storage.from('location-docs').getPublicUrl(path)
+                                              await supabase.from('applications').update({ [doc.key]: urlData.publicUrl }).eq('id', app.id)
+                                              setApplications(prev => prev.map(a => a.id === app.id ? { ...a, [doc.key]: urlData.publicUrl } : a))
+                                              await fetchData()
+                                            }}
+                                          />
+                                        </label>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+
+                              {(() => {
+                                const allDone = !!(app.afm && app.iban && app.doc_afm_url && app.doc_declaration_url && app.doc_agreement_url)
+                                return (
+                                  <div className="mt-4">
+                                    <button
+                                      type="button"
+                                      disabled={!allDone}
+                                      onClick={() => updateApplication(app.id, 'approved')}
+                                      className={`w-full h-[46px] rounded-[11px] text-[13px] font-semibold tracking-tight flex items-center justify-center gap-1.5 transition-all ${
+                                        allDone
+                                          ? 'bg-gray-900 text-white'
+                                          : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                      }`}
+                                    >
+                                      {allDone && <Check size={14} strokeWidth={2.2} />}
+                                      Τελική Έγκριση & Ενεργοποίηση
+                                    </button>
+                                    {!allDone && (
+                                      <p className="text-[11px] text-gray-400 text-center mt-1.5">
+                                        Συμπλήρωσε όλα τα πεδία
+                                      </p>
+                                    )}
+                                  </div>
+                                )
+                              })()}
+                            </>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
-                  {applications.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν αιτήσεις</p>}
-                </div>
-              )}
+                      )
+                    })}
+
+                    {applications.length === 0 && (
+                      <div className="flex flex-col items-center text-center pt-12">
+                        <div
+                          className="w-16 h-16 rounded-2xl bg-white border border-gray-100 flex items-center justify-center text-gray-400 mb-4"
+                          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                        >
+                          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                            <path d="M14 3v6h6"/>
+                          </svg>
+                        </div>
+                        <p className="text-[15px] font-semibold tracking-tight text-gray-900">
+                          Δεν υπάρχουν αιτήσεις
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {activeTab === 'financials' && (
                 <div>
