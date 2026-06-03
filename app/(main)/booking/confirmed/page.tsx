@@ -79,7 +79,6 @@ function ConfirmedContent() {
     const fetchAndNotify = async () => {
       const intentId = params.get('payment_intent')
       let ref = 'WS-' + Math.random().toString(36).substring(2, 8).toUpperCase()
-      let locName = 'Washio'
 
       if (intentId) {
         const supabase = createClient()
@@ -94,32 +93,12 @@ function ConfirmedContent() {
           setBookingRef(data.booking_ref)
         }
         if (data && (data.locations as any)?.name) {
-          locName = (data.locations as any).name
-          setLocationName(locName)
+          setLocationName((data.locations as any).name)
         }
       }
 
-      // Fallback ref if no Stripe intent
       if (!bookingRef) setBookingRef(ref)
-
-      const email = params.get('email') || ''
-      if (!email) return
-
-      await fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'confirmation',
-          to: email,
-          bookingRef: ref,
-          locationName: locName,
-          service,
-          date,
-          time,
-          plate,
-          total,
-        }),
-      })
+      // Email is sent automatically by Stripe webhook
     }
 
     fetchAndNotify()
