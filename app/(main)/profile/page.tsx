@@ -206,10 +206,10 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">
       <div className="w-full max-w-md pb-28">
-        <div className="px-5 pt-[70px] flex flex-col gap-3.5">
+        <div className="px-5 pt-4 flex flex-col gap-3.5">
 
           {/* Logo */}
-          <div className="flex justify-center -mt-4 mb-2">
+          <div className="flex justify-center -my-6">
             <img src="/washio-logo.png" alt="Washio" className="h-32 w-auto" />
           </div>
 
