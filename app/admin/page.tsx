@@ -1065,101 +1065,152 @@ export default function AdminPage() {
 
               {activeTab === 'payouts' && (
                 <div>
-                  {/* Month selector */}
-                  <div className="flex items-center gap-3 mb-5">
-                    <p className="text-sm font-medium text-gray-700">Μήνας:</p>
-                    <input type="month" value={payoutMonth}
-                      onChange={e => setPayoutMonth(e.target.value)}
-                      className="border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none" />
-                    <p className="text-xs text-gray-400">{formatMonth(payoutMonth)}</p>
+                  {/* Month picker */}
+                  <div className="flex items-center gap-2.5 mb-3.5">
+                    <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">
+                      Μήνας
+                    </p>
+                    <div className="flex-1 h-9 px-3.5 rounded-[9px] bg-white border border-gray-200 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-1">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.75" strokeLinecap="round">
+                          <rect x="4" y="5" width="16" height="16" rx="2"/>
+                          <path d="M4 10h16M9 3v4M15 3v4"/>
+                        </svg>
+                        <input
+                          type="month"
+                          value={payoutMonth}
+                          onChange={e => setPayoutMonth(e.target.value)}
+                          className="text-[13px] font-semibold text-gray-900 bg-transparent focus:outline-none flex-1"
+                        />
+                      </div>
+                      <span className="text-[11px] text-gray-400 capitalize">{formatMonth(payoutMonth)}</span>
+                    </div>
                   </div>
 
-                  {/* Summary */}
-                  <div className="grid grid-cols-3 gap-3 mb-5">
+                  {/* Summary — dense 3-col */}
+                  <div className="grid grid-cols-3 gap-1.5 mb-3.5">
                     {[
-                      { label: 'Συνολικά έσοδα', value: `€${payoutData.reduce((s, l) => s + l.totalRevenue, 0).toFixed(0)}` },
-                      { label: 'Προμήθεια Washio', value: `€${payoutData.reduce((s, l) => s + l.commission, 0).toFixed(0)}` },
+                      { label: 'Έσοδα', value: `€${payoutData.reduce((s, l) => s + l.totalRevenue, 0).toFixed(0)}` },
+                      { label: 'Προμήθεια', value: `€${payoutData.reduce((s, l) => s + l.commission, 0).toFixed(0)}` },
                       { label: 'Οφείλεται', value: `€${payoutData.reduce((s, l) => s + (l.existingPayout?.status === 'paid' ? 0 : l.owedAmount), 0).toFixed(0)}` },
                     ].map(s => (
-                      <div key={s.label} className="bg-white rounded-2xl p-4 border border-gray-100">
-                        <p className="text-xs text-gray-400 mb-1">{s.label}</p>
-                        <p className="text-xl font-semibold text-gray-900">{s.value}</p>
+                      <div key={s.label} className="bg-white rounded-[11px] p-2.5 border border-gray-100">
+                        <p className="text-[9px] font-semibold tracking-[1.2px] uppercase text-gray-500 truncate">
+                          {s.label}
+                        </p>
+                        <p className="text-[18px] font-bold tracking-tight text-gray-900 mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {s.value}
+                        </p>
                       </div>
                     ))}
                   </div>
 
                   {/* Locations list */}
-                  <div className="space-y-3">
+                  <div className="space-y-2.5">
                     {payoutData.length === 0 && (
-                      <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
-                        <p className="text-sm text-gray-400">Δεν υπάρχουν κρατήσεις για αυτό τον μήνα</p>
+                      <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center"
+                           style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                        <p className="text-[14px] text-gray-400">Δεν υπάρχουν κρατήσεις για αυτό τον μήνα</p>
                       </div>
                     )}
+
                     {payoutData.map(loc => {
                       const isPaid = loc.existingPayout?.status === 'paid'
                       return (
-                        <div key={loc.id} className="bg-white rounded-2xl border border-gray-100 p-4">
-                          <div className="flex items-start justify-between gap-3 mb-3">
-                            <div>
-                              <p className="text-sm font-semibold text-gray-900">{loc.name}</p>
-                              <p className="text-xs text-gray-400">{loc.city}</p>
+                        <div
+                          key={loc.id}
+                          className="bg-white rounded-[14px] border border-gray-100 p-3.5"
+                          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                        >
+                          {/* Top row — name + status */}
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[14px] font-semibold tracking-tight text-gray-900 truncate">
+                                {loc.name}
+                              </p>
+                              <p className="text-[11px] text-gray-400 mt-0.5">{loc.city}</p>
                             </div>
-                            <span className={`text-xs px-2 py-1 rounded-lg font-medium ${isPaid ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
-                              {isPaid ? '✓ Πληρώθηκε' : 'Εκκρεμεί'}
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-tight shrink-0"
+                              style={{
+                                background: isPaid ? '#E7F6EF' : '#FEF6E6',
+                                color: isPaid ? '#0F7A5C' : '#8A6209',
+                              }}
+                            >
+                              {isPaid && <Check size={10} strokeWidth={2.6} />}
+                              {!isPaid && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#F59E0B' }} />}
+                              {isPaid ? 'Πληρώθηκε' : 'Εκκρεμεί'}
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-2 mb-3">
-                            <div className="bg-gray-50 rounded-xl p-3">
-                              <p className="text-xs text-gray-400">Κρατήσεις</p>
-                              <p className="text-sm font-semibold text-gray-900">{loc.monthBookings}</p>
-                            </div>
-                            <div className="bg-gray-50 rounded-xl p-3">
-                              <p className="text-xs text-gray-400">Έσοδα</p>
-                              <p className="text-sm font-semibold text-gray-900">€{loc.totalRevenue.toFixed(0)}</p>
-                            </div>
-                            <div className="bg-gray-50 rounded-xl p-3">
-                              <p className="text-xs text-gray-400">Να αποδοθεί</p>
-                              <p className="text-sm font-semibold text-gray-900">€{loc.owedAmount.toFixed(0)}</p>
-                            </div>
+                          {/* Stats — 3-col mini cards */}
+                          <div className="grid grid-cols-3 gap-2 mt-3">
+                            {[
+                              { label: 'Κρατήσεις', value: loc.monthBookings },
+                              { label: 'Έσοδα', value: `€${loc.totalRevenue.toFixed(0)}` },
+                              { label: 'Να αποδοθεί', value: `€${loc.owedAmount.toFixed(0)}` },
+                            ].map(s => (
+                              <div key={s.label} className="bg-gray-50 rounded-[9px] px-2.5 py-2">
+                                <p className="text-[9px] font-semibold tracking-[1.2px] uppercase text-gray-500 truncate">
+                                  {s.label}
+                                </p>
+                                <p className="text-[14px] font-bold tracking-tight text-gray-900 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  {s.value}
+                                </p>
+                              </div>
+                            ))}
                           </div>
 
-                          {/* IBAN */}
-                          <div className="flex gap-2 mb-3">
-                            <div className="flex-1">
-                              <p className="text-xs text-gray-400 mb-1">IBAN</p>
+                          {/* IBAN + Bank */}
+                          <div className="flex gap-2 mt-3">
+                            <div className="flex-[2]">
+                              <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">
+                                IBAN
+                              </p>
                               <input
                                 defaultValue={loc.iban || ''}
                                 onBlur={e => updateLocationBankInfo(loc.id, 'iban', e.target.value)}
-                                placeholder="GR00 0000 0000 0000 0000 0000 000"
-                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:border-gray-400"
+                                placeholder="GR00 0000 0000..."
+                                className="w-full h-10 px-3 rounded-[9px] bg-white border border-gray-200 text-[13px] font-semibold text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                                style={{
+                                  fontFamily: 'ui-monospace, "SF Mono", monospace',
+                                  letterSpacing: '0.4px',
+                                }}
                               />
                             </div>
-                            <div className="w-32">
-                              <p className="text-xs text-gray-400 mb-1">Τράπεζα</p>
+                            <div className="flex-1">
+                              <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">
+                                Τράπεζα
+                              </p>
                               <input
                                 defaultValue={loc.bank_name || ''}
                                 onBlur={e => updateLocationBankInfo(loc.id, 'bank_name', e.target.value)}
-                                placeholder="π.χ. Eurobank"
-                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-gray-400"
+                                placeholder="NBG"
+                                className="w-full h-10 px-3 rounded-[9px] bg-white border border-gray-200 text-[13px] font-semibold text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
                               />
                             </div>
                           </div>
 
+                          {/* Footer — paid info or action button */}
                           {isPaid ? (
-                            <div className="flex items-center justify-between">
-                              <p className="text-xs text-gray-400">
-                                Πληρώθηκε: {loc.existingPayout?.paid_at ? new Date(loc.existingPayout.paid_at).toLocaleDateString('el-GR') : '—'}
+                            <div className="mt-3 px-3 py-2.5 bg-gray-50 rounded-[9px] flex items-center justify-between">
+                              <p className="text-[12px] text-gray-500">
+                                Πληρώθηκε: {loc.existingPayout?.paid_at
+                                  ? new Date(loc.existingPayout.paid_at).toLocaleDateString('el-GR', { day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })
+                                  : '—'}
                               </p>
-                              <button onClick={() => markAsPending(loc.existingPayout.id)}
-                                className="text-xs text-red-500 border border-red-100 px-3 py-1.5 rounded-lg">
+                              <button
+                                onClick={() => markAsPending(loc.existingPayout.id)}
+                                className="text-[11px] font-medium text-red-500 underline underline-offset-[2px]"
+                              >
                                 Αναίρεση
                               </button>
                             </div>
                           ) : (
                             <button
                               onClick={() => markAsPaid(loc.id, loc.owedAmount, loc.existingPayout?.id)}
-                              className="w-full bg-gray-900 text-white text-xs font-medium py-2.5 rounded-xl">
+                              className="w-full h-11 mt-3 rounded-[10px] bg-gray-900 text-white text-[13px] font-semibold tracking-tight"
+                            >
                               Σήμανση ως Πληρωμένο — €{loc.owedAmount.toFixed(0)}
                             </button>
                           )}
