@@ -829,98 +829,177 @@ export default function DashboardPage() {
           })()}
 
 
-          {activeTab === 'calendar' && (
-            <div className="space-y-4">
-              {/* Month navigation */}
-              <div className="flex items-center justify-between">
-                <button onClick={() => {
-                  const d = new Date(calendarDate)
-                  d.setMonth(d.getMonth() - 1)
-                  setCalendarDate(d)
-                }} className="text-gray-400 px-2 py-1 rounded-lg hover:bg-gray-50 text-lg">‹</button>
-                <p className="text-sm font-medium text-gray-900">
-                  {calendarDate.toLocaleDateString('el-GR', { month: 'long', year: 'numeric', timeZone: 'Europe/Athens' })}
-                </p>
-                <button onClick={() => {
-                  const d = new Date(calendarDate)
-                  d.setMonth(d.getMonth() + 1)
-                  setCalendarDate(d)
-                }} className="text-gray-400 px-2 py-1 rounded-lg hover:bg-gray-50 text-lg">›</button>
-              </div>
+          {activeTab === 'calendar' && (() => {
+            const year = calendarDate.getFullYear()
+            const month = calendarDate.getMonth()
+            const firstDay = new Date(year, month, 1)
+            const lastDay = new Date(year, month + 1, 0)
+            const startPad = (firstDay.getDay() + 6) % 7
+            const todayStr = new Date().toDateString()
+            const selectedStr = calendarDate.toDateString()
 
-              {/* Day grid */}
-              <div className="grid grid-cols-7 gap-1 text-center mb-1">
-                {['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ'].map(d => (
-                  <p key={d} className="text-xs text-gray-400 font-medium py-1">{d}</p>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {(() => {
-                  const year = calendarDate.getFullYear()
-                  const month = calendarDate.getMonth()
-                  const firstDay = new Date(year, month, 1)
-                  const lastDay = new Date(year, month + 1, 0)
-                  const startPad = (firstDay.getDay() + 6) % 7
-                  const days = []
+            // Count bookings per date for the month
+            const dateBookingCount: Record<string, number> = {}
+            bookings.forEach(b => {
+              if (!b.slot_date || b.status === 'cancelled') return
+              const d = new Date(b.slot_date)
+              if (d.getFullYear() === year && d.getMonth() === month) {
+                const dateNum = d.getDate()
+                dateBookingCount[dateNum] = (dateBookingCount[dateNum] || 0) + 1
+              }
+            })
 
-                  for (let i = 0; i < startPad; i++) {
-                    days.push(<div key={`pad-${i}`} />)
-                  }
+            const statusPillConfig = (status?: string) => {
+              if (status === 'pending') return { bg: '#FEF3C7', fg: '#92400E', label: 'Εκκρεμεί' }
+              if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
+              if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
+              if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
+              return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
+            }
 
-                  for (let d = 1; d <= lastDay.getDate(); d++) {
+            return (
+              <div className="space-y-5">
+                {/* Month navigation */}
+                <div className="flex items-center justify-between mb-1">
+                  <button
+                    onClick={() => {
+                      const d = new Date(calendarDate)
+                      d.setMonth(d.getMonth() - 1)
+                      setCalendarDate(d)
+                    }}
+                    className="w-9 h-9 rounded-[10px] bg-gray-50 flex items-center justify-center text-gray-900"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"><path d="M15 6l-6 6 6 6"/></svg>
+                  </button>
+                  <p className="text-[17px] font-semibold tracking-tight text-gray-900 capitalize">
+                    {calendarDate.toLocaleDateString('el-GR', { month: 'long', year: 'numeric', timeZone: 'Europe/Athens' })}
+                  </p>
+                  <button
+                    onClick={() => {
+                      const d = new Date(calendarDate)
+                      d.setMonth(d.getMonth() + 1)
+                      setCalendarDate(d)
+                    }}
+                    className="w-9 h-9 rounded-[10px] bg-gray-50 flex items-center justify-center text-gray-900"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"><path d="M9 6l6 6-6 6"/></svg>
+                  </button>
+                </div>
+
+                {/* Weekday labels */}
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ'].map(w => (
+                    <p key={w} className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-400 text-center">
+                      {w}
+                    </p>
+                  ))}
+                </div>
+
+                {/* Day grid */}
+                <div className="grid grid-cols-7 gap-1">
+                  {Array.from({ length: startPad }).map((_, i) => (
+                    <div key={`pad-${i}`} className="aspect-square" />
+                  ))}
+                  {Array.from({ length: lastDay.getDate() }).map((_, idx) => {
+                    const d = idx + 1
                     const thisDate = new Date(year, month, d)
-                    const isToday = thisDate.toDateString() === new Date().toDateString()
-                    const isSelected = thisDate.toDateString() === calendarDate.toDateString()
+                    const isToday = thisDate.toDateString() === todayStr
+                    const isSelected = thisDate.toDateString() === selectedStr
+                    const count = dateBookingCount[d] || 0
 
-                    days.push(
-                      <button key={d}
+                    return (
+                      <button
+                        key={d}
                         onClick={() => setCalendarDate(thisDate)}
-                        className={`aspect-square rounded-xl text-xs font-medium transition-all ${
-                          isSelected ? 'bg-gray-900 text-white' :
-                          isToday ? 'border-2 border-gray-900 text-gray-900' :
-                          'text-gray-600 hover:bg-gray-50'
-                        }`}>
-                        {d}
+                        className="aspect-square flex flex-col items-center justify-center gap-1 rounded-[10px] transition-all"
+                        style={{
+                          background: isSelected ? '#0A0A0A' : 'transparent',
+                          border: isToday && !isSelected ? '1.5px solid #0A0A0A' : '1.5px solid transparent',
+                          color: isSelected ? '#fff' : '#0A0A0A',
+                        }}
+                      >
+                        <span
+                          className="text-[14px]"
+                          style={{
+                            fontWeight: isSelected ? 600 : 500,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          {d}
+                        </span>
+                        {count > 0 ? (
+                          <div className="flex gap-0.5">
+                            {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
+                              <span
+                                key={i}
+                                className="w-[3px] h-[3px] rounded-full"
+                                style={{
+                                  background: isSelected ? '#fff' : (count > 4 ? '#0A0A0A' : '#999'),
+                                }}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="h-[3px]" />
+                        )}
                       </button>
                     )
-                  }
-                  return days
-                })()}
-              </div>
+                  })}
+                </div>
 
-              {/* Selected day bookings */}
-              <div className="border-t border-gray-100 pt-4">
-                <p className="text-sm font-medium text-gray-900 mb-3">
-                  {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
-                </p>
+                {/* Separator */}
+                <div className="h-px bg-gray-100" />
 
-                {calendarLoading ? (
-                  <p className="text-xs text-gray-400">Φόρτωση...</p>
-                ) : calendarBookings.length === 0 ? (
-                  <p className="text-xs text-gray-400">Δεν υπάρχουν κρατήσεις αυτή τη μέρα.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {calendarBookings.map(b => (
-                      <div key={b.id} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
-                        <div className="w-14 shrink-0">
-                          <p className="text-sm font-semibold text-gray-900">{b.slot_start_time?.slice(0, 5)}</p>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-900">{b.profiles?.full_name || 'Πελάτης'}</p>
-                        </div>
-                        <div className="shrink-0">
-                          <p className="text-sm font-medium text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-md shrink-0 ${statusClass(b.status)}`}>
-                          {statusLabel(b.status)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                {/* Selected day list */}
+                <div>
+                  <p className="text-[16px] font-semibold tracking-tight text-gray-900 capitalize">
+                    {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
+                  </p>
+                  <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mt-1">
+                    {calendarLoading ? 'Φόρτωση...' : `${calendarBookings.length} ${calendarBookings.length === 1 ? 'κράτηση' : 'κρατήσεις'}`}
+                  </p>
+
+                  {calendarBookings.length > 0 && !calendarLoading && (
+                    <div className="flex flex-col gap-1.5 mt-3.5">
+                      {calendarBookings.map(b => {
+                        const pill = statusPillConfig(b.status)
+                        return (
+                          <div
+                            key={b.id}
+                            className="flex items-center gap-3 px-3.5 py-3 rounded-[10px] bg-gray-50"
+                          >
+                            <span
+                              className="text-[14px] font-bold tracking-tight text-gray-900 w-[52px] shrink-0"
+                              style={{ fontVariantNumeric: 'tabular-nums' }}
+                            >
+                              {b.slot_start_time?.slice(0, 5)}
+                            </span>
+                            <span className="flex-1 text-[13px] font-medium text-gray-900 truncate">
+                              {b.profiles?.full_name || 'Πελάτης'}
+                            </span>
+                            <span className="text-[13px] font-semibold text-gray-900">
+                              €{Number(b.total_amount || 0).toFixed(0)}
+                            </span>
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-tight shrink-0"
+                              style={{ background: pill.bg, color: pill.fg }}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
+                              {pill.label}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {!calendarLoading && calendarBookings.length === 0 && (
+                    <p className="text-[13px] text-gray-400 mt-4">Δεν υπάρχουν κρατήσεις αυτή τη μέρα.</p>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {activeTab === 'services' && (
             <div className="space-y-3">
