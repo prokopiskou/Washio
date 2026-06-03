@@ -476,37 +476,46 @@ export default function DashboardPage() {
   if (!location?.id) return <main className="min-h-screen bg-white flex items-center justify-center"><p className="text-sm text-gray-500">Δεν έχεις συνδεδεμένο πλυντήριο.</p></main>
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto">
 
-        <div className="px-5 pt-8 pb-4 border-b border-gray-100">
-          <h1 className="text-base font-semibold text-gray-900">{location.name}</h1>
-          <p className="text-xs text-gray-400 mt-0.5">{location.address}, {location.city}</p>
+        <div className="px-5 pt-14 pb-4 bg-white">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-[22px] font-bold tracking-tight leading-[1.2] text-gray-900">{location.name}</h1>
+              <p className="text-[12px] text-gray-500 mt-1">{location.address}, {location.city}</p>
+            </div>
+            <div className="w-[38px] h-[38px] rounded-full bg-gray-50 flex items-center justify-center text-gray-900 shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+              </svg>
+            </div>
+          </div>
 
-          {notifPermission !== 'granted' && (
+          {notifPermission === 'granted' ? (
+            <div className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-lg" style={{ background: '#E7F6EF', color: '#0F7A5C' }}>
+              <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#10B981' }} />
+              <span className="text-[11px] font-semibold tracking-tight">Ειδοποιήσεις ενεργές</span>
+            </div>
+          ) : (
             <button
               onClick={requestNotifications}
-              className="mt-3 w-full flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3"
+              className="mt-3 w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+              style={{ background: '#FEF6E6', border: '1px solid #FBE7B8' }}
             >
-              <div className="text-left">
-                <p className="text-xs font-medium text-amber-800">🔔 Ενεργοποίησε ειδοποιήσεις</p>
-                <p className="text-xs text-amber-600 mt-0.5">Μάθε άμεσα για νέες κρατήσεις</p>
-              </div>
-              <span className="text-xs bg-amber-800 text-white px-3 py-1.5 rounded-lg shrink-0 ml-3">
-                Ενεργοποίηση
-              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A6209" strokeWidth="1.75" strokeLinecap="round">
+                <path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/>
+                <path d="M10 19a2 2 0 0 0 4 0"/>
+              </svg>
+              <span className="flex-1 text-left text-[12px] font-medium" style={{ color: '#8A6209' }}>Ενεργοποίησε ειδοποιήσεις</span>
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md" style={{ background: '#8A6209', color: '#fff' }}>Ενεργοποίηση</span>
             </button>
-          )}
-
-          {notifPermission === 'granted' && (
-            <div className="mt-3 flex items-center gap-2">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              <p className="text-xs text-gray-400">Ειδοποιήσεις ενεργές</p>
-            </div>
           )}
         </div>
 
-        <div className="flex overflow-x-auto scrollbar-hide border-b border-gray-100">
+        <div className="sticky top-0 z-20 bg-white border-b border-gray-100">
+          <div className="flex overflow-x-auto scrollbar-hide px-5 gap-[22px]">
           {([
             ['overview', 'Overview'],
             ['bookings', `Κρατήσεις${newBookingsCount > 0 ? ` (${newBookingsCount})` : ''}`],
@@ -518,38 +527,42 @@ export default function DashboardPage() {
           ] as [TabKey, string][]).map(([key, label]) => (
             <button key={key}
               onClick={() => { setActiveTab(key); if (key === 'bookings') setNewBookingsCount(0) }}
-              className={`shrink-0 px-4 py-3 text-xs font-medium border-b-2 transition-all ${
-                activeTab === key ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400'
+              className={`shrink-0 py-3 text-[13px] tracking-tight transition-all border-b-2 ${
+                activeTab === key ? 'border-gray-900 text-gray-900 font-semibold' : 'border-transparent text-gray-400 font-medium'
               } ${key === 'bookings' && newBookingsCount > 0 ? 'text-blue-600' : ''}`}
             >
               {label}
             </button>
           ))}
+          </div>
         </div>
 
         <div className="px-5 py-5">
 
           {activeTab === 'overview' && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-3">
+              {/* Stat cards */}
+              <div className="grid grid-cols-2 gap-2.5">
                 {[
-                  { label: 'Κρατήσεις σήμερα', value: todayBookings.length },
-                  { label: 'Κρατήσεις μήνα', value: monthlyBookings.length },
+                  { label: 'Σήμερα', value: todayBookings.length },
+                  { label: 'Μήνα', value: monthlyBookings.length },
                   { label: 'Έσοδα μήνα', value: `€${monthlyRevenue.toFixed(0)}` },
-                  { label: 'Μέση βαθμολογία', value: avgRating.toFixed(1) },
+                  { label: 'Βαθμολογία', value: avgRating.toFixed(1) },
                 ].map(s => (
-                  <div key={s.label} className="border border-gray-100 rounded-xl p-4">
-                    <p className="text-xs text-gray-400">{s.label}</p>
-                    <p className="text-xl font-semibold text-gray-900">{s.value}</p>
+                  <div key={s.label} className="bg-white border border-gray-100 rounded-2xl p-3.5"
+                       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                    <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{s.label}</p>
+                    <p className="text-[26px] font-bold tracking-tight text-gray-900 mt-2">{s.value}</p>
                   </div>
                 ))}
               </div>
 
               {todayBookings.length > 0 && (
-                <div className="border border-gray-100 rounded-xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-900">Σήμερα</p>
-                    <span className="text-xs text-gray-400">{todayBookings.length} κρατήσεις</span>
+                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden"
+                     style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                  <div className="px-4 py-3.5 flex items-baseline justify-between">
+                    <p className="text-[15px] font-semibold tracking-tight text-gray-900">Σήμερα</p>
+                    <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{todayBookings.length} κρατήσεις</span>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => (
@@ -565,9 +578,11 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              <div className="border border-gray-100 rounded-xl overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-50">
-                  <p className="text-sm font-medium text-gray-900">Πρόσφατες κρατήσεις</p>
+              <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden"
+                   style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                <div className="px-4 py-3.5 flex items-baseline justify-between">
+                  <p className="text-[15px] font-semibold tracking-tight text-gray-900">Πρόσφατες κρατήσεις</p>
+                  <span className="text-[12px] font-medium text-blue-600">Όλες →</span>
                 </div>
                 <div className="divide-y divide-gray-50">
                   {bookings.slice(0, 5).map(b => (
@@ -586,30 +601,41 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Chart με controls */}
-              <div className="border border-gray-100 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex gap-1">
+              {/* Chart card */}
+              <div className="bg-white border border-gray-100 rounded-2xl p-4"
+                   style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <div className="flex gap-1 bg-gray-50 p-1 rounded-lg">
                     {METRICS.map(m => (
                       <button key={m.key} onClick={() => setChartMetric(m.key)}
-                        className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                          chartMetric === m.key ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-600'
+                        className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${
+                          chartMetric === m.key ? 'bg-gray-900 text-white' : 'text-gray-500'
                         }`}>
                         {m.label}
                       </button>
                     ))}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-0.5">
                     {PERIODS.map(p => (
                       <button key={p.key} onClick={() => setChartPeriod(p.key)}
-                        className={`text-xs px-2.5 py-1.5 rounded-lg font-medium transition-all ${
-                          chartPeriod === p.key ? 'bg-gray-900 text-white' : 'text-gray-400 hover:text-gray-600'
+                        className={`text-[11px] px-2 py-1 rounded-md font-semibold transition-all ${
+                          chartPeriod === p.key ? 'bg-gray-50 text-gray-900' : 'text-gray-400'
                         }`}>
                         {p.label}
                       </button>
                     ))}
                   </div>
                 </div>
+
+                {/* Big number + delta */}
+                <div className="flex items-baseline gap-2 mb-1">
+                  <p className="text-[28px] font-bold tracking-tight text-gray-900">
+                    {chartMetric === 'revenue' ? `€${monthlyRevenue.toFixed(0)}` : monthlyBookings.length}
+                  </p>
+                </div>
+                <p className="text-[11px] text-gray-400 mb-3">
+                  {chartMetric === 'revenue' ? 'Έσοδα' : 'Κρατήσεις'} · {chartPeriod === '7D' ? 'τελευταίες 7 ημέρες' : chartPeriod === '30D' ? 'τελευταίες 30 ημέρες' : `τελευταίοι ${chartPeriod === '3M' ? '3' : chartPeriod === '6M' ? '6' : '12'} μήνες`}
+                </p>
 
                 <div className="h-48">
                   <ResponsiveContainer width="100%" height="100%" minWidth={0}>
