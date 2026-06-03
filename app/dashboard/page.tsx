@@ -662,98 +662,171 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {activeTab === 'bookings' && (
-            <div className="space-y-3">
-              {/* Filters */}
-              <div className="flex gap-2 flex-wrap">
-                {/* Status filter */}
-                <div className="flex gap-1">
+          {activeTab === 'bookings' && (() => {
+            const filtered = [...bookings]
+              .filter(b => filterStatus === 'all' || b.status === filterStatus)
+              .sort((a, b) => {
+                if (sortBy === 'created_at') {
+                  return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+                }
+                return new Date(b.slot_date || '').getTime() - new Date(a.slot_date || '').getTime()
+              })
+
+            const statusCounts = {
+              all: bookings.length,
+              confirmed: bookings.filter(b => b.status === 'confirmed').length,
+              completed: bookings.filter(b => b.status === 'completed').length,
+              cancelled: bookings.filter(b => b.status === 'cancelled').length,
+              pending: bookings.filter(b => b.status === 'pending').length,
+            }
+
+            const statusPillConfig = (status?: string) => {
+              if (status === 'pending') return { bg: '#FEF3C7', fg: '#92400E', label: 'Εκκρεμεί' }
+              if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
+              if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
+              if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
+              return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
+            }
+
+            return (
+              <div className="space-y-3">
+                {/* Status filter chips */}
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
                   {[
                     { value: 'all', label: 'Όλες' },
                     { value: 'confirmed', label: 'Επιβεβαιωμένες' },
                     { value: 'completed', label: 'Ολοκληρωμένες' },
                     { value: 'cancelled', label: 'Ακυρωμένες' },
                     { value: 'pending', label: 'Εκκρεμείς' },
-                  ].map(opt => (
-                    <button key={opt.value} onClick={() => setFilterStatus(opt.value)}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                        filterStatus === opt.value ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
-                      }`}>
-                      {opt.label}
+                  ].map(opt => {
+                    const active = filterStatus === opt.value
+                    const count = (statusCounts as any)[opt.value]
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setFilterStatus(opt.value)}
+                        className={`shrink-0 px-3.5 py-2 rounded-full border whitespace-nowrap text-[13px] font-semibold tracking-tight inline-flex items-center gap-1.5 transition-colors ${
+                          active ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'
+                        }`}
+                      >
+                        {opt.label}
+                        <span className={`px-1.5 rounded-full text-[11px] font-semibold ${
+                          active ? 'bg-white/20 text-white' : 'bg-gray-50 text-gray-500'
+                        }`}>{count}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Sort row */}
+                <div className="flex items-center justify-end gap-2 pb-1">
+                  <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">Ταξινόμηση</span>
+                  <div className="flex gap-1 bg-white border border-gray-200 p-0.5 rounded-lg">
+                    <button
+                      onClick={() => setSortBy('slot_date')}
+                      className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${
+                        sortBy === 'slot_date' ? 'bg-gray-900 text-white' : 'text-gray-500'
+                      }`}
+                    >
+                      Πλύσιμο
                     </button>
-                  ))}
-                </div>
-
-                {/* Sort */}
-                <div className="flex items-center gap-1.5 ml-auto">
-                  <span className="text-xs text-gray-400">Ταξινόμηση:</span>
-                  <button onClick={() => setSortBy('created_at')}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                      sortBy === 'created_at' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                    Κλείσιμο
-                  </button>
-                  <button onClick={() => setSortBy('slot_date')}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                      sortBy === 'slot_date' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                    Πλύσιμο
-                  </button>
-                </div>
-              </div>
-
-              {/* List */}
-              {[...bookings]
-                .filter(b => filterStatus === 'all' || b.status === filterStatus)
-                .sort((a, b) => {
-                  if (sortBy === 'created_at') {
-                    return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
-                  }
-                  return new Date(b.slot_date || '').getTime() - new Date(a.slot_date || '').getTime()
-                })
-                .map(b => (
-                  <div key={b.id} className="border border-gray-100 rounded-xl p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {b.profiles?.full_name || 'Πελάτης'}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          {b.profiles?.phone || b.profiles?.email || '—'}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          🚿 {b.slot_date} · {b.slot_start_time?.slice(0, 5) || '—'}
-                        </p>
-                        <p className="text-xs text-gray-300 mt-0.5">
-                          Κλείστηκε: {b.created_at ? new Date(b.created_at).toLocaleString('el-GR', {
-                            timeZone: 'Europe/Athens',
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : '—'}
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-semibold text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>
-                          {statusLabel(b.status)}
-                        </span>
-                        {(b.status === 'pending' || b.status === 'confirmed') && (
-                          <button onClick={() => cancelBooking(b.id)} className="block text-xs text-red-500 mt-1">
-                            Ακύρωση
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    <button
+                      onClick={() => setSortBy('created_at')}
+                      className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${
+                        sortBy === 'created_at' ? 'bg-gray-900 text-white' : 'text-gray-500'
+                      }`}
+                    >
+                      Κλείσιμο
+                    </button>
                   </div>
-                ))
-              }
-              {bookings.length === 0 && (
-                <p className="text-xs text-gray-400 py-6">Δεν υπάρχουν κρατήσεις ακόμα.</p>
-              )}
-            </div>
-          )}
+                </div>
+
+                {/* Booking cards */}
+                <div className="space-y-2">
+                  {filtered.map(b => {
+                    const pill = statusPillConfig(b.status)
+                    const canCancel = b.status === 'pending' || b.status === 'confirmed'
+                    const slotDate = b.slot_date ? new Date(b.slot_date).toLocaleDateString('el-GR', {
+                      day: 'numeric', month: 'short', timeZone: 'Europe/Athens'
+                    }) : '—'
+                    const bookedAt = b.created_at ? new Date(b.created_at).toLocaleDateString('el-GR', {
+                      day: 'numeric', month: 'short', timeZone: 'Europe/Athens'
+                    }) : '—'
+
+                    return (
+                      <div
+                        key={b.id}
+                        className="bg-white border border-gray-100 rounded-xl p-3 flex items-start gap-3"
+                        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[14px] font-semibold tracking-tight text-gray-900">
+                            {b.profiles?.full_name || 'Πελάτης'}
+                          </p>
+                          {(b.profiles?.phone || b.profiles?.email) && (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.6" strokeLinecap="round">
+                                <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>
+                              </svg>
+                              <p className="text-[11px] text-gray-500">{b.profiles?.phone || b.profiles?.email}</p>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1.5 mt-2">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.7" strokeLinecap="round">
+                              <path d="M5 13V8a4 4 0 0 1 4-4h2M11 4a3 3 0 0 1 3 3v6"/>
+                              <path d="M3 13h18"/>
+                              <path d="M8 16v1M12 16v3M16 16v1"/>
+                            </svg>
+                            <p className="text-[12px] font-medium text-gray-900">
+                              {slotDate} · {b.slot_start_time?.slice(0, 5) || '—'}
+                            </p>
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-1">Κλείστηκε: {bookedAt}</p>
+                        </div>
+
+                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                          <p className="text-[16px] font-bold tracking-tight text-gray-900">
+                            €{Number(b.total_amount || 0).toFixed(0)}
+                          </p>
+                          <span
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-tight"
+                            style={{ background: pill.bg, color: pill.fg }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
+                            {pill.label}
+                          </span>
+                          {canCancel && (
+                            <button
+                              onClick={() => cancelBooking(b.id)}
+                              className="text-[11px] font-medium text-red-500 underline underline-offset-[2px]"
+                            >
+                              Ακύρωση
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {filtered.length === 0 && (
+                  <div className="flex flex-col items-center text-center pt-16">
+                    <div
+                      className="w-16 h-16 rounded-2xl bg-white border border-gray-100 flex items-center justify-center text-gray-400 mb-4"
+                      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                    >
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M3 13l3-8h12l3 8M3 13v6a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-6M3 13h5l1 3h6l1-3h5"/>
+                      </svg>
+                    </div>
+                    <p className="text-[15px] font-semibold tracking-tight text-gray-900">
+                      {filterStatus === 'all' ? 'Δεν υπάρχουν κρατήσεις' : 'Δεν υπάρχουν κρατήσεις σε αυτή τη κατηγορία'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
 
           {activeTab === 'calendar' && (
