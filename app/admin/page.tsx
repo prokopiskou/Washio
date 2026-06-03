@@ -518,77 +518,175 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {activeTab === 'bookings' && (
-                <div>
-                  <div className="flex gap-2 mb-4 flex-wrap">
-                    <select value={bookingFilter.status}
-                      onChange={e => setBookingFilter(f => ({ ...f, status: e.target.value }))}
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none">
-                      <option value="">Όλα τα status</option>
-                      {Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                    <select value={bookingFilter.location}
-                      onChange={e => setBookingFilter(f => ({ ...f, location: e.target.value }))}
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none">
-                      <option value="">Όλα τα σημεία</option>
-                      {locations.map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
-                    </select>
-                    <input type="date" value={bookingFilter.date}
-                      onChange={e => setBookingFilter(f => ({ ...f, date: e.target.value }))}
-                      className="border border-gray-200 rounded-lg px-3 py-2 text-xs bg-white text-gray-700 focus:outline-none" />
-                    <button onClick={exportCSV}
-                      className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 bg-white">
-                      <Download size={12} /> Export CSV
-                    </button>
-                    {(bookingFilter.status || bookingFilter.location || bookingFilter.date) && (
-                      <button onClick={() => setBookingFilter({ status: '', location: '', date: '' })}
-                        className="text-xs text-red-500 px-2">Καθαρισμός</button>
-                    )}
-                  </div>
+              {activeTab === 'bookings' && (() => {
+                const statusPillConfig = (status?: string) => {
+                  if (status === 'pending') return { bg: '#FEF6E6', fg: '#8A6209', label: 'Εκκρεμεί' }
+                  if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
+                  if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
+                  if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
+                  if (status === 'no_show') return { bg: '#F7F7F7', fg: '#666666', label: 'No-show' }
+                  return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
+                }
 
-                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900">Κρατήσεις</p>
-                      <span className="text-xs text-gray-400">{filteredBookings.length} αποτελέσματα</span>
-                    </div>
-                    {filteredBookings.map((b, i) => (
-                      <div key={b.id} className={`px-4 py-3 ${i < filteredBookings.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-0.5">
-                              <p className="text-xs font-mono text-gray-400">{b.booking_ref}</p>
-                              <span className={`text-xs px-1.5 py-0.5 rounded-md ${statusColors[b.status] || 'bg-gray-50 text-gray-500'}`}>
-                                {statusLabels[b.status] || b.status}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-900">{getUserDisplay(b.profiles)}</p>
-                            <p className="text-xs text-gray-400">{b.locations?.name} · {b.services?.name} · {b.slot_date} {b.slot_start_time?.slice(0, 5)}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-sm font-semibold text-gray-900">€{b.total_amount}</p>
-                            <p className="text-xs text-gray-400">+€{b.platform_fee} fee</p>
-                            <div className="flex gap-1 mt-1 justify-end">
-                              {b.status === 'pending' && (
-                                <button onClick={() => updateBookingStatus(b.id, 'confirmed')}
-                                  className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">Confirm</button>
-                              )}
-                              {b.status === 'confirmed' && (
-                                <button onClick={() => updateBookingStatus(b.id, 'completed')}
-                                  className="text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-md">Complete</button>
-                              )}
-                              {b.status !== 'cancelled' && b.status !== 'completed' && (
-                                <button onClick={() => handleCancelBooking(b)}
-                                  className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-md">Refund</button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                return (
+                  <div>
+                    {/* Filters bar */}
+                    <div className="bg-white rounded-[14px] border border-gray-100 p-3 mb-3.5"
+                         style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                      <div className="flex gap-2 flex-wrap items-center">
+                        <select
+                          value={bookingFilter.status}
+                          onChange={e => setBookingFilter(f => ({ ...f, status: e.target.value }))}
+                          className="h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
+                        >
+                          <option value="">Όλα τα status</option>
+                          {Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                        </select>
+
+                        <select
+                          value={bookingFilter.location}
+                          onChange={e => setBookingFilter(f => ({ ...f, location: e.target.value }))}
+                          className="h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
+                        >
+                          <option value="">Όλα τα σημεία</option>
+                          {locations.map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
+                        </select>
+
+                        <input
+                          type="date"
+                          value={bookingFilter.date}
+                          onChange={e => setBookingFilter(f => ({ ...f, date: e.target.value }))}
+                          className="h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
+                        />
+
+                        <button
+                          onClick={exportCSV}
+                          className="ml-auto h-9 px-3 rounded-[9px] bg-gray-900 text-white inline-flex items-center gap-1.5 text-[12px] font-semibold"
+                        >
+                          <Download size={12} />
+                          Export CSV
+                        </button>
+
+                        {(bookingFilter.status || bookingFilter.location || bookingFilter.date) && (
+                          <button
+                            onClick={() => setBookingFilter({ status: '', location: '', date: '' })}
+                            className="text-[11px] font-medium text-red-500"
+                          >
+                            Καθαρισμός
+                          </button>
+                        )}
                       </div>
-                    ))}
-                    {filteredBookings.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν κρατήσεις</p>}
+                    </div>
+
+                    {/* Result count */}
+                    <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-2.5">
+                      {filteredBookings.length} αποτελέσματα
+                    </p>
+
+                    {/* Booking cards */}
+                    <div className="space-y-2">
+                      {filteredBookings.map(b => {
+                        const pill = statusPillConfig(b.status)
+                        const dateStr = b.slot_date
+                          ? new Date(b.slot_date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })
+                          : '—'
+
+                        return (
+                          <div
+                            key={b.id}
+                            className="bg-white rounded-[14px] border border-gray-100 p-3.5"
+                            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p
+                                    className="text-[11px] font-bold text-gray-400 truncate"
+                                    style={{ fontFamily: 'ui-monospace, "SF Mono", monospace', letterSpacing: '0.6px' }}
+                                  >
+                                    {b.booking_ref}
+                                  </p>
+                                  <span
+                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-tight shrink-0"
+                                    style={{ background: pill.bg, color: pill.fg }}
+                                  >
+                                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
+                                    {pill.label}
+                                  </span>
+                                </div>
+                                <p className="text-[14px] font-semibold tracking-tight text-gray-900 truncate">
+                                  {getUserDisplay(b.profiles)}
+                                </p>
+                                <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                                  {b.locations?.name} · {b.services?.name}
+                                </p>
+                                <p className="text-[11px] text-gray-400 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  {dateStr} · {b.slot_start_time?.slice(0, 5)}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <p className="text-[16px] font-bold tracking-tight text-gray-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  €{Number(b.total_amount || 0).toFixed(0)}
+                                </p>
+                                <p className="text-[10px] text-gray-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  +€{Number(b.platform_fee || 0).toFixed(0)} fee
+                                </p>
+
+                                <div className="flex flex-col gap-1 mt-1">
+                                  {b.status === 'pending' && (
+                                    <button
+                                      onClick={() => updateBookingStatus(b.id, 'confirmed')}
+                                      className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
+                                      style={{ background: '#EAF2FD', color: '#1A6FD4' }}
+                                    >
+                                      Confirm
+                                    </button>
+                                  )}
+                                  {b.status === 'confirmed' && (
+                                    <button
+                                      onClick={() => updateBookingStatus(b.id, 'completed')}
+                                      className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
+                                      style={{ background: '#E7F6EF', color: '#0F7A5C' }}
+                                    >
+                                      Complete
+                                    </button>
+                                  )}
+                                  {b.status !== 'cancelled' && b.status !== 'completed' && (
+                                    <button
+                                      onClick={() => handleCancelBooking(b)}
+                                      className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
+                                      style={{ background: '#FCEAEA', color: '#B43C3C' }}
+                                    >
+                                      Refund
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {filteredBookings.length === 0 && (
+                        <div className="flex flex-col items-center text-center pt-12">
+                          <div
+                            className="w-16 h-16 rounded-2xl bg-white border border-gray-100 flex items-center justify-center text-gray-400 mb-4"
+                            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                          >
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                              <path d="M3 13l3-8h12l3 8M3 13v6a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-6M3 13h5l1 3h6l1-3h5"/>
+                            </svg>
+                          </div>
+                          <p className="text-[15px] font-semibold tracking-tight text-gray-900">
+                            Δεν υπάρχουν κρατήσεις
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {activeTab === 'locations' && (
                 <div>
