@@ -1055,72 +1055,147 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {activeTab === 'hours' && (
-            <div className="space-y-3">
-              {hours.map((row, idx) => (
-                <div key={row.day_of_week} className="border border-gray-100 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-medium text-gray-900">{DAYS[idx]}</p>
-                    <button onClick={() => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, is_open: !h.is_open } : h))}
-                      className={`text-xs rounded-lg px-3 py-1.5 ${row.is_open ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
-                      {row.is_open ? 'Ανοιχτό' : 'Κλειστό'}
-                    </button>
-                  </div>
-                  {row.is_open && (
-                    <div className="flex gap-2">
-                      <select value={row.open_time} onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, open_time: e.target.value } : h))}
-                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-                        {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
-                      </select>
-                      <span className="text-gray-400 flex items-center text-xs">έως</span>
-                      <select value={row.close_time} onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, close_time: e.target.value } : h))}
-                        className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-                        {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <button onClick={saveHours} disabled={savingHours}
-                className="w-full bg-gray-900 text-white text-sm rounded-xl px-4 py-3 disabled:opacity-40">
-                {savingHours ? 'Αποθήκευση...' : 'Αποθήκευση ωραρίου'}
-              </button>
+          {activeTab === 'hours' && (() => {
+            const todayDayOfWeek = (() => {
+              const d = new Date().getDay()
+              return d === 0 ? 7 : d
+            })()
 
-              {/* Εξαιρέσεις */}
-              <div className="mt-6">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-medium text-gray-900">Εξαιρέσεις ημερών</p>
-                  <button onClick={() => setShowExceptionPicker(true)}
-                    className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-lg">
-                    + Προσθήκη
+            return (
+              <div className="space-y-6">
+                {/* Weekly hours section */}
+                <div>
+                  <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-3">
+                    Εβδομαδιαίο ωράριο
+                  </p>
+                  <div className="space-y-2">
+                    {hours.map((row, idx) => {
+                      const isToday = row.day_of_week === todayDayOfWeek
+                      return (
+                        <div
+                          key={row.day_of_week}
+                          className="bg-white border border-gray-100 rounded-[14px] p-3.5"
+                          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <p className="text-[15px] font-semibold tracking-tight text-gray-900">{DAYS[idx]}</p>
+                              {isToday && (
+                                <span className="px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 text-[10px] font-semibold tracking-[0.4px] uppercase">
+                                  Σήμερα
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                              <button
+                                onClick={() => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, is_open: !h.is_open } : h))}
+                                className="relative w-[44px] h-[26px] rounded-full transition-colors"
+                                style={{ background: row.is_open ? '#34C759' : '#E5E5E5' }}
+                              >
+                                <div
+                                  className="absolute top-0.5 w-[22px] h-[22px] rounded-full bg-white transition-all"
+                                  style={{
+                                    left: row.is_open ? 20 : 2,
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.15), 0 1px 0 rgba(0,0,0,0.04)',
+                                  }}
+                                />
+                              </button>
+                              <span className={`text-[12px] font-semibold ${row.is_open ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {row.is_open ? 'Ανοιχτό' : 'Κλειστό'}
+                              </span>
+                            </div>
+                          </div>
+                          {row.is_open && (
+                            <div className="flex items-center gap-2.5 mt-3">
+                              <select
+                                value={row.open_time}
+                                onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, open_time: e.target.value } : h))}
+                                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-gray-900 focus:outline-none"
+                                style={{ fontVariantNumeric: 'tabular-nums' }}
+                              >
+                                {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+                              </select>
+                              <span className="text-[12px] text-gray-400">έως</span>
+                              <select
+                                value={row.close_time}
+                                onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, close_time: e.target.value } : h))}
+                                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-gray-900 focus:outline-none"
+                                style={{ fontVariantNumeric: 'tabular-nums' }}
+                              >
+                                {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <button
+                    onClick={saveHours}
+                    disabled={savingHours}
+                    className="w-full h-12 mt-4 rounded-xl bg-gray-900 text-white text-[14px] font-semibold tracking-tight disabled:opacity-40"
+                  >
+                    {savingHours ? 'Αποθήκευση...' : 'Αποθήκευση ωραρίου'}
                   </button>
                 </div>
 
-                {exceptions.length === 0 && (
-                  <p className="text-xs text-gray-400">Δεν υπάρχουν εξαιρέσεις.</p>
-                )}
+                {/* Divider */}
+                <div className="h-px bg-gray-100" />
 
-                <div className="space-y-2">
-                  {exceptions.map(ex => (
-                    <div key={ex.exception_date} className="border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {new Date(ex.exception_date).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })}
-                        </p>
-                        {ex.is_closed ? (
-                          <p className="text-xs text-red-500 mt-0.5">Κλειστό</p>
-                        ) : (
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {ex.periods.map(p => `${p.open}–${p.close}`).join(' · ')}
-                          </p>
-                        )}
-                      </div>
-                      <button onClick={() => deleteException(ex.exception_date)}
-                        className="text-xs text-red-400">Διαγραφή</button>
+                {/* Exceptions section */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                      Εξαιρέσεις ημερών
+                    </p>
+                    <button
+                      onClick={() => setShowExceptionPicker(true)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                      Προσθήκη
+                    </button>
+                  </div>
+
+                  {exceptions.length === 0 ? (
+                    <p className="text-[13px] text-gray-400">Δεν υπάρχουν εξαιρέσεις.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {exceptions.map(ex => (
+                        <div
+                          key={ex.exception_date}
+                          className="bg-white border border-gray-100 rounded-[14px] px-3.5 py-3 flex items-center gap-3"
+                          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                        >
+                          <div className="flex-1">
+                            <p className="text-[14px] font-semibold text-gray-900">
+                              {new Date(ex.exception_date).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })}
+                            </p>
+                            {ex.is_closed ? (
+                              <span
+                                className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold"
+                                style={{ background: '#FCEAEA', color: '#B43C3C' }}
+                              >
+                                Κλειστό
+                              </span>
+                            ) : (
+                              <p className="text-[12px] text-gray-500 mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {ex.periods.map(p => `${p.open} – ${p.close}`).join(' · ')}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => deleteException(ex.exception_date)}
+                            className="text-[11px] font-medium text-red-500 underline underline-offset-[2px]"
+                          >
+                            Διαγραφή
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
 
               {/* Exception picker modal */}
               {showExceptionPicker && (
@@ -1180,8 +1255,9 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
-            </div>
-          )}
+              </div>
+            )
+          })()}
 
           {activeTab === 'staff' && (
             <div className="space-y-3">
