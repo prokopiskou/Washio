@@ -690,53 +690,99 @@ export default function AdminPage() {
 
               {activeTab === 'locations' && (
                 <div>
-                  <div className="flex justify-end mb-4">
-                    <button onClick={() => router.push('/admin/locations/new')}
-                      className="text-xs bg-gray-900 text-white px-4 py-2 rounded-xl">+ Νέο σημείο</button>
+                  <div className="flex items-center justify-between mb-3.5">
+                    <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                      {locations.length} σημεία
+                    </p>
+                    <button
+                      onClick={() => router.push('/admin/locations/new')}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                      Νέο σημείο
+                    </button>
                   </div>
-                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                    {locations.map((loc, i) => (
-                      <div key={loc.id} className={`px-4 py-3 ${i < locations.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-sm">⛽</div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{loc.name}</p>
-                              <p className="text-xs text-gray-400">{loc.city} · {loc.address}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <span className="text-xs text-gray-400">Commission:</span>
-                                <input type="number" defaultValue={loc.commission_rate}
-                                  onBlur={e => updateCommissionRate(loc.id, parseFloat(e.target.value))}
-                                  className="w-14 text-xs border border-gray-200 rounded px-1 py-0.5 text-gray-700" />
-                                <span className="text-xs text-gray-400">%</span>
-                              </div>
-                              <div className="flex gap-1.5 mt-2 flex-wrap">
-                                {[
-                                  { label: 'Ωράριο', done: loc.has_hours },
-                                  { label: 'Υπηρεσίες', done: loc.has_services },
-                                  { label: 'IBAN', done: !!loc.iban },
-                                  { label: 'Έγγραφα', done: loc.has_documents },
-                                ].map(item => (
-                                  <span key={item.label} className={`text-xs px-2 py-0.5 rounded-md ${
-                                    item.done ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'
-                                  }`}>
-                                    {item.done ? '✓' : '·'} {item.label}
-                                  </span>
-                                ))}
-                              </div>
+
+                  <div className="space-y-3">
+                    {locations.map(loc => {
+                      const checks = [
+                        { label: 'Ωράριο', done: loc.has_hours },
+                        { label: 'Υπηρεσίες', done: loc.has_services },
+                        { label: 'IBAN', done: !!loc.iban },
+                        { label: 'Έγγραφα', done: loc.has_documents },
+                      ]
+
+                      return (
+                        <div
+                          key={loc.id}
+                          className="bg-white rounded-[14px] border border-gray-100 p-3.5"
+                          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                        >
+                          <div className="flex items-start justify-between gap-2.5">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[14px] font-semibold tracking-tight text-gray-900 truncate">{loc.name}</p>
+                              <p className="text-[11px] text-gray-400 mt-0.5 truncate">{loc.city} · {loc.address}</p>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-tight shrink-0"
+                                style={{
+                                  background: loc.is_active ? '#E7F6EF' : '#FCEAEA',
+                                  color: loc.is_active ? '#0F7A5C' : '#B43C3C',
+                                }}
+                              >
+                                {loc.is_active && <Check size={10} strokeWidth={2.6} />}
+                                {!loc.is_active && <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#B43C3C' }} />}
+                                {loc.is_active ? 'Ενεργό' : 'Ανενεργό'}
+                              </span>
+                              <button
+                                onClick={() => toggleLocation(loc.id, loc.is_active)}
+                                className="w-8 h-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500"
+                              >
+                                <Power size={12} />
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className={`text-xs px-2 py-0.5 rounded-lg ${loc.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
-                              {loc.is_active ? 'Ενεργό' : 'Ανενεργό'}
-                            </span>
-                            <button onClick={() => toggleLocation(loc.id, loc.is_active)}
-                              className="p-1.5 border border-gray-200 rounded-lg text-gray-500"><Power size={12} /></button>
+
+                          <div className="flex items-center gap-2 mt-3">
+                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 shrink-0">
+                              Προμήθεια
+                            </p>
+                            <input
+                              type="number"
+                              defaultValue={loc.commission_rate}
+                              onBlur={e => updateCommissionRate(loc.id, parseFloat(e.target.value))}
+                              className="w-16 h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[13px] font-semibold text-gray-900 focus:outline-none focus:border-gray-400"
+                              style={{ fontVariantNumeric: 'tabular-nums' }}
+                            />
+                            <span className="text-[12px] text-gray-400">%</span>
+                          </div>
+
+                          <div className="flex flex-wrap gap-1.5 mt-2.5">
+                            {checks.map(item => (
+                              <span
+                                key={item.label}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium"
+                                style={{
+                                  background: item.done ? '#E7F6EF' : '#F7F7F7',
+                                  color: item.done ? '#0F7A5C' : '#666666',
+                                }}
+                              >
+                                {item.done ? <Check size={10} strokeWidth={2.6} /> : <span className="w-1 h-1 rounded-full bg-gray-300" />}
+                                {item.label}
+                              </span>
+                            ))}
                           </div>
                         </div>
+                      )
+                    })}
+
+                    {locations.length === 0 && (
+                      <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center"
+                           style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                        <p className="text-[14px] text-gray-400">Δεν υπάρχουν σημεία</p>
                       </div>
-                    ))}
-                    {locations.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν σημεία</p>}
+                    )}
                   </div>
                 </div>
               )}
