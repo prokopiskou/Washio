@@ -1318,35 +1318,157 @@ export default function DashboardPage() {
             )
           })()}
 
-          {activeTab === 'staff' && (
-            <div className="space-y-3">
-              {staff.map(member => (
-                <div key={member.id} className="border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-900">{member.full_name}</p>
-                    <p className="text-xs text-gray-400">{member.role} · {member.phone}</p>
-                  </div>
-                  <button onClick={() => deleteStaff(member.id)} className="text-xs text-red-500">Διαγραφή</button>
-                </div>
-              ))}
-              {!staff.length && <p className="text-xs text-gray-400">Δεν υπάρχει προσωπικό.</p>}
+          {activeTab === 'staff' && (() => {
+            const roleConfig = (role: string) => {
+              if (role === 'Διευθυντής') return { bg: '#EAF2FD', fg: '#1A6FD4' }
+              if (role === 'Ταμίας') return { bg: '#FEF3C7', fg: '#92400E' }
+              return { bg: '#F7F7F7', fg: '#666666' } // Τεχνικός / default
+            }
 
-              <div className="border border-gray-100 rounded-xl p-4 space-y-2">
-                <p className="text-xs font-medium text-gray-700">Νέο μέλος</p>
-                <input value={newStaffName} onChange={e => setNewStaffName(e.target.value)} placeholder="Όνομα"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                <select value={newStaffRole} onChange={e => setNewStaffRole(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white">
-                  <option value="Τεχνικός">Τεχνικός</option>
-                  <option value="Ταμίας">Ταμίας</option>
-                  <option value="Διευθυντής">Διευθυντής</option>
-                </select>
-                <input value={newStaffPhone} onChange={e => setNewStaffPhone(e.target.value)} placeholder="Τηλέφωνο"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
-                <button onClick={addStaff} className="w-full bg-gray-900 text-white text-sm rounded-xl px-3 py-2.5">Προσθήκη</button>
+            return (
+              <div className="space-y-5">
+                {/* Existing staff section */}
+                <div>
+                  <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-3">
+                    Ομάδα ({staff.length})
+                  </p>
+
+                  {staff.length === 0 ? (
+                    <div className="bg-white border border-gray-100 rounded-2xl py-8 flex flex-col items-center text-center"
+                         style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                      <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 mb-3">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                          <circle cx="12" cy="8" r="4"/>
+                          <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+                        </svg>
+                      </div>
+                      <p className="text-[14px] font-semibold text-gray-900">Δεν υπάρχει προσωπικό</p>
+                      <p className="text-[12px] text-gray-500 mt-1">Πρόσθεσε το πρώτο μέλος της ομάδας</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {staff.map(member => {
+                        const role = roleConfig(member.role)
+                        const initial = (member.full_name || '?')[0].toUpperCase()
+                        return (
+                          <div
+                            key={member.id}
+                            className="bg-white border border-gray-100 rounded-2xl px-3.5 py-3 flex items-center gap-3"
+                            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                          >
+                            <div className="w-11 h-11 rounded-full bg-gray-900 text-white flex items-center justify-center text-[15px] font-semibold tracking-tight shrink-0">
+                              {initial}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-[14px] font-semibold tracking-tight text-gray-900 truncate">
+                                  {member.full_name}
+                                </p>
+                                <span
+                                  className="px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-tight shrink-0"
+                                  style={{ background: role.bg, color: role.fg }}
+                                >
+                                  {member.role}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.6" strokeLinecap="round">
+                                  <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>
+                                </svg>
+                                <p className="text-[12px] text-gray-500" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  {member.phone}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => deleteStaff(member.id)}
+                              className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 shrink-0"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                                <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>
+                              </svg>
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="h-px bg-gray-100" />
+
+                {/* Add new member */}
+                <div>
+                  <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-3">
+                    Προσθήκη μέλους
+                  </p>
+
+                  <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3"
+                       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                    <div>
+                      <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
+                        Όνομα
+                      </p>
+                      <input
+                        value={newStaffName}
+                        onChange={e => setNewStaffName(e.target.value)}
+                        placeholder="π.χ. Γιώργος Παπαδόπουλος"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-[14px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
+                        Ρόλος
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {['Τεχνικός', 'Ταμίας', 'Διευθυντής'].map(r => {
+                          const active = newStaffRole === r
+                          return (
+                            <button
+                              key={r}
+                              onClick={() => setNewStaffRole(r)}
+                              className={`py-2.5 rounded-xl border text-[13px] font-semibold tracking-tight transition-all ${
+                                active
+                                  ? 'bg-gray-900 border-gray-900 text-white'
+                                  : 'bg-white border-gray-200 text-gray-600'
+                              }`}
+                            >
+                              {r}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
+                        Τηλέφωνο
+                      </p>
+                      <input
+                        value={newStaffPhone}
+                        onChange={e => setNewStaffPhone(e.target.value)}
+                        placeholder="69x xxx xxxx"
+                        type="tel"
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-[14px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                        style={{ fontVariantNumeric: 'tabular-nums' }}
+                      />
+                    </div>
+
+                    <button
+                      onClick={addStaff}
+                      disabled={!newStaffName.trim() || !newStaffPhone.trim()}
+                      className="w-full h-12 rounded-xl bg-gray-900 text-white text-[14px] font-semibold tracking-tight flex items-center justify-center gap-1.5 disabled:opacity-40"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                      Προσθήκη μέλους
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {activeTab === 'feedback' && (
             <div className="space-y-3">
