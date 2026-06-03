@@ -741,66 +741,178 @@ export default function AdminPage() {
                 </div>
               )}
 
-              {activeTab === 'users' && (
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                      <p className="text-sm font-medium text-gray-900">Χρήστες</p>
-                      <span className="text-xs text-gray-400">{users.length} συνολικά</span>
-                    </div>
-                    {users.map((u, i) => (
-                      <button key={u.id}
-                        onClick={async () => { setSelectedUser(u); await loadUserBookings(u.id) }}
-                        className={`w-full px-4 py-3 flex items-center justify-between text-left ${i < users.length - 1 ? 'border-b border-gray-50' : ''} ${selectedUser?.id === u.id ? 'bg-gray-50' : ''}`}>
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gray-900 rounded-xl flex items-center justify-center text-white text-xs font-semibold">
-                            {getUserInitial(u)}
-                          </div>
-                          <div>
-                            <p className="text-sm text-gray-900">{u.full_name || u.email || 'Χωρίς όνομα'}</p>
-                            <p className="text-xs text-gray-400">{u.email || u.phone || '—'}</p>
-                          </div>
-                        </div>
-                        <ChevronRight size={14} className="text-gray-300" />
-                      </button>
-                    ))}
-                  </div>
+              {activeTab === 'users' && (() => {
+                const statusPillConfig = (status?: string) => {
+                  if (status === 'pending') return { bg: '#FEF6E6', fg: '#8A6209', label: 'Εκκρεμεί' }
+                  if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
+                  if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
+                  if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
+                  return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
+                }
 
-                  {selectedUser && (
-                    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                      <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
-                        <p className="text-sm font-medium text-gray-900">{selectedUser.full_name || selectedUser.email || 'Χρήστης'}</p>
-                        <button onClick={() => setSelectedUser(null)} className="text-gray-400"><X size={14} /></button>
-                      </div>
-                      <div className="px-4 py-3 border-b border-gray-50">
-                        <p className="text-xs text-gray-400">Email: {selectedUser.email || '—'}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Τηλέφωνο: {selectedUser.phone || '—'}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Εγγραφή: {new Date(selectedUser.created_at).toLocaleDateString('el-GR')}</p>
-                      </div>
-                      <div className="px-4 py-3">
-                        <p className="text-xs font-medium text-gray-700 mb-2">Κρατήσεις ({userBookings.length})</p>
-                        {userBookings.map((b, i) => (
-                          <div key={b.id} className={`py-2 ${i < userBookings.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-xs text-gray-900">{(b.locations as any)?.name}</p>
-                                <p className="text-xs text-gray-400">{b.slot_date}</p>
+                return (
+                  <div className="grid md:grid-cols-2 gap-3">
+
+                    {/* Users list */}
+                    <div>
+                      <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-2.5">
+                        {users.length} χρήστες
+                      </p>
+
+                      <div className="bg-white rounded-[14px] border border-gray-100 overflow-hidden"
+                           style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                        {users.map((u, i) => {
+                          const userBookingCount = bookings.filter(b => b.user_id === u.id).length
+                          const isSelected = selectedUser?.id === u.id
+
+                          return (
+                            <button
+                              key={u.id}
+                              onClick={async () => { setSelectedUser(u); await loadUserBookings(u.id) }}
+                              className={`w-full px-3.5 py-3 flex items-center gap-3 text-left transition-colors ${i < users.length - 1 ? 'border-b border-gray-100' : ''} ${isSelected ? 'bg-gray-50' : ''}`}
+                            >
+                              <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center text-[14px] font-semibold tracking-tight shrink-0">
+                                {getUserInitial(u)}
                               </div>
-                              <div className="text-right">
-                                <p className="text-xs font-medium text-gray-900">€{b.total_amount}</p>
-                                <span className={`text-xs px-1.5 py-0.5 rounded-md ${statusColors[b.status] || ''}`}>
-                                  {statusLabels[b.status] || b.status}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[14px] font-semibold tracking-tight text-gray-900 truncate">
+                                  {u.full_name || u.email || 'Χωρίς όνομα'}
+                                </p>
+                                <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                                  {u.email || u.phone || '—'}
+                                </p>
+                              </div>
+                              {userBookingCount > 0 && (
+                                <span className="px-2 py-0.5 rounded-full bg-gray-50 text-gray-600 text-[10px] font-bold shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  {userBookingCount}
                                 </span>
-                              </div>
+                              )}
+                              <ChevronRight size={14} className="text-gray-300 shrink-0" />
+                            </button>
+                          )
+                        })}
+
+                        {users.length === 0 && (
+                          <p className="text-[13px] text-gray-400 text-center py-8">Δεν υπάρχουν χρήστες</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Selected user detail */}
+                    {selectedUser && (
+                      <div>
+                        <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-2.5">
+                          Στοιχεία χρήστη
+                        </p>
+
+                        <div className="bg-white rounded-[14px] border border-gray-100 overflow-hidden"
+                             style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+
+                          <div className="p-4 border-b border-gray-100 flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-gray-900 text-white flex items-center justify-center text-[16px] font-semibold tracking-tight shrink-0">
+                              {getUserInitial(selectedUser)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[15px] font-semibold tracking-tight text-gray-900 truncate">
+                                {selectedUser.full_name || selectedUser.email || 'Χρήστης'}
+                              </p>
+                              <p className="text-[11px] text-gray-400 mt-0.5">
+                                Εγγραφή: {new Date(selectedUser.created_at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/Athens' })}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setSelectedUser(null)}
+                              className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-gray-500 shrink-0"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+
+                          <div className="px-4 py-3 border-b border-gray-100 space-y-2">
+                            <div className="flex items-start gap-2.5">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.7" strokeLinecap="round" className="mt-0.5 shrink-0">
+                                <rect x="3" y="5" width="18" height="14" rx="2"/>
+                                <path d="M3 7l9 6 9-6"/>
+                              </svg>
+                              <p className="text-[12px] text-gray-700 break-all">
+                                {selectedUser.email || '—'}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.7" strokeLinecap="round" className="shrink-0">
+                                <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>
+                              </svg>
+                              <p className="text-[12px] text-gray-700" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {selectedUser.phone || '—'}
+                              </p>
                             </div>
                           </div>
-                        ))}
-                        {userBookings.length === 0 && <p className="text-xs text-gray-400">Δεν υπάρχουν κρατήσεις</p>}
+
+                          <div className="px-4 pt-3 pb-2 flex items-baseline justify-between">
+                            <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                              Κρατήσεις
+                            </p>
+                            <span className="text-[11px] font-bold text-gray-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                              {userBookings.length}
+                            </span>
+                          </div>
+
+                          <div className="px-2 pb-2">
+                            {userBookings.map((b, i) => {
+                              const pill = statusPillConfig(b.status)
+                              const dateStr = b.slot_date
+                                ? new Date(b.slot_date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })
+                                : '—'
+
+                              return (
+                                <div
+                                  key={b.id}
+                                  className={`px-2.5 py-2.5 flex items-center gap-2.5 ${i < userBookings.length - 1 ? 'border-b border-gray-50' : ''}`}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-semibold text-gray-900 truncate">
+                                      {(b.locations as any)?.name}
+                                    </p>
+                                    <p className="text-[11px] text-gray-400 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                      {dateStr} · {b.slot_start_time?.slice(0, 5)}
+                                    </p>
+                                  </div>
+                                  <p className="text-[13px] font-bold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                    €{Number(b.total_amount || 0).toFixed(0)}
+                                  </p>
+                                  <span
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0"
+                                    style={{ background: pill.bg, color: pill.fg }}
+                                  >
+                                    <span className="w-1 h-1 rounded-full" style={{ background: pill.fg }} />
+                                    {pill.label}
+                                  </span>
+                                </div>
+                              )
+                            })}
+                            {userBookings.length === 0 && (
+                              <p className="text-[12px] text-gray-400 text-center py-4">Δεν υπάρχουν κρατήσεις</p>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+
+                    {!selectedUser && (
+                      <div className="hidden md:flex flex-col items-center justify-center bg-white rounded-[14px] border border-gray-100 py-16 text-center"
+                           style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                        <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 mb-3">
+                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                            <circle cx="12" cy="8" r="4"/>
+                            <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
+                          </svg>
+                        </div>
+                        <p className="text-[13px] text-gray-400">Επίλεξε χρήστη για λεπτομέρειες</p>
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {activeTab === 'applications' && (() => {
                 const pendingCount = applications.filter(a => a.status === 'pending').length
