@@ -1230,48 +1230,143 @@ export default function AdminPage() {
                 )
               })()}
 
-              {activeTab === 'financials' && (
-                <div>
-                  <div className="flex justify-end mb-4">
-                    <button onClick={exportCSV}
-                      className="flex items-center gap-1.5 bg-gray-900 text-white text-xs px-4 py-2 rounded-xl">
-                      <Download size={12} /> Export CSV
-                    </button>
-                  </div>
-                  <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-                    <p className="text-sm font-medium text-gray-900 mb-4">Μηνιαία ανάλυση</p>
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={monthlyRevenue}>
-                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(value) => `€${value}`} />
-                        <Bar dataKey="revenue" fill="#0A0A0A" radius={[4, 4, 0, 0]} name="Έσοδα σημείων" />
-                        <Bar dataKey="commission" fill="#6B7280" radius={[4, 4, 0, 0]} name="Προμήθεια Washio" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-50">
-                      <p className="text-sm font-medium text-gray-900">Ανά σημείο</p>
+              {activeTab === 'financials' && (() => {
+                const totalCommissionAll = topLocations.reduce((s, l) => s + l.commission, 0)
+                const totalRevenueAll = topLocations.reduce((s, l) => s + l.revenue, 0)
+                const avgCommissionRate = totalRevenueAll > 0
+                  ? (totalCommissionAll / totalRevenueAll) * 100
+                  : 0
+                const avgPerBooking = bookings.length > 0
+                  ? totalRevenueAll / bookings.filter(b => b.locations?.name).length
+                  : 0
+
+                return (
+                  <div className="space-y-3">
+
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                        Οικονομικά στοιχεία
+                      </p>
+                      <button
+                        onClick={exportCSV}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
+                      >
+                        <Download size={12} />
+                        Export CSV
+                      </button>
                     </div>
-                    {topLocations.map((loc, i) => (
-                      <div key={loc.id} className={`px-4 py-3 ${i < topLocations.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-gray-900">{loc.name}</p>
-                            <p className="text-xs text-gray-400">{loc.bookingCount} κρατήσεις · {loc.commission_rate}% commission</p>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+                      {[
+                        { label: 'Έσοδα σημείων', value: `€${totalRevenueAll.toFixed(0)}` },
+                        { label: 'Προμήθεια', value: `€${totalCommissionAll.toFixed(0)}` },
+                        { label: 'Μέσο %', value: `${avgCommissionRate.toFixed(1)}%` },
+                        { label: 'Μέσο/κράτηση', value: `€${avgPerBooking.toFixed(0)}` },
+                      ].map(s => (
+                        <div key={s.label} className="bg-white rounded-[11px] p-2.5 border border-gray-100">
+                          <p className="text-[9px] font-semibold tracking-[1.2px] uppercase text-gray-500 truncate">
+                            {s.label}
+                          </p>
+                          <p className="text-[18px] font-bold tracking-tight text-gray-900 mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                            {s.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="bg-white rounded-[14px] border border-gray-100 p-4"
+                         style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                      <div className="flex items-center justify-between mb-3.5">
+                        <p className="text-[13px] font-semibold tracking-tight text-gray-900">
+                          Μηνιαία ανάλυση
+                        </p>
+                        <div className="flex gap-2.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-sm bg-gray-900" />
+                            <span className="text-[10px] font-medium text-gray-500">Έσοδα σημείων</span>
                           </div>
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-gray-900">€{loc.commission.toFixed(0)}</p>
-                            <p className="text-xs text-gray-400">από €{loc.revenue.toFixed(0)}</p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-sm bg-gray-400" />
+                            <span className="text-[10px] font-medium text-gray-500">Προμήθεια</span>
                           </div>
                         </div>
                       </div>
-                    ))}
-                    {topLocations.length === 0 && <p className="text-xs text-gray-400 text-center py-8">Δεν υπάρχουν δεδομένα</p>}
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={monthlyRevenue}>
+                          <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#999' }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 10, fill: '#999' }} axisLine={false} tickLine={false} tickFormatter={(v) => `€${v}`} />
+                          <Tooltip formatter={(value) => `€${value}`} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
+                          <Bar dataKey="revenue" fill="#0A0A0A" radius={[2, 2, 0, 0]} name="Έσοδα σημείων" />
+                          <Bar dataKey="commission" fill="#9CA3AF" radius={[2, 2, 0, 0]} name="Προμήθεια Washio" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <div className="bg-white rounded-[14px] border border-gray-100 overflow-hidden"
+                         style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                      <div className="flex items-center justify-between px-3.5 pt-3.5 pb-2">
+                        <p className="text-[13px] font-semibold tracking-tight text-gray-900">Ανά σημείο</p>
+                        <span className="text-[11px] font-bold text-gray-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {topLocations.length}
+                        </span>
+                      </div>
+
+                      {topLocations.map((loc, i) => {
+                        const isLast = i === topLocations.length - 1
+                        const sharePercent = totalCommissionAll > 0 ? (loc.commission / totalCommissionAll) * 100 : 0
+
+                        return (
+                          <div
+                            key={loc.id}
+                            className={`px-3.5 py-3 ${isLast ? '' : 'border-t border-gray-100'}`}
+                          >
+                            <div className="flex items-center gap-3 mb-2">
+                              <span
+                                className="text-[11px] font-bold text-gray-400 w-3.5 shrink-0"
+                                style={{ fontVariantNumeric: 'tabular-nums' }}
+                              >
+                                {i + 1}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[13px] font-semibold text-gray-900 truncate">
+                                  {loc.name}
+                                </p>
+                                <p className="text-[11px] text-gray-400 mt-0.5">
+                                  {loc.bookingCount} κρατήσεις · {loc.commission_rate}% commission
+                                </p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-[14px] font-bold text-gray-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  €{loc.commission.toFixed(0)}
+                                </p>
+                                <p className="text-[10px] text-gray-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                  από €{loc.revenue.toFixed(0)}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-6.5">
+                              <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gray-900 rounded-full transition-all"
+                                  style={{ width: `${sharePercent}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-semibold text-gray-400 w-8 text-right" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                {sharePercent.toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+
+                      {topLocations.length === 0 && (
+                        <p className="text-[13px] text-gray-400 text-center py-8">Δεν υπάρχουν δεδομένα</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {activeTab === 'payouts' && (
                 <div>
