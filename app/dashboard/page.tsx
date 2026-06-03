@@ -1002,56 +1002,115 @@ export default function DashboardPage() {
           })()}
 
           {activeTab === 'services' && (
-            <div className="space-y-3">
-              <p className="text-xs text-gray-400">Επίλεξε ποιες υπηρεσίες προσφέρεις και όρισε την τιμή σου.</p>
-              {services.map(service => (
-                <div key={service.id} className="border border-gray-100 rounded-xl p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-medium text-gray-900">{service.service_name}</p>
-                    <button onClick={() => toggleAddon(service)}
-                      className={`text-xs rounded-xl px-4 py-2 transition-all ${service.is_active ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                      {service.is_active ? '✓ Ενεργή' : 'Ανενεργή'}
-                    </button>
-                  </div>
-                  {service.is_active && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 w-20">ΙΧ:</span>
-                        <input
-                          type="number"
-                          defaultValue={service.price_override ?? ''}
-                          placeholder="π.χ. 10"
-                          onBlur={async e => {
-                            const val = parseFloat(e.target.value)
-                            if (isNaN(val)) return
-                            await updatePriceOverride(service, val)
-                          }}
-                          className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400"
-                        />
-                        <span className="text-xs text-gray-400">€</span>
+            <div className="space-y-4">
+              <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                Διαθέσιμες υπηρεσίες
+              </p>
+              <p className="text-[13px] text-gray-500 -mt-2 leading-relaxed">
+                Επίλεξε τις υπηρεσίες που προσφέρεις στο σημείο σου και όρισε τις τιμές ξεχωριστά για ΙΧ και Μοτοσικλέτα.
+              </p>
+
+              <div className="space-y-2.5">
+                {services.map(service => (
+                  <div
+                    key={service.id}
+                    className="bg-white border border-gray-100 rounded-2xl p-4"
+                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-semibold tracking-tight text-gray-900">
+                          {service.service_name}
+                        </p>
+                        <p className={`text-[12px] font-medium mt-0.5 ${service.is_active ? 'text-green-600' : 'text-gray-400'}`}>
+                          {service.is_active ? '● Ενεργή' : '○ Ανενεργή'}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 w-20">Μοτοσικλέτα:</span>
-                        <input
-                          type="number"
-                          defaultValue={service.price_moto ?? ''}
-                          placeholder="π.χ. 6"
-                          onBlur={async e => {
-                            const val = parseFloat(e.target.value)
-                            if (isNaN(val)) return
-                            const supabase = createClient()
-                            await supabase.from('services').update({ price_moto: val }).eq('id', service.id)
-                            setServices(prev => prev.map(s => s.id === service.id ? { ...s, price_moto: val } : s))
+                      <button
+                        onClick={() => toggleAddon(service)}
+                        className="relative w-[44px] h-[26px] rounded-full transition-colors shrink-0"
+                        style={{ background: service.is_active ? '#34C759' : '#E5E5E5' }}
+                      >
+                        <div
+                          className="absolute top-0.5 w-[22px] h-[22px] rounded-full bg-white transition-all"
+                          style={{
+                            left: service.is_active ? 20 : 2,
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.15), 0 1px 0 rgba(0,0,0,0.04)',
                           }}
-                          className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400"
                         />
-                        <span className="text-xs text-gray-400">€</span>
-                      </div>
+                      </button>
                     </div>
-                  )}
+
+                    {service.is_active && (
+                      <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-2.5">
+                        {/* IX price */}
+                        <div className="bg-gray-50 rounded-xl p-3">
+                          <p className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
+                            ΙΧ
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[16px] font-semibold text-gray-500">€</span>
+                            <input
+                              type="number"
+                              defaultValue={service.price_override ?? ''}
+                              placeholder="0"
+                              onBlur={async e => {
+                                const val = parseFloat(e.target.value)
+                                if (isNaN(val)) return
+                                await updatePriceOverride(service, val)
+                              }}
+                              className="w-full bg-transparent text-[20px] font-bold tracking-tight text-gray-900 focus:outline-none"
+                              style={{ fontVariantNumeric: 'tabular-nums' }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Motorcycle price */}
+                        <div className="bg-gray-50 rounded-xl p-3">
+                          <p className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
+                            Μοτοσικλέτα
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[16px] font-semibold text-gray-500">€</span>
+                            <input
+                              type="number"
+                              defaultValue={service.price_moto ?? ''}
+                              placeholder="0"
+                              onBlur={async e => {
+                                const val = parseFloat(e.target.value)
+                                if (isNaN(val)) return
+                                const supabase = createClient()
+                                await supabase.from('services').update({ price_moto: val }).eq('id', service.id)
+                                setServices(prev => prev.map(s => s.id === service.id ? { ...s, price_moto: val } : s))
+                              }}
+                              className="w-full bg-transparent text-[20px] font-bold tracking-tight text-gray-900 focus:outline-none"
+                              style={{ fontVariantNumeric: 'tabular-nums' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {services.length === 0 && (
+                <div className="flex flex-col items-center text-center pt-12">
+                  <div
+                    className="w-16 h-16 rounded-2xl bg-white border border-gray-100 flex items-center justify-center text-gray-400 mb-4"
+                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                  >
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M5 13V8a4 4 0 0 1 4-4h2M11 4a3 3 0 0 1 3 3v6"/>
+                      <path d="M3 13h18"/>
+                      <path d="M8 16v1M12 16v3M16 16v1"/>
+                    </svg>
+                  </div>
+                  <p className="text-[15px] font-semibold tracking-tight text-gray-900">
+                    Δεν υπάρχουν διαθέσιμες υπηρεσίες
+                  </p>
                 </div>
-              ))}
-              {services.length === 0 && <p className="text-xs text-gray-400">Δεν υπάρχουν διαθέσιμες υπηρεσίες.</p>}
+              )}
             </div>
           )}
 
