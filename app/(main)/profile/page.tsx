@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronRight, Heart, Calendar, User, Car, Bell, MessageCircle, LogOut, Star, CheckCircle, Trash2 } from 'lucide-react'
+import { ChevronRight, ChevronDown, ChevronUp, Heart, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Home as HomeIcon } from 'lucide-react'
 
 type Vehicle = {
   id: string
@@ -28,6 +28,47 @@ type Favorite = {
   locations: { id: string; name: string; slug: string } | null
 }
 
+const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr)
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+}
+
+function StatusPill({ status }: { status: string }) {
+  const config = {
+    confirmed: { bg: 'bg-blue-50', fg: 'text-blue-600', dot: 'bg-blue-600', label: 'Επερχόμενη' },
+    completed: { bg: 'bg-green-50', fg: 'text-green-700', dot: 'bg-green-700', label: 'Ολοκλ.' },
+    cancelled: { bg: 'bg-red-50', fg: 'text-red-600', dot: 'bg-red-600', label: 'Ακυρωμ.' },
+    pending: { bg: 'bg-gray-50', fg: 'text-gray-600', dot: 'bg-gray-600', label: 'Εκκρεμεί' },
+  }[status] || { bg: 'bg-gray-50', fg: 'text-gray-600', dot: 'bg-gray-600', label: status }
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${config.bg} ${config.fg} text-[11px] font-semibold tracking-tight`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+      {config.label}
+    </span>
+  )
+}
+
+function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+  return (
+    <button
+      onClick={onChange}
+      className="relative w-[51px] h-[31px] rounded-full transition-colors"
+      style={{ background: on ? '#34C759' : '#E5E5E5' }}
+    >
+      <div
+        className="absolute top-0.5 w-[27px] h-[27px] rounded-full bg-white transition-all"
+        style={{
+          left: on ? 22 : 2,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.15), 0 1px 0 rgba(0,0,0,0.04)',
+        }}
+      />
+    </button>
+  )
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const [authLoading, setAuthLoading] = useState(true)
@@ -36,7 +77,7 @@ export default function ProfilePage() {
   const [userInitial, setUserInitial] = useState('?')
   const [userId, setUserId] = useState('')
   const [showProfileEdit, setShowProfileEdit] = useState(false)
-  const [showCarEdit, setShowCarEdit] = useState(false)
+  const [showCarEdit, setShowCarEdit] = useState(true) // open by default
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [plate, setPlate] = useState('')
@@ -49,32 +90,6 @@ export default function ProfilePage() {
   const [savedCar, setSavedCar] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [favorites, setFavorites] = useState<Favorite[]>([])
-
-  const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
-
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr)
-    return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
-  }
-
-  const statusLabel = (status: string) => {
-    switch (status) {
-      case 'confirmed': return 'Επιβεβαιώθηκε'
-      case 'completed': return 'Ολοκληρώθηκε'
-      case 'cancelled': return 'Ακυρώθηκε'
-      case 'pending': return 'Εκκρεμεί'
-      default: return status
-    }
-  }
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed': return 'text-blue-600 bg-blue-50'
-      case 'completed': return 'text-green-600 bg-green-50'
-      case 'cancelled': return 'text-red-600 bg-red-50'
-      default: return 'text-gray-600 bg-gray-50'
-    }
-  }
 
   const loadVehicles = async (id: string) => {
     const supabase = createClient()
@@ -94,7 +109,7 @@ export default function ProfilePage() {
       .eq('user_id', id)
       .order('created_at', { ascending: false })
       .limit(3)
-      setBookings((data as unknown as Booking[]) || [])
+    setBookings((data as unknown as Booking[]) || [])
   }
 
   const loadFavorites = async (id: string) => {
@@ -104,7 +119,7 @@ export default function ProfilePage() {
       .select('id, location_id, locations(id, name, slug)')
       .eq('user_id', id)
       .limit(3)
-      setFavorites((data as unknown as Favorite[]) || [])
+    setFavorites((data as unknown as Favorite[]) || [])
   }
 
   useEffect(() => {
@@ -136,10 +151,8 @@ export default function ProfilePage() {
 
   if (authLoading) {
     return (
-      <main className="min-h-screen bg-white flex flex-col items-center">
-        <div className="w-full max-w-md min-h-screen flex items-center justify-center">
-          <p className="text-xs text-gray-400">Φόρτωση...</p>
-        </div>
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-xs text-gray-400">Φόρτωση...</p>
       </main>
     )
   }
@@ -191,227 +204,301 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md pb-24">
+    <main className="min-h-screen bg-gray-50 flex flex-col items-center">
+      <div className="w-full max-w-md pb-28">
+        <div className="px-5 pt-[70px] flex flex-col gap-3.5">
 
-        {/* Header */}
-        <div className="bg-white px-5 pt-10 pb-6 border-b border-gray-100">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-gray-900 rounded-2xl flex items-center justify-center text-white text-xl font-semibold">
+          {/* Logo */}
+          <div className="flex justify-center mb-2">
+            <img src="/washio_logo.png" alt="Washio" className="h-11 w-auto" />
+          </div>
+
+          {/* Avatar + identity */}
+          <div className="flex items-center gap-3.5 px-1 py-2">
+            <div className="w-16 h-16 rounded-full bg-gray-900 text-white flex items-center justify-center text-[24px] font-semibold tracking-tight">
               {userInitial}
             </div>
-            <div>
-              <p className="text-base font-semibold text-gray-900">{fullName || 'Καλωσήρθες'}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{userEmail}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-[18px] font-semibold tracking-tight text-gray-900 truncate">
+                {fullName || 'Καλωσήρθες'}
+              </p>
+              <p className="text-[13px] text-gray-500 mt-0.5 truncate">{userEmail}</p>
             </div>
           </div>
-        </div>
 
-        {/* Favorites */}
-        <section className="mt-4 mx-4">
-          <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-              <button onClick={() => router.push('/profile/favorites')} className="flex items-center gap-2">
-                <Heart size={14} className="text-gray-400" />
-                <p className="text-xs font-medium text-gray-900">Αγαπημένα</p>
+          {/* Favorites */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+            <div className="flex items-center justify-between px-[18px] pt-4 pb-2.5">
+              <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                Αγαπημένα
+              </p>
+              <button onClick={() => router.push('/profile/favorites')}
+                className="text-[13px] font-medium text-blue-600">
+                Όλα →
               </button>
-              <button onClick={() => router.push('/profile/favorites')} className="text-xs text-blue-500">Όλα →</button>
             </div>
-            {favorites.length === 0 ? (
-              <p className="text-xs text-gray-400 px-4 py-3">Δεν υπάρχουν αγαπημένα ακόμα.</p>
-            ) : (
-              favorites.map((fav, i) => (
-                <button
-                  key={fav.id}
-                  onClick={() => router.push(`/locations/${fav.locations?.slug}`)}
-                  className={`w-full flex items-center justify-between px-4 py-3 ${i < favorites.length - 1 ? 'border-b border-gray-50' : ''}`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center text-sm">⛽</div>
-                    <p className="text-sm text-gray-900">{fav.locations?.name}</p>
-                  </div>
-                  <ChevronRight size={14} className="text-gray-300" />
-                </button>
-              ))
-            )}
+            <div className="px-2 pb-2">
+              {favorites.length === 0 ? (
+                <p className="text-xs text-gray-400 px-3 py-2">Δεν υπάρχουν αγαπημένα ακόμα.</p>
+              ) : (
+                favorites.map((fav, i) => (
+                  <button
+                    key={fav.id}
+                    onClick={() => router.push(`/locations/${fav.locations?.slug}`)}
+                    className={`w-full flex items-center gap-3 px-2.5 py-2.5 ${i < favorites.length - 1 ? 'border-b border-gray-50' : ''}`}
+                  >
+                    <div className="w-9 h-9 rounded-[10px] bg-gray-50 flex items-center justify-center text-gray-900">
+                      <MapPin size={16} strokeWidth={1.6} />
+                    </div>
+                    <p className="flex-1 text-[14px] font-semibold text-gray-900 text-left truncate">
+                      {fav.locations?.name}
+                    </p>
+                    <ChevronRight size={14} className="text-gray-300" />
+                  </button>
+                ))
+              )}
+            </div>
           </div>
-        </section>
 
-        {/* Bookings */}
-        <section className="mt-3 mx-4">
-          <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-50">
-              <button onClick={() => router.push('/profile/bookings')} className="flex items-center gap-2">
-                <Calendar size={14} className="text-gray-400" />
-                <p className="text-xs font-medium text-gray-900">Κρατήσεις</p>
+          {/* Bookings */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+            <div className="flex items-center justify-between px-[18px] pt-4 pb-2.5">
+              <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                Κρατήσεις
+              </p>
+              <button onClick={() => router.push('/profile/bookings')}
+                className="text-[13px] font-medium text-blue-600">
+                Όλες →
               </button>
-              <button onClick={() => router.push('/profile/bookings')} className="text-xs text-blue-500">Όλες →</button>
             </div>
-            {bookings.length === 0 ? (
-              <p className="text-xs text-gray-400 px-4 py-3">Δεν υπάρχουν κρατήσεις ακόμα.</p>
-            ) : (
-              bookings.map((b, i) => (
-                <button
-                  key={b.id}
-                  onClick={() => router.push(`/profile/bookings/${b.id}`)}
-                  className={`w-full flex items-center justify-between px-4 py-3 text-left ${i < bookings.length - 1 ? 'border-b border-gray-50' : ''}`}
-                >
-                  <div>
-                    <p className="text-sm text-gray-900">{(b.locations as any)?.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{(b.services as any)?.name} · {formatDate(b.slot_date)}</p>
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-lg ${statusColor(b.status)}`}>
-                    {statusLabel(b.status)}
-                  </span>
-                </button>
-              ))
-            )}
+            <div className="px-2 pb-2">
+              {bookings.length === 0 ? (
+                <p className="text-xs text-gray-400 px-3 py-2">Δεν υπάρχουν κρατήσεις ακόμα.</p>
+              ) : (
+                bookings.map((b, i) => (
+                  <button
+                    key={b.id}
+                    onClick={() => router.push(`/profile/bookings/${b.id}`)}
+                    className={`w-full flex items-center justify-between px-2.5 py-3 text-left ${i < bookings.length - 1 ? 'border-b border-gray-50' : ''}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-semibold text-gray-900 truncate">
+                        {(b.locations as any)?.name}
+                      </p>
+                      <p className="text-[12px] text-gray-500 mt-0.5 truncate">
+                        {formatDate(b.slot_date)} · {b.slot_start_time?.slice(0, 5)}
+                      </p>
+                    </div>
+                    <StatusPill status={b.status} />
+                  </button>
+                ))
+              )}
+            </div>
           </div>
-        </section>
 
-        {/* Profile details */}
-        <section className="mt-3 mx-4">
-          <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
+          {/* Profile details — collapsed */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
             <button
               onClick={() => setShowProfileEdit(v => !v)}
-              className="w-full flex items-center justify-between px-4 py-3.5 border-b border-gray-50"
+              className="w-full flex items-center px-[18px] py-[18px]"
             >
-              <div className="flex items-center gap-2">
-                <User size={14} className="text-gray-400" />
-                <p className="text-sm text-gray-900">Στοιχεία προφίλ</p>
-              </div>
-              <ChevronRight size={14} className="text-gray-300" />
+              <p className="flex-1 text-[15px] font-medium text-gray-900 text-left">Στοιχεία προφίλ</p>
+              {showProfileEdit ? <ChevronUp size={18} className="text-gray-900" /> : <ChevronDown size={18} className="text-gray-400" />}
             </button>
             {showProfileEdit && (
-              <div className="bg-white px-4 py-3 border-t border-gray-50 flex flex-col gap-2">
-                <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Όνομα"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
-                <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Τηλέφωνο"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
-                <button onClick={handleSaveProfile} disabled={profileSaving || savedProfile}
-                  className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2 disabled:opacity-40 w-fit">
-                  {savedProfile ? <span className="inline-flex items-center gap-1.5"><CheckCircle size={14} className="text-green-500" />Αποθηκεύτηκε</span>
-                    : profileSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
+              <div className="px-[18px] pb-4 pt-1 flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  placeholder="Όνομα"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="Τηλέφωνο"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                />
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={profileSaving || savedProfile}
+                  className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2.5 disabled:opacity-40 w-fit"
+                >
+                  {savedProfile ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <CheckCircle size={14} className="text-green-400" />
+                      Αποθηκεύτηκε
+                    </span>
+                  ) : profileSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
                 </button>
               </div>
             )}
-            <button onClick={() => setShowCarEdit(v => !v)}
-              className="w-full flex items-center justify-between px-4 py-3.5">
-              <div className="flex items-center gap-2">
-                <Car size={14} className="text-gray-400" />
-                <p className="text-sm text-gray-900">Το όχημά μου</p>
-              </div>
-              <ChevronRight size={14} className="text-gray-300" />
+          </div>
+
+          {/* Vehicle */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+            <button
+              onClick={() => setShowCarEdit(v => !v)}
+              className="w-full flex items-center px-[18px] py-[18px]"
+            >
+              <p className="flex-1 text-[15px] font-medium text-gray-900 text-left">Το όχημά μου</p>
+              {showCarEdit ? <ChevronUp size={18} className="text-gray-900" /> : <ChevronDown size={18} className="text-gray-400" />}
             </button>
             {showCarEdit && (
-              <div className="bg-white px-4 py-3 border-t border-gray-50 flex flex-col gap-2">
+              <div className="px-[18px] pb-4 pt-1 flex flex-col gap-2">
                 {vehicles.length === 0 ? (
                   <p className="text-xs text-gray-400">Δεν υπάρχουν αποθηκευμένα οχήματα.</p>
                 ) : (
-                  vehicles.map(vehicle => (
-                    <div key={vehicle.id} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm text-gray-900">{vehicle.plate}</p>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">{vehicle.type}</span>
-                      </div>
-                      <button onClick={() => handleDeleteVehicle(vehicle.id)} className="text-red-500">
-                        <Trash2 size={14} />
+                  vehicles.map((vehicle, i) => (
+                    <div
+                      key={vehicle.id}
+                      className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-gray-50"
+                    >
+                      <span className="font-mono text-[14px] font-semibold tracking-wider text-gray-900">
+                        {vehicle.plate}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] font-semibold text-gray-500">
+                        {vehicle.type}
+                      </span>
+                      {i === 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-gray-900 text-white text-[10px] font-semibold tracking-wider">
+                          ΚΥΡΙΟ
+                        </span>
+                      )}
+                      <div className="flex-1" />
+                      <button
+                        onClick={() => handleDeleteVehicle(vehicle.id)}
+                        className="text-gray-400"
+                      >
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   ))
                 )}
                 {showVehicleForm ? (
-                  <div className="border-t border-gray-50 pt-2 flex flex-col gap-2">
-                    <input type="text" value={plate} onChange={e => setPlate(e.target.value.toUpperCase())} placeholder="Πινακίδα"
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
-                    <select value={vehicleType} onChange={e => setVehicleType(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400">
+                  <div className="flex flex-col gap-2 pt-1">
+                    <input
+                      type="text"
+                      value={plate}
+                      onChange={e => setPlate(e.target.value.toUpperCase())}
+                      placeholder="Πινακίδα"
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400 font-mono tracking-wider"
+                    />
+                    <select
+                      value={vehicleType}
+                      onChange={e => setVehicleType(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400"
+                    >
                       <option value="ΙΧ">ΙΧ</option>
-                      <option value="SUV">SUV</option>
-                      <option value="Μοτοσυκλέτα">Μοτοσυκλέτα</option>
-                      <option value="Φορτηγό">Φορτηγό</option>
+                      <option value="Μοτοσικλέτα">Μοτοσικλέτα</option>
                     </select>
-                    <button onClick={handleSaveVehicle} disabled={vehicleSaving || savedCar || !userId}
-                      className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2 disabled:opacity-40 w-fit">
-                      {savedCar ? <span className="inline-flex items-center gap-1.5"><CheckCircle size={14} className="text-green-500" />Αποθηκεύτηκε</span>
-                        : vehicleSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveVehicle}
+                        disabled={vehicleSaving || savedCar || !userId}
+                        className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2.5 disabled:opacity-40"
+                      >
+                        {savedCar ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <CheckCircle size={14} className="text-green-400" />
+                            Αποθηκεύτηκε
+                          </span>
+                        ) : vehicleSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                      </button>
+                      <button
+                        onClick={() => { setShowVehicleForm(false); setPlate('') }}
+                        className="text-xs text-gray-500 px-3"
+                      >
+                        Άκυρο
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <button onClick={() => setShowVehicleForm(true)}
-                    className="text-xs text-gray-500 border border-gray-200 rounded-lg px-3 py-2 w-fit">
-                    + Προσθήκη οχήματος
+                  <button
+                    onClick={() => setShowVehicleForm(true)}
+                    className="h-11 rounded-xl border border-dashed border-gray-300 text-[13px] font-semibold text-gray-500 flex items-center justify-center gap-1.5"
+                  >
+                    <Plus size={16} /> Προσθήκη οχήματος
                   </button>
                 )}
               </div>
             )}
           </div>
-        </section>
 
-        {/* Notifications */}
-        <section className="mt-3 mx-4">
-          <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-50">
-              <Bell size={14} className="text-gray-400" />
-              <p className="text-xs font-medium text-gray-900">Ειδοποιήσεις</p>
+          {/* Notifications */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+            <div className="px-[18px] pt-4 pb-2.5">
+              <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                Ειδοποιήσεις
+              </p>
             </div>
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-50">
-              <p className="text-sm text-gray-900">Email</p>
-              <button onClick={() => setNotifications(n => ({ ...n, email: !n.email }))}
-                className={`w-10 h-6 rounded-full transition-all ${notifications.email ? 'bg-gray-900' : 'bg-gray-200'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full mx-1 transition-all ${notifications.email ? 'translate-x-4' : 'translate-x-0'}`} />
-              </button>
-            </div>
-            <div className="flex items-center justify-between px-4 py-3.5">
-              <p className="text-sm text-gray-900">SMS</p>
-              <button onClick={() => setNotifications(n => ({ ...n, sms: !n.sms }))}
-                className={`w-10 h-6 rounded-full transition-all ${notifications.sms ? 'bg-gray-900' : 'bg-gray-200'}`}>
-                <div className={`w-4 h-4 bg-white rounded-full mx-1 transition-all ${notifications.sms ? 'translate-x-4' : 'translate-x-0'}`} />
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Support */}
-        <section className="mt-3 mx-4">
-          <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
-            <button onClick={() => window.location.href = 'mailto:support@washio.gr'}
-              className="w-full flex items-center justify-between px-4 py-3.5">
-              <div className="flex items-center gap-2">
-                <MessageCircle size={14} className="text-gray-400" />
-                <p className="text-sm text-gray-900">Επικοινωνία & Support</p>
+            <div className="px-2 pb-2">
+              <div className="flex items-center px-2.5 py-2.5 border-b border-gray-50">
+                <p className="flex-1 text-[15px] font-medium text-gray-900">Email</p>
+                <Toggle on={notifications.email} onChange={() => setNotifications(n => ({ ...n, email: !n.email }))} />
               </div>
-              <ChevronRight size={14} className="text-gray-300" />
-            </button>
+              <div className="flex items-center px-2.5 py-2.5">
+                <p className="flex-1 text-[15px] font-medium text-gray-900">SMS</p>
+                <Toggle on={notifications.sms} onChange={() => setNotifications(n => ({ ...n, sms: !n.sms }))} />
+              </div>
+            </div>
           </div>
-        </section>
 
-        {/* Logout */}
-        <section className="mt-3 mx-4">
-          <div className="bg-white rounded-2xl overflow-hidden border border-gray-100">
-            <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-3.5 text-red-500">
-              <LogOut size={14} />
-              <p className="text-sm">Έξοδος</p>
+          {/* Support */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+            <button
+              onClick={() => window.location.href = 'mailto:support@washio.gr'}
+              className="w-full flex items-center gap-3 px-[18px] py-[18px]"
+            >
+              <MessageCircle size={18} className="text-gray-500" strokeWidth={1.6} />
+              <p className="flex-1 text-[15px] font-medium text-gray-900 text-left">Επικοινωνία & Support</p>
+              <ChevronRight size={16} className="text-gray-300" />
             </button>
           </div>
-        </section>
+
+          {/* Logout */}
+          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-[18px] py-[18px] text-red-500"
+            >
+              <LogOut size={18} strokeWidth={1.6} />
+              <p className="flex-1 text-[15px] font-medium text-left">Έξοδος</p>
+            </button>
+          </div>
+        </div>
 
         {/* Bottom Nav */}
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md flex justify-around items-center py-3 border-t border-gray-100 bg-white">
+        <nav
+          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md flex justify-around items-center py-3 border-t border-gray-100 bg-white z-20"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
+        >
           <button onClick={() => router.push('/')} className="flex flex-col items-center gap-1 text-gray-300">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-            <span className="text-xs">Αρχική</span>
+            <HomeIcon size={18} />
+            <span className="text-[11px] font-medium">Αρχική</span>
           </button>
           <button onClick={() => router.push('/map')} className="flex flex-col items-center gap-1 text-gray-300">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-            <span className="text-xs">Εύρεση</span>
+            <MapPin size={18} />
+            <span className="text-[11px] font-medium">Εύρεση</span>
           </button>
-          <button className="flex flex-col items-center gap-1 text-blue-600">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span className="text-xs">Προφίλ</span>
+          <button className="flex flex-col items-center gap-1 text-blue-600 relative">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <span className="text-[11px] font-semibold">Προφίλ</span>
+            <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-blue-600" />
           </button>
         </nav>
-
       </div>
     </main>
   )
