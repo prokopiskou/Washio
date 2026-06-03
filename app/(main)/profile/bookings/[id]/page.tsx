@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock } from 'lucide-react'
+import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet } from 'lucide-react'
 
 type Booking = {
   id: string
@@ -27,8 +27,6 @@ type Booking = {
     name: string
   } | null
 }
-
-const MONTHS = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
 const CANCELLATION_REASONS = [
   'Άλλαξαν τα σχέδιά μου',
@@ -55,6 +53,55 @@ function generateSlots(openTime: string, closeTime: string): string[] {
 
 function jsDayToSupabase(jsDay: number): number {
   return jsDay === 0 ? 7 : jsDay
+}
+
+function StatusPill({ status }: { status: string }) {
+  const config = {
+    confirmed: { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επερχόμενη' },
+    completed: { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκληρώθηκε' },
+    cancelled: { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρώθηκε' },
+    pending: { bg: '#F7F7F7', fg: '#666666', label: 'Εκκρεμεί' },
+  }[status] || { bg: '#F7F7F7', fg: '#666666', label: status }
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-tight"
+      style={{ background: config.bg, color: config.fg }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: config.fg }} />
+      {config.label}
+    </span>
+  )
+}
+
+function InfoRow({
+  icon,
+  label,
+  value,
+  mono,
+  isLast,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+  mono?: boolean
+  isLast?: boolean
+}) {
+  return (
+    <div className={`flex items-center gap-3.5 py-4 ${isLast ? '' : 'border-b border-gray-100'}`}>
+      <div className="w-6 flex items-center text-gray-500">{icon}</div>
+      <p className="flex-1 text-[13px] text-gray-500">{label}</p>
+      <p
+        className="text-[14px] font-semibold text-gray-900"
+        style={{
+          fontFamily: mono ? 'ui-monospace, "SF Mono", monospace' : undefined,
+          letterSpacing: mono ? '0.6px' : '-0.1px',
+        }}
+      >
+        {value}
+      </p>
+    </div>
+  )
 }
 
 export default function BookingDetailPage() {
@@ -170,7 +217,6 @@ export default function BookingDetailPage() {
       setShowRescheduleLate(true)
     } else {
       setShowReschedule(true)
-      // Default σε αύριο
       const tomorrow = new Date()
       tomorrow.setDate(tomorrow.getDate() + 1)
       const yyyy = tomorrow.getFullYear()
@@ -180,7 +226,6 @@ export default function BookingDetailPage() {
     }
   }
 
-  // Load available slots for newDate
   useEffect(() => {
     if (!showReschedule || !newDate || !booking) return
 
@@ -190,7 +235,6 @@ export default function BookingDetailPage() {
       const dateObj = new Date(newDate)
       const dayOfWeek = jsDayToSupabase(dateObj.getDay())
 
-      // Check exception
       const { data: exceptionData } = await supabase
         .from('location_hours_exceptions')
         .select('periods, is_closed')
@@ -225,7 +269,6 @@ export default function BookingDetailPage() {
         allTimes = generateSlots(hoursData.open_time, hoursData.close_time)
       }
 
-      // Booked slots
       const { data: bookedData } = await supabase
         .from('bookings')
         .select('slot_start_time')
@@ -236,7 +279,6 @@ export default function BookingDetailPage() {
 
       const booked = new Set((bookedData || []).map((b: any) => b.slot_start_time?.slice(0, 5)))
 
-      // Filter past slots if today
       const now = new Date()
       const todayLocalStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       const isToday = newDate === todayLocalStr
@@ -247,7 +289,7 @@ export default function BookingDetailPage() {
           const [h, m] = t.split(':').map(Number)
           const slotMinutes = h * 60 + m
           const nowMinutes = now.getHours() * 60 + now.getMinutes()
-          if (slotMinutes < nowMinutes + 120) return false // 2h buffer
+          if (slotMinutes < nowMinutes + 120) return false
         }
         return true
       })
@@ -301,7 +343,6 @@ export default function BookingDetailPage() {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
-    year: 'numeric',
     timeZone: 'Europe/Athens',
   })
 
@@ -311,7 +352,6 @@ export default function BookingDetailPage() {
 
   const isActiveBooking = booking.status !== 'cancelled' && booking.status !== 'completed'
 
-  // Min date = today
   const today = new Date()
   const minDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
@@ -320,123 +360,130 @@ export default function BookingDetailPage() {
       <div className="w-full max-w-md pb-24">
 
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
-          <button onClick={() => router.back()} className="text-gray-400 p-2 -ml-2">
-            <ArrowLeft size={18} />
+        <div className="px-5 pt-14 pb-5 flex items-center gap-3.5">
+          <button
+            onClick={() => router.back()}
+            className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-900"
+          >
+            <ChevronLeft size={18} />
           </button>
-          <p className="text-sm font-medium text-gray-900">Κράτηση</p>
+          <p className="flex-1 text-center text-[17px] font-semibold tracking-tight text-gray-900 -ml-10">
+            Κράτηση
+          </p>
         </div>
 
-        {/* Status banner */}
-        {booking.status === 'cancelled' && (
-          <div className="bg-red-50 px-5 py-3 flex items-center gap-2">
-            <X size={14} className="text-red-500" />
-            <p className="text-xs text-red-600 font-medium">Η κράτηση έχει ακυρωθεί</p>
-          </div>
-        )}
-        {booking.status === 'completed' && (
-          <div className="bg-green-50 px-5 py-3 flex items-center gap-2">
-            <p className="text-xs text-green-600 font-medium">✓ Ολοκληρώθηκε</p>
-          </div>
-        )}
+        <div className="px-5">
 
-        {/* Booking ref */}
-        <div className="px-5 py-6 text-center border-b border-gray-100">
-          <p className="text-xs text-gray-400 mb-1">Κωδικός κράτησης</p>
-          <p className="text-lg font-mono font-semibold text-gray-900">{booking.booking_ref}</p>
-        </div>
+          {/* Booking ref + status */}
+          <div className="text-center pt-3 pb-7">
+            <p className="text-[11px] font-semibold tracking-[1.8px] uppercase text-gray-400">
+              Κωδικός κράτησης
+            </p>
+            <p
+              className="text-[28px] font-bold text-gray-900 mt-2"
+              style={{
+                fontFamily: 'ui-monospace, "SF Mono", monospace',
+                letterSpacing: '1.2px',
+              }}
+            >
+              {booking.booking_ref}
+            </p>
+            <div className="flex justify-center mt-2.5">
+              <StatusPill status={booking.status} />
+            </div>
+          </div>
 
-        {/* Location with tappable badge */}
-        {booking.locations && (
-          <a href={mapsUrl} target="_blank" rel="noopener noreferrer"
-            className="block px-5 py-4 border-b border-gray-100 active:bg-gray-50 transition-colors">
-            <div className="flex items-start gap-3">
-              <MapPin size={16} className="text-gray-400 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-gray-900">{booking.locations.name}</p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <p className="text-xs text-gray-400">
-                    {booking.locations.address}, {booking.locations.city}
-                  </p>
-                  <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md font-medium">
-                    <ExternalLink size={9} />
-                    Χάρτης
-                  </span>
-                </div>
+          {/* Location card — tappable */}
+          {booking.locations && (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3.5 mb-3.5"
+              style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+            >
+              <div className="w-11 h-11 rounded-xl bg-gray-50 flex items-center justify-center text-gray-900 shrink-0">
+                <MapPin size={20} />
               </div>
-              <ChevronRight size={14} className="text-gray-300 shrink-0 mt-1" />
-            </div>
-          </a>
-        )}
-
-        {/* Details */}
-        <div className="px-5 py-4 space-y-4">
-          <div className="flex items-center gap-3">
-            <Calendar size={16} className="text-gray-400" />
-            <div>
-              <p className="text-xs text-gray-400">Ημερομηνία</p>
-              <p className="text-sm text-gray-900">{formattedDate}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Clock size={16} className="text-gray-400" />
-            <div>
-              <p className="text-xs text-gray-400">Ώρα</p>
-              <p className="text-sm text-gray-900">{booking.slot_start_time?.slice(0, 5)}</p>
-            </div>
-          </div>
-
-          {booking.services && (
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center text-xs">🚿</div>
-              <div>
-                <p className="text-xs text-gray-400">Υπηρεσία</p>
-                <p className="text-sm text-gray-900">{booking.services.name}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-semibold tracking-tight text-gray-900 truncate">
+                  {booking.locations.name}
+                </p>
+                <p className="text-[12px] text-gray-500 mt-0.5 truncate">
+                  {booking.locations.address}, {booking.locations.city}
+                </p>
               </div>
-            </div>
+              <div
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold shrink-0"
+                style={{ background: '#EAF2FD', color: '#1A6FD4' }}
+              >
+                Χάρτης
+                <ExternalLink size={11} strokeWidth={1.8} />
+              </div>
+            </a>
           )}
 
-          {booking.car_plate && (
-            <div className="flex items-center gap-3">
-              <Car size={16} className="text-gray-400" />
-              <div>
-                <p className="text-xs text-gray-400">Πινακίδα</p>
-                <p className="text-sm text-gray-900">{booking.car_plate}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="flex items-center gap-3">
-            <CreditCard size={16} className="text-gray-400" />
-            <div>
-              <p className="text-xs text-gray-400">Σύνολο</p>
-              <p className="text-sm font-semibold text-gray-900">€{Number(booking.total_amount || 0).toFixed(0)}</p>
-            </div>
+          {/* Details card */}
+          <div
+            className="bg-white rounded-2xl border border-gray-100 px-[18px] mb-6"
+            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+          >
+            <InfoRow
+              icon={<Calendar size={18} strokeWidth={1.75} />}
+              label="Ημερομηνία"
+              value={formattedDate}
+            />
+            <InfoRow
+              icon={<Clock size={18} strokeWidth={1.75} />}
+              label="Ώρα"
+              value={booking.slot_start_time?.slice(0, 5) || '—'}
+            />
+            {booking.services && (
+              <InfoRow
+                icon={<Droplet size={18} strokeWidth={1.75} />}
+                label="Υπηρεσία"
+                value={booking.services.name}
+              />
+            )}
+            {booking.car_plate && (
+              <InfoRow
+                icon={<Car size={18} strokeWidth={1.75} />}
+                label="Πινακίδα"
+                value={booking.car_plate}
+                mono
+              />
+            )}
+            <InfoRow
+              icon={<CreditCard size={18} strokeWidth={1.75} />}
+              label="Σύνολο"
+              value={`€${Number(booking.total_amount || 0).toFixed(2)}`}
+              isLast
+            />
           </div>
-        </div>
 
-        {/* Actions for active bookings */}
-        {isActiveBooking && (
-          <>
-            {/* Reschedule — prominent */}
-            <div className="px-5 pt-6">
-              <button onClick={handleRescheduleClick}
-                className="w-full flex items-center justify-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium py-3 rounded-xl">
-                <CalendarClock size={14} />
+          {/* Actions */}
+          {isActiveBooking && (
+            <>
+              <button
+                onClick={handleRescheduleClick}
+                className="w-full h-13 rounded-xl bg-white border border-gray-900 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
+                style={{ height: 52 }}
+              >
+                <CalendarClock size={18} strokeWidth={1.6} />
                 Αλλαγή ημερομηνίας
               </button>
-            </div>
 
-            {/* Cancel — discreet */}
-            <div className="px-5 pt-6 pb-4 text-center">
-              <button onClick={handleCancelClick}
-                className="text-xs text-gray-400 underline">
-                Ακύρωση κράτησης
-              </button>
-            </div>
-          </>
-        )}
+              <div className="flex justify-center pt-4 pb-10">
+                <button
+                  onClick={handleCancelClick}
+                  className="text-[12px] font-medium text-gray-400 underline underline-offset-[3px]"
+                >
+                  Ακύρωση κράτησης
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* ============ MODALS ============ */}
@@ -467,8 +514,10 @@ export default function BookingDetailPage() {
               </p>
             </div>
 
-            <button onClick={() => setShowCancelLate(false)}
-              className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl">
+            <button
+              onClick={() => setShowCancelLate(false)}
+              className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl"
+            >
               Κατάλαβα
             </button>
           </div>
@@ -501,8 +550,10 @@ export default function BookingDetailPage() {
               </p>
             </div>
 
-            <button onClick={() => setShowRescheduleLate(false)}
-              className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl">
+            <button
+              onClick={() => setShowRescheduleLate(false)}
+              className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl"
+            >
               Κατάλαβα
             </button>
           </div>
@@ -521,11 +572,13 @@ export default function BookingDetailPage() {
 
             <div className="mb-4">
               <p className="text-xs text-gray-400 mb-1.5">Ημερομηνία</p>
-              <input type="date"
+              <input
+                type="date"
                 value={newDate}
                 min={minDateStr}
                 onChange={e => { setNewDate(e.target.value); setNewTime('') }}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none" />
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none"
+              />
             </div>
 
             <div className="mb-5">
@@ -537,12 +590,15 @@ export default function BookingDetailPage() {
               ) : (
                 <div className="grid grid-cols-4 gap-2">
                   {availableSlots.map(slot => (
-                    <button key={slot} onClick={() => setNewTime(slot)}
+                    <button
+                      key={slot}
+                      onClick={() => setNewTime(slot)}
                       className={`py-2.5 rounded-lg text-xs font-medium border transition-all ${
                         newTime === slot
                           ? 'border-gray-900 bg-gray-900 text-white'
                           : 'border-gray-200 text-gray-700'
-                      }`}>
+                      }`}
+                    >
                       {slot}
                     </button>
                   ))}
@@ -551,13 +607,18 @@ export default function BookingDetailPage() {
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => setShowReschedule(false)} disabled={rescheduling}
-                className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl">
+              <button
+                onClick={() => setShowReschedule(false)}
+                disabled={rescheduling}
+                className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl"
+              >
                 Άκυρο
               </button>
-              <button onClick={handleConfirmReschedule}
+              <button
+                onClick={handleConfirmReschedule}
                 disabled={!newDate || !newTime || rescheduling}
-                className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40">
+                className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
+              >
                 {rescheduling ? 'Αλλαγή...' : 'Αλλαγή'}
               </button>
             </div>
@@ -572,7 +633,6 @@ export default function BookingDetailPage() {
           <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10 max-h-[85vh] overflow-y-auto">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
 
-            {/* Step 1: Reason */}
             {step === 1 && (
               <>
                 <p className="text-base font-semibold text-gray-900 mb-1">Γιατί ακυρώνεις;</p>
@@ -580,8 +640,11 @@ export default function BookingDetailPage() {
 
                 <div className="divide-y divide-gray-100 mb-5">
                   {CANCELLATION_REASONS.map(r => (
-                    <button key={r} onClick={() => setReason(r)}
-                      className="w-full flex items-center justify-between py-3 text-left">
+                    <button
+                      key={r}
+                      onClick={() => setReason(r)}
+                      className="w-full flex items-center justify-between py-3 text-left"
+                    >
                       <span className={`text-sm transition-colors ${reason === r ? 'text-gray-900 font-medium' : 'text-gray-600'}`}>
                         {r}
                       </span>
@@ -606,19 +669,23 @@ export default function BookingDetailPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button onClick={() => setShowCancelFlow(false)}
-                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl">
+                  <button
+                    onClick={() => setShowCancelFlow(false)}
+                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl"
+                  >
                     Πίσω
                   </button>
-                  <button onClick={() => setStep(2)} disabled={!reason}
-                    className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40">
+                  <button
+                    onClick={() => setStep(2)}
+                    disabled={!reason}
+                    className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
+                  >
                     Συνέχεια
                   </button>
                 </div>
               </>
             )}
 
-            {/* Step 2: Warning */}
             {step === 2 && (
               <>
                 <div className="text-center mb-5">
@@ -654,19 +721,23 @@ export default function BookingDetailPage() {
                 </label>
 
                 <div className="flex gap-2">
-                  <button onClick={() => setStep(1)}
-                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl">
+                  <button
+                    onClick={() => setStep(1)}
+                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl"
+                  >
                     Πίσω
                   </button>
-                  <button onClick={() => setStep(3)} disabled={!acknowledged}
-                    className="flex-1 bg-red-500 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40">
+                  <button
+                    onClick={() => setStep(3)}
+                    disabled={!acknowledged}
+                    className="flex-1 bg-red-500 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
+                  >
                     Συνέχεια
                   </button>
                 </div>
               </>
             )}
 
-            {/* Step 3: Final */}
             {step === 3 && (
               <>
                 <div className="text-center mb-5">
@@ -685,12 +756,18 @@ export default function BookingDetailPage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button onClick={() => setStep(2)} disabled={cancelling}
-                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl">
+                  <button
+                    onClick={() => setStep(2)}
+                    disabled={cancelling}
+                    className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl"
+                  >
                     Όχι, κράτα την
                   </button>
-                  <button onClick={handleConfirmCancel} disabled={cancelling}
-                    className="flex-1 bg-red-500 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40">
+                  <button
+                    onClick={handleConfirmCancel}
+                    disabled={cancelling}
+                    className="flex-1 bg-red-500 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
+                  >
                     {cancelling ? 'Ακύρωση...' : 'Ναι, ακύρωσε'}
                   </button>
                 </div>
