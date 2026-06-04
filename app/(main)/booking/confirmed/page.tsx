@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { successHaptic } from '@/lib/haptics'
 
 function QRPlaceholder({ size = 80 }: { size?: number }) {
   const cells = [
@@ -75,6 +76,7 @@ function ConfirmedContent() {
 
   useEffect(() => {
     setShow(true)
+    successHaptic()
 
     const fetchAndNotify = async () => {
       const intentId = params.get('payment_intent')
