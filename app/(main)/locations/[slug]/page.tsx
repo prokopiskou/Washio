@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { lightTap, selectionHaptic } from '@/lib/haptics'
 
 type Location = {
   id: string
@@ -341,7 +342,7 @@ export default function LocationPage() {
               return (
                 <button
                   key={type}
-                  onClick={() => setVehicleType(type)}
+                  onClick={() => { setVehicleType(type); lightTap() }}
                   className={`px-3.5 py-2.5 rounded-full text-[13px] font-semibold border flex items-center gap-1.5 transition-all ${
                     active
                       ? 'bg-gray-900 text-white border-gray-900'
@@ -366,7 +367,7 @@ export default function LocationPage() {
               return (
                 <button
                   key={s.id}
-                  onClick={() => setSelectedServiceId(s.id)}
+                  onClick={() => { setSelectedServiceId(s.id); lightTap() }}
                   className={`flex items-center gap-3.5 p-[18px] rounded-2xl border transition-all text-left ${
                     selected
                       ? 'bg-gray-900 border-gray-900 text-white'
@@ -427,7 +428,7 @@ export default function LocationPage() {
               return (
                 <button
                   key={i}
-                  onClick={() => { setSelectedDate(d); setSelectedSlot(null) }}
+                  onClick={() => { setSelectedDate(d); setSelectedSlot(null); lightTap() }}
                   className={`shrink-0 w-14 h-[72px] rounded-[14px] border flex flex-col items-center justify-center gap-1 transition-all ${
                     selected
                       ? 'bg-gray-900 border-gray-900 text-white'
@@ -477,7 +478,7 @@ export default function LocationPage() {
                 return (
                   <button
                     key={slot.id}
-                    onClick={() => setSelectedSlot(slot.id)}
+                    onClick={() => { setSelectedSlot(slot.id); lightTap() }}
                     className={`h-11 rounded-xl border text-[14px] font-semibold transition-all ${
                       selected
                         ? 'bg-gray-900 border-gray-900 text-white'
