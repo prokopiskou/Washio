@@ -6,6 +6,7 @@ import { ChevronLeft, Lock, Calendar, Sparkles, Mail } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createClient } from '@/lib/supabase/client'
+import { mediumTap, errorHaptic } from '@/lib/haptics'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -75,14 +76,17 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
   const handleSubmit = async () => {
     if (!stripe || !elements || !clientSecret) {
       setError('Το σύστημα πληρωμών δεν είναι έτοιμο. Δοκίμασε ξανά.')
+      errorHaptic()
       return
     }
+    mediumTap()
     setLoading(true)
     setError('')
     try {
       const { error: submitError } = await elements.submit()
       if (submitError) {
         setError(submitError.message || 'Σφάλμα επαλήθευσης.')
+        errorHaptic()
         return
       }
       const { error: confirmError } = await stripe.confirmPayment({
@@ -94,6 +98,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
       })
       if (confirmError) {
         setError(confirmError.message || 'Η πληρωμή απέτυχε.')
+        errorHaptic()
       }
     } catch {
       setError('Άγνωστο σφάλμα. Δοκίμασε ξανά.')
