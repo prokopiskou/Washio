@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { lightTap, successHaptic, errorHaptic } from '@/lib/haptics'
 import { ChevronRight, ChevronDown, ChevronUp, Heart, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Home as HomeIcon } from 'lucide-react'
 
 type Vehicle = {
@@ -188,6 +189,7 @@ export default function ProfilePage() {
       setSavedCar(true)
       setTimeout(() => setSavedCar(false), 2000)
       setShowVehicleForm(false)
+      successHaptic()
     }
   }
 
@@ -302,7 +304,7 @@ export default function ProfilePage() {
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
             <button
-              onClick={() => setShowProfileEdit(v => !v)}
+              onClick={() => { setShowProfileEdit(v => !v); lightTap() }}
               className="w-full flex items-center px-[18px] py-[18px]"
             >
               <p className="flex-1 text-[15px] font-medium text-gray-900 text-left">Στοιχεία προφίλ</p>
@@ -344,7 +346,7 @@ export default function ProfilePage() {
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
             <button
-              onClick={() => setShowCarEdit(v => !v)}
+              onClick={() => { setShowCarEdit(v => !v); lightTap() }}
               className="w-full flex items-center px-[18px] py-[18px]"
             >
               <p className="flex-1 text-[15px] font-medium text-gray-900 text-left">Το όχημά μου</p>
@@ -373,7 +375,7 @@ export default function ProfilePage() {
                       )}
                       <div className="flex-1" />
                       <button
-                        onClick={() => handleDeleteVehicle(vehicle.id)}
+                        onClick={() => { handleDeleteVehicle(vehicle.id); errorHaptic() }}
                         className="text-gray-400"
                       >
                         <Trash2 size={16} />
@@ -421,7 +423,7 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <button
-                    onClick={() => setShowVehicleForm(true)}
+                    onClick={() => { setShowVehicleForm(true); lightTap() }}
                     className="h-11 rounded-xl border border-dashed border-gray-300 text-[13px] font-semibold text-gray-500 flex items-center justify-center gap-1.5"
                   >
                     <Plus size={16} /> Προσθήκη οχήματος
