@@ -470,7 +470,7 @@ export default function ProfilePage() {
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
             <button
-              onClick={handleLogout}
+              onClick={() => { lightTap(); handleLogout() }}
               className="w-full flex items-center gap-3 px-[18px] py-[18px] text-red-500"
             >
               <LogOut size={18} strokeWidth={1.6} />

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
+import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'staff' | 'feedback'
 type Period = '7D' | '30D' | '3M' | '6M' | '12M'
@@ -526,7 +527,7 @@ export default function DashboardPage() {
             ['feedback', 'Feedback'],
           ] as [TabKey, string][]).map(([key, label]) => (
             <button key={key}
-              onClick={() => { setActiveTab(key); if (key === 'bookings') setNewBookingsCount(0) }}
+              onClick={() => { setActiveTab(key); if (key === 'bookings') setNewBookingsCount(0); lightTap() }}
               className={`shrink-0 py-3 text-[13px] tracking-tight transition-all border-b-2 ${
                 activeTab === key ? 'border-gray-900 text-gray-900 font-semibold' : 'border-transparent text-gray-400 font-medium'
               } ${key === 'bookings' && newBookingsCount > 0 ? 'text-blue-600' : ''}`}
@@ -704,7 +705,7 @@ export default function DashboardPage() {
                     return (
                       <button
                         key={opt.value}
-                        onClick={() => setFilterStatus(opt.value)}
+                        onClick={() => { setFilterStatus(opt.value); lightTap() }}
                         className={`shrink-0 px-3.5 py-2 rounded-full border whitespace-nowrap text-[13px] font-semibold tracking-tight inline-flex items-center gap-1.5 transition-colors ${
                           active ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'
                         }`}
@@ -723,7 +724,7 @@ export default function DashboardPage() {
                   <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">Ταξινόμηση</span>
                   <div className="flex gap-1 bg-white border border-gray-200 p-0.5 rounded-lg">
                     <button
-                      onClick={() => setSortBy('slot_date')}
+                      onClick={() => { setSortBy('slot_date'); lightTap() }}
                       className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${
                         sortBy === 'slot_date' ? 'bg-gray-900 text-white' : 'text-gray-500'
                       }`}
@@ -731,7 +732,7 @@ export default function DashboardPage() {
                       Πλύσιμο
                     </button>
                     <button
-                      onClick={() => setSortBy('created_at')}
+                      onClick={() => { setSortBy('created_at'); lightTap() }}
                       className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${
                         sortBy === 'created_at' ? 'bg-gray-900 text-white' : 'text-gray-500'
                       }`}
@@ -797,7 +798,7 @@ export default function DashboardPage() {
                           </span>
                           {canCancel && (
                             <button
-                              onClick={() => cancelBooking(b.id)}
+                              onClick={() => { errorHaptic(); cancelBooking(b.id) }}
                               className="text-[11px] font-medium text-red-500 underline underline-offset-[2px]"
                             >
                               Ακύρωση
