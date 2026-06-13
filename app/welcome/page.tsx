@@ -11,7 +11,7 @@ export default function WelcomePage() {
     <main className="min-h-screen bg-white">
       <div className="max-w-md mx-auto">
 
-        {/* Sticky header — only login button, no duplicate logo (logo is in hero) */}
+        {/* Sticky header — only login button */}
         <header className="sticky top-0 z-10 bg-white px-5 pt-14 pb-3.5 flex items-center justify-end">
           <Link href="/login" className="h-8 px-3 rounded-lg border border-gray-200 bg-white text-gray-900 text-xs font-semibold inline-flex items-center">
             Σύνδεση
@@ -19,9 +19,7 @@ export default function WelcomePage() {
         </header>
 
         {/* Hero */}
-        <section className="px-5 pt-4 pb-8 flex flex-col items-center text-center">
-          <img src="/washio-logo.png" alt="Washio" className="h-40 w-auto -mb-2 -mt-4" />
-
+        <section className="px-5 pt-8 pb-8 flex flex-col items-center text-center">
           <h1 className="text-[32px] font-bold leading-[1.1] tracking-[-1.2px] text-gray-900">
             Γρήγορο πλύσιμο.<br />
             <span className="text-gray-500">Έξυπνη εμπειρία.</span>
