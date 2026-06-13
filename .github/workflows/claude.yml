@@ -1,0 +1,40 @@
+name: Claude — implement labeled issues
+
+# Τρέχει όταν ένα issue πάρει label. Φιλτράρουμε για το "code" παρακάτω.
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    if: github.event.label.name == 'code'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Υλοποίησε το GitHub issue #${{ github.event.issue.number }} στο repo ${{ github.repository }}.
+
+            Τίτλος: ${{ github.event.issue.title }}
+
+            Περιγραφή:
+            ${{ github.event.issue.body }}
+
+            ΚΑΝΟΝΕΣ (αυστηροί):
+            - ΜΗΝ γράψεις ΠΟΤΕ απευθείας στο main branch.
+            - Φτιάξε νέο branch: claude/issue-${{ github.event.issue.number }}
+            - Κάνε μόνο τις αλλαγές που χρειάζονται για το issue. Μην αλλάζεις άσχετα αρχεία.
+            - Άνοιξε Pull Request προς το main, με καθαρή περιγραφή του τι άλλαξες και γιατί.
+            - Στο τέλος της περιγραφής βάλε: "Closes #${{ github.event.issue.number }}".
+            - Αν κάτι είναι ασαφές, κάνε τη λογικότερη υπόθεση και σημείωσέ την ρητά στο PR.
+          claude_args: |
+            --max-turns 30
+            --allowedTools "Bash,Edit,MultiEdit,Read,Write,Glob,Grep"
