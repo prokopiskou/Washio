@@ -20,7 +20,7 @@ export default function WelcomePage() {
 
         {/* Hero */}
         <section className="px-5 pt-4 pb-8 flex flex-col items-center text-center">
-          <img src="/washio-logo.png" alt="Washio" className="h-40 w-auto -mb-2 -mt-4" />
+          <img src="/washio-logo.png" alt="Washio" className="h-28 w-auto -mb-1 -mt-2" />
 
           <h1 className="text-[32px] font-bold leading-[1.1] tracking-[-1.2px] text-gray-900">
             Γρήγορο πλύσιμο.<br />
