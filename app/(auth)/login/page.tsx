@@ -18,6 +18,10 @@ function LoginPageContent() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
 
+  // Demo λογαριασμός για το App Review (bypass OTP με σταθερό κωδικό).
+  const DEMO_EMAIL = 'appreview@washio.gr'
+  const isDemo = email.trim().toLowerCase() === DEMO_EMAIL
+
   useEffect(() => {
     const checkSession = async () => {
       const supabase = createClient()
@@ -29,8 +33,13 @@ function LoginPageContent() {
 
   const handleSendOtp = async () => {
     if (!email) return
-    setLoading(true)
     setError('')
+    // Demo: δεν στέλνουμε πραγματικό email — προχωράμε κατευθείαν στην οθόνη κωδικού.
+    if (isDemo) {
+      setSent(true)
+      return
+    }
+    setLoading(true)
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -53,6 +62,35 @@ function LoginPageContent() {
     setLoading(true)
     setError('')
     const supabase = createClient()
+
+    // Demo bypass: ανταλλαγή σταθερού κωδικού με έγκυρο session token.
+    if (isDemo) {
+      try {
+        const res = await fetch('/api/auth/demo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: otp }),
+        })
+        const data = await res.json()
+        if (!res.ok || !data.tokenHash) {
+          setError('Λάθος κωδικός. Δοκίμασε ξανά.')
+          setLoading(false)
+          return
+        }
+        const { error } = await supabase.auth.verifyOtp({ token_hash: data.tokenHash, type: 'email' })
+        if (error) {
+          setError('Λάθος κωδικός. Δοκίμασε ξανά.')
+          setLoading(false)
+        } else {
+          router.push(redirectUrl)
+        }
+      } catch {
+        setError('Κάτι πήγε στραβά. Δοκίμασε ξανά.')
+        setLoading(false)
+      }
+      return
+    }
+
     const { error } = await supabase.auth.verifyOtp({
       email,
       token: otp,
@@ -84,6 +122,14 @@ function LoginPageContent() {
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'facebook',
+      options: { redirectTo: getOauthRedirect() }
+    })
+  }
+
+  const handleAppleLogin = async () => {
+    const supabase = createClient()
+    await supabase.auth.signInWithOAuth({
+      provider: 'apple',
       options: { redirectTo: getOauthRedirect() }
     })
   }
@@ -136,6 +182,16 @@ function LoginPageContent() {
               <span className="text-xs text-gray-300">ή</span>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
+
+            <button
+              onClick={handleAppleLogin}
+              className="w-full bg-black text-white text-sm py-3 rounded-xl flex items-center justify-center gap-2"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
+                <path d="M17.05 12.04c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.1-2.02-3.77-2.04-1.6-.16-3.13.94-3.94.94-.81 0-2.07-.92-3.41-.89-1.75.03-3.37 1.02-4.27 2.59-1.82 3.16-.47 7.84 1.31 10.41.87 1.26 1.9 2.67 3.25 2.62 1.3-.05 1.8-.84 3.37-.84 1.57 0 2.02.84 3.4.81 1.4-.02 2.29-1.28 3.15-2.55 1-1.46 1.41-2.88 1.43-2.95-.03-.01-2.74-1.05-2.77-4.17zM14.6 4.42c.72-.87 1.2-2.08 1.07-3.29-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.58 3.03-1.45z"/>
+              </svg>
+              Συνέχεια με Apple
+            </button>
 
             <button
               onClick={handleGoogleLogin}

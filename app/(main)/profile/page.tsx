@@ -205,6 +205,24 @@ export default function ProfilePage() {
     router.push('/login')
   }
 
+  const handleDeleteAccount = async () => {
+    if (!confirm('Διαγραφή λογαριασμού; Η ενέργεια είναι οριστική και θα διαγράψει τα στοιχεία σου (οχήματα, αγαπημένα, προφίλ).')) return
+    if (!confirm('Είσαι σίγουρος/η; Δεν μπορεί να αναιρεθεί.')) return
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error || 'Η διαγραφή απέτυχε. Δοκίμασε ξανά.')
+        return
+      }
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push('/welcome')
+    } catch {
+      alert('Η διαγραφή απέτυχε. Δοκίμασε ξανά.')
+    }
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">
       <div className="w-full max-w-md pb-28">
@@ -477,6 +495,15 @@ export default function ProfilePage() {
               <p className="flex-1 text-[15px] font-medium text-left">Έξοδος</p>
             </button>
           </div>
+
+          {/* Διαγραφή λογαριασμού (απαίτηση App Store) */}
+          <button
+            onClick={() => { lightTap(); handleDeleteAccount() }}
+            className="w-full flex items-center justify-center gap-2 px-[18px] py-3.5 text-gray-400"
+          >
+            <Trash2 size={15} strokeWidth={1.6} />
+            <span className="text-[13px] font-medium">Διαγραφή λογαριασμού</span>
+          </button>
         </div>
 
         {/* Bottom Nav */}
