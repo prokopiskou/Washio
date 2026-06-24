@@ -7,15 +7,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-webpush.setVapidDetails(
-  process.env.VAPID_EMAIL!,
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+let vapidReady = false
+function ensureVapid(): boolean {
+  if (vapidReady) return true
+  const email = process.env.VAPID_EMAIL
+  const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const priv = process.env.VAPID_PRIVATE_KEY
+  if (!email || !pub || !priv) return false
+  webpush.setVapidDetails(email, pub, priv)
+  vapidReady = true
+  return true
+}
 
 export async function POST(req: NextRequest) {
   try {
+    // Internal-only: επιτρέπεται μόνο με το internal secret (server-to-server).
+    if (req.headers.get('x-internal-secret') !== process.env.INTERNAL_API_SECRET) {
+      return NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 })
+    }
+    if (!ensureVapid()) {
+      return NextResponse.json({ error: 'Push not configured' }, { status: 503 })
+    }
+
     const { userId, title, body, url } = await req.json()
+    if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+
     const { data: subscriptions } = await supabase
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth')

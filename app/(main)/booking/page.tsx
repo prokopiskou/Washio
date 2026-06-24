@@ -288,20 +288,25 @@ function BookingPageContent() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        amount: total,
+        // Η τιμή υπολογίζεται server-side· στέλνουμε μόνο τα στοιχεία επιλογής.
         serviceId: service.id,
         locationId,
         slotId: null,
         slotDate: dateStr,
         slotStartTime: slotTime,
         carPlate: plate,
-        userId: session?.user?.id || '',
-        userEmail: session?.user?.email || '',
         serviceName: service.name,
+        vehicleType,
+        addonIds: selectedAddons,
       }),
     })
-    const { clientSecret: secret } = await res.json()
-    setClientSecret(secret)
+    const data = await res.json()
+    if (!res.ok || !data.clientSecret) {
+      errorHaptic()
+      alert(data.error || 'Δεν ήταν δυνατή η έναρξη πληρωμής. Δοκίμασε ξανά.')
+      return
+    }
+    setClientSecret(data.clientSecret)
     setShowPayment(true)
   }
 

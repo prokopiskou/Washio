@@ -1,0 +1,22 @@
+name: Booking reminders & follow-ups
+
+# Χτυπά το /api/cron/emails κάθε 15' ώστε να φεύγουν υπενθυμίσεις (1h πριν) & follow-ups (1h μετά).
+# Λόγος: το Vercel Hobby plan ΔΕΝ επιτρέπει sub-daily cron — οπότε το scheduling γίνεται εδώ, δωρεάν.
+# Αν αναβαθμίσεις σε Vercel Pro, μπορείς να το μεταφέρεις σε vercel.json crons και να σβήσεις αυτό.
+#
+# ΑΠΑΙΤΕΙΤΑΙ: Repo secret CRON_SECRET (ίδια τιμή με το CRON_SECRET στο Vercel).
+#   GitHub → Settings → Secrets and variables → Actions → New repository secret.
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call cron endpoint
+        run: |
+          curl -fsS -X GET "https://www.washio.gr/api/cron/emails" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

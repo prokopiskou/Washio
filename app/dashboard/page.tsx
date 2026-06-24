@@ -224,9 +224,7 @@ export default function DashboardPage() {
         .eq('owner_id', user.id)
         .maybeSingle()
 
-      console.log('User ID:', user.id)
-      console.log('Location data:', ownerLocation)
-      console.log('Location error:', locationError)
+      if (locationError) console.error('Dashboard location load error')
 
       setLocation(ownerLocation)
 

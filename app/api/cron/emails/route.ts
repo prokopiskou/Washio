@@ -8,6 +8,28 @@ const supabase = createClient(
 
 const BASE_URL = 'https://washio.gr'
 
+// Ώρα/ημερομηνία σε ζώνη Ελλάδας (Europe/Athens) — όχι UTC του server.
+function athensParts(d: Date): { date: string; time: string } {
+  const f = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Athens',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  })
+  const p = Object.fromEntries(f.formatToParts(d).map(x => [x.type, x.value]))
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` }
+}
+
+async function sendEmail(payload: Record<string, unknown>) {
+  await fetch(`${BASE_URL}/api/email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-internal-secret': process.env.INTERNAL_API_SECRET || '',
+    },
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -15,80 +37,69 @@ export async function GET(req: Request) {
   }
 
   const now = new Date()
-  const todayDate = now.toISOString().split('T')[0]
 
-  const reminderFrom = new Date(now.getTime() + 50 * 60 * 1000)
-  const reminderTo = new Date(now.getTime() + 70 * 60 * 1000)
-  const reminderFromTime = reminderFrom.toTimeString().slice(0, 5)
-  const reminderToTime = reminderTo.toTimeString().slice(0, 5)
+  // Reminder: κράτηση ~1 ώρα μπροστά (παράθυρο 50–70').
+  const remFrom = athensParts(new Date(now.getTime() + 50 * 60 * 1000))
+  const remTo = athensParts(new Date(now.getTime() + 70 * 60 * 1000))
 
   const { data: reminders } = await supabase
     .from('bookings')
     .select('id, booking_ref, car_plate, slot_start_time, slot_date, total_amount, reminder_sent, locations(name, address, city), services(name), profiles(email, full_name)')
     .eq('status', 'confirmed')
     .eq('reminder_sent', false)
-    .eq('slot_date', todayDate)
-    .gte('slot_start_time', reminderFromTime)
-    .lte('slot_start_time', reminderToTime)
+    .eq('slot_date', remFrom.date)
+    .gte('slot_start_time', remFrom.time)
+    .lte('slot_start_time', remTo.time)
 
   for (const booking of reminders || []) {
-    const location = booking.locations as any
-    const service = booking.services as any
-    const profile = booking.profiles as any
+    const location = booking.locations as { name?: string; address?: string; city?: string } | null
+    const service = booking.services as { name?: string } | null
+    const profile = booking.profiles as { email?: string; full_name?: string } | null
     if (!profile?.email) continue
 
-    await fetch(`${BASE_URL}/api/email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'reminder',
-        to: profile.email,
-        bookingRef: booking.booking_ref,
-        locationName: location?.name || '',
-        locationAddress: `${location?.address || ''}, ${location?.city || ''}`,
-        service: service?.name || '',
-        date: booking.slot_date,
-        time: booking.slot_start_time?.slice(0, 5),
-        plate: booking.car_plate || '',
-      })
+    await sendEmail({
+      type: 'reminder',
+      to: profile.email,
+      bookingRef: booking.booking_ref,
+      locationName: location?.name || '',
+      locationAddress: `${location?.address || ''}, ${location?.city || ''}`,
+      service: service?.name || '',
+      date: booking.slot_date,
+      time: booking.slot_start_time?.slice(0, 5),
+      plate: booking.car_plate || '',
     })
 
     await supabase.from('bookings').update({ reminder_sent: true }).eq('id', booking.id)
   }
 
-  const followupFrom = new Date(now.getTime() - 70 * 60 * 1000)
-  const followupTo = new Date(now.getTime() - 50 * 60 * 1000)
-  const followupFromTime = followupFrom.toTimeString().slice(0, 5)
-  const followupToTime = followupTo.toTimeString().slice(0, 5)
+  // Follow-up: ~1 ώρα μετά (παράθυρο -70'..-50').
+  const folFrom = athensParts(new Date(now.getTime() - 70 * 60 * 1000))
+  const folTo = athensParts(new Date(now.getTime() - 50 * 60 * 1000))
 
   const { data: followups } = await supabase
     .from('bookings')
     .select('id, booking_ref, slot_start_time, slot_date, followup_sent, locations(name), services(name), profiles(email, full_name)')
     .eq('status', 'confirmed')
     .eq('followup_sent', false)
-    .eq('slot_date', todayDate)
-    .gte('slot_start_time', followupFromTime)
-    .lte('slot_start_time', followupToTime)
+    .eq('slot_date', folFrom.date)
+    .gte('slot_start_time', folFrom.time)
+    .lte('slot_start_time', folTo.time)
 
   for (const booking of followups || []) {
-    const location = booking.locations as any
-    const service = booking.services as any
-    const profile = booking.profiles as any
+    const location = booking.locations as { name?: string } | null
+    const service = booking.services as { name?: string } | null
+    const profile = booking.profiles as { email?: string; full_name?: string } | null
     if (!profile?.email) continue
 
     const firstName = profile.full_name?.split(' ')[0] || ''
 
-    await fetch(`${BASE_URL}/api/email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'followup',
-        to: profile.email,
-        bookingRef: booking.booking_ref,
-        locationName: location?.name || '',
-        service: service?.name || '',
-        firstName,
-      })
+    await sendEmail({
+      type: 'followup',
+      to: profile.email,
+      bookingRef: booking.booking_ref,
+      locationName: location?.name || '',
+      service: service?.name || '',
+      firstName,
     })
 
     await supabase.from('bookings').update({ followup_sent: true }).eq('id', booking.id)

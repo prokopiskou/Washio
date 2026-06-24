@@ -1,9 +1,13 @@
 import { Resend } from 'resend'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { isAdminEmail } from '@/lib/admins'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 const BASE_URL = 'https://washio.gr'
+// Inbox όπου καταλήγουν τα μηνύματα της φόρμας επικοινωνίας.
+const CONTACT_INBOX = 'withinsuccess@gmail.com'
 
 function confirmationEmail(data: {
   bookingRef: string
@@ -289,6 +293,27 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { type = 'confirmation' } = body
 
+    // Authorization ανά τύπο:
+    //  - 'contact' (δημόσια φόρμα): επιτρέπεται, αλλά ο παραλήπτης ΚΛΕΙΔΩΝΕΤΑΙ server-side.
+    //  - όλοι οι άλλοι (transactional): απαιτείται admin session Ή internal secret (cron).
+    const isInternal = req.headers.get('x-internal-secret') === process.env.INTERNAL_API_SECRET
+    let isAdmin = false
+    if (!isInternal) {
+      const supabase = await createServerClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      isAdmin = isAdminEmail(user?.email)
+    }
+
+    if (type !== 'contact' && !isInternal && !isAdmin) {
+      return NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 })
+    }
+
+    // Ο παραλήπτης: για contact πάντα το εσωτερικό inbox (αποτρέπει open-relay/spam).
+    const recipient = type === 'contact' ? CONTACT_INBOX : body.to
+    if (!recipient) {
+      return NextResponse.json({ error: 'Λείπει παραλήπτης' }, { status: 400 })
+    }
+
     let subject = ''
     let html = ''
 
@@ -332,7 +357,7 @@ export async function POST(req: NextRequest) {
 
     await resend.emails.send({
       from: 'Washio <noreply@washio.gr>',
-      to: body.to,
+      to: recipient,
       subject,
       html,
     })
