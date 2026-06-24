@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { isAdminEmail } from '@/lib/admins'
 import { Resend } from 'resend'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
@@ -60,11 +62,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing bookingId' }, { status: 400 })
     }
 
+    // Authorization: πρέπει να είναι συνδεδεμένος, ΚΑΙ admin Ή ιδιοκτήτης της κράτησης.
+    const authClient = await createServerClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Απαιτείται σύνδεση' }, { status: 401 })
+    }
+    const admin = isAdminEmail(user.email)
+
     const { data: booking, error: fetchError } = await supabase
       .from('bookings')
       .select(`
         id, booking_ref, slot_date, slot_start_time, total_amount,
         stripe_payment_intent_id, user_id, location_id, service_id,
+        status, refund_amount, stripe_payment_status,
         locations(name),
         services(name)
       `)
@@ -76,9 +87,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
-    const finalRefundAmount = refundAmount
-      ? Number(refundAmount)
-      : Number(booking.total_amount)
+    if (!admin && booking.user_id !== user.id) {
+      return NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 })
+    }
+
+    // Το ποσό επιστροφής: μόνο admin μπορεί να ορίσει custom/partial.
+    // Ο πελάτης παίρνει πάντα πλήρη επιστροφή του ποσού της κράτησης — δεν το ελέγχει αυτός.
+    const totalAmount = Number(booking.total_amount)
+    let finalRefundAmount = totalAmount
+    if (admin && refundAmount != null) {
+      finalRefundAmount = Number(refundAmount)
+    }
+    if (!(finalRefundAmount >= 0) || finalRefundAmount > totalAmount) {
+      return NextResponse.json({ error: 'Μη έγκυρο ποσό επιστροφής' }, { status: 400 })
+    }
+
+    const alreadyRefunded =
+      booking.status === 'cancelled' ||
+      Number(booking.refund_amount || 0) > 0 ||
+      booking.stripe_payment_status === 'refunded' ||
+      booking.stripe_payment_status === 'partially_refunded'
+
+    if (alreadyRefunded) {
+      return NextResponse.json({ error: 'Booking already refunded' }, { status: 409 })
+    }
 
     // Stripe refund
     if (booking.stripe_payment_intent_id) {
@@ -89,13 +121,23 @@ export async function POST(req: NextRequest) {
           reason: 'requested_by_customer',
         })
         console.log(`Stripe refund: €${finalRefundAmount} for ${booking.booking_ref}`)
-      } catch (stripeErr: any) {
-        console.error('Stripe refund error:', stripeErr.message)
-        return NextResponse.json({ error: 'Refund failed: ' + stripeErr.message }, { status: 500 })
+      } catch (stripeErr: unknown) {
+        const isAlreadyRefundedStripe =
+          stripeErr instanceof Stripe.errors.StripeError &&
+          stripeErr.code === 'charge_already_refunded'
+        if (isAlreadyRefundedStripe) {
+          return NextResponse.json({ error: 'Booking already refunded' }, { status: 409 })
+        }
+        const msg = stripeErr instanceof Error ? stripeErr.message : 'unknown'
+        console.error('Stripe refund error:', msg)
+        return NextResponse.json({ error: 'Refund failed: ' + msg }, { status: 500 })
       }
     }
 
     // Update booking
+    const stripePaymentStatus =
+      finalRefundAmount >= totalAmount ? 'refunded' : 'partially_refunded'
+
     await supabase
       .from('bookings')
       .update({
@@ -104,6 +146,7 @@ export async function POST(req: NextRequest) {
         cancellation_details: details || (isPartial ? `Μερική επιστροφή €${finalRefundAmount}` : 'Πλήρης επιστροφή'),
         cancelled_at: new Date().toISOString(),
         refund_amount: finalRefundAmount,
+        stripe_payment_status: stripePaymentStatus,
       })
       .eq('id', bookingId)
 
@@ -135,22 +178,23 @@ export async function POST(req: NextRequest) {
           subject: `Ακύρωση κράτησης — ${booking.booking_ref}`,
           html: cancellationEmailHtml({
             bookingRef: booking.booking_ref,
-            locationName: (booking.locations as any)?.name || 'Washio',
-            service: (booking.services as any)?.name || 'Υπηρεσία',
+            locationName: (booking.locations as { name?: string } | null)?.name || 'Washio',
+            service: (booking.services as { name?: string } | null)?.name || 'Υπηρεσία',
             date: formattedDate,
             time: booking.slot_start_time?.slice(0, 5) || '',
             refundAmount: finalRefundAmount.toFixed(2),
             isPartial: !!isPartial,
           }),
         })
-      } catch (emailErr: any) {
-        console.error('Email send error:', emailErr.message)
+      } catch (emailErr: unknown) {
+        console.error('Email send error:', emailErr instanceof Error ? emailErr.message : 'unknown')
       }
     }
 
     return NextResponse.json({ success: true, refunded: finalRefundAmount })
-  } catch (error: any) {
-    console.error('Cancel booking error:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Σφάλμα'
+    console.error('Cancel booking error:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

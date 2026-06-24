@@ -67,9 +67,10 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event
   try {
     event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!)
-  } catch (err: any) {
-    console.error('Stripe signature error:', err.message)
-    return NextResponse.json({ error: err.message }, { status: 400 })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'invalid signature'
+    console.error('Stripe signature error:', msg)
+    return NextResponse.json({ error: msg }, { status: 400 })
   }
 
   if (event.type === 'payment_intent.succeeded') {
@@ -155,12 +156,37 @@ export async function POST(req: NextRequest) {
         }),
       })
       console.log('Confirmation email sent to:', userEmail)
-    } catch (emailErr: any) {
-      console.error('Email send error:', emailErr.message)
+    } catch (emailErr: unknown) {
+      console.error('Email send error:', emailErr instanceof Error ? emailErr.message : 'unknown')
+    }
+  }
+
+  if (event.type === 'charge.refunded') {
+    const charge = event.data.object as Stripe.Charge
+    const paymentIntentId =
+      typeof charge.payment_intent === 'string'
+        ? charge.payment_intent
+        : charge.payment_intent?.id
+
+    if (paymentIntentId) {
+      const refundAmount = charge.amount_refunded / 100
+      const isFullRefund = charge.amount_refunded >= charge.amount
+      const stripePaymentStatus = isFullRefund ? 'refunded' : 'partially_refunded'
+
+      const { error: refundUpdateError } = await supabase
+        .from('bookings')
+        .update({
+          stripe_payment_status: stripePaymentStatus,
+          refund_amount: refundAmount,
+        })
+        .eq('stripe_payment_intent_id', paymentIntentId)
+
+      if (refundUpdateError) {
+        console.error('Booking refund status update error:', refundUpdateError)
+        return NextResponse.json({ error: refundUpdateError.message }, { status: 500 })
+      }
     }
   }
 
   return NextResponse.json({ received: true })
 }
-
-export const config = { api: { bodyParser: false } }
