@@ -29,7 +29,7 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <img src="/washio_logo.png" alt="Washio" className="h-8 w-auto" />
+          <img src="/Washio%20-%208.png" alt="Washio" className="h-8 w-auto" />
           <div className="hidden md:flex items-center gap-8">
             <a href="#about" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Για εμάς</a>
             <a href="#how" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Πώς λειτουργεί</a>
@@ -136,7 +136,7 @@ export default function LandingPage() {
             {[
               { step: '01', title: 'Βρες σημείο', desc: 'Δες τα κοντινά πλυντήρια με διαθέσιμες θέσεις σε πραγματικό χρόνο.' },
               { step: '02', title: 'Κλείσε θέση', desc: 'Επίλεξε υπηρεσία, ώρα και πλήρωσε με ασφάλεια μέσα από την εφαρμογή.' },
-              { step: '03', title: 'Πλύνε', desc: 'Γρήγορα και έξυπναΧωρίς αναμονή, χωρίς ουρές.' },
+              { step: '03', title: 'Πλύνε', desc: 'Γρήγορα και έξυπνα. Χωρίς αναμονή, χωρίς ουρές.' },
             ].map(item => (
               <div key={item.step} className="bg-white rounded-2xl p-6">
                 <p className="text-xs font-mono text-gray-300 mb-3">{item.step}</p>
@@ -183,21 +183,12 @@ export default function LandingPage() {
               </p>
             </div>
 
-            {/* Phone mockup (CSS, χωρίς εξωτερική εικόνα) */}
+            {/* Phone mockup με πραγματικό screenshot της εφαρμογής */}
             <div className="flex justify-center">
-              <div className="relative w-[230px] h-[470px] rounded-[42px] bg-gray-900 p-2.5 shadow-2xl">
-                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-20 h-1.5 bg-gray-700 rounded-full z-10" />
-                <div className="w-full h-full rounded-[34px] bg-white overflow-hidden flex flex-col items-center pt-12 px-5">
-                  <p className="text-lg font-semibold tracking-tight text-gray-900">washio</p>
-                  <p className="text-[11px] text-gray-400 mt-1 mb-8">Πλύσιμο με ένα tap</p>
-                  <div className="w-full bg-gray-50 rounded-2xl p-4 mb-3 border border-gray-100">
-                    <p className="text-[11px] text-gray-400">Κοντινό σημείο</p>
-                    <p className="text-sm font-semibold text-gray-900 mt-1">Πρατήριο Γλυφάδας</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">11:30 · €12</p>
-                  </div>
-                  <div className="w-full h-11 bg-gray-900 rounded-xl flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">Βρες πλυντήριο</span>
-                  </div>
+              <div className="relative w-[240px] rounded-[44px] bg-gray-900 p-2 shadow-2xl">
+                <div className="rounded-[36px] overflow-hidden bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/app-home.png" alt="Η εφαρμογή Washio" className="block w-full h-auto" />
                 </div>
               </div>
             </div>
@@ -274,7 +265,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="py-10 px-6 border-t border-gray-100">
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <img src="/washio_logo.png" alt="Washio" className="h-7 w-auto" />
+          <img src="/Washio%20-%208.png" alt="Washio" className="h-7 w-auto" />
           <div className="flex gap-6">
             <a href="#about" className="text-xs text-gray-400 hover:text-gray-600">Για εμάς</a>
             <a href="#how" className="text-xs text-gray-400 hover:text-gray-600">Πώς λειτουργεί</a>
