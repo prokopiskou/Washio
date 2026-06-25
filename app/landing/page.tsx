@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Car } from 'lucide-react'
 
 export default function LandingPage() {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -81,7 +82,7 @@ export default function LandingPage() {
       </section>
 
       {/* Stats */}
-      <section className="py-16 px-6 bg-gray-50">
+      <section className="py-10 md:py-16 px-6 bg-gray-50">
         <div className="max-w-4xl mx-auto grid grid-cols-3 gap-8 text-center">
           {[
             { value: '60″', label: 'για κράτηση' },
@@ -99,7 +100,7 @@ export default function LandingPage() {
       {/* About */}
       <section id="about" className="py-14 md:py-24 px-6">
         <div className="max-w-4xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
+          <div className="grid md:grid-cols-2 gap-8 md:gap-16 items-center">
             <div>
               <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Για εμάς</p>
               <h2 className="text-3xl font-semibold tracking-tight text-gray-900 mb-6 leading-tight">
@@ -113,9 +114,11 @@ export default function LandingPage() {
               </p>
             </div>
             <div className="bg-gray-50 rounded-3xl p-8 text-center">
-              <div className="text-6xl mb-4">⛽</div>
+              <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gray-900 flex items-center justify-center">
+                <Car size={30} className="text-white" strokeWidth={1.5} />
+              </div>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Συνεργαζόμαστε με επιλεγμένα πρατήρια και πλυντήρια σε όλη την Αθήνα για να σου προσφέρουμε την καλύτερη εμπειρία.
+                Συνεργαζόμαστε με επιλεγμένα πλυντήρια αυτοκινήτων σε όλη την Αθήνα για να σου προσφέρουμε την καλύτερη εμπειρία.
               </p>
             </div>
           </div>
@@ -125,7 +128,7 @@ export default function LandingPage() {
       {/* How it works */}
       <section id="how" className="py-14 md:py-24 px-6 bg-gray-50">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 md:mb-16">
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Πώς λειτουργεί</p>
             <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Τρία βήματα. Τίποτα άλλο.</h2>
           </div>
@@ -148,7 +151,7 @@ export default function LandingPage() {
       {/* App download */}
       <section id="app" className="py-14 md:py-24 px-6">
         <div className="max-w-4xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-16 items-center">
+          <div className="grid md:grid-cols-2 gap-8 md:gap-16 items-center">
             <div>
               <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Η εφαρμογή</p>
               <h2 className="text-3xl font-semibold tracking-tight text-gray-900 mb-6 leading-tight">
@@ -223,7 +226,7 @@ export default function LandingPage() {
       {/* Contact */}
       <section id="contact" className="py-14 md:py-24 px-6 bg-gray-50">
         <div className="max-w-xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8 md:mb-12">
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Επικοινωνία</p>
             <h2 className="text-3xl font-semibold tracking-tight text-gray-900">Στείλε μας μήνυμα.</h2>
           </div>
