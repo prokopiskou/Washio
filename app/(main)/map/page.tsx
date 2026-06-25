@@ -497,7 +497,7 @@ function MapPageContent() {
       <div className="w-full max-w-md md:max-w-none relative overflow-hidden" style={{ height: '100dvh' }}>
 
         {/* Top controls — search + time chips */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-14 flex flex-col gap-2.5">
+        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-14 flex flex-col gap-2.5 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg md:pt-6">
 
           {/* Search row */}
           <div ref={searchContainerRef} className="relative flex gap-2.5">
@@ -578,7 +578,7 @@ function MapPageContent() {
         )}
 
         {/* Bottom Sheet */}
-        <div className="absolute left-0 right-0 z-15" style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
+        <div className="absolute left-0 right-0 z-15 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg" style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
 
           {/* Collapsed peek — list of locations */}
           {!selectedLocation && filteredLocations.length > 0 && (
