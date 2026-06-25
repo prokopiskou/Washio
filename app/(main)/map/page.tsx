@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Home as HomeIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
+import { athensToday, athensMinutesOfDay } from '@/lib/time'
 
 declare global {
   interface Window { google: any; initMap: () => void }
@@ -77,7 +78,7 @@ function formatDistance(km: number): string {
 }
 
 function getTodayValue() {
-  return new Date().toISOString().split('T')[0]
+  return athensToday()
 }
 
 function getTimeSlots() {
@@ -90,10 +91,9 @@ function getTimeSlots() {
 }
 
 function getMinutesUntilSlot(slotTime: string): number {
-  const now = new Date()
   const [h, m] = slotTime.split(':').map(Number)
   const slotMinutes = h * 60 + m
-  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const nowMinutes = athensMinutesOfDay()
   return slotMinutes - nowMinutes
 }
 
@@ -169,8 +169,7 @@ function MapPageContent() {
 
   const loadLocations = useCallback(async (lat?: number, lng?: number) => {
     const supabase = createClient()
-    const now = new Date()
-    const dayOfWeek = jsDayToSupabase(now.getDay())
+    const dayOfWeek = jsDayToSupabase(new Date(`${getTodayValue()}T12:00:00`).getDay())
     const checkDate = timing === 'later' ? selectedDate : getTodayValue()
     const checkTime = timing === 'later' ? selectedTime : null
 
@@ -202,7 +201,7 @@ function MapPageContent() {
           hasAvailability = allSlots.includes(checkTime) && !booked.has(checkTime)
           nextSlot = checkTime
         } else {
-          const nowMinutes = now.getHours() * 60 + now.getMinutes()
+          const nowMinutes = athensMinutesOfDay()
           const maxMinutes = nowMinutes + 60
 
           nextSlot = allSlots.find(t => {
@@ -313,13 +312,12 @@ function MapPageContent() {
         .eq('location_id', selectedLocation.id).eq('slot_date', checkDate).not('status', 'in', '("cancelled")')
 
       const bookedTimes = new Set((bookedData || []).map((b: any) => b.slot_start_time?.slice(0, 5)))
-      const now = new Date()
       const isToday = checkDate === getTodayValue()
 
       const computedSlots = allTimes.map(time => {
         const [h, m] = time.split(':').map(Number)
         const slotMinutes = h * 60 + m
-        const nowMinutes = now.getHours() * 60 + now.getMinutes()
+        const nowMinutes = athensMinutesOfDay()
         const isPast = isToday && slotMinutes < nowMinutes + BUFFER_MINUTES
         return { time, available: !bookedTimes.has(time) && !isPast }
       })

@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
+import { athensToday, athensMinutesOfDay } from '@/lib/time'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 
 type Location = {
@@ -53,8 +54,7 @@ function generateSlots(openTime: string, closeTime: string): string[] {
 }
 
 function getDatesForMonth(year: number, month: number) {
-  const now = new Date()
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const todayStr = athensToday()
   const dates = []
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   for (let d = 1; d <= daysInMonth; d++) {
@@ -190,13 +190,12 @@ export default function LocationPage() {
 
     const bookedTimes = new Set((bookedData || []).map((b: any) => b.slot_start_time?.slice(0, 5)))
 
-    const now = new Date()
-    const todayLocalStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const isToday = dateStr === todayLocalStr
+    const isToday = dateStr === athensToday()
+    const nowMinutes = athensMinutesOfDay()
 
     setSlots(allTimes.map(time => {
       const [h, m] = time.split(':').map(Number)
-      const isPast = isToday && (h < now.getHours() || (h === now.getHours() && m <= now.getMinutes()))
+      const isPast = isToday && (h * 60 + m) <= nowMinutes
       return {
         id: time,
         time,
