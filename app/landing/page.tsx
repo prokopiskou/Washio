@@ -28,9 +28,9 @@ export default function LandingPage() {
 
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <img src="/Washio%20-%208.png" alt="Washio" className="h-14 md:h-11 w-auto" />
-          <div className="hidden md:flex items-center gap-8">
+        <div className="relative max-w-5xl mx-auto px-6 py-3 md:py-4 min-h-[80px] md:min-h-0 flex items-center justify-between">
+          <img src="/Washio%20-%208.png" alt="Washio" className="h-16 md:h-11 w-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:static md:translate-x-0 md:translate-y-0" />
+          <div className="hidden md:flex items-center gap-8 ml-auto">
             <a href="#about" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Για εμάς</a>
             <a href="#how" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Πώς λειτουργεί</a>
             <a href="#partners" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Πρατήρια</a>
@@ -39,7 +39,7 @@ export default function LandingPage() {
               Κάνε κράτηση
             </Link>
           </div>
-          <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden text-gray-900">
+          <button onClick={() => setMenuOpen(!menuOpen)} className="md:hidden ml-auto relative z-10 text-gray-900">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               {menuOpen ? <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></> : <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>}
             </svg>
