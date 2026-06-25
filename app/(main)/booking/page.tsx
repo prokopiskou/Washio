@@ -335,7 +335,7 @@ function BookingPageContent() {
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">
-      <div className="w-full max-w-md pb-32 bg-gray-50">
+      <div className="w-full max-w-md md:max-w-4xl pb-32 bg-gray-50">
 
         {/* Header */}
         <div className="px-5 pt-14 pb-4 flex items-center gap-3.5 bg-gray-50">
@@ -348,8 +348,10 @@ function BookingPageContent() {
           <h1 className="text-[18px] font-semibold tracking-tight text-gray-900">Επιβεβαίωση</h1>
         </div>
 
-        <div className="px-5 pb-5 flex flex-col gap-5">
+        <div className="px-5 pb-5 md:flex md:gap-6 md:items-start">
 
+          {/* LEFT (desktop): σύνοψη κράτησης */}
+          <div className="mb-5 md:mb-0 md:w-[340px] md:shrink-0 md:sticky md:top-6">
           {/* Summary card */}
           <div
             className="bg-white rounded-2xl p-4 border border-gray-100"
@@ -384,6 +386,10 @@ function BookingPageContent() {
               </div>
             </div>
           </div>
+          </div>
+
+          {/* RIGHT (desktop): φόρμα κράτησης */}
+          <div className="flex flex-col gap-5 md:flex-1">
 
           {/* No matching vehicle warning */}
           {vehicles.length === 0 && selectedVehicleId === 'new' && (
@@ -534,6 +540,7 @@ function BookingPageContent() {
           <p className="text-[11px] text-gray-400 text-center">
             Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.
           </p>
+          </div>
         </div>
 
         {/* Payment */}
