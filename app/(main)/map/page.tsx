@@ -579,7 +579,7 @@ function MapPageContent() {
         )}
 
         {/* Bottom Sheet */}
-        <div className="absolute left-0 right-0 z-15 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg" style={{ bottom: 'calc(56px + env(safe-area-inset-bottom))' }}>
+        <div className="absolute left-0 right-0 z-15 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg" style={{ bottom: 'calc(84px + env(safe-area-inset-bottom))' }}>
 
           {/* Collapsed peek — list of locations */}
           {!selectedLocation && filteredLocations.length > 0 && (
