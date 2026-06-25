@@ -494,7 +494,7 @@ function MapPageContent() {
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md relative overflow-hidden" style={{ height: '100dvh' }}>
+      <div className="w-full max-w-md md:max-w-none relative overflow-hidden" style={{ height: '100dvh' }}>
 
         {/* Top controls — search + time chips */}
         <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-14 flex flex-col gap-2.5">

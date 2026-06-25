@@ -225,7 +225,7 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">
-      <div className="w-full max-w-md pb-28">
+      <div className="w-full max-w-md md:max-w-2xl pb-28">
         <div className="px-5 pt-4 flex flex-col gap-3.5">
 
           {/* Logo */}
