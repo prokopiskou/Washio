@@ -145,6 +145,63 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* App download */}
+      <section id="app" className="py-24 px-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="grid md:grid-cols-2 gap-16 items-center">
+            <div>
+              <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Η εφαρμογή</p>
+              <h2 className="text-3xl font-semibold tracking-tight text-gray-900 mb-6 leading-tight">
+                Το Washio στην τσέπη σου.
+              </h2>
+              <p className="text-gray-500 leading-relaxed mb-8">
+                Κλείσε ραντεβού, δες τις κρατήσεις σου και λάβε υπενθυμίσεις — όλα από μία εφαρμογή. Σύντομα διαθέσιμη για iPhone και Android.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                {/* App Store — Σύντομα (μη-clickable μέχρι το launch) */}
+                <div className="flex items-center gap-3 border border-gray-200 rounded-2xl px-5 py-3 opacity-60 cursor-default select-none">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#0A0A0A"><path d="M17.05 12.04c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.1-2.02-3.77-2.04-1.6-.16-3.13.94-3.94.94-.81 0-2.07-.92-3.41-.89-1.75.03-3.37 1.02-4.27 2.59-1.82 3.16-.47 7.84 1.31 10.41.87 1.26 1.9 2.67 3.25 2.62 1.3-.05 1.8-.84 3.37-.84 1.57 0 2.02.84 3.4.81 1.4-.02 2.29-1.28 3.15-2.55 1-1.46 1.41-2.88 1.43-2.95-.03-.01-2.74-1.05-2.77-4.17zM14.6 4.42c.72-.87 1.2-2.08 1.07-3.29-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.58 3.03-1.45z"/></svg>
+                  <div className="text-left leading-tight">
+                    <p className="text-[10px] text-gray-400">Σύντομα στο</p>
+                    <p className="text-sm font-semibold text-gray-900">App Store</p>
+                  </div>
+                </div>
+                {/* Google Play — Σύντομα */}
+                <div className="flex items-center gap-3 border border-gray-200 rounded-2xl px-5 py-3 opacity-60 cursor-default select-none">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#0A0A0A"><path d="M3 2.5l11 9.5-11 9.5z"/></svg>
+                  <div className="text-left leading-tight">
+                    <p className="text-[10px] text-gray-400">Σύντομα στο</p>
+                    <p className="text-sm font-semibold text-gray-900">Google Play</p>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 mt-6">
+                Μέχρι τότε, κλείσε κράτηση κατευθείαν από τον <Link href="/map" className="text-gray-900 underline">browser</Link>.
+              </p>
+            </div>
+
+            {/* Phone mockup (CSS, χωρίς εξωτερική εικόνα) */}
+            <div className="flex justify-center">
+              <div className="relative w-[230px] h-[470px] rounded-[42px] bg-gray-900 p-2.5 shadow-2xl">
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 w-20 h-1.5 bg-gray-700 rounded-full z-10" />
+                <div className="w-full h-full rounded-[34px] bg-white overflow-hidden flex flex-col items-center pt-12 px-5">
+                  <p className="text-lg font-semibold tracking-tight text-gray-900">washio</p>
+                  <p className="text-[11px] text-gray-400 mt-1 mb-8">Πλύσιμο με ένα tap</p>
+                  <div className="w-full bg-gray-50 rounded-2xl p-4 mb-3 border border-gray-100">
+                    <p className="text-[11px] text-gray-400">Κοντινό σημείο</p>
+                    <p className="text-sm font-semibold text-gray-900 mt-1">Πρατήριο Γλυφάδας</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">11:30 · €12</p>
+                  </div>
+                  <div className="w-full h-11 bg-gray-900 rounded-xl flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">Βρες πλυντήριο</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Partners CTA */}
       <section id="partners" className="py-24 px-6">
         <div className="max-w-4xl mx-auto">
