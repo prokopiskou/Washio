@@ -275,7 +275,7 @@ export default function LocationPage() {
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md pb-32 relative">
+      <div className="w-full max-w-md md:max-w-4xl pb-32 relative">
 
         {/* Hero photo strip with floating nav buttons */}
         <div
@@ -317,7 +317,10 @@ export default function LocationPage() {
         </div>
 
         {/* Content */}
-        <div className="px-5 pt-5">
+        <div className="px-5 pt-5 md:flex md:gap-8 md:items-start">
+
+          {/* LEFT (desktop): τι (όχημα + υπηρεσίες) */}
+          <div className="md:flex-1 md:min-w-0">
 
           {/* Heading */}
           <div className="flex justify-between items-start gap-3">
@@ -401,6 +404,10 @@ export default function LocationPage() {
               )
             })}
           </div>
+          </div>
+
+          {/* RIGHT (desktop): πότε (ημερομηνία + ώρες) */}
+          <div className="md:flex-1 md:min-w-0">
 
           {/* Date picker */}
           <div className="flex items-center justify-between mt-7 mb-2.5">
@@ -493,6 +500,7 @@ export default function LocationPage() {
               })}
             </div>
           )}
+          </div>
         </div>
 
         {/* Sticky CTA with gradient fade */}
