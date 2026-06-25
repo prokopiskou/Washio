@@ -4,7 +4,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Capacitor } from '@capacitor/core'
 import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon } from 'lucide-react'
+import LandingPage from './landing/page'
 
 type Location = {
   id: string
@@ -31,6 +33,7 @@ const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιου�
 export default function HomePage() {
   const router = useRouter()
   const [authChecking, setAuthChecking] = useState(true)
+  const [showLanding, setShowLanding] = useState(false)
   const [upcomingBooking, setUpcomingBooking] = useState<Booking | null>(null)
   const [recentLocations, setRecentLocations] = useState<Location[]>([])
   const [favorites, setFavorites] = useState<Favorite[]>([])
@@ -43,7 +46,13 @@ export default function HomePage() {
       const { data: sessionData } = await supabase.auth.getSession()
 
       if (!sessionData.session) {
-        router.replace('/welcome')
+        // Native app: μπες στη ροή της εφαρμογής. Browser επισκέπτης: δείξε το landing.
+        if (Capacitor.isNativePlatform()) {
+          router.replace('/welcome')
+        } else {
+          setShowLanding(true)
+          setAuthChecking(false)
+        }
         return
       }
 
@@ -102,6 +111,10 @@ export default function HomePage() {
     }
     init()
   }, [router])
+
+  if (showLanding) {
+    return <LandingPage />
+  }
 
   if (authChecking) {
     return (

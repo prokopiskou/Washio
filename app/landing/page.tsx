@@ -34,7 +34,7 @@ export default function LandingPage() {
             <a href="#how" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Πώς λειτουργεί</a>
             <a href="#partners" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Πρατήρια</a>
             <a href="#contact" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">Επικοινωνία</a>
-            <Link href="/" className="bg-gray-900 text-white text-sm px-4 py-2 rounded-xl">
+            <Link href="/map" className="bg-gray-900 text-white text-sm px-4 py-2 rounded-xl">
               Κάνε κράτηση
             </Link>
           </div>
@@ -50,7 +50,7 @@ export default function LandingPage() {
             <a href="#how" onClick={() => setMenuOpen(false)} className="text-sm text-gray-600">Πώς λειτουργεί</a>
             <a href="#partners" onClick={() => setMenuOpen(false)} className="text-sm text-gray-600">Πρατήρια</a>
             <a href="#contact" onClick={() => setMenuOpen(false)} className="text-sm text-gray-600">Επικοινωνία</a>
-            <Link href="/" className="bg-gray-900 text-white text-sm px-4 py-2 rounded-xl text-center">
+            <Link href="/map" className="bg-gray-900 text-white text-sm px-4 py-2 rounded-xl text-center">
               Κάνε κράτηση
             </Link>
           </div>
@@ -70,7 +70,7 @@ export default function LandingPage() {
             Χωρίς αναμονή. Χωρίς ουρές.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/" className="bg-gray-900 text-white text-sm font-medium px-8 py-4 rounded-2xl">
+            <Link href="/map" className="bg-gray-900 text-white text-sm font-medium px-8 py-4 rounded-2xl">
               Κάνε κράτηση τώρα →
             </Link>
             <a href="#how" className="border border-gray-200 text-gray-600 text-sm font-medium px-8 py-4 rounded-2xl">
