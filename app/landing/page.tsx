@@ -188,7 +188,7 @@ export default function LandingPage() {
               <div className="relative w-[240px] rounded-[44px] bg-gray-900 p-2 shadow-2xl">
                 <div className="rounded-[36px] overflow-hidden bg-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/app-home.png" alt="Η εφαρμογή Washio" className="block w-full h-auto" />
+                  <img src="/mockup_home.webp" alt="Η εφαρμογή Washio" className="block w-full h-auto" />
                 </div>
               </div>
             </div>
