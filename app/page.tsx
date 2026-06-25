@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Capacitor } from '@capacitor/core'
 import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon } from 'lucide-react'
 import LandingPage from './landing/page'
+import { BottomNav } from '@/components/BottomNav'
 
 type Location = {
   id: string
@@ -317,23 +318,7 @@ export default function HomePage() {
         </div>
 
         {/* Bottom Nav */}
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md flex justify-around items-center py-3 border-t border-gray-100 bg-white">
-          <button className="flex flex-col items-center gap-1 text-blue-600">
-            <HomeIcon size={18} />
-            <span className="text-xs">Αρχική</span>
-          </button>
-          <Link href="/map" className="flex flex-col items-center gap-1 text-gray-300">
-            <MapPin size={18} />
-            <span className="text-xs">Εύρεση</span>
-          </Link>
-          <Link href="/profile" className="flex flex-col items-center gap-1 text-gray-300">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <span className="text-xs">Προφίλ</span>
-          </Link>
-        </nav>
+        <BottomNav />
       </div>
     </main>
   )

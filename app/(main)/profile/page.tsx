@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, successHaptic, errorHaptic } from '@/lib/haptics'
 import { ChevronRight, ChevronDown, ChevronUp, Heart, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Home as HomeIcon } from 'lucide-react'
+import { BottomNav } from '@/components/BottomNav'
 
 type Vehicle = {
   id: string
@@ -507,27 +508,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Bottom Nav */}
-        <nav
-          className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md flex justify-around items-center py-3 border-t border-gray-100 bg-white z-20"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
-        >
-          <button onClick={() => router.push('/')} className="flex flex-col items-center gap-1 text-gray-300">
-            <HomeIcon size={18} />
-            <span className="text-[11px] font-medium">Αρχική</span>
-          </button>
-          <button onClick={() => router.push('/map')} className="flex flex-col items-center gap-1 text-gray-300">
-            <MapPin size={18} />
-            <span className="text-[11px] font-medium">Εύρεση</span>
-          </button>
-          <button className="flex flex-col items-center gap-1 text-blue-600 relative">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-              <circle cx="12" cy="7" r="4" />
-            </svg>
-            <span className="text-[11px] font-semibold">Προφίλ</span>
-            <span className="absolute -bottom-1 w-1 h-1 rounded-full bg-blue-600" />
-          </button>
-        </nav>
+        <BottomNav />
       </div>
     </main>
   )
