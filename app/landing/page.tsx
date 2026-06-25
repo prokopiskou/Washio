@@ -58,7 +58,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="pt-32 pb-24 px-6 text-center bg-white">
+      <section className="pt-28 pb-12 md:pt-32 md:pb-24 px-6 text-center bg-white">
         <div className="max-w-2xl mx-auto">
           <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Το πλύσιμο αυτοκινήτου αλλάζει</p>
           <h1 className="text-3xl md:text-6xl font-semibold tracking-tight text-gray-900 leading-tight mb-6">
@@ -97,7 +97,7 @@ export default function LandingPage() {
       </section>
 
       {/* About */}
-      <section id="about" className="py-24 px-6">
+      <section id="about" className="py-14 md:py-24 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
@@ -123,7 +123,7 @@ export default function LandingPage() {
       </section>
 
       {/* How it works */}
-      <section id="how" className="py-24 px-6 bg-gray-50">
+      <section id="how" className="py-14 md:py-24 px-6 bg-gray-50">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Πώς λειτουργεί</p>
@@ -146,7 +146,7 @@ export default function LandingPage() {
       </section>
 
       {/* App download */}
-      <section id="app" className="py-24 px-6">
+      <section id="app" className="py-14 md:py-24 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="grid md:grid-cols-2 gap-16 items-center">
             <div>
@@ -203,7 +203,7 @@ export default function LandingPage() {
       </section>
 
       {/* Partners CTA */}
-      <section id="partners" className="py-24 px-6">
+      <section id="partners" className="py-14 md:py-24 px-6">
         <div className="max-w-4xl mx-auto">
           <div className="bg-gray-900 rounded-3xl p-10 md:p-16 text-center">
             <p className="text-xs font-medium tracking-widest text-gray-500 uppercase mb-4">Για πρατήρια</p>
@@ -221,7 +221,7 @@ export default function LandingPage() {
       </section>
 
       {/* Contact */}
-      <section id="contact" className="py-24 px-6 bg-gray-50">
+      <section id="contact" className="py-14 md:py-24 px-6 bg-gray-50">
         <div className="max-w-xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-4">Επικοινωνία</p>
