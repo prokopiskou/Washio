@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { track } from '@vercel/analytics'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 
 type Location = {
@@ -88,6 +89,7 @@ export default function LocationPage() {
   const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'Μοτοσικλέτα'>('ΙΧ')
 
   useEffect(() => {
+    track('location_viewed')
     const loadData = async () => {
       const supabase = createClient()
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { alertCritical } from '@/lib/alert'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -98,6 +99,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ clientSecret: paymentIntent.client_secret })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'
+    await alertCritical('Αποτυχία create-intent (πληρωμή)', message)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

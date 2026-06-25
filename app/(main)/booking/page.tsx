@@ -7,6 +7,7 @@ import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createClient } from '@/lib/supabase/client'
 import { mediumTap, errorHaptic } from '@/lib/haptics'
+import { track } from '@vercel/analytics'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -189,6 +190,8 @@ function BookingPageContent() {
         router.replace(`/login?redirect=${encodeURIComponent(window.location.href)}`)
         return
       }
+
+      track('checkout_started')
 
       if (serviceId) {
         const { data: serviceData } = await supabase

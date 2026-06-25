@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
+import { alertCritical } from '@/lib/alert'
 import { Resend } from 'resend'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
@@ -130,6 +131,10 @@ export async function POST(req: NextRequest) {
         }
         const msg = stripeErr instanceof Error ? stripeErr.message : 'unknown'
         console.error('Stripe refund error:', msg)
+        await alertCritical(
+          'Αποτυχία refund',
+          `booking: ${booking.booking_ref}\nΠοσό: €${finalRefundAmount}\nΣφάλμα: ${msg}`
+        )
         return NextResponse.json({ error: 'Refund failed: ' + msg }, { status: 500 })
       }
     }

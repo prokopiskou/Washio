@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
+import { alertCritical } from '@/lib/alert'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -110,6 +111,10 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error('Booking insert error:', error)
+      await alertCritical(
+        'Πληρωμή ΟΚ αλλά booking ΑΠΕΤΥΧΕ',
+        `payment_intent: ${intent.id}\nΠοσό: €${m.amount}\nΣφάλμα: ${error.message}`
+      )
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Home as HomeIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { track } from '@vercel/analytics'
 
 declare global {
   interface Window { google: any; initMap: () => void }
@@ -245,6 +246,7 @@ function MapPageContent() {
   }, [timing, selectedDate, selectedTime])
 
   useEffect(() => {
+    track('map_viewed')
     navigator.geolocation?.getCurrentPosition(
       pos => {
         setUserLat(pos.coords.latitude)

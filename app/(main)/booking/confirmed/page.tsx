@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { successHaptic } from '@/lib/haptics'
+import { track } from '@vercel/analytics'
 
 function QRPlaceholder({ size = 80 }: { size?: number }) {
   const cells = [
@@ -77,6 +78,7 @@ function ConfirmedContent() {
   useEffect(() => {
     setShow(true)
     successHaptic()
+    track('booking_paid')
 
     const fetchAndNotify = async () => {
       const intentId = params.get('payment_intent')
