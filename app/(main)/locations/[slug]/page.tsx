@@ -13,6 +13,7 @@ type Location = {
   name: string
   address: string
   city: string
+  photos?: string[] | null
 }
 
 type Service = {
@@ -99,7 +100,7 @@ export default function LocationPage() {
 
       const { data: locationData } = await supabase
         .from('locations')
-        .select('id, name, address, city')
+        .select('id, name, address, city, photos')
         .eq('slug', slug)
         .single()
 
@@ -279,14 +280,22 @@ export default function LocationPage() {
 
         {/* Hero photo strip with floating nav buttons */}
         <div
-          className="h-[160px] relative"
+          className="h-[160px] relative overflow-hidden"
           style={{
             background: 'repeating-linear-gradient(135deg, #FAFAFA 0 16px, #F7F7F7 16px 32px)',
           }}
         >
-          <div className="absolute top-3.5 left-3.5 font-mono text-[10px] text-gray-400 tracking-wider">
-            // photo
-          </div>
+          {location.photos && location.photos.length > 0 ? (
+            <img
+              src={location.photos[0]}
+              alt={location.name}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div className="absolute top-3.5 left-3.5 font-mono text-[10px] text-gray-400 tracking-wider">
+              // photo
+            </div>
+          )}
 
           {/* Nav buttons floating over hero */}
           <div className="absolute top-14 left-4 right-4 flex justify-between">
@@ -309,11 +318,16 @@ export default function LocationPage() {
           </div>
 
           {/* Photo dots */}
-          <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-gray-900" />
-            <span className="w-1.5 h-1.5 rounded-full bg-white opacity-60" />
-            <span className="w-1.5 h-1.5 rounded-full bg-white opacity-60" />
-          </div>
+          {location.photos && location.photos.length > 1 && (
+            <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex gap-1.5">
+              {location.photos.map((_, i) => (
+                <span
+                  key={i}
+                  className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-white' : 'bg-white opacity-60'}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Content */}
