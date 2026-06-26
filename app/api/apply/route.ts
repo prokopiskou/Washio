@@ -29,12 +29,9 @@ export async function POST(req: Request) {
       !businessName ||
       !address ||
       !city ||
-      !taxId ||
       !contactName ||
       !phone ||
       !email ||
-      !hours ||
-      !lanes ||
       !washType ||
       !termsAccepted
     ) {
