@@ -73,6 +73,13 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
   const elements = useElements()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [stripeFailed, setStripeFailed] = useState(false)
+
+  useEffect(() => {
+    if (stripe) { setStripeFailed(false); return }
+    const t = setTimeout(() => setStripeFailed(true), 8000)
+    return () => clearTimeout(t)
+  }, [stripe])
 
   const handleSubmit = async () => {
     if (!stripe || !elements || !clientSecret) {
@@ -119,6 +126,21 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
           wallets: { applePay: 'auto', googlePay: 'auto' },
         }} />
       </div>
+
+      {stripeFailed && !stripe && (
+        <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-3">
+          <p className="text-[13px] font-semibold text-amber-900">Το σύστημα πληρωμών δεν φόρτωσε</p>
+          <p className="text-[12px] text-amber-800 mt-1 leading-snug">
+            Έλεγξε τη σύνδεσή σου και απενεργοποίησε τυχόν ad-blocker, VPN ή «Private DNS». Αν συνεχίζει, δοκίμασε σε κανονικό Chrome.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-2 text-[12px] font-semibold text-amber-900 underline"
+          >
+            Δοκίμασε ξανά
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-3">
