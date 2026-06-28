@@ -243,19 +243,7 @@ export default function AdminPage() {
     const supabase = createClient()
     await supabase.from('applications').update({ status }).eq('id', id)
 
-    const app = applications.find(a => a.id === id)
-
-    if (status === 'pre_approved' && app?.email) {
-      await fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'partner_preapproval',
-          to: app.email,
-          businessName: app.business_name,
-        }),
-      })
-    }
+    // Δεν στέλνεται αυτόματο email στον πρατηριούχο — το στέλνει ο admin χειροκίνητα.
 
     // Άμεση ενημέρωση local state χωρίς να περιμένει fetchData
     setApplications(prev => prev.map(a => a.id === id ? { ...a, status } : a))
