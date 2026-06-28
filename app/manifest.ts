@@ -7,20 +7,14 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Κράτηση πλυσίματος αυτοκινήτου',
     start_url: '/',
     display: 'standalone',
-    background_color: '#ffffff',
+    background_color: '#0A0A0A',
     theme_color: '#0A0A0A',
     orientation: 'portrait',
     icons: [
-      {
-        src: '/washio-logo.png',
-        sizes: '192x192',
-        type: 'image/png',
-      },
-      {
-        src: '/washio-logo.png',
-        sizes: '512x512',
-        type: 'image/png',
-      },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
     ],
   }
 }
