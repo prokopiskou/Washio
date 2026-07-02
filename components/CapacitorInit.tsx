@@ -24,6 +24,17 @@ export function CapacitorInit() {
         setTimeout(async () => {
           await SplashScreen.hide({ fadeOutDuration: 500 })
         }, 1200)
+
+        // Handle OAuth deep-link callback from the in-app browser.
+        const { App } = await import('@capacitor/app')
+        App.addListener('appUrlOpen', async ({ url }) => {
+          try {
+            const { handleAuthDeepLink } = await import('@/lib/native-auth')
+            await handleAuthDeepLink(url)
+          } catch (e) {
+            console.log('deep link handling failed:', e)
+          }
+        })
       } catch (e) {
         console.log('Capacitor init skipped:', e)
       }

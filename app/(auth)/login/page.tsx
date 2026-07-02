@@ -3,6 +3,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { signInWithProvider } from '@/lib/native-auth'
 
 function LoginPageContent() {
   const router = useRouter()
@@ -110,29 +111,9 @@ function LoginPageContent() {
     return `${base}${path}`
   }
 
-  const handleGoogleLogin = async () => {
-    const supabase = createClient()
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: getOauthRedirect() }
-    })
-  }
-
-  const handleFacebookLogin = async () => {
-    const supabase = createClient()
-    await supabase.auth.signInWithOAuth({
-      provider: 'facebook',
-      options: { redirectTo: getOauthRedirect() }
-    })
-  }
-
-  const handleAppleLogin = async () => {
-    const supabase = createClient()
-    await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo: getOauthRedirect() }
-    })
-  }
+  const handleGoogleLogin = () => signInWithProvider(createClient(), 'google', getOauthRedirect())
+  const handleFacebookLogin = () => signInWithProvider(createClient(), 'facebook', getOauthRedirect())
+  const handleAppleLogin = () => signInWithProvider(createClient(), 'apple', getOauthRedirect())
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center justify-start">

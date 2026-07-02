@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { signInWithProvider } from '@/lib/native-auth'
 
 function RegisterPageContent() {
   const router = useRouter()
@@ -84,13 +85,7 @@ function RegisterPageContent() {
       </div>
 
       <button
-        onClick={async () => {
-          const supabase = createClient()
-          await supabase.auth.signInWithOAuth({
-            provider: 'apple',
-            options: { redirectTo: getOauthRedirect() }
-          })
-        }}
+        onClick={() => signInWithProvider(createClient(), 'apple', getOauthRedirect())}
         className="w-full bg-black text-white text-sm font-medium py-3.5 rounded-xl flex items-center justify-center gap-2 mb-2.5">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
           <path d="M17.05 12.04c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.1-2.02-3.77-2.04-1.6-.16-3.13.94-3.94.94-.81 0-2.07-.92-3.41-.89-1.75.03-3.37 1.02-4.27 2.59-1.82 3.16-.47 7.84 1.31 10.41.87 1.26 1.9 2.67 3.25 2.62 1.3-.05 1.8-.84 3.37-.84 1.57 0 2.02.84 3.4.81 1.4-.02 2.29-1.28 3.15-2.55 1-1.46 1.41-2.88 1.43-2.95-.03-.01-2.74-1.05-2.77-4.17zM14.6 4.42c.72-.87 1.2-2.08 1.07-3.29-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.58 3.03-1.45z"/>
@@ -99,13 +94,7 @@ function RegisterPageContent() {
       </button>
 
       <button
-        onClick={async () => {
-          const supabase = createClient()
-          await supabase.auth.signInWithOAuth({
-            provider: 'google',
-            options: { redirectTo: getOauthRedirect() }
-          })
-        }}
+        onClick={() => signInWithProvider(createClient(), 'google', getOauthRedirect())}
         className="w-full border border-gray-200 text-gray-700 text-sm font-medium py-3.5 rounded-xl flex items-center justify-center gap-2">
         <svg width="16" height="16" viewBox="0 0 24 24">
           <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
