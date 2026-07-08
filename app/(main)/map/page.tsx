@@ -75,6 +75,7 @@ type Timing = 'now' | 'later'
 
 const BUFFER_MINUTES = 15
 const TIGHT_SLOT_THRESHOLD = 20
+const LABEL_ZOOM = 12.5 // από αυτό το zoom και πάνω εμφανίζονται τα ονόματα στις πινέζες
 
 function generateSlots(openTime: string, closeTime: string): string[] {
   const slots: string[] = []
@@ -172,6 +173,7 @@ function MapPageContent() {
   const placesServiceRef = useRef<any>(null)
 
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [mapZoom, setMapZoom] = useState(13)
   const [userLat, setUserLat] = useState<number | null>(null)
   const [userLng, setUserLng] = useState<number | null>(null)
   const [allLocations, setAllLocations] = useState<Location[]>([])
@@ -486,40 +488,66 @@ function MapPageContent() {
       const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
       const rawName = loc.name || ''
       const label = rawName.length > 20 ? rawName.slice(0, 19) + '…' : rawName
-      const W = Math.max(66, Math.min(210, Math.round(label.length * 6.4 + 22)))
-      const cx = W / 2
-      const svgString = `
+      // Το όνομα εμφανίζεται μόνο όταν έχει γίνει αρκετό zoom (καθαρό, χωρίς μπούχτισμα).
+      const showLabel = mapZoom >= LABEL_ZOOM
+
+      let svgString: string
+      let W: number, H: number, aX: number, aY: number
+
+      if (showLabel) {
+        W = Math.max(66, Math.min(210, Math.round(label.length * 6.4 + 22)))
+        H = 78
+        const cx = W / 2
+        aX = cx; aY = 70
+        svgString = `
   <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="78" viewBox="0 0 ${W} 78">
     <defs>
       <filter id="shadow-${loc.id}" x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/>
       </filter>
     </defs>
-    <g filter="url(#shadow-${loc.id})" transform="translate(${cx - 22}, 0)">
+    <g filter="url(#shadow-${loc.id})">
+      <rect x="1" y="0" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
+      <text x="${cx}" y="15" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">${esc(label)}</text>
+    </g>
+    <g filter="url(#shadow-${loc.id})" transform="translate(${cx - 22}, 28)">
       <circle cx="22" cy="18" r="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
       <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}"/>
       <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
     </g>
+  </svg>
+`
+      } else {
+        W = 44; H = 50; aX = 22; aY = 42
+        svgString = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="44" height="50" viewBox="0 0 44 50">
+    <defs>
+      <filter id="shadow-${loc.id}" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+      </filter>
+    </defs>
     <g filter="url(#shadow-${loc.id})">
-      <rect x="1" y="52" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
-      <text x="${cx}" y="67" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">${esc(label)}</text>
+      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}"/>
+      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
     </g>
   </svg>
 `
+      }
 
       const marker = new window.google.maps.Marker({
         position: { lat: loc.lat, lng: loc.lng },
         map: mapInstanceRef.current,
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
-          scaledSize: new window.google.maps.Size(W, 78),
-          anchor: new window.google.maps.Point(cx, 42),
+          scaledSize: new window.google.maps.Size(W, H),
+          anchor: new window.google.maps.Point(aX, aY),
         },
       })
       marker.addListener('click', () => selectLocation(loc))
       markersRef.current.push(marker)
     })
-  }, [mapLoaded, filteredLocations, selectedLocation])
+  }, [mapLoaded, filteredLocations, selectedLocation, mapZoom])
 
   useEffect(() => { updateMarkers() }, [updateMarkers])
 
@@ -534,6 +562,8 @@ function MapPageContent() {
         styles: COOL_MAP_STYLES,
       })
       mapInstanceRef.current = map
+      map.addListener('zoom_changed', () => setMapZoom(map.getZoom() ?? 13))
+      setMapZoom(map.getZoom() ?? 13)
       autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService()
       placesServiceRef.current = new window.google.maps.places.PlacesService(map)
       setMapLoaded(true)
