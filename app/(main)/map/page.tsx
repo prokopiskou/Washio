@@ -483,17 +483,26 @@ function MapPageContent() {
 
     filteredLocations.forEach(loc => {
       const isSelected = selectedLocation?.id === loc.id
+      const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+      const rawName = loc.name || ''
+      const label = rawName.length > 20 ? rawName.slice(0, 19) + '…' : rawName
+      const W = Math.max(66, Math.min(210, Math.round(label.length * 6.4 + 22)))
+      const cx = W / 2
       const svgString = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="44" height="50" viewBox="0 0 44 50">
+  <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="78" viewBox="0 0 ${W} 78">
     <defs>
-      <filter id="shadow-${loc.id}" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+      <filter id="shadow-${loc.id}" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/>
       </filter>
     </defs>
-    <g filter="url(#shadow-${loc.id})">
+    <g filter="url(#shadow-${loc.id})" transform="translate(${cx - 22}, 0)">
       <circle cx="22" cy="18" r="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
       <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}"/>
       <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
+    </g>
+    <g filter="url(#shadow-${loc.id})">
+      <rect x="1" y="52" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
+      <text x="${cx}" y="67" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">${esc(label)}</text>
     </g>
   </svg>
 `
@@ -503,8 +512,8 @@ function MapPageContent() {
         map: mapInstanceRef.current,
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
-          scaledSize: new window.google.maps.Size(44, 50),
-          anchor: new window.google.maps.Point(22, 42),
+          scaledSize: new window.google.maps.Size(W, 78),
+          anchor: new window.google.maps.Point(cx, 42),
         },
       })
       marker.addListener('click', () => selectLocation(loc))
