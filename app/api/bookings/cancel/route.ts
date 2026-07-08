@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
 import { alertCritical } from '@/lib/alert'
+import { sendPush, getLocationOwnerId } from '@/lib/push'
 import { Resend } from 'resend'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
@@ -154,6 +155,17 @@ export async function POST(req: NextRequest) {
         stripe_payment_status: stripePaymentStatus,
       })
       .eq('id', bookingId)
+
+    // Push στον πρατηριούχο: ακύρωση → το slot άνοιξε.
+    try {
+      const ownerId = await getLocationOwnerId(booking.location_id)
+      const cd = new Date(booking.slot_date)
+      await sendPush(ownerId, {
+        title: 'Ακύρωση κράτησης ❌',
+        body: `${booking.booking_ref} • ${cd.getDate()} ${MONTHS_SHORT[cd.getMonth()]} ${booking.slot_start_time?.slice(0, 5) || ''} — το slot άνοιξε.`,
+        url: '/dashboard',
+      })
+    } catch { /* best-effort */ }
 
     // Get user email
     let userEmail: string | null = null

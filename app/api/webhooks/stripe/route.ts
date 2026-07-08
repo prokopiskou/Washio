@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { alertCritical } from '@/lib/alert'
+import { sendPush } from '@/lib/push'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -121,9 +122,16 @@ export async function POST(req: NextRequest) {
     // Fetch location
     const { data: locationData } = await supabase
       .from('locations')
-      .select('name')
+      .select('name, owner_id')
       .eq('id', m.locationId)
       .single()
+
+    // Push στον πρατηριούχο: νέα κράτηση (κάρτα).
+    await sendPush((locationData as { owner_id?: string })?.owner_id, {
+      title: 'Νέα κράτηση 💧',
+      body: `${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${m.carPlate ? ' • ' + m.carPlate : ''}`,
+      url: '/dashboard',
+    })
 
     // Get user email
     let userEmail = m.userEmail || null

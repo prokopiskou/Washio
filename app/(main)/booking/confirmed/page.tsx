@@ -74,6 +74,8 @@ function ConfirmedContent() {
   const time = params.get('time') || ''
   const plate = params.get('plate') || ''
   const total = params.get('total') || ''
+  const refParam = params.get('ref') || ''
+  const isCash = params.get('method') === 'cash'
 
   useEffect(() => {
     setShow(true)
@@ -82,9 +84,11 @@ function ConfirmedContent() {
 
     const fetchAndNotify = async () => {
       const intentId = params.get('payment_intent')
-      let ref = 'WS-' + Math.random().toString(36).substring(2, 8).toUpperCase()
+      let ref = refParam || ('WS-' + Math.random().toString(36).substring(2, 8).toUpperCase())
 
-      if (intentId) {
+      if (refParam) {
+        setBookingRef(refParam)
+      } else if (intentId) {
         const supabase = createClient()
         const { data } = await supabase
           .from('bookings')
@@ -136,7 +140,7 @@ function ConfirmedContent() {
             Η κράτησή σου<br />επιβεβαιώθηκε
           </h1>
           <p className="text-[14px] text-gray-500 text-center mt-2">
-            Στείλαμε email επιβεβαίωσης
+            {isCash ? 'Πληρωμή με μετρητά στο κατάστημα' : 'Στείλαμε email επιβεβαίωσης'}
           </p>
 
           {/* Apple Wallet–style pass */}
@@ -203,7 +207,7 @@ function ConfirmedContent() {
               style={{ borderTop: '1.5px dashed rgba(255,255,255,0.18)' }}
             >
               <p className="text-[11px] font-medium tracking-[1.4px] uppercase text-white/55">
-                Σύνολο
+                {isCash ? 'Μετρητά' : 'Σύνολο'}
               </p>
               <p className="text-[24px] font-bold tracking-tight text-white">
                 {totalFormatted}

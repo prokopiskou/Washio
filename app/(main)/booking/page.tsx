@@ -187,6 +187,8 @@ function BookingPageContent() {
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [showPayment, setShowPayment] = useState(false)
   const [clientSecret, setClientSecret] = useState('')
+  const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | undefined>(undefined)
+  const [cashLoading, setCashLoading] = useState(false)
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('')
   const [vehicleFormType, setVehicleFormType] = useState('ΙΧ')
@@ -332,7 +334,47 @@ function BookingPageContent() {
       return
     }
     setClientSecret(data.clientSecret)
+    setCustomerSessionClientSecret(data.customerSessionClientSecret)
     setShowPayment(true)
+  }
+
+  const handleCashBooking = async () => {
+    if (!service || cashLoading) return
+    mediumTap()
+    setCashLoading(true)
+    try {
+      const res = await fetch('/api/bookings/create-cash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          serviceId: service.id,
+          locationId,
+          slotId: null,
+          slotDate: dateStr,
+          slotStartTime: slotTime,
+          carPlate: plate,
+          serviceName: service.name,
+          vehicleType,
+          addonIds: selectedAddons,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.bookingRef) {
+        errorHaptic()
+        alert(data.error || 'Δεν ήταν δυνατή η κράτηση. Δοκίμασε ξανά.')
+        setCashLoading(false)
+        return
+      }
+      const q = new URLSearchParams({
+        email, date: formattedDate, time: slotTime, service: service.name,
+        plate, total: total.toString(), ref: data.bookingRef, method: 'cash',
+      })
+      router.push(`/booking/confirmed?${q.toString()}`)
+    } catch {
+      errorHaptic()
+      alert('Κάτι πήγε στραβά. Δοκίμασε ξανά.')
+      setCashLoading(false)
+    }
   }
 
   const handleVehicleChange = (value: string) => {
@@ -567,8 +609,10 @@ function BookingPageContent() {
 
         {/* Payment */}
         {showPayment && clientSecret ? (
+          <>
           <Elements stripe={stripePromise} options={{
             clientSecret,
+            ...(customerSessionClientSecret ? { customerSessionClientSecret } : {}),
             locale: 'el',
             appearance: {
               theme: 'stripe',
@@ -581,6 +625,26 @@ function BookingPageContent() {
               clientSecret={clientSecret} plate={plate}
             />
           </Elements>
+
+          {/* Δευτερεύουσα επιλογή: μετρητά στο κατάστημα (διακριτική) */}
+          <div className="px-5 mt-4 mb-2">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 h-px bg-gray-100" />
+              <span className="text-[11px] text-gray-300">ή</span>
+              <div className="flex-1 h-px bg-gray-100" />
+            </div>
+            <button
+              onClick={handleCashBooking}
+              disabled={cashLoading}
+              className="w-full h-11 rounded-xl border border-gray-200 bg-white text-[13px] font-medium text-gray-500 flex items-center justify-center gap-2 disabled:opacity-40"
+            >
+              {cashLoading ? 'Επιβεβαίωση...' : 'Πληρωμή με μετρητά στο κατάστημα'}
+            </button>
+            <p className="text-[10px] text-gray-400 text-center mt-2 leading-snug">
+              Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.
+            </p>
+          </div>
+          </>
         ) : (
           <div
             className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 pt-3.5 pb-8"

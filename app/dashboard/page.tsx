@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
+import PushInit from '@/components/PushInit'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'staff' | 'feedback'
 type Period = '7D' | '30D' | '3M' | '6M' | '12M'
@@ -175,6 +176,8 @@ export default function DashboardPage() {
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
   const locationIdRef = useRef<string | null>(null)
+  const calendarDateRef = useRef<Date>(calendarDate)
+  useEffect(() => { calendarDateRef.current = calendarDate }, [calendarDate])
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -292,14 +295,31 @@ export default function DashboardPage() {
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
           (payload) => {
             console.log('NEW BOOKING RECEIVED:', payload)
-            setBookings(prev => [payload.new as Booking, ...prev])
+            const nb = payload.new as Booking
+            setBookings(prev => [nb, ...prev])
             setNewBookingsCount(prev => prev + 1)
             triggerNewBookingAlert(locationName)
+            // Νέα κράτηση → εμφανίζεται ΑΜΕΣΩΣ στο calendar αν αφορά τη μέρα που βλέπει ο πρατηριούχος.
+            const viewedDate = calendarDateRef.current.toISOString().split('T')[0]
+            if ((nb as any).slot_date === viewedDate && nb.status !== 'cancelled' && (nb.status as string) !== 'no_show') {
+              setCalendarBookings(prev => {
+                if (prev.some(b => b.id === nb.id)) return prev
+                return [...prev, nb].sort((a, b) =>
+                  ((a as any).slot_start_time || '').localeCompare((b as any).slot_start_time || ''))
+              })
+            }
           })
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `location_id=eq.${locationId}` },
           (payload) => {
             console.log('BOOKING UPDATED:', payload)
             setBookings(prev => prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b))
+            // Ακύρωση / no-show → φεύγει ΑΜΕΣΩΣ από το calendar του πρατηριούχου.
+            const newStatus = (payload.new as Booking).status
+            setCalendarBookings(prev =>
+              (newStatus === 'cancelled' || newStatus === 'no_show')
+                ? prev.filter(b => b.id !== payload.new.id)
+                : prev.map(b => b.id === payload.new.id ? { ...b, ...payload.new } : b)
+            )
           })
         .subscribe((status, err) => {
           console.log('Realtime subscription status:', status)
@@ -476,6 +496,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-gray-50">
+      <PushInit />
       <div className="max-w-3xl mx-auto">
 
         <div className="px-5 pt-14 pb-4 bg-white">

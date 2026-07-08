@@ -78,10 +78,52 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Το slot μόλις κλείστηκε. Διάλεξε άλλη ώρα.' }, { status: 409 })
     }
 
+    // 4) Αποθηκευμένες κάρτες: get-or-create Stripe Customer για τον χρήστη
+    //    (χωρίς αλλαγή στη βάση — ταυτοποίηση μέσω metadata.supabaseUserId).
+    //    Αν οτιδήποτε αποτύχει, συνεχίζουμε ΧΩΡΙΣ saved-card features ώστε
+    //    το checkout να μη σπάει ποτέ.
+    let customerId: string | undefined
+    let customerSessionClientSecret: string | undefined
+    try {
+      if (user.email) {
+        const existing = await stripe.customers.list({ email: user.email, limit: 100 })
+        const match = existing.data.find((c) => c.metadata?.supabaseUserId === user.id)
+        customerId = match?.id
+      }
+      if (!customerId) {
+        const created = await stripe.customers.create({
+          email: user.email || undefined,
+          metadata: { supabaseUserId: user.id },
+        })
+        customerId = created.id
+      }
+      const session = await stripe.customerSessions.create({
+        customer: customerId,
+        components: {
+          payment_element: {
+            enabled: true,
+            features: {
+              payment_method_redisplay: 'enabled',
+              payment_method_save: 'enabled',
+              payment_method_save_usage: 'off_session',
+              payment_method_remove: 'enabled',
+            },
+          },
+        },
+      })
+      customerSessionClientSecret = session.client_secret
+    } catch (custErr: unknown) {
+      const m = custErr instanceof Error ? custErr.message : 'unknown'
+      console.error('Customer/session setup skipped:', m)
+      customerId = undefined
+      customerSessionClientSecret = undefined
+    }
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
       currency: 'eur',
       payment_method_types: ['card'],
+      ...(customerId ? { customer: customerId } : {}),
       metadata: {
         serviceId: serviceId || '',
         locationId: locationId || '',
@@ -96,7 +138,10 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ clientSecret: paymentIntent.client_secret })
+    return NextResponse.json({
+      clientSecret: paymentIntent.client_secret,
+      customerSessionClientSecret,
+    })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'
     await alertCritical('Αποτυχία create-intent (πληρωμή)', message)
