@@ -185,6 +185,13 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
         <PaymentElement options={{
           layout: 'tabs',
           wallets: { applePay: 'auto', googlePay: 'auto' },
+          // Ελάχιστη φόρμα: κρύβουμε το billing address block (χώρα/διεύθυνση/Τ.Κ.)
+          // που πρόσθετε το Stripe όταν αποθηκεύεται κάρτα. Μένει κάρτα + tick.
+          fields: {
+            billingDetails: {
+              address: 'never',
+            },
+          },
         }} />
       </div>
 
