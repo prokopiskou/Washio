@@ -5,9 +5,46 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { signInWithProvider } from '@/lib/native-auth'
+import { useT } from '@/lib/i18n'
+
+const T = {
+  el: {
+    title: 'Δημιουργία λογαριασμού',
+    subtitle: 'Γρήγορη εγγραφή — δωρεάν',
+    firstName: 'Όνομα',
+    lastName: 'Επώνυμο',
+    email: 'Email',
+    password: 'Κωδικός',
+    registering: 'Εγγραφή...',
+    register: 'Εγγραφή',
+    or: 'ή',
+    continueApple: 'Συνέχεια με Apple',
+    continueGoogle: 'Συνέχεια με Google',
+    haveAccount: 'Έχεις ήδη λογαριασμό;',
+    signIn: 'Σύνδεση',
+    loading: 'Φόρτωση...',
+  },
+  en: {
+    title: 'Create account',
+    subtitle: 'Quick sign up — free',
+    firstName: 'First name',
+    lastName: 'Last name',
+    email: 'Email',
+    password: 'Password',
+    registering: 'Signing up...',
+    register: 'Sign up',
+    or: 'or',
+    continueApple: 'Continue with Apple',
+    continueGoogle: 'Continue with Google',
+    haveAccount: 'Already have an account?',
+    signIn: 'Sign in',
+    loading: 'Loading...',
+  },
+}
 
 function RegisterPageContent() {
   const router = useRouter()
+  const t = useT(T)
   const params = useSearchParams()
   const rawRedirect = params.get('redirect') || '/'
   const redirectUrl = rawRedirect.startsWith('http')
@@ -53,20 +90,20 @@ function RegisterPageContent() {
 
       <div className="pt-16 pb-10 flex flex-col items-center">
         <img src="/logo.png" alt="Washio" className="h-14 w-auto mb-6" />
-        <h1 className="text-xl font-semibold text-gray-900">Δημιουργία λογαριασμού</h1>
-        <p className="text-sm text-gray-400 mt-1">Γρήγορη εγγραφή — δωρεάν</p>
+        <h1 className="text-xl font-semibold text-gray-900">{t.title}</h1>
+        <p className="text-sm text-gray-400 mt-1">{t.subtitle}</p>
       </div>
 
       <div className="flex flex-col gap-3">
         <div className="flex gap-2">
-          <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Όνομα"
+          <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={t.firstName}
             className="flex-1 border border-gray-200 rounded-xl px-4 py-3.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
-          <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Επώνυμο"
+          <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder={t.lastName}
             className="flex-1 border border-gray-200 rounded-xl px-4 py-3.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
         </div>
-        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email"
+        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t.email}
           className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
-        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Κωδικός"
+        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder={t.password}
           className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
 
         {error && <p className="text-xs text-red-500 text-center">{error}</p>}
@@ -74,13 +111,13 @@ function RegisterPageContent() {
         <button onClick={handleRegister}
           disabled={loading || !firstName || !lastName || !email || !password}
           className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl mt-1 disabled:opacity-40">
-          {loading ? 'Εγγραφή...' : 'Εγγραφή'}
+          {loading ? t.registering : t.register}
         </button>
       </div>
 
       <div className="flex items-center gap-3 my-6">
         <div className="flex-1 h-px bg-gray-100" />
-        <span className="text-xs text-gray-300">ή</span>
+        <span className="text-xs text-gray-300">{t.or}</span>
         <div className="flex-1 h-px bg-gray-100" />
       </div>
 
@@ -90,7 +127,7 @@ function RegisterPageContent() {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
           <path d="M17.05 12.04c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.1-2.02-3.77-2.04-1.6-.16-3.13.94-3.94.94-.81 0-2.07-.92-3.41-.89-1.75.03-3.37 1.02-4.27 2.59-1.82 3.16-.47 7.84 1.31 10.41.87 1.26 1.9 2.67 3.25 2.62 1.3-.05 1.8-.84 3.37-.84 1.57 0 2.02.84 3.4.81 1.4-.02 2.29-1.28 3.15-2.55 1-1.46 1.41-2.88 1.43-2.95-.03-.01-2.74-1.05-2.77-4.17zM14.6 4.42c.72-.87 1.2-2.08 1.07-3.29-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.58 3.03-1.45z"/>
         </svg>
-        Συνέχεια με Apple
+        {t.continueApple}
       </button>
 
       <button
@@ -102,14 +139,14 @@ function RegisterPageContent() {
           <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
         </svg>
-        Συνέχεια με Google
+        {t.continueGoogle}
       </button>
 
       <p className="text-center text-xs text-gray-400 mt-6">
-        Έχεις ήδη λογαριασμό;{' '}
+        {t.haveAccount}{' '}
         <Link href={`/login${redirectUrl !== '/' ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''}`}
           className="text-gray-900 font-medium">
-          Σύνδεση
+          {t.signIn}
         </Link>
       </p>
       </div>
@@ -117,9 +154,14 @@ function RegisterPageContent() {
   )
 }
 
+function RegisterFallback() {
+  const t = useT(T)
+  return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">{t.loading}</p></div>
+}
+
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div>}>
+    <Suspense fallback={<RegisterFallback />}>
       <RegisterPageContent />
     </Suspense>
   )

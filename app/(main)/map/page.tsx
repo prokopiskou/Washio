@@ -8,6 +8,38 @@ import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
 import { athensToday, athensMinutesOfDay } from '@/lib/time'
 import { BottomNav } from '@/components/BottomNav'
+import { useT, useLocale, Locale } from '@/lib/i18n'
+
+const T = {
+  el: {
+    searchPlaceholder: 'Αναζήτηση περιοχής', now: 'Τώρα', schedule: 'Προγραμματισμός',
+    loadingMap: 'Φόρτωση χάρτη...', washroomOne: 'πλυντήριο', washroomMany: 'πλυντήρια',
+    near: 'κοντά', list: 'Λίστα', noSpots: 'Δεν υπάρχουν διαθέσιμα σημεία',
+    tryScheduleLater: 'Δοκίμασε να προγραμματίσεις για αργότερα',
+    moto: 'Μοτο', noTimes: 'Δεν υπάρχουν διαθέσιμες ώρες.',
+    book: 'Κράτηση', pickService: 'Επίλεξε υπηρεσία', otherDay: 'Άλλη μέρα',
+    appointmentIn: 'Το ραντεβού είναι σε', minutes: 'λεπτά',
+    lateWarning: 'Αν καθυστερήσεις, το πλύσιμο ενδέχεται να ακυρωθεί από το σημείο.',
+    pickOtherTime: 'Επίλεξε άλλη ώρα', understandContinue: 'Κατανοώ, συνέχεια',
+    whenTitle: 'Πότε θέλεις;', dateLabel: 'Ημερομηνία', timeLabel: 'Ώρα',
+    pickTime: 'Επίλεξε ώρα', apply: 'Εφαρμογή', loading: 'Φόρτωση...',
+  },
+  en: {
+    searchPlaceholder: 'Search area', now: 'Now', schedule: 'Schedule',
+    loadingMap: 'Loading map...', washroomOne: 'car wash', washroomMany: 'car washes',
+    near: 'nearby', list: 'List', noSpots: 'No available spots',
+    tryScheduleLater: 'Try scheduling for later',
+    moto: 'Moto', noTimes: 'No available times.',
+    book: 'Book', pickService: 'Select a service', otherDay: 'Other day',
+    appointmentIn: 'Your appointment is in', minutes: 'minutes',
+    lateWarning: 'If you are late, the wash may be cancelled by the location.',
+    pickOtherTime: 'Pick another time', understandContinue: 'I understand, continue',
+    whenTitle: 'When do you want it?', dateLabel: 'Date', timeLabel: 'Time',
+    pickTime: 'Select a time', apply: 'Apply', loading: 'Loading...',
+  },
+}
+
+const LOCALE_MAP: Record<Locale, string> = { el: 'el-GR', en: 'en-US' }
 
 declare global {
   interface Window { google: any; initMap: () => void }
@@ -73,9 +105,15 @@ function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-function formatDistance(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)} μ`
-  return `${km.toFixed(1)} χλμ`
+const DIST_UNITS: Record<Locale, { m: string; km: string }> = {
+  el: { m: 'μ', km: 'χλμ' },
+  en: { m: 'm', km: 'km' },
+}
+
+function formatDistance(km: number, locale: Locale): string {
+  const u = DIST_UNITS[locale]
+  if (km < 1) return `${Math.round(km * 1000)} ${u.m}`
+  return `${km.toFixed(1)} ${u.km}`
 }
 
 function getTodayValue() {
@@ -117,6 +155,8 @@ const COOL_MAP_STYLES = [
 
 function MapPageContent() {
   const router = useRouter()
+  const t = useT(T)
+  const { locale } = useLocale()
   const params = useSearchParams()
   const mapRef = useRef<HTMLDivElement>(null)
   const searchContainerRef = useRef<HTMLDivElement>(null)
@@ -486,7 +526,7 @@ function MapPageContent() {
   }
 
   const formattedSchedule = timing === 'later' && selectedDate && selectedTime
-    ? `${new Date(selectedDate).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })} · ${selectedTime}`
+    ? `${new Date(selectedDate).toLocaleDateString(LOCALE_MAP[locale], { day: 'numeric', month: 'short' })} · ${selectedTime}`
     : null
 
   const mapsUrl = selectedLocation
@@ -510,7 +550,7 @@ function MapPageContent() {
                 value={search}
                 onChange={e => { setSearch(e.target.value); setShowSuggestions(true) }}
                 onFocus={() => setShowSuggestions(true)}
-                placeholder="Αναζήτηση περιοχής"
+                placeholder={t.searchPlaceholder}
                 className="flex-1 text-sm text-gray-900 placeholder-gray-500 focus:outline-none bg-transparent"
                 autoFocus={params.get('source') === 'search'}
               />
@@ -545,7 +585,7 @@ function MapPageContent() {
               }`}
             >
               {timing === 'now' && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
-              Τώρα
+              {t.now}
             </button>
             <button
               onClick={() => setShowSchedule(true)}
@@ -554,7 +594,7 @@ function MapPageContent() {
               }`}
             >
               <Clock size={13} />
-              {formattedSchedule || 'Προγραμματισμός'}
+              {formattedSchedule || t.schedule}
             </button>
           </div>
         </div>
@@ -574,7 +614,7 @@ function MapPageContent() {
 
         {!mapLoaded && (
           <div className="absolute inset-0 bg-gray-50 flex items-center justify-center">
-            <p className="text-xs text-gray-400">Φόρτωση χάρτη...</p>
+            <p className="text-xs text-gray-400">{t.loadingMap}</p>
           </div>
         )}
 
@@ -593,9 +633,9 @@ function MapPageContent() {
               {/* Header */}
               <div className="flex justify-between items-baseline px-5 pb-2">
                 <p className="text-[14px] font-semibold tracking-tight text-gray-900">
-                  {filteredLocations.length} {filteredLocations.length === 1 ? 'πλυντήριο' : 'πλυντήρια'} κοντά
+                  {filteredLocations.length} {filteredLocations.length === 1 ? t.washroomOne : t.washroomMany} {t.near}
                 </p>
-                <p className="text-[12px] font-medium text-blue-600">Λίστα</p>
+                <p className="text-[12px] font-medium text-blue-600">{t.list}</p>
               </div>
 
               {/* Horizontal compact cards */}
@@ -618,7 +658,7 @@ function MapPageContent() {
                       {loc.distance !== undefined && (
                         <>
                           <span className="w-[3px] h-[3px] rounded-full bg-gray-300" />
-                          <span className="text-[11px] text-gray-500">{formatDistance(loc.distance)}</span>
+                          <span className="text-[11px] text-gray-500">{formatDistance(loc.distance, locale)}</span>
                         </>
                       )}
                     </div>
@@ -636,12 +676,12 @@ function MapPageContent() {
                 <div className="w-9 h-1 rounded-full bg-gray-200" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-700 mb-1">Δεν υπάρχουν διαθέσιμα σημεία</p>
-                <p className="text-xs text-gray-400 mb-4">Δοκίμασε να προγραμματίσεις για αργότερα</p>
+                <p className="text-sm font-medium text-gray-700 mb-1">{t.noSpots}</p>
+                <p className="text-xs text-gray-400 mb-4">{t.tryScheduleLater}</p>
                 <button onClick={() => setShowSchedule(true)}
                   className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-2">
                   <Calendar size={14} />
-                  Προγραμματισμός
+                  {t.schedule}
                 </button>
               </div>
             </div>
@@ -657,7 +697,7 @@ function MapPageContent() {
                 <div>
                   <p className="text-[16px] font-semibold tracking-tight text-gray-900">{selectedLocation.name}</p>
                   {selectedLocation.distance !== undefined && (
-                    <p className="text-xs text-gray-500 mt-0.5">{formatDistance(selectedLocation.distance)} · {selectedLocation.city}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">{formatDistance(selectedLocation.distance, locale)} · {selectedLocation.city}</p>
                   )}
                 </div>
                 <button onClick={() => setSelectedLocation(null)} className="text-gray-400 -mt-1 -mr-1 p-1">
@@ -674,7 +714,7 @@ function MapPageContent() {
                         ? 'bg-gray-900 text-white border-gray-900'
                         : 'bg-white text-gray-700 border-gray-200'
                     }`}>
-                    {type === 'ΙΧ' ? 'ΙΧ' : 'Μοτο'}
+                    {type === 'ΙΧ' ? 'ΙΧ' : t.moto}
                   </button>
                 ))}
               </div>
@@ -700,7 +740,7 @@ function MapPageContent() {
               {selectedService && (
                 <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-1">
                   {visibleSlots.length === 0 ? (
-                    <p className="text-xs text-gray-500">Δεν υπάρχουν διαθέσιμες ώρες.</p>
+                    <p className="text-xs text-gray-500">{t.noTimes}</p>
                   ) : (
                     visibleSlots.map(slot => {
                       const isSelected = selectedSlot === slot.time
@@ -725,19 +765,19 @@ function MapPageContent() {
                   <button
                     onClick={handleBookingAttempt}
                     className="flex-1 bg-gray-900 text-white text-sm font-semibold py-3.5 rounded-xl flex items-center justify-center gap-1.5">
-                    <span>Κράτηση</span>
+                    <span>{t.book}</span>
                     <span className="w-px h-4 bg-white/25" />
                     <span>€{selectedServicePrice}</span>
                   </button>
                 ) : (
                   <div className="flex-1 bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-xl flex items-center justify-center">
-                    Επίλεξε υπηρεσία
+                    {t.pickService}
                   </div>
                 )}
                 <button
                   onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
                   className="border border-gray-200 text-gray-600 text-xs px-3 py-3.5 rounded-xl font-medium">
-                  Άλλη μέρα
+                  {t.otherDay}
                 </button>
               </div>
             </div>
@@ -760,7 +800,7 @@ function MapPageContent() {
                 <AlertTriangle size={18} className="text-amber-500" />
               </div>
               <p className="text-base font-semibold text-gray-900">
-                Το ραντεβού είναι σε {minutesUntilSlot} λεπτά
+                {t.appointmentIn} {minutesUntilSlot} {t.minutes}
               </p>
             </div>
 
@@ -779,14 +819,14 @@ function MapPageContent() {
             </a>
 
             <p className="text-sm text-gray-500 mb-6 text-center">
-              Αν καθυστερήσεις, το πλύσιμο ενδέχεται να ακυρωθεί από το σημείο.
+              {t.lateWarning}
             </p>
 
             <div className="flex gap-2">
               <button
                 onClick={() => setShowTightSlotModal(false)}
                 className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl">
-                Επίλεξε άλλη ώρα
+                {t.pickOtherTime}
               </button>
               <button
                 onClick={() => {
@@ -794,7 +834,7 @@ function MapPageContent() {
                   if (pendingBookingUrl) router.push(pendingBookingUrl)
                 }}
                 className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl">
-                Κατανοώ, συνέχεια
+                {t.understandContinue}
               </button>
             </div>
           </div>
@@ -808,28 +848,28 @@ function MapPageContent() {
           <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 z-10">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
             <div className="flex items-center justify-between mb-5">
-              <p className="text-base font-semibold text-gray-900">Πότε θέλεις;</p>
+              <p className="text-base font-semibold text-gray-900">{t.whenTitle}</p>
               <button onClick={() => setShowSchedule(false)} className="text-gray-400"><X size={18} /></button>
             </div>
 
             <div className="mb-3">
-              <p className="text-xs text-gray-400 mb-1.5">Ημερομηνία</p>
+              <p className="text-xs text-gray-400 mb-1.5">{t.dateLabel}</p>
               <div className="relative">
                 <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
                   min={getTodayValue()} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                 <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 flex items-center justify-between bg-gray-50">
-                  <span>{new Date(selectedDate).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                  <span>{new Date(selectedDate).toLocaleDateString(LOCALE_MAP[locale], { weekday: 'short', day: 'numeric', month: 'short' })}</span>
                   <ChevronDown size={14} className="text-gray-400" />
                 </div>
               </div>
             </div>
 
             <div className="mb-5" ref={timePickerRef}>
-              <p className="text-xs text-gray-400 mb-1.5">Ώρα</p>
+              <p className="text-xs text-gray-400 mb-1.5">{t.timeLabel}</p>
               <button onClick={() => setShowTimePicker(!showTimePicker)}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm flex items-center justify-between bg-gray-50">
                 <span className={selectedTime ? 'text-gray-900' : 'text-gray-400'}>
-                  {selectedTime || 'Επίλεξε ώρα'}
+                  {selectedTime || t.pickTime}
                 </span>
                 <ChevronDown size={14} className="text-gray-400" />
               </button>
@@ -849,7 +889,7 @@ function MapPageContent() {
 
             <button onClick={handleApplySchedule} disabled={!selectedDate || !selectedTime}
               className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40">
-              Εφαρμογή
+              {t.apply}
             </button>
           </div>
         </div>

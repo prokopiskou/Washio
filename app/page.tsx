@@ -8,6 +8,53 @@ import { Capacitor } from '@capacitor/core'
 import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon } from 'lucide-react'
 import LandingPage from './landing/page'
 import { BottomNav } from '@/components/BottomNav'
+import { useT, useLocale, Locale } from '@/lib/i18n'
+
+const T = {
+  el: {
+    loading: 'Φόρτωση...',
+    heading: 'Που θες να κλείσεις ραντεβού;',
+    readyIn30: 'Έτοιμο σε 30 λεπτά',
+    findNearby1: 'Βρες κοντινό',
+    findNearby2: 'πλυντήριο',
+    openNow: (n: number) => `${n} ανοιχτά τώρα`,
+    repeat: 'Επανάληψη',
+    bookAgain: 'Κράτηση ξανά →',
+    firstBooking: 'Πρώτη κράτηση',
+    startNow: 'Ξεκίνα τώρα',
+    findWash: 'Βρες πλυντήριο →',
+    favorites: 'Αγαπημένα',
+    noneYet: 'Κανένα ακόμα',
+    seeAll: 'Δες όλα →',
+    nextBooking: 'Επόμενη κράτηση',
+    recent: 'Πρόσφατα',
+    all: 'Όλα →',
+  },
+  en: {
+    loading: 'Loading...',
+    heading: 'Where do you want to book?',
+    readyIn30: 'Ready in 30 minutes',
+    findNearby1: 'Find a nearby',
+    findNearby2: 'car wash',
+    openNow: (n: number) => `${n} open now`,
+    repeat: 'Repeat',
+    bookAgain: 'Book again →',
+    firstBooking: 'First booking',
+    startNow: 'Start now',
+    findWash: 'Find a car wash →',
+    favorites: 'Favorites',
+    noneYet: 'None yet',
+    seeAll: 'See all →',
+    nextBooking: 'Next booking',
+    recent: 'Recent',
+    all: 'All →',
+  },
+}
+
+const MONTHS_SHORT: Record<Locale, string[]> = {
+  el: ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+}
 
 type Location = {
   id: string
@@ -29,10 +76,10 @@ type Favorite = {
   locations: { id: string; name: string; slug: string } | null
 }
 
-const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
-
 export default function HomePage() {
   const router = useRouter()
+  const t = useT(T)
+  const { locale } = useLocale()
   const [authChecking, setAuthChecking] = useState(true)
   const [showLanding, setShowLanding] = useState(false)
   const [upcomingBooking, setUpcomingBooking] = useState<Booking | null>(null)
@@ -120,7 +167,7 @@ export default function HomePage() {
   if (authChecking) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-xs text-gray-400">Φόρτωση...</p>
+        <p className="text-xs text-gray-400">{t.loading}</p>
       </main>
     )
   }
@@ -137,7 +184,7 @@ export default function HomePage() {
             <img src="/washio-logo.png" alt="Washio" className="h-48 md:h-40 w-auto" />
           </div>
           <h1 className="text-[26px] font-bold tracking-tight leading-[1.15] text-gray-900 text-center">
-            Που θες να κλείσεις ραντεβού;
+            {t.heading}
           </h1>
 
           {/* Hero CTA */}
@@ -154,16 +201,16 @@ export default function HomePage() {
             <div className="flex items-center gap-3.5 relative">
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-white/55">
-                  Έτοιμο σε 30 λεπτά
+                  {t.readyIn30}
                 </p>
                 <p className="text-[22px] font-bold tracking-tight leading-[1.15] text-white mt-2">
-                  Βρες κοντινό<br />πλυντήριο
+                  {t.findNearby1}<br />{t.findNearby2}
                 </p>
                 {activeLocationsCount > 0 && (
                   <div className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-full bg-white/10">
                     <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
                     <span className="text-[11px] font-semibold text-white/85">
-                      {activeLocationsCount} ανοιχτά τώρα
+                      {t.openNow(activeLocationsCount)}
                     </span>
                   </div>
                 )}
@@ -188,13 +235,13 @@ export default function HomePage() {
                     <RotateCw size={14} className="text-gray-900" strokeWidth={1.8} />
                   </div>
                   <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">
-                    Επανάληψη
+                    {t.repeat}
                   </p>
                 </div>
                 <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
                   {lastBooking.locations.name}
                 </p>
-                <p className="text-xs font-medium text-blue-600">Κράτηση ξανά →</p>
+                <p className="text-xs font-medium text-blue-600">{t.bookAgain}</p>
               </button>
             ) : (
               <button
@@ -207,11 +254,11 @@ export default function HomePage() {
                     <Calendar size={14} className="text-gray-900" strokeWidth={1.8} />
                   </div>
                   <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">
-                    Πρώτη κράτηση
+                    {t.firstBooking}
                   </p>
                 </div>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5">Ξεκίνα τώρα</p>
-                <p className="text-xs font-medium text-blue-600">Βρες πλυντήριο →</p>
+                <p className="text-sm font-semibold text-gray-900 mt-0.5">{t.startNow}</p>
+                <p className="text-xs font-medium text-blue-600">{t.findWash}</p>
               </button>
             )}
 
@@ -226,7 +273,7 @@ export default function HomePage() {
                   <Star size={14} className="text-gray-900 fill-gray-900" strokeWidth={1} />
                 </div>
                 <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">
-                  Αγαπημένα
+                  {t.favorites}
                 </p>
               </div>
               {favorites.length > 0 ? (
@@ -245,9 +292,9 @@ export default function HomePage() {
                   )}
                 </div>
               ) : (
-                <p className="text-sm font-semibold text-gray-900 mt-0.5">Κανένα ακόμα</p>
+                <p className="text-sm font-semibold text-gray-900 mt-0.5">{t.noneYet}</p>
               )}
-              <p className="text-xs font-medium text-blue-600">Δες όλα →</p>
+              <p className="text-xs font-medium text-blue-600">{t.seeAll}</p>
             </Link>
           </div>
 
@@ -259,7 +306,7 @@ export default function HomePage() {
             >
               <div className="w-11 h-11 rounded-[11px] bg-white border border-gray-200 flex flex-col items-center justify-center">
                 <span className="text-[9px] font-semibold tracking-wider uppercase text-gray-400">
-                  {MONTHS_SHORT[upcomingDate.getMonth()]}
+                  {MONTHS_SHORT[locale][upcomingDate.getMonth()]}
                 </span>
                 <span className="text-[15px] font-bold text-gray-900 tabular-nums leading-none mt-0.5">
                   {upcomingDate.getDate()}
@@ -267,7 +314,7 @@ export default function HomePage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">
-                  Επόμενη κράτηση
+                  {t.nextBooking}
                 </p>
                 <p className="text-sm font-semibold text-gray-900 mt-1 truncate">
                   {upcomingBooking.locations?.name} · {upcomingBooking.slot_start_time?.slice(0, 5)}
@@ -285,9 +332,9 @@ export default function HomePage() {
             <div>
               <div className="flex justify-between items-baseline mb-2.5">
                 <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
-                  Πρόσφατα
+                  {t.recent}
                 </p>
-                <Link href="/map" className="text-xs font-medium text-blue-600">Όλα →</Link>
+                <Link href="/map" className="text-xs font-medium text-blue-600">{t.all}</Link>
               </div>
               <div className="flex gap-2.5 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
                 {recentLocations.map(loc => (

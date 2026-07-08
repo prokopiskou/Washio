@@ -4,6 +4,22 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useT } from '@/lib/i18n'
+
+const T = {
+  el: {
+    allFavorites: 'Όλα τα αγαπημένα',
+    loading: 'Φόρτωση...',
+    noFavorites: 'Δεν υπάρχουν αγαπημένα πρατήρια.',
+    station: 'Πρατήριο',
+  },
+  en: {
+    allFavorites: 'All favorites',
+    loading: 'Loading...',
+    noFavorites: 'No favorite stations yet.',
+    station: 'Station',
+  },
+}
 
 type FavoriteLocation = {
   id: string
@@ -18,6 +34,7 @@ type FavoriteLocation = {
 
 export default function ProfileFavoritesPage() {
   const router = useRouter()
+  const t = useT(T)
   const [loading, setLoading] = useState(true)
   const [favorites, setFavorites] = useState<FavoriteLocation[]>([])
 
@@ -52,16 +69,16 @@ export default function ProfileFavoritesPage() {
           <button onClick={() => router.push('/profile')} className="text-gray-400">
             <ArrowLeft size={18} />
           </button>
-          <p className="text-sm font-medium text-gray-900">Όλα τα αγαπημένα</p>
+          <p className="text-sm font-medium text-gray-900">{t.allFavorites}</p>
         </div>
 
         {loading ? (
           <div className="px-5 py-8">
-            <p className="text-xs text-gray-400">Φόρτωση...</p>
+            <p className="text-xs text-gray-400">{t.loading}</p>
           </div>
         ) : favorites.length === 0 ? (
           <div className="px-5 py-8">
-            <p className="text-sm text-gray-500">Δεν υπάρχουν αγαπημένα πρατήρια.</p>
+            <p className="text-sm text-gray-500">{t.noFavorites}</p>
           </div>
         ) : (
           <div className="px-4 pt-4 flex flex-col gap-2">
@@ -75,7 +92,7 @@ export default function ProfileFavoritesPage() {
                   ⛽
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{(fav.locations as any)?.name || 'Πρατήριο'}</p>
+                  <p className="text-sm font-medium text-gray-900">{(fav.locations as any)?.name || t.station}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{(fav.locations as any)?.city || ''}</p>
                 </div>
               </button>

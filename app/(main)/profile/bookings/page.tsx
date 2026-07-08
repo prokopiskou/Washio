@@ -4,6 +4,43 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useT, useLocale, Locale } from '@/lib/i18n'
+
+const T = {
+  el: {
+    confirmed: 'Επερχόμενη', completed: 'Ολοκληρώθηκε', cancelled: 'Ακυρώθηκε', pending: 'Εκκρεμεί',
+    station: 'Πρατήριο',
+    myBookings: 'Οι κρατήσεις μου',
+    all: 'Όλες', upcoming: 'Επερχόμενες', completedTab: 'Ολοκληρωμένες', cancelledTab: 'Ακυρωμένες',
+    loading: 'Φόρτωση...',
+    emptyAll: 'Δεν υπάρχουν κρατήσεις',
+    emptyUpcoming: 'Δεν υπάρχουν επερχόμενες',
+    emptyCompleted: 'Δεν υπάρχουν ολοκληρωμένες',
+    emptyCancelled: 'Δεν υπάρχουν ακυρωμένες',
+    emptyAllSub: 'Όταν κάνεις την πρώτη σου κράτηση, θα εμφανιστεί εδώ.',
+    emptyOtherSub: 'Δεν υπάρχουν κρατήσεις σε αυτή τη κατηγορία.',
+    findWash: 'Βρες πλυντήριο',
+  },
+  en: {
+    confirmed: 'Upcoming', completed: 'Completed', cancelled: 'Cancelled', pending: 'Pending',
+    station: 'Station',
+    myBookings: 'My bookings',
+    all: 'All', upcoming: 'Upcoming', completedTab: 'Completed', cancelledTab: 'Cancelled',
+    loading: 'Loading...',
+    emptyAll: 'No bookings',
+    emptyUpcoming: 'No upcoming bookings',
+    emptyCompleted: 'No completed bookings',
+    emptyCancelled: 'No cancelled bookings',
+    emptyAllSub: 'When you make your first booking, it will appear here.',
+    emptyOtherSub: 'There are no bookings in this category.',
+    findWash: 'Find a car wash',
+  },
+}
+
+const MONTHS_SHORT: Record<Locale, string[]> = {
+  el: ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+}
 
 type UserBooking = {
   id: string
@@ -18,19 +55,18 @@ type UserBooking = {
 
 type FilterKey = 'all' | 'upcoming' | 'completed' | 'cancelled'
 
-const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
-
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr: string, locale: Locale) => {
   const d = new Date(dateStr)
-  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
+  return `${d.getDate()} ${MONTHS_SHORT[locale][d.getMonth()]}`
 }
 
 function StatusPill({ status }: { status: string }) {
+  const t = useT(T)
   const config = {
-    confirmed: { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επερχόμενη' },
-    completed: { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκληρώθηκε' },
-    cancelled: { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρώθηκε' },
-    pending: { bg: '#F7F7F7', fg: '#666666', label: 'Εκκρεμεί' },
+    confirmed: { bg: '#EAF2FD', fg: '#1A6FD4', label: t.confirmed },
+    completed: { bg: '#E7F6EF', fg: '#0F7A5C', label: t.completed },
+    cancelled: { bg: '#FCEAEA', fg: '#B43C3C', label: t.cancelled },
+    pending: { bg: '#F7F7F7', fg: '#666666', label: t.pending },
   }[status] || { bg: '#F7F7F7', fg: '#666666', label: status }
 
   return (
@@ -83,6 +119,8 @@ function BookingCard({
   booking: UserBooking
   onClick: () => void
 }) {
+  const t = useT(T)
+  const { locale } = useLocale()
   return (
     <button
       onClick={onClick}
@@ -91,12 +129,12 @@ function BookingCard({
     >
       <div className="flex justify-between items-start gap-2.5">
         <p className="text-[15px] font-semibold tracking-tight text-gray-900 truncate flex-1">
-          {(booking.locations as any)?.name || 'Πρατήριο'}
+          {(booking.locations as any)?.name || t.station}
         </p>
         <StatusPill status={booking.status} />
       </div>
       <p className="text-[12px] text-gray-500 truncate">
-        {(booking.services as any)?.name} · {formatDate(booking.slot_date)} · {booking.slot_start_time?.slice(0, 5)}
+        {(booking.services as any)?.name} · {formatDate(booking.slot_date, locale)} · {booking.slot_start_time?.slice(0, 5)}
       </p>
       <div className="h-px bg-gray-100 my-0.5" />
       <div className="flex justify-between items-center">
@@ -119,6 +157,7 @@ function BookingCard({
 
 export default function ProfileBookingsPage() {
   const router = useRouter()
+  const t = useT(T)
   const [loading, setLoading] = useState(true)
   const [bookings, setBookings] = useState<UserBooking[]>([])
   const [filter, setFilter] = useState<FilterKey>('all')
@@ -176,23 +215,23 @@ export default function ProfileBookingsPage() {
               <ChevronLeft size={18} />
             </button>
             <h1 className="text-[20px] font-bold tracking-tight text-gray-900">
-              Οι κρατήσεις μου
+              {t.myBookings}
             </h1>
           </div>
 
           {/* Filter chips */}
           <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
             <FilterChip active={filter === 'all'} count={counts.all} onClick={() => setFilter('all')}>
-              Όλες
+              {t.all}
             </FilterChip>
             <FilterChip active={filter === 'upcoming'} count={counts.upcoming} onClick={() => setFilter('upcoming')}>
-              Επερχόμενες
+              {t.upcoming}
             </FilterChip>
             <FilterChip active={filter === 'completed'} count={counts.completed} onClick={() => setFilter('completed')}>
-              Ολοκληρωμένες
+              {t.completedTab}
             </FilterChip>
             <FilterChip active={filter === 'cancelled'} count={counts.cancelled} onClick={() => setFilter('cancelled')}>
-              Ακυρωμένες
+              {t.cancelledTab}
             </FilterChip>
           </div>
         </div>
@@ -200,7 +239,7 @@ export default function ProfileBookingsPage() {
         {/* List */}
         {loading ? (
           <div className="px-5 py-8">
-            <p className="text-xs text-gray-400">Φόρτωση...</p>
+            <p className="text-xs text-gray-400">{t.loading}</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center text-center px-10 pt-24">
@@ -211,21 +250,21 @@ export default function ProfileBookingsPage() {
               <Inbox size={28} strokeWidth={1.5} />
             </div>
             <p className="text-[17px] font-semibold tracking-tight text-gray-900">
-              {filter === 'all' && 'Δεν υπάρχουν κρατήσεις'}
-              {filter === 'upcoming' && 'Δεν υπάρχουν επερχόμενες'}
-              {filter === 'completed' && 'Δεν υπάρχουν ολοκληρωμένες'}
-              {filter === 'cancelled' && 'Δεν υπάρχουν ακυρωμένες'}
+              {filter === 'all' && t.emptyAll}
+              {filter === 'upcoming' && t.emptyUpcoming}
+              {filter === 'completed' && t.emptyCompleted}
+              {filter === 'cancelled' && t.emptyCancelled}
             </p>
             <p className="text-[13px] text-gray-500 mt-1.5 max-w-[260px]">
-              {filter === 'all' && 'Όταν κάνεις την πρώτη σου κράτηση, θα εμφανιστεί εδώ.'}
-              {filter !== 'all' && 'Δεν υπάρχουν κρατήσεις σε αυτή τη κατηγορία.'}
+              {filter === 'all' && t.emptyAllSub}
+              {filter !== 'all' && t.emptyOtherSub}
             </p>
             {filter === 'all' && (
               <button
                 onClick={() => router.push('/map')}
                 className="mt-6 px-5 py-3 rounded-xl bg-gray-900 text-white text-[14px] font-semibold tracking-tight"
               >
-                Βρες πλυντήριο
+                {t.findWash}
               </button>
             )}
           </div>

@@ -3,15 +3,22 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, MapPin, User } from 'lucide-react'
+import { useT } from '@/lib/i18n'
+
+const T = {
+  el: { home: 'Αρχική', find: 'Εύρεση', profile: 'Προφίλ' },
+  en: { home: 'Home', find: 'Find', profile: 'Profile' },
+}
 
 const ITEMS = [
-  { href: '/', label: 'Αρχική', Icon: Home },
-  { href: '/map', label: 'Εύρεση', Icon: MapPin },
-  { href: '/profile', label: 'Προφίλ', Icon: User },
+  { href: '/', key: 'home' as const, Icon: Home },
+  { href: '/map', key: 'find' as const, Icon: MapPin },
+  { href: '/profile', key: 'profile' as const, Icon: User },
 ]
 
 export function BottomNav() {
   const pathname = usePathname()
+  const t = useT(T)
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
 
@@ -21,7 +28,7 @@ export function BottomNav() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex justify-around items-stretch gap-1 px-3 pt-2.5 pb-2">
-        {ITEMS.map(({ href, label, Icon }) => {
+        {ITEMS.map(({ href, key, Icon }) => {
           const active = isActive(href)
           return (
             <Link
@@ -37,7 +44,7 @@ export function BottomNav() {
               <span
                 className={`text-[11px] tracking-tight transition-colors duration-200 ${active ? 'font-semibold text-gray-900' : 'font-medium text-gray-400'}`}
               >
-                {label}
+                {t[key]}
               </span>
             </Link>
           )

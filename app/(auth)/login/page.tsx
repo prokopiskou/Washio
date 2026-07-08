@@ -4,9 +4,58 @@ import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { signInWithProvider } from '@/lib/native-auth'
+import { useT } from '@/lib/i18n'
+
+const T = {
+  el: {
+    checkEmail: 'Έλεγξε το email σου',
+    loginRegister: 'Είσοδος / Εγγραφή',
+    sentCode: (email: string) => `Στείλαμε κωδικό στο ${email}`,
+    noPassword: 'Χωρίς κωδικό — μόνο το email σου',
+    emailPlaceholder: 'Email',
+    sending: 'Αποστολή...',
+    sendCode: 'Αποστολή κωδικού',
+    continueGuest: 'Συνέχεια ως επισκέπτης',
+    or: 'ή',
+    continueApple: 'Συνέχεια με Apple',
+    continueGoogle: 'Συνέχεια με Google',
+    continueFacebook: 'Συνέχεια με Facebook',
+    otpPlaceholder: 'Κωδικός 8 ψηφίων',
+    verifying: 'Επαλήθευση...',
+    login: 'Είσοδος',
+    changeEmail: 'Αλλαγή email',
+    resendCode: 'Αποστολή νέου κωδικού',
+    wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
+    somethingWrong: 'Κάτι πήγε στραβά. Δοκίμασε ξανά.',
+    loading: 'Φόρτωση...',
+  },
+  en: {
+    checkEmail: 'Check your email',
+    loginRegister: 'Sign in / Sign up',
+    sentCode: (email: string) => `We sent a code to ${email}`,
+    noPassword: 'No password — just your email',
+    emailPlaceholder: 'Email',
+    sending: 'Sending...',
+    sendCode: 'Send code',
+    continueGuest: 'Continue as guest',
+    or: 'or',
+    continueApple: 'Continue with Apple',
+    continueGoogle: 'Continue with Google',
+    continueFacebook: 'Continue with Facebook',
+    otpPlaceholder: '8-digit code',
+    verifying: 'Verifying...',
+    login: 'Sign in',
+    changeEmail: 'Change email',
+    resendCode: 'Send new code',
+    wrongCode: 'Wrong code. Please try again.',
+    somethingWrong: 'Something went wrong. Please try again.',
+    loading: 'Loading...',
+  },
+}
 
 function LoginPageContent() {
   const router = useRouter()
+  const t = useT(T)
   const params = useSearchParams()
   const rawRedirect = params.get('redirect') || '/'
   const redirectUrl = rawRedirect.startsWith('http')
@@ -74,19 +123,19 @@ function LoginPageContent() {
         })
         const data = await res.json()
         if (!res.ok || !data.tokenHash) {
-          setError('Λάθος κωδικός. Δοκίμασε ξανά.')
+          setError(t.wrongCode)
           setLoading(false)
           return
         }
         const { error } = await supabase.auth.verifyOtp({ token_hash: data.tokenHash, type: 'email' })
         if (error) {
-          setError('Λάθος κωδικός. Δοκίμασε ξανά.')
+          setError(t.wrongCode)
           setLoading(false)
         } else {
           router.push(redirectUrl)
         }
       } catch {
-        setError('Κάτι πήγε στραβά. Δοκίμασε ξανά.')
+        setError(t.somethingWrong)
         setLoading(false)
       }
       return
@@ -98,7 +147,7 @@ function LoginPageContent() {
       type: 'email',
     })
     if (error) {
-      setError('Λάθος κωδικός. Δοκίμασε ξανά.')
+      setError(t.wrongCode)
       setLoading(false)
     } else {
       router.push(redirectUrl)
@@ -122,10 +171,10 @@ function LoginPageContent() {
         <div className="pt-14 pb-8 flex flex-col items-center">
           <img src="/washio_logo.png" alt="Washio" className="h-16 w-auto mb-5" />
           <h1 className="text-lg font-semibold text-gray-900">
-            {sent ? 'Έλεγξε το email σου' : 'Είσοδος / Εγγραφή'}
+            {sent ? t.checkEmail : t.loginRegister}
           </h1>
           <p className="text-xs text-gray-400 mt-1">
-            {sent ? `Στείλαμε κωδικό στο ${email}` : 'Χωρίς κωδικό — μόνο το email σου'}
+            {sent ? t.sentCode(email) : t.noPassword}
           </p>
         </div>
 
@@ -135,7 +184,7 @@ function LoginPageContent() {
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="Email"
+              placeholder={t.emailPlaceholder}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
               onKeyDown={e => e.key === 'Enter' && handleSendOtp()}
               autoFocus
@@ -148,19 +197,19 @@ function LoginPageContent() {
               disabled={loading || !email}
               className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
             >
-              {loading ? 'Αποστολή...' : 'Αποστολή κωδικού'}
+              {loading ? t.sending : t.sendCode}
             </button>
 
             <button
               onClick={() => router.push('/')}
               className="w-full text-xs text-gray-400 text-center py-2"
             >
-              Συνέχεια ως επισκέπτης
+              {t.continueGuest}
             </button>
 
             <div className="flex items-center gap-3 my-1">
               <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-xs text-gray-300">ή</span>
+              <span className="text-xs text-gray-300">{t.or}</span>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
 
@@ -171,7 +220,7 @@ function LoginPageContent() {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
                 <path d="M17.05 12.04c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.1-2.02-3.77-2.04-1.6-.16-3.13.94-3.94.94-.81 0-2.07-.92-3.41-.89-1.75.03-3.37 1.02-4.27 2.59-1.82 3.16-.47 7.84 1.31 10.41.87 1.26 1.9 2.67 3.25 2.62 1.3-.05 1.8-.84 3.37-.84 1.57 0 2.02.84 3.4.81 1.4-.02 2.29-1.28 3.15-2.55 1-1.46 1.41-2.88 1.43-2.95-.03-.01-2.74-1.05-2.77-4.17zM14.6 4.42c.72-.87 1.2-2.08 1.07-3.29-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.58 3.03-1.45z"/>
               </svg>
-              Συνέχεια με Apple
+              {t.continueApple}
             </button>
 
             <button
@@ -184,7 +233,7 @@ function LoginPageContent() {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Συνέχεια με Google
+              {t.continueGoogle}
             </button>
 
             <button
@@ -194,7 +243,7 @@ function LoginPageContent() {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#1877F2">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
-              Συνέχεια με Facebook
+              {t.continueFacebook}
             </button>
           </div>
         ) : (
@@ -204,7 +253,7 @@ function LoginPageContent() {
               inputMode="numeric"
               value={otp}
               onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
-              placeholder="Κωδικός 8 ψηφίων"
+              placeholder={t.otpPlaceholder}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400 text-center tracking-widest text-lg font-medium"
               onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
               autoFocus
@@ -217,21 +266,21 @@ function LoginPageContent() {
               disabled={loading || otp.length < 8}
               className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
             >
-              {loading ? 'Επαλήθευση...' : 'Είσοδος'}
+              {loading ? t.verifying : t.login}
             </button>
 
             <button
               onClick={() => { setSent(false); setOtp(''); setError('') }}
               className="text-xs text-gray-400 text-center mt-2"
             >
-              Αλλαγή email
+              {t.changeEmail}
             </button>
 
             <button
               onClick={handleSendOtp}
               className="text-xs text-blue-500 text-center"
             >
-              Αποστολή νέου κωδικού
+              {t.resendCode}
             </button>
           </div>
         )}
@@ -241,9 +290,14 @@ function LoginPageContent() {
   )
 }
 
+function LoginFallback() {
+  const t = useT(T)
+  return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">{t.loading}</p></div>
+}
+
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div>}>
+    <Suspense fallback={<LoginFallback />}>
       <LoginPageContent />
     </Suspense>
   )

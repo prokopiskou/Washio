@@ -4,6 +4,92 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet } from 'lucide-react'
+import { useT, useLocale } from '@/lib/i18n'
+
+const T = {
+  el: {
+    confirmed: 'Επερχόμενη', completed: 'Ολοκληρώθηκε', cancelled: 'Ακυρώθηκε', pending: 'Εκκρεμεί',
+    loading: 'Φόρτωση...',
+    notFound: 'Η κράτηση δεν βρέθηκε.', back: 'Επιστροφή',
+    booking: 'Κράτηση', bookingRef: 'Κωδικός κράτησης', map: 'Χάρτης',
+    date: 'Ημερομηνία', time: 'Ώρα', service: 'Υπηρεσία', plate: 'Πινακίδα', total: 'Σύνολο',
+    changeDate: 'Αλλαγή ημερομηνίας', cancelBooking: 'Ακύρωση κράτησης',
+    reason1: 'Άλλαξαν τα σχέδιά μου',
+    reason2: 'Βρήκα φθηνότερη επιλογή',
+    reason3: 'Δεν είμαι σίγουρος για την ώρα',
+    reason4: 'Λάθος κράτηση',
+    reason5: 'Άλλος λόγος',
+    cancelNotPossible: 'Δεν είναι δυνατή η ακύρωση',
+    cancelNotPossibleSub1: 'Δεν επιτρέπεται ακύρωση για κρατήσεις που ξεκινούν τις επόμενες ',
+    hours2: '2 ώρες',
+    cancelNotPossibleSub2: '.',
+    supportNote1: 'Για οποιοδήποτε άλλο θέμα, επικοινώνησε με το support στο ',
+    understood: 'Κατάλαβα',
+    changeNotPossible: 'Δεν είναι δυνατή η αλλαγή',
+    changeNotPossibleSub1: 'Δεν επιτρέπεται αλλαγή ημερομηνίας για κρατήσεις που ξεκινούν τις επόμενες ',
+    reschedulePick: 'Επίλεξε νέα ημερομηνία και ώρα.',
+    availableTimes: 'Διαθέσιμες ώρες',
+    noSlots: 'Δεν υπάρχουν διαθέσιμες ώρες αυτή τη μέρα.',
+    cancelBtn: 'Άκυρο', change: 'Αλλαγή', changing: 'Αλλαγή...',
+    whyCancel: 'Γιατί ακυρώνεις;', whyCancelSub: 'Η απάντησή σου μας βοηθάει να βελτιωθούμε.',
+    comments: 'Σχόλια (προαιρετικό)', tellMore: 'Πες μας περισσότερα...',
+    backBtn: 'Πίσω', continue: 'Συνέχεια',
+    sure: 'Είσαι σίγουρος;',
+    importantLabel: 'Σημαντικό:',
+    trackNote: ' Παρακολουθούμε τη συμπεριφορά ακυρώσεων. Συχνές ακυρώσεις μπορεί να οδηγήσουν σε:',
+    consequence1: 'Περιορισμό κρατήσεων στο σημείο',
+    consequence2: 'Προσωρινή αναστολή λογαριασμού',
+    consequence3: 'Μη επιστροφή χρημάτων σε επόμενες ακυρώσεις',
+    acknowledge: 'Κατανοώ ότι οι συχνές ακυρώσεις μπορούν να επηρεάσουν τον λογαριασμό μου και αποδέχομαι τους όρους ακύρωσης.',
+    finalConfirm: 'Τελική επιβεβαίωση',
+    finalConfirmSub1: 'Πάτα ', finalConfirmSub2: ' για να ολοκληρωθεί η ακύρωση.',
+    refundNote1: '• Η επιστροφή χρημάτων θα γίνει εντός ', refundDays: '5-7 εργάσιμων ημερών',
+    refundNote2: '• Θα λάβεις email επιβεβαίωσης',
+    refundNote3: '• Η ενέργεια είναι μη αναστρέψιμη',
+    keepIt: 'Όχι, κράτα την', yesCancel: 'Ναι, ακύρωσε', cancelling: 'Ακύρωση...',
+  },
+  en: {
+    confirmed: 'Upcoming', completed: 'Completed', cancelled: 'Cancelled', pending: 'Pending',
+    loading: 'Loading...',
+    notFound: 'Booking not found.', back: 'Back',
+    booking: 'Booking', bookingRef: 'Booking reference', map: 'Map',
+    date: 'Date', time: 'Time', service: 'Service', plate: 'Plate', total: 'Total',
+    changeDate: 'Change date', cancelBooking: 'Cancel booking',
+    reason1: 'My plans changed',
+    reason2: 'I found a cheaper option',
+    reason3: "I'm not sure about the time",
+    reason4: 'Wrong booking',
+    reason5: 'Other reason',
+    cancelNotPossible: 'Cancellation not possible',
+    cancelNotPossibleSub1: 'Cancellation is not allowed for bookings starting within the next ',
+    hours2: '2 hours',
+    cancelNotPossibleSub2: '.',
+    supportNote1: 'For any other issue, contact support at ',
+    understood: 'Got it',
+    changeNotPossible: 'Change not possible',
+    changeNotPossibleSub1: 'Date changes are not allowed for bookings starting within the next ',
+    reschedulePick: 'Pick a new date and time.',
+    availableTimes: 'Available times',
+    noSlots: 'No available times on this day.',
+    cancelBtn: 'Cancel', change: 'Change', changing: 'Changing...',
+    whyCancel: 'Why are you cancelling?', whyCancelSub: 'Your answer helps us improve.',
+    comments: 'Comments (optional)', tellMore: 'Tell us more...',
+    backBtn: 'Back', continue: 'Continue',
+    sure: 'Are you sure?',
+    importantLabel: 'Important:',
+    trackNote: ' We monitor cancellation behavior. Frequent cancellations may lead to:',
+    consequence1: 'Booking restrictions at this location',
+    consequence2: 'Temporary account suspension',
+    consequence3: 'No refunds on future cancellations',
+    acknowledge: 'I understand that frequent cancellations can affect my account and I accept the cancellation terms.',
+    finalConfirm: 'Final confirmation',
+    finalConfirmSub1: 'Press ', finalConfirmSub2: ' to complete the cancellation.',
+    refundNote1: '• The refund will be issued within ', refundDays: '5-7 business days',
+    refundNote2: '• You will receive a confirmation email',
+    refundNote3: '• This action is irreversible',
+    keepIt: 'No, keep it', yesCancel: 'Yes, cancel', cancelling: 'Cancelling...',
+  },
+}
 
 type Booking = {
   id: string
@@ -28,14 +114,6 @@ type Booking = {
   } | null
 }
 
-const CANCELLATION_REASONS = [
-  'Άλλαξαν τα σχέδιά μου',
-  'Βρήκα φθηνότερη επιλογή',
-  'Δεν είμαι σίγουρος για την ώρα',
-  'Λάθος κράτηση',
-  'Άλλος λόγος',
-]
-
 function generateSlots(openTime: string, closeTime: string): string[] {
   const slots: string[] = []
   const [openH, openM] = openTime.split(':').map(Number)
@@ -56,11 +134,12 @@ function jsDayToSupabase(jsDay: number): number {
 }
 
 function StatusPill({ status }: { status: string }) {
+  const t = useT(T)
   const config = {
-    confirmed: { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επερχόμενη' },
-    completed: { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκληρώθηκε' },
-    cancelled: { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρώθηκε' },
-    pending: { bg: '#F7F7F7', fg: '#666666', label: 'Εκκρεμεί' },
+    confirmed: { bg: '#EAF2FD', fg: '#1A6FD4', label: t.confirmed },
+    completed: { bg: '#E7F6EF', fg: '#0F7A5C', label: t.completed },
+    cancelled: { bg: '#FCEAEA', fg: '#B43C3C', label: t.cancelled },
+    pending: { bg: '#F7F7F7', fg: '#666666', label: t.pending },
   }[status] || { bg: '#F7F7F7', fg: '#666666', label: status }
 
   return (
@@ -108,6 +187,9 @@ export default function BookingDetailPage() {
   const router = useRouter()
   const params = useParams()
   const bookingId = params.id as string
+  const t = useT(T)
+  const { locale } = useLocale()
+  const CANCELLATION_REASONS = [t.reason1, t.reason2, t.reason3, t.reason4, t.reason5]
 
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
@@ -322,7 +404,7 @@ export default function BookingDetailPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-xs text-gray-400">Φόρτωση...</p>
+        <p className="text-xs text-gray-400">{t.loading}</p>
       </main>
     )
   }
@@ -330,16 +412,16 @@ export default function BookingDetailPage() {
   if (!booking) {
     return (
       <main className="min-h-screen bg-white flex flex-col items-center justify-center px-5">
-        <p className="text-sm text-gray-500">Η κράτηση δεν βρέθηκε.</p>
+        <p className="text-sm text-gray-500">{t.notFound}</p>
         <button onClick={() => router.push('/profile/bookings')} className="mt-4 text-sm text-blue-500">
-          Επιστροφή
+          {t.back}
         </button>
       </main>
     )
   }
 
   const date = new Date(booking.slot_date)
-  const formattedDate = date.toLocaleDateString('el-GR', {
+  const formattedDate = date.toLocaleDateString(locale === 'en' ? 'en-GB' : 'el-GR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -368,7 +450,7 @@ export default function BookingDetailPage() {
             <ChevronLeft size={18} />
           </button>
           <p className="flex-1 text-center text-[17px] font-semibold tracking-tight text-gray-900 -ml-10">
-            Κράτηση
+            {t.booking}
           </p>
         </div>
 
@@ -377,7 +459,7 @@ export default function BookingDetailPage() {
           {/* Booking ref + status */}
           <div className="text-center pt-3 pb-7">
             <p className="text-[11px] font-semibold tracking-[1.8px] uppercase text-gray-400">
-              Κωδικός κράτησης
+              {t.bookingRef}
             </p>
             <p
               className="text-[28px] font-bold text-gray-900 mt-2"
@@ -417,7 +499,7 @@ export default function BookingDetailPage() {
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold shrink-0"
                 style={{ background: '#EAF2FD', color: '#1A6FD4' }}
               >
-                Χάρτης
+                {t.map}
                 <ExternalLink size={11} strokeWidth={1.8} />
               </div>
             </a>
@@ -430,32 +512,32 @@ export default function BookingDetailPage() {
           >
             <InfoRow
               icon={<Calendar size={18} strokeWidth={1.75} />}
-              label="Ημερομηνία"
+              label={t.date}
               value={formattedDate}
             />
             <InfoRow
               icon={<Clock size={18} strokeWidth={1.75} />}
-              label="Ώρα"
+              label={t.time}
               value={booking.slot_start_time?.slice(0, 5) || '—'}
             />
             {booking.services && (
               <InfoRow
                 icon={<Droplet size={18} strokeWidth={1.75} />}
-                label="Υπηρεσία"
+                label={t.service}
                 value={booking.services.name}
               />
             )}
             {booking.car_plate && (
               <InfoRow
                 icon={<Car size={18} strokeWidth={1.75} />}
-                label="Πινακίδα"
+                label={t.plate}
                 value={booking.car_plate}
                 mono
               />
             )}
             <InfoRow
               icon={<CreditCard size={18} strokeWidth={1.75} />}
-              label="Σύνολο"
+              label={t.total}
               value={`€${Number(booking.total_amount || 0).toFixed(2)}`}
               isLast
             />
@@ -470,7 +552,7 @@ export default function BookingDetailPage() {
                 style={{ height: 52 }}
               >
                 <CalendarClock size={18} strokeWidth={1.6} />
-                Αλλαγή ημερομηνίας
+                {t.changeDate}
               </button>
 
               <div className="flex justify-center pt-4 pb-10">
@@ -478,7 +560,7 @@ export default function BookingDetailPage() {
                   onClick={handleCancelClick}
                   className="text-[12px] font-medium text-gray-400 underline underline-offset-[3px]"
                 >
-                  Ακύρωση κράτησης
+                  {t.cancelBooking}
                 </button>
               </div>
             </>
@@ -500,16 +582,16 @@ export default function BookingDetailPage() {
                 <AlertTriangle size={20} className="text-amber-500" />
               </div>
               <p className="text-base font-semibold text-gray-900 mb-2">
-                Δεν είναι δυνατή η ακύρωση
+                {t.cancelNotPossible}
               </p>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Δεν επιτρέπεται ακύρωση για κρατήσεις που ξεκινούν τις επόμενες <strong>2 ώρες</strong>.
+                {t.cancelNotPossibleSub1}<strong>{t.hours2}</strong>{t.cancelNotPossibleSub2}
               </p>
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 mb-5">
               <p className="text-xs text-gray-500 leading-relaxed text-center">
-                Για οποιοδήποτε άλλο θέμα, επικοινώνησε με το support στο{' '}
+                {t.supportNote1}
                 <a href="mailto:support@washio.gr" className="text-gray-900 font-medium">support@washio.gr</a>
               </p>
             </div>
@@ -518,7 +600,7 @@ export default function BookingDetailPage() {
               onClick={() => setShowCancelLate(false)}
               className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl"
             >
-              Κατάλαβα
+              {t.understood}
             </button>
           </div>
         </div>
@@ -536,16 +618,16 @@ export default function BookingDetailPage() {
                 <AlertTriangle size={20} className="text-amber-500" />
               </div>
               <p className="text-base font-semibold text-gray-900 mb-2">
-                Δεν είναι δυνατή η αλλαγή
+                {t.changeNotPossible}
               </p>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Δεν επιτρέπεται αλλαγή ημερομηνίας για κρατήσεις που ξεκινούν τις επόμενες <strong>2 ώρες</strong>.
+                {t.changeNotPossibleSub1}<strong>{t.hours2}</strong>{t.cancelNotPossibleSub2}
               </p>
             </div>
 
             <div className="bg-gray-50 rounded-xl p-4 mb-5">
               <p className="text-xs text-gray-500 leading-relaxed text-center">
-                Για οποιοδήποτε άλλο θέμα, επικοινώνησε με το support στο{' '}
+                {t.supportNote1}
                 <a href="mailto:support@washio.gr" className="text-gray-900 font-medium">support@washio.gr</a>
               </p>
             </div>
@@ -554,7 +636,7 @@ export default function BookingDetailPage() {
               onClick={() => setShowRescheduleLate(false)}
               className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl"
             >
-              Κατάλαβα
+              {t.understood}
             </button>
           </div>
         </div>
@@ -567,11 +649,11 @@ export default function BookingDetailPage() {
           <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10 max-h-[85vh] overflow-y-auto">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
 
-            <p className="text-base font-semibold text-gray-900 mb-1">Αλλαγή ημερομηνίας</p>
-            <p className="text-xs text-gray-400 mb-5">Επίλεξε νέα ημερομηνία και ώρα.</p>
+            <p className="text-base font-semibold text-gray-900 mb-1">{t.changeDate}</p>
+            <p className="text-xs text-gray-400 mb-5">{t.reschedulePick}</p>
 
             <div className="mb-4">
-              <p className="text-xs text-gray-400 mb-1.5">Ημερομηνία</p>
+              <p className="text-xs text-gray-400 mb-1.5">{t.date}</p>
               <input
                 type="date"
                 value={newDate}
@@ -582,11 +664,11 @@ export default function BookingDetailPage() {
             </div>
 
             <div className="mb-5">
-              <p className="text-xs text-gray-400 mb-1.5">Διαθέσιμες ώρες</p>
+              <p className="text-xs text-gray-400 mb-1.5">{t.availableTimes}</p>
               {slotsLoading ? (
-                <p className="text-xs text-gray-400 py-4">Φόρτωση...</p>
+                <p className="text-xs text-gray-400 py-4">{t.loading}</p>
               ) : availableSlots.length === 0 ? (
-                <p className="text-xs text-gray-400 py-4">Δεν υπάρχουν διαθέσιμες ώρες αυτή τη μέρα.</p>
+                <p className="text-xs text-gray-400 py-4">{t.noSlots}</p>
               ) : (
                 <div className="grid grid-cols-4 gap-2">
                   {availableSlots.map(slot => (
@@ -612,14 +694,14 @@ export default function BookingDetailPage() {
                 disabled={rescheduling}
                 className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl"
               >
-                Άκυρο
+                {t.cancelBtn}
               </button>
               <button
                 onClick={handleConfirmReschedule}
                 disabled={!newDate || !newTime || rescheduling}
                 className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
               >
-                {rescheduling ? 'Αλλαγή...' : 'Αλλαγή'}
+                {rescheduling ? t.changing : t.change}
               </button>
             </div>
           </div>
@@ -635,8 +717,8 @@ export default function BookingDetailPage() {
 
             {step === 1 && (
               <>
-                <p className="text-base font-semibold text-gray-900 mb-1">Γιατί ακυρώνεις;</p>
-                <p className="text-xs text-gray-400 mb-5">Η απάντησή σου μας βοηθάει να βελτιωθούμε.</p>
+                <p className="text-base font-semibold text-gray-900 mb-1">{t.whyCancel}</p>
+                <p className="text-xs text-gray-400 mb-5">{t.whyCancelSub}</p>
 
                 <div className="divide-y divide-gray-100 mb-5">
                   {CANCELLATION_REASONS.map(r => (
@@ -658,11 +740,11 @@ export default function BookingDetailPage() {
                 </div>
 
                 <div className="mb-5">
-                  <p className="text-xs text-gray-400 mb-1.5">Σχόλια (προαιρετικό)</p>
+                  <p className="text-xs text-gray-400 mb-1.5">{t.comments}</p>
                   <textarea
                     value={details}
                     onChange={e => setDetails(e.target.value)}
-                    placeholder="Πες μας περισσότερα..."
+                    placeholder={t.tellMore}
                     rows={3}
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400"
                   />
@@ -673,14 +755,14 @@ export default function BookingDetailPage() {
                     onClick={() => setShowCancelFlow(false)}
                     className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl"
                   >
-                    Πίσω
+                    {t.backBtn}
                   </button>
                   <button
                     onClick={() => setStep(2)}
                     disabled={!reason}
                     className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
                   >
-                    Συνέχεια
+                    {t.continue}
                   </button>
                 </div>
               </>
@@ -693,18 +775,18 @@ export default function BookingDetailPage() {
                     <AlertTriangle size={20} className="text-amber-500" />
                   </div>
                   <p className="text-base font-semibold text-gray-900 mb-2">
-                    Είσαι σίγουρος;
+                    {t.sure}
                   </p>
                 </div>
 
                 <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 mb-5">
                   <p className="text-xs text-amber-800 leading-relaxed">
-                    <strong>Σημαντικό:</strong> Παρακολουθούμε τη συμπεριφορά ακυρώσεων. Συχνές ακυρώσεις μπορεί να οδηγήσουν σε:
+                    <strong>{t.importantLabel}</strong>{t.trackNote}
                   </p>
                   <ul className="text-xs text-amber-800 mt-2 space-y-1 list-disc pl-4">
-                    <li>Περιορισμό κρατήσεων στο σημείο</li>
-                    <li>Προσωρινή αναστολή λογαριασμού</li>
-                    <li>Μη επιστροφή χρημάτων σε επόμενες ακυρώσεις</li>
+                    <li>{t.consequence1}</li>
+                    <li>{t.consequence2}</li>
+                    <li>{t.consequence3}</li>
                   </ul>
                 </div>
 
@@ -716,7 +798,7 @@ export default function BookingDetailPage() {
                     className="mt-0.5 w-4 h-4 accent-gray-900"
                   />
                   <span className="text-xs text-gray-600 leading-relaxed">
-                    Κατανοώ ότι οι συχνές ακυρώσεις μπορούν να επηρεάσουν τον λογαριασμό μου και αποδέχομαι τους όρους ακύρωσης.
+                    {t.acknowledge}
                   </span>
                 </label>
 
@@ -725,14 +807,14 @@ export default function BookingDetailPage() {
                     onClick={() => setStep(1)}
                     className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl"
                   >
-                    Πίσω
+                    {t.backBtn}
                   </button>
                   <button
                     onClick={() => setStep(3)}
                     disabled={!acknowledged}
                     className="flex-1 bg-red-500 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
                   >
-                    Συνέχεια
+                    {t.continue}
                   </button>
                 </div>
               </>
@@ -742,17 +824,17 @@ export default function BookingDetailPage() {
               <>
                 <div className="text-center mb-5">
                   <p className="text-base font-semibold text-gray-900 mb-2">
-                    Τελική επιβεβαίωση
+                    {t.finalConfirm}
                   </p>
                   <p className="text-sm text-gray-500 leading-relaxed">
-                    Πάτα <strong>Ναι, ακύρωσε</strong> για να ολοκληρωθεί η ακύρωση.
+                    {t.finalConfirmSub1}<strong>{t.yesCancel}</strong>{t.finalConfirmSub2}
                   </p>
                 </div>
 
                 <div className="bg-gray-50 rounded-xl p-4 mb-5 text-xs text-gray-600 leading-relaxed">
-                  <p>• Η επιστροφή χρημάτων θα γίνει εντός <strong>5-7 εργάσιμων ημερών</strong></p>
-                  <p className="mt-1">• Θα λάβεις email επιβεβαίωσης</p>
-                  <p className="mt-1">• Η ενέργεια είναι μη αναστρέψιμη</p>
+                  <p>{t.refundNote1}<strong>{t.refundDays}</strong></p>
+                  <p className="mt-1">{t.refundNote2}</p>
+                  <p className="mt-1">{t.refundNote3}</p>
                 </div>
 
                 <div className="flex gap-2">
@@ -761,14 +843,14 @@ export default function BookingDetailPage() {
                     disabled={cancelling}
                     className="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-3 rounded-xl"
                   >
-                    Όχι, κράτα την
+                    {t.keepIt}
                   </button>
                   <button
                     onClick={handleConfirmCancel}
                     disabled={cancelling}
                     className="flex-1 bg-red-500 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
                   >
-                    {cancelling ? 'Ακύρωση...' : 'Ναι, ακύρωσε'}
+                    {cancelling ? t.cancelling : t.yesCancel}
                   </button>
                 </div>
               </>

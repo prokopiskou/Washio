@@ -8,11 +8,71 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { createClient } from '@/lib/supabase/client'
 import { mediumTap, errorHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
+import { useT, useLocale, Locale } from '@/lib/i18n'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
-const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
-const WEEKDAYS = ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο']
+const MONTHS_SHORT: Record<Locale, string[]> = {
+  el: ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+}
+const WEEKDAYS: Record<Locale, string[]> = {
+  el: ['Κυριακή', 'Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο'],
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+}
+
+const T = {
+  el: {
+    paymentSystemNotReady: 'Το σύστημα πληρωμών δεν είναι έτοιμο. Δοκίμασε ξανά.',
+    verifyError: 'Σφάλμα επαλήθευσης.', paymentFailed: 'Η πληρωμή απέτυχε.',
+    unknownError: 'Άγνωστο σφάλμα. Δοκίμασε ξανά.',
+    payment: 'Πληρωμή', paymentNotLoaded: 'Το σύστημα πληρωμών δεν φόρτωσε',
+    paymentNotLoadedHint: 'Έλεγξε τη σύνδεσή σου και απενεργοποίησε τυχόν ad-blocker, VPN ή «Private DNS». Αν συνεχίζει, δοκίμασε σε κανονικό Chrome.',
+    tryAgain: 'Δοκίμασε ξανά', processing: 'Επεξεργασία...', pay: 'Πληρωμή',
+    securePayment: 'Ασφαλής πληρωμή μέσω Stripe',
+    couldNotStartPayment: 'Δεν ήταν δυνατή η έναρξη πληρωμής. Δοκίμασε ξανά.',
+    couldNotBook: 'Δεν ήταν δυνατή η κράτηση. Δοκίμασε ξανά.',
+    somethingWrong: 'Κάτι πήγε στραβά. Δοκίμασε ξανά.',
+    loading: 'Φόρτωση...', serviceNotFound: 'Δεν βρέθηκε υπηρεσία.',
+    confirm: 'Επιβεβαίωση',
+    noMoto: 'Δεν έχεις μοτοσικλέτα καταχωρημένη', noCar: 'Δεν έχεις ΙΧ καταχωρημένο',
+    addPlateBelow: 'Πρόσθεσε την πινακίδα παρακάτω για να συνεχίσεις την κράτηση.',
+    plate: 'Πινακίδα', newVehicle: '+ Νέο όχημα',
+    serviceForA: 'Η υπηρεσία είναι για', vehicleWillBeSavedAs: '. Το όχημα που θα προσθέσεις θα καταχωρηθεί ως',
+    plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
+    backToMyVehicles: '← Επιστροφή στα οχήματά μου',
+    phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonsShort: 'Πρόσθετα', total: 'Σύνολο',
+    freeCancel: 'Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.',
+    or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Πληρωμή με μετρητά στο κατάστημα',
+    cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
+    fillPlatePhone: 'Συμπλήρωσε πινακίδα και τηλέφωνο',
+  },
+  en: {
+    paymentSystemNotReady: 'The payment system is not ready. Please try again.',
+    verifyError: 'Verification error.', paymentFailed: 'Payment failed.',
+    unknownError: 'Unknown error. Please try again.',
+    payment: 'Payment', paymentNotLoaded: 'The payment system did not load',
+    paymentNotLoadedHint: 'Check your connection and disable any ad-blocker, VPN or "Private DNS". If it persists, try in regular Chrome.',
+    tryAgain: 'Try again', processing: 'Processing...', pay: 'Pay',
+    securePayment: 'Secure payment via Stripe',
+    couldNotStartPayment: 'Could not start the payment. Please try again.',
+    couldNotBook: 'Could not complete the booking. Please try again.',
+    somethingWrong: 'Something went wrong. Please try again.',
+    loading: 'Loading...', serviceNotFound: 'Service not found.',
+    confirm: 'Confirmation',
+    noMoto: 'You have no motorcycle registered', noCar: 'You have no car registered',
+    addPlateBelow: 'Add the plate below to continue with your booking.',
+    plate: 'Plate', newVehicle: '+ New vehicle',
+    serviceForA: 'This service is for', vehicleWillBeSavedAs: '. The vehicle you add will be saved as',
+    plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
+    backToMyVehicles: '← Back to my vehicles',
+    phone: 'Phone', addons: 'Add-on services', addonsShort: 'Add-ons', total: 'Total',
+    freeCancel: 'Free cancellation up to 2 hours before your appointment.',
+    or: 'or', confirming: 'Confirming...', payCash: 'Pay with cash at the store',
+    cashHint: 'Book now, pay at the store during your visit.',
+    fillPlatePhone: 'Fill in plate and phone',
+  },
+}
 
 type Addon = {
   id: string
@@ -69,6 +129,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
   clientSecret: string
   plate: string
 }) {
+  const t = useT(T)
   const stripe = useStripe()
   const elements = useElements()
   const [loading, setLoading] = useState(false)
@@ -83,7 +144,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
 
   const handleSubmit = async () => {
     if (!stripe || !elements || !clientSecret) {
-      setError('Το σύστημα πληρωμών δεν είναι έτοιμο. Δοκίμασε ξανά.')
+      setError(t.paymentSystemNotReady)
       errorHaptic()
       return
     }
@@ -93,7 +154,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
     try {
       const { error: submitError } = await elements.submit()
       if (submitError) {
-        setError(submitError.message || 'Σφάλμα επαλήθευσης.')
+        setError(submitError.message || t.verifyError)
         errorHaptic()
         return
       }
@@ -105,11 +166,11 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
         },
       })
       if (confirmError) {
-        setError(confirmError.message || 'Η πληρωμή απέτυχε.')
+        setError(confirmError.message || t.paymentFailed)
         errorHaptic()
       }
     } catch {
-      setError('Άγνωστο σφάλμα. Δοκίμασε ξανά.')
+      setError(t.unknownError)
     } finally {
       setLoading(false)
     }
@@ -118,7 +179,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
   return (
     <div className="px-5">
       <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
-        Πληρωμή
+        {t.payment}
       </p>
       <div className="bg-white border border-gray-200 rounded-xl p-3.5 mb-4">
         <PaymentElement options={{
@@ -129,15 +190,15 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
 
       {stripeFailed && !stripe && (
         <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-3">
-          <p className="text-[13px] font-semibold text-amber-900">Το σύστημα πληρωμών δεν φόρτωσε</p>
+          <p className="text-[13px] font-semibold text-amber-900">{t.paymentNotLoaded}</p>
           <p className="text-[12px] text-amber-800 mt-1 leading-snug">
-            Έλεγξε τη σύνδεσή σου και απενεργοποίησε τυχόν ad-blocker, VPN ή «Private DNS». Αν συνεχίζει, δοκίμασε σε κανονικό Chrome.
+            {t.paymentNotLoadedHint}
           </p>
           <button
             onClick={() => window.location.reload()}
             className="mt-2 text-[12px] font-semibold text-amber-900 underline"
           >
-            Δοκίμασε ξανά
+            {t.tryAgain}
           </button>
         </div>
       )}
@@ -154,10 +215,10 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
         className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 disabled:opacity-40"
       >
         {loading ? (
-          'Επεξεργασία...'
+          t.processing
         ) : (
           <>
-            <span>Πληρωμή</span>
+            <span>{t.pay}</span>
             <span className="w-px h-4 bg-white/25" />
             <span>€{total}</span>
           </>
@@ -167,7 +228,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
       <div className="flex items-center justify-center gap-1.5 mt-3">
         <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
         <p className="text-[11px] font-medium text-gray-400 tracking-tight">
-          Ασφαλής πληρωμή μέσω Stripe
+          {t.securePayment}
         </p>
       </div>
     </div>
@@ -176,6 +237,8 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
 
 function BookingPageContent() {
   const router = useRouter()
+  const t = useT(T)
+  const { locale } = useLocale()
   const params = useSearchParams()
   const [sessionLoading, setSessionLoading] = useState(true)
   const [service, setService] = useState<Service | null>(null)
@@ -201,8 +264,8 @@ function BookingPageContent() {
   const vehicleType = decodeURIComponent(params.get('vehicleType') || 'ΙΧ')
 
   const date = new Date(dateStr)
-  const formattedDate = `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
-  const fullFormattedDate = `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS_SHORT[date.getMonth()]}`
+  const formattedDate = `${date.getDate()} ${MONTHS_SHORT[locale][date.getMonth()]}`
+  const fullFormattedDate = `${WEEKDAYS[locale][date.getDay()]}, ${date.getDate()} ${MONTHS_SHORT[locale][date.getMonth()]}`
 
   useEffect(() => {
     const loadData = async () => {
@@ -330,7 +393,7 @@ function BookingPageContent() {
     const data = await res.json()
     if (!res.ok || !data.clientSecret) {
       errorHaptic()
-      alert(data.error || 'Δεν ήταν δυνατή η έναρξη πληρωμής. Δοκίμασε ξανά.')
+      alert(data.error || t.couldNotStartPayment)
       return
     }
     setClientSecret(data.clientSecret)
@@ -361,7 +424,7 @@ function BookingPageContent() {
       const data = await res.json()
       if (!res.ok || !data.bookingRef) {
         errorHaptic()
-        alert(data.error || 'Δεν ήταν δυνατή η κράτηση. Δοκίμασε ξανά.')
+        alert(data.error || t.couldNotBook)
         setCashLoading(false)
         return
       }
@@ -372,7 +435,7 @@ function BookingPageContent() {
       router.push(`/booking/confirmed?${q.toString()}`)
     } catch {
       errorHaptic()
-      alert('Κάτι πήγε στραβά. Δοκίμασε ξανά.')
+      alert(t.somethingWrong)
       setCashLoading(false)
     }
   }
@@ -390,11 +453,11 @@ function BookingPageContent() {
   }
 
   if (sessionLoading) {
-    return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>
+    return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-xs text-gray-400">{t.loading}</p></main>
   }
 
   if (!service) {
-    return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-xs text-gray-400">Δεν βρέθηκε υπηρεσία.</p></main>
+    return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-xs text-gray-400">{t.serviceNotFound}</p></main>
   }
 
   return (
@@ -409,7 +472,7 @@ function BookingPageContent() {
           >
             <ChevronLeft size={18} />
           </button>
-          <h1 className="text-[18px] font-semibold tracking-tight text-gray-900">Επιβεβαίωση</h1>
+          <h1 className="text-[18px] font-semibold tracking-tight text-gray-900">{t.confirm}</h1>
         </div>
 
         <div className="px-5 pb-5 md:flex md:gap-6 md:items-start">
@@ -467,10 +530,10 @@ function BookingPageContent() {
               </div>
               <div className="flex-1">
                 <p className="text-[13px] font-semibold text-amber-900">
-                  {vehicleType === 'Μοτοσικλέτα' ? 'Δεν έχεις μοτοσικλέτα καταχωρημένη' : 'Δεν έχεις ΙΧ καταχωρημένο'}
+                  {vehicleType === 'Μοτοσικλέτα' ? t.noMoto : t.noCar}
                 </p>
                 <p className="text-[12px] text-amber-800 mt-0.5 leading-snug">
-                  Πρόσθεσε την πινακίδα παρακάτω για να συνεχίσεις την κράτηση.
+                  {t.addPlateBelow}
                 </p>
               </div>
             </div>
@@ -479,7 +542,7 @@ function BookingPageContent() {
           {/* Vehicle */}
           <div>
             <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
-              Πινακίδα
+              {t.plate}
             </p>
 
             {vehicles.length > 0 && selectedVehicleId !== 'new' ? (
@@ -495,7 +558,7 @@ function BookingPageContent() {
                   {vehicles.map(v => (
                     <option key={v.id} value={v.id}>{v.plate} · {v.type}</option>
                   ))}
-                  <option value="new">+ Νέο όχημα</option>
+                  <option value="new">{t.newVehicle}</option>
                 </select>
               </div>
             ) : (
@@ -503,7 +566,7 @@ function BookingPageContent() {
                 {/* Locked vehicle type info */}
                 <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
                   <p className="text-[12px] text-blue-900 leading-snug">
-                    Η υπηρεσία είναι για <strong>{vehicleType}</strong>. Το όχημα που θα προσθέσεις θα καταχωρηθεί ως {vehicleType}.
+                    {t.serviceForA} <strong>{vehicleType}</strong>{t.vehicleWillBeSavedAs} {vehicleType}.
                   </p>
                 </div>
 
@@ -511,7 +574,7 @@ function BookingPageContent() {
                   type="text"
                   value={plate}
                   onChange={e => setPlate(e.target.value.toUpperCase())}
-                  placeholder={vehicleType === 'Μοτοσικλέτα' ? 'π.χ. ΑΒ-1234' : 'π.χ. ΑΒΓ-1234'}
+                  placeholder={vehicleType === 'Μοτοσικλέτα' ? t.plateExampleMoto : t.plateExampleCar}
                   className="w-full bg-white border border-gray-200 rounded-xl h-[52px] px-4 text-[15px] font-mono tracking-wider text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
                 />
 
@@ -520,7 +583,7 @@ function BookingPageContent() {
                     onClick={() => handleVehicleChange(vehicles[0].id)}
                     className="text-xs text-blue-600 font-medium"
                   >
-                    ← Επιστροφή στα οχήματά μου
+                    {t.backToMyVehicles}
                   </button>
                 )}
               </div>
@@ -541,7 +604,7 @@ function BookingPageContent() {
           {/* Phone */}
           <div>
             <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
-              Τηλέφωνο
+              {t.phone}
             </p>
             <input
               type="tel"
@@ -556,7 +619,7 @@ function BookingPageContent() {
           {addons.length > 0 && (
             <div>
               <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
-                Πρόσθετες υπηρεσίες
+                {t.addons}
               </p>
               <div className="flex flex-col gap-2">
                 {addons.map(addon => {
@@ -591,18 +654,18 @@ function BookingPageContent() {
             </div>
             {selectedAddons.length > 0 && (
               <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                <span className="text-[13px] text-gray-500">Πρόσθετα</span>
+                <span className="text-[13px] text-gray-500">{t.addonsShort}</span>
                 <span className="text-[14px] font-medium text-gray-900">€{addonTotal.toFixed(2)}</span>
               </div>
             )}
             <div className="flex justify-between items-center py-3.5">
-              <span className="text-[15px] font-semibold text-gray-900">Σύνολο</span>
+              <span className="text-[15px] font-semibold text-gray-900">{t.total}</span>
               <span className="text-[20px] font-bold tracking-tight text-gray-900">€{total.toFixed(2)}</span>
             </div>
           </div>
 
           <p className="text-[11px] text-gray-400 text-center">
-            Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.
+            {t.freeCancel}
           </p>
           </div>
         </div>
@@ -613,7 +676,7 @@ function BookingPageContent() {
           <Elements stripe={stripePromise} options={{
             clientSecret,
             ...(customerSessionClientSecret ? { customerSessionClientSecret } : {}),
-            locale: 'el',
+            locale,
             appearance: {
               theme: 'stripe',
               variables: { colorPrimary: '#0A0A0A', borderRadius: '12px', fontSizeBase: '14px' }
@@ -630,7 +693,7 @@ function BookingPageContent() {
           <div className="px-5 mt-4 mb-2">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex-1 h-px bg-gray-100" />
-              <span className="text-[11px] text-gray-300">ή</span>
+              <span className="text-[11px] text-gray-300">{t.or}</span>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
             <button
@@ -638,10 +701,10 @@ function BookingPageContent() {
               disabled={cashLoading}
               className="w-full h-11 rounded-xl border border-gray-200 bg-white text-[13px] font-medium text-gray-500 flex items-center justify-center gap-2 disabled:opacity-40"
             >
-              {cashLoading ? 'Επιβεβαίωση...' : 'Πληρωμή με μετρητά στο κατάστημα'}
+              {cashLoading ? t.confirming : t.payCash}
             </button>
             <p className="text-[10px] text-gray-400 text-center mt-2 leading-snug">
-              Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.
+              {t.cashHint}
             </p>
           </div>
           </>
@@ -655,14 +718,14 @@ function BookingPageContent() {
           >
             {!canProceed ? (
               <div className="w-full h-14 bg-gray-100 text-gray-400 text-[14px] font-medium rounded-xl flex items-center justify-center">
-                Συμπλήρωσε πινακίδα και τηλέφωνο
+                {t.fillPlatePhone}
               </div>
             ) : (
               <button
                 onClick={handleProceedToPayment}
                 className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
               >
-                <span>Πληρωμή</span>
+                <span>{t.pay}</span>
                 <span className="w-px h-4 bg-white/25" />
                 <span>€{total}</span>
               </button>
@@ -670,7 +733,7 @@ function BookingPageContent() {
             <div className="flex items-center justify-center gap-1.5 mt-3">
               <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
               <p className="text-[11px] font-medium text-gray-400">
-                Ασφαλής πληρωμή μέσω Stripe
+                {t.securePayment}
               </p>
             </div>
           </div>

@@ -7,6 +7,51 @@ import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
 import { athensToday, athensMinutesOfDay } from '@/lib/time'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
+import { useT, useLocale, Locale } from '@/lib/i18n'
+
+const T = {
+  el: {
+    loading: 'Φόρτωση...',
+    newBadge: 'Νέο',
+    vehicle: 'Όχημα',
+    car: 'ΙΧ',
+    moto: 'Μοτο',
+    service: 'Υπηρεσία',
+    date: 'Ημερομηνία',
+    time: 'Ώρα',
+    loadingHours: 'Φόρτωση ωρών...',
+    noSlots: 'Δεν υπάρχουν διαθέσιμα slots για αυτή την ημέρα.',
+    book: 'Κράτηση',
+    selectPrompt: 'Επίλεξε υπηρεσία, ημερομηνία και ώρα',
+  },
+  en: {
+    loading: 'Loading...',
+    newBadge: 'New',
+    vehicle: 'Vehicle',
+    car: 'Car',
+    moto: 'Moto',
+    service: 'Service',
+    date: 'Date',
+    time: 'Time',
+    loadingHours: 'Loading times...',
+    noSlots: 'No available slots for this day.',
+    book: 'Book',
+    selectPrompt: 'Choose a service, date and time',
+  },
+}
+
+const DAYS_JS_L: Record<Locale, string[]> = {
+  el: ['Κυρ', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ'],
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+}
+const MONTHS_L: Record<Locale, string[]> = {
+  el: ['Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος'],
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+}
+const MONTHS_SHORT_L: Record<Locale, string[]> = {
+  el: ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+}
 
 type Location = {
   id: string
@@ -30,10 +75,6 @@ type Slot = {
   time: string
   available: boolean
 }
-
-const DAYS_JS = ['Κυρ', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ']
-const MONTHS = ['Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος']
-const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
 function jsDayToSupabase(jsDay: number): number {
   return jsDay === 0 ? 7 : jsDay
@@ -69,6 +110,8 @@ export default function LocationPage() {
   const router = useRouter()
   const params = useParams()
   const slug = params.slug as string
+  const t = useT(T)
+  const { locale } = useLocale()
 
   const today = new Date()
 
@@ -267,7 +310,7 @@ export default function LocationPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-xs text-gray-400">Φόρτωση...</p>
+        <p className="text-xs text-gray-400">{t.loading}</p>
       </main>
     )
   }
@@ -347,13 +390,13 @@ export default function LocationPage() {
             </div>
             <div className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 rounded-lg">
               <Star size={12} className="fill-gray-900 text-gray-900" strokeWidth={1} />
-              <span className="text-[12px] font-semibold text-gray-900">Νέο</span>
+              <span className="text-[12px] font-semibold text-gray-900">{t.newBadge}</span>
             </div>
           </div>
 
           {/* Vehicle type */}
           <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mt-7 mb-2.5">
-            Όχημα
+            {t.vehicle}
           </p>
           <div className="flex gap-2">
             {(['ΙΧ', 'Μοτοσικλέτα'] as const).map(type => {
@@ -369,7 +412,7 @@ export default function LocationPage() {
                   }`}
                 >
                   {type === 'ΙΧ' ? <Car size={15} /> : <Bike size={15} />}
-                  {type === 'ΙΧ' ? 'ΙΧ' : 'Μοτο'}
+                  {type === 'ΙΧ' ? t.car : t.moto}
                 </button>
               )
             })}
@@ -377,7 +420,7 @@ export default function LocationPage() {
 
           {/* Services */}
           <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mt-6 mb-2.5">
-            Υπηρεσία
+            {t.service}
           </p>
           <div className="flex flex-col gap-2.5">
             {visibleServices.map(s => {
@@ -426,7 +469,7 @@ export default function LocationPage() {
           {/* Date picker */}
           <div className="flex items-center justify-between mt-7 mb-2.5">
             <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase">
-              Ημερομηνία
+              {t.date}
             </p>
             <div className="flex items-center gap-1">
               <button
@@ -437,7 +480,7 @@ export default function LocationPage() {
                 <ChevronLeft size={14} />
               </button>
               <span className="text-[12px] font-semibold text-gray-700 min-w-[90px] text-center">
-                {MONTHS[viewMonth]}
+                {MONTHS_L[locale][viewMonth]}
               </span>
               <button onClick={nextMonth} className="p-1.5 rounded-lg text-gray-500">
                 <ChevronRight size={14} />
@@ -465,7 +508,7 @@ export default function LocationPage() {
                       selected ? 'text-white/70' : isSunday ? 'text-gray-400' : 'text-gray-500'
                     }`}
                   >
-                    {DAYS_JS[d.getDay()]}
+                    {DAYS_JS_L[locale][d.getDay()]}
                   </span>
                   <span className={`text-[20px] font-semibold tracking-tight ${selected ? 'text-white' : isSunday ? 'text-gray-400' : 'text-gray-900'}`}>
                     {d.getDate()}
@@ -477,12 +520,12 @@ export default function LocationPage() {
 
           {/* Time slots */}
           <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mt-6 mb-2.5">
-            Ώρα · {selectedDate.getDate()} {MONTHS_SHORT[selectedDate.getMonth()]}
+            {t.time} · {selectedDate.getDate()} {MONTHS_SHORT_L[locale][selectedDate.getMonth()]}
           </p>
           {slotsLoading ? (
-            <p className="text-xs text-gray-400">Φόρτωση ωρών...</p>
+            <p className="text-xs text-gray-400">{t.loadingHours}</p>
           ) : slots.length === 0 ? (
-            <p className="text-xs text-gray-400">Δεν υπάρχουν διαθέσιμα slots για αυτή την ημέρα.</p>
+            <p className="text-xs text-gray-400">{t.noSlots}</p>
           ) : (
             <div className="grid grid-cols-4 gap-2">
               {slots.map(slot => {
@@ -529,13 +572,13 @@ export default function LocationPage() {
               onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${selectedDate.toISOString().split('T')[0]}&vehicleType=${encodeURIComponent(vehicleType)}`)}
               className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
             >
-              <span>Κράτηση</span>
+              <span>{t.book}</span>
               <span className="w-px h-4 bg-white/25" />
               <span>€{selectedServicePrice}</span>
             </button>
           ) : (
             <div className="w-full h-14 rounded-xl bg-gray-100 text-gray-400 text-[14px] font-medium flex items-center justify-center">
-              Επίλεξε υπηρεσία, ημερομηνία και ώρα
+              {t.selectPrompt}
             </div>
           )}
         </div>

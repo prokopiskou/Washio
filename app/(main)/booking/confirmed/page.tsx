@@ -6,6 +6,30 @@ import { Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { successHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
+import { useT } from '@/lib/i18n'
+
+const T = {
+  el: {
+    confirmedTitle1: 'Η κράτησή σου', confirmedTitle2: 'επιβεβαιώθηκε',
+    cashSub: 'Πληρωμή με μετρητά στο κατάστημα', emailSub: 'Στείλαμε email επιβεβαίωσης',
+    passCaption: 'Επιβεβαίωση Κράτησης', refLabel: 'Κωδικός',
+    washroom: 'Πλυντήριο', dateLabel: 'Ημ/νία', timeLabel: 'Ώρα',
+    serviceLabel: 'Υπηρεσία', plateLabel: 'Πινακίδα',
+    cashTotal: 'Μετρητά', total: 'Σύνολο',
+    viewBookings: 'Δες τις κρατήσεις μου', backHome: 'Πίσω στην αρχική',
+    bookAnother: 'Κάνε κράτηση για άλλη μέρα', loading: 'Φόρτωση...',
+  },
+  en: {
+    confirmedTitle1: 'Your booking is', confirmedTitle2: 'confirmed',
+    cashSub: 'Pay with cash at the store', emailSub: 'We sent a confirmation email',
+    passCaption: 'Booking Confirmation', refLabel: 'Code',
+    washroom: 'Car wash', dateLabel: 'Date', timeLabel: 'Time',
+    serviceLabel: 'Service', plateLabel: 'Plate',
+    cashTotal: 'Cash', total: 'Total',
+    viewBookings: 'View my bookings', backHome: 'Back to home',
+    bookAnother: 'Book for another day', loading: 'Loading...',
+  },
+}
 
 function QRPlaceholder({ size = 80 }: { size?: number }) {
   const cells = [
@@ -63,6 +87,7 @@ function PassRow({ caption, value, mono }: { caption: string; value: string; mon
 
 function ConfirmedContent() {
   const router = useRouter()
+  const t = useT(T)
   const params = useSearchParams()
   const [bookingRef, setBookingRef] = useState('')
   const [locationName, setLocationName] = useState('Washio')
@@ -137,10 +162,10 @@ function ConfirmedContent() {
           </div>
 
           <h1 className="text-[24px] font-bold tracking-tight text-center text-gray-900 leading-[1.2]">
-            Η κράτησή σου<br />επιβεβαιώθηκε
+            {t.confirmedTitle1}<br />{t.confirmedTitle2}
           </h1>
           <p className="text-[14px] text-gray-500 text-center mt-2">
-            {isCash ? 'Πληρωμή με μετρητά στο κατάστημα' : 'Στείλαμε email επιβεβαίωσης'}
+            {isCash ? t.cashSub : t.emailSub}
           </p>
 
           {/* Apple Wallet–style pass */}
@@ -169,13 +194,13 @@ function ConfirmedContent() {
                 <span className="text-[14px] font-semibold tracking-tight text-white">Washio</span>
               </div>
               <p className="text-[10px] font-medium tracking-[1.4px] uppercase text-white/55">
-                Επιβεβαίωση Κράτησης
+                {t.passCaption}
               </p>
             </div>
 
             {/* Booking ref */}
             <p className="text-[11px] font-medium tracking-[1.4px] uppercase text-white/45 mt-6">
-              Κωδικός
+              {t.refLabel}
             </p>
             <p
               className="text-[28px] font-semibold mt-1 text-white"
@@ -190,13 +215,13 @@ function ConfirmedContent() {
             {/* Body — info rows + QR */}
             <div className="flex gap-[18px] items-start mt-6">
               <div className="flex-1 flex flex-col gap-3.5">
-                <PassRow caption="Πλυντήριο" value={locationName} />
+                <PassRow caption={t.washroom} value={locationName} />
                 <div className="flex gap-6">
-                  <PassRow caption="Ημ/νία" value={date || '—'} />
-                  <PassRow caption="Ώρα" value={time || '—'} />
+                  <PassRow caption={t.dateLabel} value={date || '—'} />
+                  <PassRow caption={t.timeLabel} value={time || '—'} />
                 </div>
-                <PassRow caption="Υπηρεσία" value={service || '—'} />
-                {plate && <PassRow caption="Πινακίδα" value={plate} mono />}
+                <PassRow caption={t.serviceLabel} value={service || '—'} />
+                {plate && <PassRow caption={t.plateLabel} value={plate} mono />}
               </div>
               <QRPlaceholder />
             </div>
@@ -207,7 +232,7 @@ function ConfirmedContent() {
               style={{ borderTop: '1.5px dashed rgba(255,255,255,0.18)' }}
             >
               <p className="text-[11px] font-medium tracking-[1.4px] uppercase text-white/55">
-                {isCash ? 'Μετρητά' : 'Σύνολο'}
+                {isCash ? t.cashTotal : t.total}
               </p>
               <p className="text-[24px] font-bold tracking-tight text-white">
                 {totalFormatted}
@@ -222,20 +247,20 @@ function ConfirmedContent() {
               className="w-full h-13 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center"
               style={{ height: 52 }}
             >
-              Δες τις κρατήσεις μου
+              {t.viewBookings}
             </button>
             <button
               onClick={() => router.push('/')}
               className="w-full h-13 rounded-xl bg-white border border-gray-200 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center"
               style={{ height: 52 }}
             >
-              Πίσω στην αρχική
+              {t.backHome}
             </button>
             <button
               onClick={() => router.push('/map')}
               className="text-[13px] font-medium text-blue-600 mt-2"
             >
-              Κάνε κράτηση για άλλη μέρα
+              {t.bookAnother}
             </button>
           </div>
         </div>
