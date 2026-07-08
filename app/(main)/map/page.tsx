@@ -136,21 +136,25 @@ function getMinutesUntilSlot(slotTime: string): number {
   return slotMinutes - nowMinutes
 }
 
-// Mapbox-Light style for Google Maps
+// Clean premium style — λίγο πιο ζωντανό χρώμα (μπλε νερό, πράσινα πάρκα, χρυσά highways)
 const COOL_MAP_STYLES = [
-  { elementType: 'geometry', stylers: [{ color: '#EEF0F2' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#A7AAB0' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#EEF0F2' }] },
+  { elementType: 'geometry', stylers: [{ color: '#EBF0F2' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#7E848C' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#FFFFFF' }] },
   { featureType: 'administrative.land_parcel', stylers: [{ visibility: 'off' }] },
   { featureType: 'administrative.neighborhood', stylers: [{ visibility: 'off' }] },
   { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ visibility: 'on' }, { color: '#C4E4BE' }] },
+  { featureType: 'poi.park', elementType: 'labels', stylers: [{ visibility: 'off' }] },
   { featureType: 'transit', stylers: [{ visibility: 'off' }] },
   { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
   { featureType: 'road', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#FCE9BE' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#F3D99A' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
   { featureType: 'road.local', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#DEE6EC' }] },
-  { featureType: 'landscape.natural', stylers: [{ color: '#E6EBE7' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#A7CBEA' }] },
+  { featureType: 'landscape.natural', stylers: [{ color: '#D8E8CF' }] },
 ]
 
 function MapPageContent() {
