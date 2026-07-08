@@ -162,6 +162,8 @@ function MapPageContent() {
   const searchContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<any[]>([])
+  const userMarkerRef = useRef<any>(null)
+  const userCircleRef = useRef<any>(null)
   const autocompleteServiceRef = useRef<any>(null)
   const placesServiceRef = useRef<any>(null)
 
@@ -292,12 +294,60 @@ function MapPageContent() {
         setUserLat(pos.coords.latitude)
         setUserLng(pos.coords.longitude)
         loadLocations(pos.coords.latitude, pos.coords.longitude)
-        mapInstanceRef.current?.setCenter({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        mapInstanceRef.current?.setZoom(14)
+        // Το κεντράρισμα γίνεται στο effect [mapLoaded, userLat, userLng] παρακάτω,
+        // γιατί εδώ ο χάρτης μπορεί να μην έχει φορτώσει ακόμα.
       },
       () => loadLocations()
     )
   }, [])
+
+  // Με το που είναι έτοιμος ο χάρτης ΚΑΙ ξέρουμε τη θέση: κεντράρουμε πάνω στον χρήστη,
+  // δείχνουμε μια περίμετρο ~5–10' δρόμος και κάνουμε fitBounds ώστε να φαίνονται τα κοντινά.
+  useEffect(() => {
+    if (!mapLoaded || userLat == null || userLng == null || !mapInstanceRef.current) return
+    const g = window.google?.maps
+    if (!g) return
+    const map = mapInstanceRef.current
+    const center = { lat: userLat, lng: userLng }
+
+    // Κουκκίδα «είσαι εδώ»
+    if (!userMarkerRef.current) {
+      userMarkerRef.current = new g.Marker({
+        position: center,
+        map,
+        zIndex: 999,
+        icon: {
+          path: g.SymbolPath.CIRCLE,
+          scale: 7,
+          fillColor: '#1A6FD4',
+          fillOpacity: 1,
+          strokeColor: '#FFFFFF',
+          strokeWeight: 3,
+        },
+      })
+    } else {
+      userMarkerRef.current.setPosition(center)
+    }
+
+    // Περίμετρος ~3km (≈ 5–10' δρόμος)
+    if (!userCircleRef.current) {
+      userCircleRef.current = new g.Circle({
+        map,
+        center,
+        radius: 3000,
+        strokeColor: '#0A0A0A',
+        strokeOpacity: 0.12,
+        strokeWeight: 1,
+        fillColor: '#0A0A0A',
+        fillOpacity: 0.04,
+      })
+    } else {
+      userCircleRef.current.setCenter(center)
+    }
+
+    // Πλαισίωση της περιμέτρου (auto-center + zoom).
+    map.fitBounds(userCircleRef.current.getBounds())
+  }, [mapLoaded, userLat, userLng])
 
   useEffect(() => {
     if (allLocations.length > 0) {
@@ -467,6 +517,7 @@ function MapPageContent() {
         center: { lat: 37.8878, lng: 23.7436 },
         zoom: 13,
         disableDefaultUI: true,
+        gestureHandling: 'greedy', // μετακίνηση με ΕΝΑ δάχτυλο σε όλους τους browsers
         styles: COOL_MAP_STYLES,
       })
       mapInstanceRef.current = map
@@ -618,8 +669,9 @@ function MapPageContent() {
           </div>
         )}
 
-        {/* Bottom Sheet */}
-        <div className="absolute left-0 right-0 z-15 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg" style={{ bottom: 'calc(84px + env(safe-area-inset-bottom))' }}>
+        {/* Bottom Sheet — fixed ώστε να κάθεται ΠΑΝΤΑ ακριβώς πάνω από το nav
+            (με absolute μέσα σε 100dvh ξεκολλούσε σε Safari και άφηνε χάρτη από κάτω). */}
+        <div className="fixed left-0 right-0 z-20 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg" style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
 
           {/* Collapsed peek — list of locations */}
           {!selectedLocation && filteredLocations.length > 0 && (
