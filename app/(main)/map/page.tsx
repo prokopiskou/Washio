@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Home as HomeIcon } from 'lucide-react'
+import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Home as HomeIcon, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
 import { athensToday, athensMinutesOfDay } from '@/lib/time'
@@ -23,6 +23,7 @@ const T = {
     pickOtherTime: 'Επίλεξε άλλη ώρα', understandContinue: 'Κατανοώ, συνέχεια',
     whenTitle: 'Πότε θέλεις;', dateLabel: 'Ημερομηνία', timeLabel: 'Ώρα',
     pickTime: 'Επίλεξε ώρα', apply: 'Εφαρμογή', loading: 'Φόρτωση...',
+    newRating: 'Νέο',
   },
   en: {
     searchPlaceholder: 'Search area', now: 'Now', schedule: 'Schedule',
@@ -36,6 +37,7 @@ const T = {
     pickOtherTime: 'Pick another time', understandContinue: 'I understand, continue',
     whenTitle: 'When do you want it?', dateLabel: 'Date', timeLabel: 'Time',
     pickTime: 'Select a time', apply: 'Apply', loading: 'Loading...',
+    newRating: 'New',
   },
 }
 
@@ -181,6 +183,7 @@ function MapPageContent() {
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([])
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const [locationServices, setLocationServices] = useState<Service[]>([])
+  const [selectedRating, setSelectedRating] = useState<{ avg: number; count: number } | null>(null)
   const [selectedService, setSelectedService] = useState<string | null>(null)
   const [slots, setSlots] = useState<Slot[]>([])
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
@@ -363,14 +366,24 @@ function MapPageContent() {
   }, [timing, selectedDate, selectedTime])
 
   useEffect(() => {
-    if (!selectedLocation) return
+    if (!selectedLocation) {
+      setSelectedRating(null)
+      return
+    }
     const loadServices = async () => {
       const supabase = createClient()
       const { data } = await supabase.from('services').select('id, name, price, price_moto')
         .eq('location_id', selectedLocation.id).eq('is_active', true).order('sort_order', { ascending: true })
       setLocationServices((data as Service[]) || [])
     }
+    const loadRating = async () => {
+      const supabase = createClient()
+      const { data } = await supabase.from('reviews').select('rating').eq('location_id', selectedLocation.id)
+      const arr = (data as { rating: number }[]) || []
+      setSelectedRating(arr.length ? { avg: arr.reduce((s, r) => s + r.rating, 0) / arr.length, count: arr.length } : { avg: 0, count: 0 })
+    }
     loadServices()
+    loadRating()
   }, [selectedLocation])
 
   useEffect(() => {
@@ -796,9 +809,22 @@ function MapPageContent() {
                     <p className="text-xs text-gray-500 mt-0.5">{formatDistance(selectedLocation.distance, locale)} · {selectedLocation.city}</p>
                   )}
                 </div>
-                <button onClick={() => setSelectedLocation(null)} className="text-gray-400 -mt-1 -mr-1 p-1">
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  {selectedRating && (
+                    <button
+                      onClick={() => router.push(`/locations/${selectedLocation.slug}/reviews`)}
+                      className="flex items-center gap-1 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1"
+                    >
+                      <Star size={13} className="text-amber-400 fill-amber-400" />
+                      <span className="text-[13px] font-semibold text-gray-900">
+                        {selectedRating.count === 0 ? t.newRating : `${selectedRating.avg.toFixed(1)} (${selectedRating.count})`}
+                      </span>
+                    </button>
+                  )}
+                  <button onClick={() => setSelectedLocation(null)} className="text-gray-400 -mt-1 -mr-1 p-1">
+                    <X size={18} />
+                  </button>
+                </div>
               </div>
 
               {/* Vehicle type segmented */}

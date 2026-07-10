@@ -16,7 +16,7 @@ const T = {
     profileDetails: 'Στοιχεία προφίλ', name: 'Όνομα', phone: 'Τηλέφωνο',
     saved: 'Αποθηκεύτηκε', saving: 'Αποθήκευση...', save: 'Αποθήκευση',
     myVehicle: 'Το όχημά μου', noVehicles: 'Δεν υπάρχουν αποθηκευμένα οχήματα.',
-    mainTag: 'ΚΥΡΙΟ', plate: 'Πινακίδα', cancel: 'Άκυρο', addVehicle: 'Προσθήκη οχήματος',
+    mainTag: 'ΚΥΡΙΟ', main: 'Κύριο', plate: 'Πινακίδα', cancel: 'Άκυρο', addVehicle: 'Προσθήκη οχήματος',
     notifications: 'Ειδοποιήσεις', support: 'Επικοινωνία & Support', logout: 'Έξοδος',
     deleteAccount: 'Διαγραφή λογαριασμού', language: 'Γλώσσα',
     confirmDelete1: 'Διαγραφή λογαριασμού; Η ενέργεια είναι οριστική και θα διαγράψει τα στοιχεία σου (οχήματα, αγαπημένα, προφίλ).',
@@ -30,7 +30,7 @@ const T = {
     profileDetails: 'Profile details', name: 'Name', phone: 'Phone',
     saved: 'Saved', saving: 'Saving...', save: 'Save',
     myVehicle: 'My vehicle', noVehicles: 'No saved vehicles.',
-    mainTag: 'MAIN', plate: 'Plate', cancel: 'Cancel', addVehicle: 'Add vehicle',
+    mainTag: 'MAIN', main: 'Main', plate: 'Plate', cancel: 'Cancel', addVehicle: 'Add vehicle',
     notifications: 'Notifications', support: 'Contact & Support', logout: 'Log out',
     deleteAccount: 'Delete account', language: 'Language',
     confirmDelete1: 'Delete account? This is permanent and will erase your data (vehicles, favorites, profile).',
@@ -49,7 +49,7 @@ function formatDate(dateStr: string, locale: Locale) {
   return `${d.getDate()} ${MONTHS[locale][d.getMonth()]}`
 }
 
-type Vehicle = { id: string; plate: string; type: string }
+type Vehicle = { id: string; plate: string; type: string; is_primary?: boolean }
 type Booking = {
   id: string; booking_ref: string; slot_date: string; slot_start_time: string
   status: string; total_amount: number
@@ -109,7 +109,7 @@ export default function ProfilePage() {
 
   const loadVehicles = async (id: string) => {
     const supabase = createClient()
-    const { data } = await supabase.from('vehicles').select('id, plate, type').eq('user_id', id).order('created_at', { ascending: false })
+    const { data } = await supabase.from('vehicles').select('id, plate, type, is_primary').eq('user_id', id).order('is_primary', { ascending: false }).order('created_at', { ascending: false })
     setVehicles((data as Vehicle[]) || [])
   }
   const loadBookings = async (id: string) => {
@@ -176,6 +176,15 @@ export default function ProfilePage() {
     const supabase = createClient()
     const { error } = await supabase.from('vehicles').delete().eq('id', vehicleId)
     if (!error && userId) await loadVehicles(userId)
+  }
+
+  const handleSetPrimary = async (vehicleId: string) => {
+    if (!userId) return
+    lightTap()
+    const supabase = createClient()
+    await supabase.from('vehicles').update({ is_primary: false }).eq('user_id', userId)
+    await supabase.from('vehicles').update({ is_primary: true }).eq('id', vehicleId)
+    await loadVehicles(userId)
   }
 
   const handleLogout = async () => {
@@ -296,11 +305,16 @@ export default function ProfilePage() {
                 {vehicles.length === 0 ? (
                   <p className="text-xs text-gray-400">{t.noVehicles}</p>
                 ) : (
-                  vehicles.map((vehicle, i) => (
+                  vehicles.map((vehicle) => (
                     <div key={vehicle.id} className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-gray-50">
                       <span className="font-mono text-[14px] font-semibold tracking-wider text-gray-900">{vehicle.plate}</span>
                       <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] font-semibold text-gray-500">{vehicle.type}</span>
-                      {i === 0 && (<span className="px-2 py-0.5 rounded-full bg-gray-900 text-white text-[10px] font-semibold tracking-wider">{t.mainTag}</span>)}
+                      <button
+                        onClick={() => { if (!vehicle.is_primary) handleSetPrimary(vehicle.id) }}
+                        disabled={vehicle.is_primary}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider transition-colors ${vehicle.is_primary ? 'bg-gray-900 text-white' : 'bg-white border border-gray-300 text-gray-500'}`}>
+                        {t.main}
+                      </button>
                       <div className="flex-1" />
                       <button onClick={() => { handleDeleteVehicle(vehicle.id); errorHaptic() }} className="text-gray-400"><Trash2 size={16} /></button>
                     </div>

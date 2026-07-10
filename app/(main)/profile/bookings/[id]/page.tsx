@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet } from 'lucide-react'
+import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star } from 'lucide-react'
 import { useT, useLocale } from '@/lib/i18n'
 
 const T = {
@@ -47,6 +47,12 @@ const T = {
     refundNote2: '• Θα λάβεις email επιβεβαίωσης',
     refundNote3: '• Η ενέργεια είναι μη αναστρέψιμη',
     keepIt: 'Όχι, κράτα την', yesCancel: 'Ναι, ακύρωσε', cancelling: 'Ακύρωση...',
+    rateTitle: 'Βαθμολόγησε την εμπειρία σου',
+    rateComment: 'Προσθέσε ένα σχόλιο (προαιρετικά)',
+    rateSubmit: 'Υποβολή',
+    rateSubmitting: 'Υποβολή...',
+    rateThanks: 'Ευχαριστούμε!',
+    rateAlready: 'Έχεις ήδη βαθμολογήσει',
   },
   en: {
     confirmed: 'Upcoming', completed: 'Completed', cancelled: 'Cancelled', pending: 'Pending',
@@ -88,6 +94,12 @@ const T = {
     refundNote2: '• You will receive a confirmation email',
     refundNote3: '• This action is irreversible',
     keepIt: 'No, keep it', yesCancel: 'Yes, cancel', cancelling: 'Cancelling...',
+    rateTitle: 'Rate your experience',
+    rateComment: 'Add a comment (optional)',
+    rateSubmit: 'Submit',
+    rateSubmitting: 'Submitting...',
+    rateThanks: 'Thank you!',
+    rateAlready: 'You already rated',
   },
 }
 
@@ -219,6 +231,14 @@ export default function BookingDetailPage() {
   const [rescheduling, setRescheduling] = useState(false)
   const [slotsLoading, setSlotsLoading] = useState(false)
 
+  // Rating state
+  const [showRating, setShowRating] = useState(false)
+  const [ratingValue, setRatingValue] = useState(0)
+  const [ratingComment, setRatingComment] = useState('')
+  const [submittingRating, setSubmittingRating] = useState(false)
+  const [ratingSubmitted, setRatingSubmitted] = useState(false)
+  const [alreadyRated, setAlreadyRated] = useState(false)
+
   useEffect(() => {
     const loadBooking = async () => {
       const supabase = createClient()
@@ -236,9 +256,45 @@ export default function BookingDetailPage() {
 
       setBooking(data as unknown as Booking)
       setLoading(false)
+
+      if (data) {
+        const { data: existingReview } = await supabase
+          .from('reviews')
+          .select('id')
+          .eq('booking_id', (data as unknown as Booking).id)
+          .maybeSingle()
+        if (existingReview) setAlreadyRated(true)
+      }
     }
     loadBooking()
   }, [bookingId, router])
+
+  const handleSubmitRating = async () => {
+    if (!booking || ratingValue < 1) return
+    setSubmittingRating(true)
+
+    const supabase = createClient()
+    const { data: userData } = await supabase.auth.getUser()
+    const userId = userData.user?.id
+    if (!userId) {
+      setSubmittingRating(false)
+      return
+    }
+
+    const { error } = await supabase.from('reviews').insert({
+      location_id: booking.location_id,
+      user_id: userId,
+      booking_id: booking.id,
+      rating: ratingValue,
+      comment: ratingComment.trim() || null,
+    })
+
+    setSubmittingRating(false)
+    if (!error) {
+      setShowRating(false)
+      setRatingSubmitted(true)
+    }
+  }
 
   const getHoursUntilSlot = () => {
     if (!booking) return 0
@@ -574,6 +630,31 @@ export default function BookingDetailPage() {
               </div>
             </>
           )}
+
+          {/* Rating CTA — completed bookings */}
+          {effStatus === 'completed' && (
+            <div className="pt-1 pb-10">
+              {ratingSubmitted ? (
+                <div className="flex items-center justify-center gap-2 rounded-2xl border border-gray-100 py-4 text-[14px] font-semibold text-gray-900" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                  <Star size={16} className="text-amber-400 fill-amber-400" />
+                  {t.rateThanks}
+                </div>
+              ) : alreadyRated ? (
+                <p className="text-center text-[12px] font-medium text-gray-400">
+                  {t.rateAlready}
+                </p>
+              ) : (
+                <button
+                  onClick={() => setShowRating(true)}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl border border-gray-100 bg-white py-4 text-[14px] font-semibold text-gray-900"
+                  style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                >
+                  <Star size={16} className="text-amber-400" />
+                  {t.rateTitle}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -864,6 +945,53 @@ export default function BookingDetailPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Rating modal */}
+      {showRating && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !submittingRating && setShowRating(false)} />
+          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10">
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+
+            <p className="text-base font-semibold text-gray-900 text-center mb-5">{t.rateTitle}</p>
+
+            <div className="flex items-center justify-center gap-2 mb-6">
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setRatingValue(n)}
+                  className="p-1"
+                >
+                  <Star
+                    size={34}
+                    strokeWidth={1.75}
+                    className={n <= ratingValue ? 'text-amber-400 fill-amber-400' : 'text-gray-300'}
+                  />
+                </button>
+              ))}
+            </div>
+
+            <div className="mb-5">
+              <textarea
+                value={ratingComment}
+                onChange={e => setRatingComment(e.target.value)}
+                placeholder={t.rateComment}
+                rows={3}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400"
+              />
+            </div>
+
+            <button
+              onClick={handleSubmitRating}
+              disabled={ratingValue < 1 || submittingRating}
+              className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40"
+            >
+              {submittingRating ? t.rateSubmitting : t.rateSubmit}
+            </button>
           </div>
         </div>
       )}

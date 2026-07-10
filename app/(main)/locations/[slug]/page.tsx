@@ -124,6 +124,8 @@ export default function LocationPage() {
   const [locationHours, setLocationHours] = useState<any[]>([])
   const [slots, setSlots] = useState<Slot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(false)
+  const [reviewAvg, setReviewAvg] = useState<number | null>(null)
+  const [reviewCount, setReviewCount] = useState(0)
 
   const [viewMonth, setViewMonth] = useState(today.getMonth())
   const [viewYear, setViewYear] = useState(today.getFullYear())
@@ -154,7 +156,7 @@ export default function LocationPage() {
 
       setLocation(locationData)
 
-      const [servicesRes, hoursRes] = await Promise.all([
+      const [servicesRes, hoursRes, reviewsRes] = await Promise.all([
         supabase
           .from('services')
           .select('id, name, description, price, price_moto, duration_minutes')
@@ -165,10 +167,22 @@ export default function LocationPage() {
           .from('location_hours')
           .select('day_of_week, is_closed, open_time, close_time')
           .eq('location_id', locationData.id),
+        supabase
+          .from('reviews')
+          .select('id, rating, comment, created_at')
+          .eq('location_id', locationData.id)
+          .order('created_at', { ascending: false }),
       ])
 
       setServices(servicesRes.data || [])
       setLocationHours(hoursRes.data || [])
+
+      const reviews = (reviewsRes.data as { rating: number }[]) || []
+      if (reviews.length > 0) {
+        const sum = reviews.reduce((acc, r) => acc + r.rating, 0)
+        setReviewAvg(Math.round((sum / reviews.length) * 10) / 10)
+        setReviewCount(reviews.length)
+      }
 
       if (uid) {
         const { data: favData } = await supabase
@@ -388,10 +402,20 @@ export default function LocationPage() {
                 <p className="text-[13px] text-gray-500">{location.address}, {location.city}</p>
               </div>
             </div>
-            <div className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 rounded-lg">
+            <button
+              onClick={() => { lightTap(); router.push('/locations/' + slug + '/reviews') }}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 rounded-lg shrink-0"
+            >
               <Star size={12} className="fill-gray-900 text-gray-900" strokeWidth={1} />
-              <span className="text-[12px] font-semibold text-gray-900">{t.newBadge}</span>
-            </div>
+              {reviewAvg !== null ? (
+                <span className="text-[12px] font-semibold text-gray-900">
+                  {reviewAvg.toFixed(1)}
+                  <span className="text-gray-400 font-medium"> ({reviewCount})</span>
+                </span>
+              ) : (
+                <span className="text-[12px] font-semibold text-gray-900">{t.newBadge}</span>
+              )}
+            </button>
           </div>
 
           {/* Vehicle type */}
