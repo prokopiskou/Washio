@@ -74,6 +74,8 @@ export function AppRatingPrompt() {
       const { data: sessionData } = await supabase.auth.getSession()
       const user = sessionData.session?.user
       if (!user) return
+      // Έχει ήδη βαθμολογήσει την εφαρμογή εσωτερικά (account-tied, cross-device) → ποτέ ξανά.
+      if ((user.user_metadata as any)?.washio_app_rated) return
       emailRef.current = user.email ?? null
 
       // Repeat user: έχει κλείσει ≥2 φορές (χωρίς τις ακυρωμένες).
@@ -97,11 +99,21 @@ export function AppRatingPrompt() {
   const persist = (v: string) => { try { localStorage.setItem(STORAGE_KEY, v) } catch { /* ignore */ } }
   const later = () => { persist('later:' + Date.now()); setShow(false) }
 
+  // Μόνιμη σήμανση «έχει βαθμολογήσει» — τοπικά ΚΑΙ στον λογαριασμό (cross-device),
+  // ώστε να μην ξαναεμφανιστεί ποτέ σε καμία συσκευή.
+  const markDone = () => {
+    persist('done')
+    try {
+      const supabase = createClient()
+      supabase.auth.updateUser({ data: { washio_app_rated: true } })
+    } catch { /* ignore */ }
+  }
+
   const handleStar = (n: number) => {
     setRating(n)
+    markDone() // μόλις βαθμολογήσει εσωτερικά, δεν ξαναεμφανίζεται ποτέ
     if (n >= 4) {
       // Happy → πραγματικό review στο store.
-      persist('done')
       window.open(storeReviewUrl(), '_blank', 'noopener,noreferrer')
       setShow(false)
     } else {
@@ -111,7 +123,6 @@ export function AppRatingPrompt() {
   }
 
   const submitLow = async () => {
-    persist('done')
     setSending(true)
     try {
       await fetch('/api/app-feedback', {
