@@ -24,17 +24,17 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 border-t border-gray-100 bg-white/85 backdrop-blur-xl"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 border-t border-gray-100 bg-white/85 backdrop-blur-xl pointer-events-none"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="flex justify-around items-stretch gap-1 px-3 pt-2.5 pb-2">
+      <div className="flex justify-around items-center gap-1 px-3 h-[72px]">
         {ITEMS.map(({ href, key, Icon }) => {
           const active = isActive(href)
           return (
             <Link
               key={href}
               href={href}
-              className={`group flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-2 select-none transition-colors duration-200 ${active ? 'bg-gray-900/[0.05]' : 'active:bg-gray-900/[0.03]'}`}
+              className={`group pointer-events-auto flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-2 select-none transition-colors duration-200 ${active ? 'bg-gray-900/[0.05]' : 'active:bg-gray-900/[0.03]'}`}
             >
               <Icon
                 size={24}

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, Lock, Calendar, Sparkles, Mail } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
@@ -262,6 +262,17 @@ function BookingPageContent() {
   const [clientSecret, setClientSecret] = useState('')
   const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | undefined>(undefined)
   const [cashLoading, setCashLoading] = useState(false)
+  const paymentAnchorRef = useRef<HTMLDivElement>(null)
+
+  // Με το που εμφανίζεται το payment (πρώτο tap), κατεβάζουμε την οθόνη στο σημείο της κάρτας.
+  useEffect(() => {
+    if (showPayment && clientSecret) {
+      const id = setTimeout(() => {
+        paymentAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 350)
+      return () => clearTimeout(id)
+    }
+  }, [showPayment, clientSecret])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('')
   const [vehicleFormType, setVehicleFormType] = useState('ΙΧ')
@@ -683,6 +694,7 @@ function BookingPageContent() {
         {/* Payment */}
         {showPayment && clientSecret ? (
           <>
+          <div ref={paymentAnchorRef} className="scroll-mt-4" />
           <Elements stripe={stripePromise} options={{
             clientSecret,
             ...(customerSessionClientSecret ? { customerSessionClientSecret } : {}),

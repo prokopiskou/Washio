@@ -21,14 +21,25 @@ export async function signInWithProvider(
   webRedirectTo: string,
 ): Promise<void> {
   if (isNativeApp()) {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true },
-    })
-    if (error || !data?.url) return
-    const { Browser } = await import('@capacitor/browser')
-    await Browser.open({ url: data.url })
-    return
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true },
+      })
+      if (error || !data?.url) throw error || new Error('no url')
+      // Opens SFSafariViewController (in-app). Requires @capacitor/browser in the build.
+      const { Browser } = await import('@capacitor/browser')
+      await Browser.open({ url: data.url })
+      return
+    } catch {
+      // Older build without the Browser plugin → fall back to normal redirect
+      // so social login still works (won't break existing installs).
+      await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: webRedirectTo },
+      })
+      return
+    }
   }
 
   await supabase.auth.signInWithOAuth({

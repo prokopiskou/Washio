@@ -497,6 +497,10 @@ function MapPageContent() {
     markersRef.current.forEach(m => m.setMap(null))
     markersRef.current = []
 
+    // Render το SVG στην πραγματική πυκνότητα pixel της συσκευής (retina) ώστε τα
+    // ονόματα να βγαίνουν εντελώς καθαρά, όχι θολά.
+    const dpr = Math.min(3, Math.max(2, Math.ceil(window.devicePixelRatio || 2)))
+
     filteredLocations.forEach(loc => {
       const isSelected = selectedLocation?.id === loc.id
       const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
@@ -514,7 +518,7 @@ function MapPageContent() {
         const cx = W / 2
         aX = cx; aY = 70
         svgString = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="${W * 2}" height="156" viewBox="0 0 ${W} 78">
+  <svg xmlns="http://www.w3.org/2000/svg" width="${W * dpr}" height="${78 * dpr}" viewBox="0 0 ${W} 78">
     <defs>
       <filter id="shadow-${loc.id}" x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/>
@@ -522,7 +526,7 @@ function MapPageContent() {
     </defs>
     <g filter="url(#shadow-${loc.id})">
       <rect x="1" y="0" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
-      <text x="${cx}" y="15" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">${esc(label)}</text>
+      <text x="${cx}" y="15" text-anchor="middle" text-rendering="geometricPrecision" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">${esc(label)}</text>
     </g>
     <g filter="url(#shadow-${loc.id})" transform="translate(${cx - 22}, 28)">
       <circle cx="22" cy="18" r="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
@@ -534,7 +538,7 @@ function MapPageContent() {
       } else {
         W = 44; H = 50; aX = 22; aY = 42
         svgString = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="88" height="100" viewBox="0 0 44 50">
+  <svg xmlns="http://www.w3.org/2000/svg" width="${44 * dpr}" height="${50 * dpr}" viewBox="0 0 44 50">
     <defs>
       <filter id="shadow-${loc.id}" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>
@@ -553,6 +557,8 @@ function MapPageContent() {
         position: { lat: loc.lat, lng: loc.lng },
         map: mapInstanceRef.current,
         optimized: false, // καθαρό (crisp) render σε retina — αλλιώς τα ονόματα βγαίνουν θολά
+        // Μπροστινές (πιο νότιες) πινέζες πάνω-πάνω ώστε να είναι πάντα πατήσιμες όταν στοιβάζονται.
+        zIndex: isSelected ? 1000000 : Math.round(100000 - loc.lat * 100),
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
           scaledSize: new window.google.maps.Size(W, H),
@@ -643,7 +649,7 @@ function MapPageContent() {
     : '#'
 
   return (
-    <main className="min-h-screen bg-white flex flex-col items-center">
+    <main className="fixed inset-0 bg-white flex flex-col items-center overflow-hidden overscroll-none">
       <div className="w-full max-w-md md:max-w-none relative overflow-hidden" style={{ height: '100dvh' }}>
 
         {/* Top controls — search + time chips */}
@@ -729,7 +735,7 @@ function MapPageContent() {
 
         {/* Bottom Sheet — fixed ώστε να κάθεται ΠΑΝΤΑ ακριβώς πάνω από το nav
             (με absolute μέσα σε 100dvh ξεκολλούσε σε Safari και άφηνε χάρτη από κάτω). */}
-        <div className="fixed left-0 right-0 z-20 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg" style={{ bottom: 'calc(72px + env(safe-area-inset-bottom))' }}>
+        <div className="fixed left-0 right-0 z-20 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg" style={{ bottom: 'calc(74px + env(safe-area-inset-bottom))' }}>
 
           {/* Collapsed peek — list of locations */}
           {!selectedLocation && filteredLocations.length > 0 && (
