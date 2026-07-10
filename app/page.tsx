@@ -167,7 +167,7 @@ export default function HomePage() {
 
   if (authChecking) {
     return (
-      <main className="min-h-screen bg-white flex items-center justify-center">
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
         <p className="text-xs text-gray-400">{t.loading}</p>
       </main>
     )
@@ -176,7 +176,7 @@ export default function HomePage() {
   const upcomingDate = upcomingBooking ? new Date(upcomingBooking.slot_date) : null
 
   return (
-    <main className="min-h-screen bg-white flex flex-col items-center">
+    <main className="min-h-screen bg-gray-50 flex flex-col items-center">
       <div className="w-full max-w-md md:max-w-2xl pb-24">
         <div className="px-5 pt-6 pb-6 flex flex-col gap-5">
 

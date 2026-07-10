@@ -567,8 +567,8 @@ function MapPageContent() {
     </defs>
     <g filter="url(#shadow-${loc.id})">
       <rect x="1" y="0" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
-      <text x="${cx}" y="15" text-anchor="middle" text-rendering="geometricPrecision" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">${esc(label)}</text>
     </g>
+    <text x="${cx}" y="15" text-anchor="middle" text-rendering="geometricPrecision" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">${esc(label)}</text>
     <g filter="url(#shadow-${loc.id})" transform="translate(${cx - 22}, 28)">
       <circle cx="22" cy="18" r="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
       <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}"/>
