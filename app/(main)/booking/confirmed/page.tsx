@@ -6,6 +6,7 @@ import { Check, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { successHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
+import { track as trackEvent } from '@/lib/analytics'
 import { useT } from '@/lib/i18n'
 
 const T = {
@@ -148,6 +149,8 @@ function ConfirmedContent() {
       }
 
       if (!bookingRef) setBookingRef(ref)
+      // Purchase — client-side. eventId = booking_ref ώστε να γίνει dedup με το CAPI (webhook).
+      trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: ref })
       // Email is sent automatically by Stripe webhook
     }
 

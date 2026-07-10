@@ -8,6 +8,7 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 import { createClient } from '@/lib/supabase/client'
 import { mediumTap, errorHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
+import { track as trackEvent } from '@/lib/analytics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -300,6 +301,8 @@ function BookingPageContent() {
       }
 
       track('checkout_started')
+      // Άφιξη στο booking = πρόθεση κράτησης (book intent).
+      trackEvent('AddToCart', { content_type: 'wash', content_ids: [locationId || serviceId] })
 
       if (serviceId) {
         const { data: serviceData } = await supabase
@@ -420,6 +423,8 @@ function BookingPageContent() {
     setClientSecret(data.clientSecret)
     setCustomerSessionClientSecret(data.customerSessionClientSecret)
     setShowPayment(true)
+    // Έφτασε στην οθόνη πληρωμής (κάρτα).
+    trackEvent('InitiateCheckout', { value: total, currency: 'EUR', content_ids: [locationId || serviceId] })
   }
 
   const handleCashBooking = async () => {

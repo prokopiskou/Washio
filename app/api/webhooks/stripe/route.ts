@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { alertCritical } from '@/lib/alert'
 import { sendPush } from '@/lib/push'
+import { sendPurchaseCapi } from '@/lib/meta-capi'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -118,6 +119,13 @@ export async function POST(req: NextRequest) {
       )
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Meta CAPI Purchase (server-side, dedup με event_id = booking_ref).
+    await sendPurchaseCapi({
+      eventId: bookingRef,
+      value: parseFloat(m.amount),
+      email: m.userEmail || null,
+    })
 
     // Fetch location
     const { data: locationData } = await supabase

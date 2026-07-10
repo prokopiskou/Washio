@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { signInWithProvider } from '@/lib/native-auth'
+import { track as trackEvent } from '@/lib/analytics'
 import { useT } from '@/lib/i18n'
 
 const T = {
@@ -74,6 +75,7 @@ function RegisterPageContent() {
       setError(error.message)
       setLoading(false)
     } else {
+      trackEvent('CompleteRegistration', { source: redirectUrl.includes('booking') ? 'checkout' : 'home' })
       router.push(redirectUrl)
     }
   }

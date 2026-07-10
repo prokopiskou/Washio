@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Home as HomeIcon, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
+import { track as trackEvent } from '@/lib/analytics'
 import { athensToday, athensMinutesOfDay } from '@/lib/time'
 import { BottomNav } from '@/components/BottomNav'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -300,6 +301,7 @@ function MapPageContent() {
 
   useEffect(() => {
     track('map_viewed')
+    trackEvent('ViewContent', { content_type: 'map' }) // browse signal (Pixel/GA4)
     navigator.geolocation?.getCurrentPosition(
       pos => {
         setUserLat(pos.coords.latitude)
@@ -492,6 +494,8 @@ function MapPageContent() {
     setSelectedService(null)
     setSelectedSlot(null)
     mapInstanceRef.current?.panTo({ lat: loc.lat, lng: loc.lng })
+    // Δυνατότερο intent signal: είδε συγκεκριμένο πλυντήριο (χτίζει retargeting pool).
+    trackEvent('ViewContent', { content_type: 'wash', content_ids: [loc.slug || loc.id], content_name: loc.name })
   }
 
   const visibleSlots = (() => {

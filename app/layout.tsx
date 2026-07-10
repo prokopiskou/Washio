@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { CapacitorInit } from "@/components/CapacitorInit";
 import { Analytics } from "@vercel/analytics/next";
+import { AnalyticsScripts } from "@/components/AnalyticsScripts";
 import { LanguageProvider } from "@/lib/i18n";
 
 const geistSans = Geist({
@@ -44,6 +45,7 @@ export default function RootLayout({
           <CapacitorInit />
           {children}
           <Analytics />
+          <AnalyticsScripts />
         </LanguageProvider>
       </body>
     </html>
