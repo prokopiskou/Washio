@@ -57,6 +57,13 @@ type Booking = {
 }
 type Favorite = { id: string; location_id: string; locations: { id: string; name: string; slug: string } | null }
 
+function effectiveStatus(status: string, slotDate: string, slotStartTime: string): 'cancelled' | 'completed' | 'confirmed' | 'pending' {
+  if (status === 'cancelled') return 'cancelled'
+  const dt = new Date(`${slotDate}T${(slotStartTime || '00:00').slice(0, 5)}:00`)
+  if (!isNaN(dt.getTime()) && dt.getTime() < Date.now()) return 'completed'
+  return status === 'pending' ? 'pending' : 'confirmed'
+}
+
 function StatusPill({ status }: { status: string }) {
   const L = useT({
     el: { confirmed: 'Επερχόμενη', completed: 'Ολοκλ.', cancelled: 'Ακυρωμ.', pending: 'Εκκρεμεί' },
@@ -251,7 +258,7 @@ export default function ProfilePage() {
                       <p className="text-[14px] font-semibold text-gray-900 truncate">{(b.locations as any)?.name}</p>
                       <p className="text-[12px] text-gray-500 mt-0.5 truncate">{formatDate(b.slot_date, locale)} · {b.slot_start_time?.slice(0, 5)}</p>
                     </div>
-                    <StatusPill status={b.status} />
+                    <StatusPill status={effectiveStatus(b.status, b.slot_date, b.slot_start_time)} />
                   </button>
                 ))
               )}

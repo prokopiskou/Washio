@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Check } from 'lucide-react'
+import { Check, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { successHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
@@ -18,6 +18,7 @@ const T = {
     cashTotal: 'Μετρητά', total: 'Σύνολο',
     viewBookings: 'Δες τις κρατήσεις μου', backHome: 'Πίσω στην αρχική',
     bookAnother: 'Κάνε κράτηση για άλλη μέρα', loading: 'Φόρτωση...',
+    showOnMap: 'Εμφάνιση στο χάρτη',
   },
   en: {
     confirmedTitle1: 'Your booking is', confirmedTitle2: 'confirmed',
@@ -28,6 +29,7 @@ const T = {
     cashTotal: 'Cash', total: 'Total',
     viewBookings: 'View my bookings', backHome: 'Back to home',
     bookAnother: 'Book for another day', loading: 'Loading...',
+    showOnMap: 'Show on map',
   },
 }
 
@@ -91,6 +93,8 @@ function ConfirmedContent() {
   const params = useSearchParams()
   const [bookingRef, setBookingRef] = useState('')
   const [locationName, setLocationName] = useState('Washio')
+  const [locationAddress, setLocationAddress] = useState('')
+  const [locationCity, setLocationCity] = useState('')
   const [show, setShow] = useState(false)
 
   // Pull all booking details from query params
@@ -111,13 +115,28 @@ function ConfirmedContent() {
       const intentId = params.get('payment_intent')
       let ref = refParam || ('WS-' + Math.random().toString(36).substring(2, 8).toUpperCase())
 
+      const applyLocation = (loc: any) => {
+        if (!loc) return
+        if (loc.name) setLocationName(loc.name)
+        if (loc.address) setLocationAddress(loc.address)
+        if (loc.city) setLocationCity(loc.city)
+      }
+
       if (refParam) {
         setBookingRef(refParam)
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('bookings')
+          .select('booking_ref, locations(name, address, city)')
+          .eq('booking_ref', refParam)
+          .single()
+
+        if (data) applyLocation(data.locations as any)
       } else if (intentId) {
         const supabase = createClient()
         const { data } = await supabase
           .from('bookings')
-          .select('booking_ref, locations(name)')
+          .select('booking_ref, locations(name, address, city)')
           .eq('stripe_payment_intent_id', intentId)
           .single()
 
@@ -125,9 +144,7 @@ function ConfirmedContent() {
           ref = data.booking_ref
           setBookingRef(data.booking_ref)
         }
-        if (data && (data.locations as any)?.name) {
-          setLocationName((data.locations as any).name)
-        }
+        if (data) applyLocation(data.locations as any)
       }
 
       if (!bookingRef) setBookingRef(ref)
@@ -138,6 +155,12 @@ function ConfirmedContent() {
   }, [])
 
   const totalFormatted = total ? `€${parseFloat(total).toFixed(2)}` : '—'
+
+  const mapsUrl = locationAddress
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        `${locationAddress}, ${locationCity}`
+      )}`
+    : ''
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
@@ -249,6 +272,18 @@ function ConfirmedContent() {
             >
               {t.viewBookings}
             </button>
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full rounded-xl bg-white border border-gray-200 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
+                style={{ height: 52 }}
+              >
+                <MapPin size={18} />
+                {t.showOnMap}
+              </a>
+            )}
             <button
               onClick={() => router.push('/')}
               className="w-full h-13 rounded-xl bg-white border border-gray-200 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center"

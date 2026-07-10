@@ -60,6 +60,13 @@ const formatDate = (dateStr: string, locale: Locale) => {
   return `${d.getDate()} ${MONTHS_SHORT[locale][d.getMonth()]}`
 }
 
+function effectiveStatus(status: string, slotDate: string, slotStartTime: string): 'cancelled' | 'completed' | 'confirmed' | 'pending' {
+  if (status === 'cancelled') return 'cancelled'
+  const dt = new Date(`${slotDate}T${(slotStartTime || '00:00').slice(0, 5)}:00`)
+  if (!isNaN(dt.getTime()) && dt.getTime() < Date.now()) return 'completed'
+  return status === 'pending' ? 'pending' : 'confirmed'
+}
+
 function StatusPill({ status }: { status: string }) {
   const t = useT(T)
   const config = {
@@ -131,7 +138,7 @@ function BookingCard({
         <p className="text-[15px] font-semibold tracking-tight text-gray-900 truncate flex-1">
           {(booking.locations as any)?.name || t.station}
         </p>
-        <StatusPill status={booking.status} />
+        <StatusPill status={effectiveStatus(booking.status, booking.slot_date, booking.slot_start_time)} />
       </div>
       <p className="text-[12px] text-gray-500 truncate">
         {(booking.services as any)?.name} · {formatDate(booking.slot_date, locale)} · {booking.slot_start_time?.slice(0, 5)}
@@ -188,16 +195,22 @@ export default function ProfileBookingsPage() {
 
   const counts = useMemo(() => ({
     all: bookings.length,
-    upcoming: bookings.filter(b => b.status === 'confirmed' || b.status === 'pending').length,
-    completed: bookings.filter(b => b.status === 'completed').length,
-    cancelled: bookings.filter(b => b.status === 'cancelled').length,
+    upcoming: bookings.filter(b => {
+      const eff = effectiveStatus(b.status, b.slot_date, b.slot_start_time)
+      return eff === 'confirmed' || eff === 'pending'
+    }).length,
+    completed: bookings.filter(b => effectiveStatus(b.status, b.slot_date, b.slot_start_time) === 'completed').length,
+    cancelled: bookings.filter(b => effectiveStatus(b.status, b.slot_date, b.slot_start_time) === 'cancelled').length,
   }), [bookings])
 
   const filtered = useMemo(() => {
     if (filter === 'all') return bookings
-    if (filter === 'upcoming') return bookings.filter(b => b.status === 'confirmed' || b.status === 'pending')
-    if (filter === 'completed') return bookings.filter(b => b.status === 'completed')
-    if (filter === 'cancelled') return bookings.filter(b => b.status === 'cancelled')
+    if (filter === 'upcoming') return bookings.filter(b => {
+      const eff = effectiveStatus(b.status, b.slot_date, b.slot_start_time)
+      return eff === 'confirmed' || eff === 'pending'
+    })
+    if (filter === 'completed') return bookings.filter(b => effectiveStatus(b.status, b.slot_date, b.slot_start_time) === 'completed')
+    if (filter === 'cancelled') return bookings.filter(b => effectiveStatus(b.status, b.slot_date, b.slot_start_time) === 'cancelled')
     return bookings
   }, [bookings, filter])
 

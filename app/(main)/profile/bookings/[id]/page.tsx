@@ -133,6 +133,13 @@ function jsDayToSupabase(jsDay: number): number {
   return jsDay === 0 ? 7 : jsDay
 }
 
+function effectiveStatus(status: string, slotDate: string, slotStartTime: string): 'cancelled' | 'completed' | 'confirmed' | 'pending' {
+  if (status === 'cancelled') return 'cancelled'
+  const dt = new Date(`${slotDate}T${(slotStartTime || '00:00').slice(0, 5)}:00`)
+  if (!isNaN(dt.getTime()) && dt.getTime() < Date.now()) return 'completed'
+  return status === 'pending' ? 'pending' : 'confirmed'
+}
+
 function StatusPill({ status }: { status: string }) {
   const t = useT(T)
   const config = {
@@ -432,7 +439,8 @@ export default function BookingDetailPage() {
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${booking.locations.address}, ${booking.locations.city}`)}`
     : '#'
 
-  const isActiveBooking = booking.status !== 'cancelled' && booking.status !== 'completed'
+  const effStatus = effectiveStatus(booking.status, booking.slot_date, booking.slot_start_time)
+  const isActiveBooking = effStatus !== 'cancelled' && effStatus !== 'completed'
 
   const today = new Date()
   const minDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -471,7 +479,7 @@ export default function BookingDetailPage() {
               {booking.booking_ref}
             </p>
             <div className="flex justify-center mt-2.5">
-              <StatusPill status={booking.status} />
+              <StatusPill status={effStatus} />
             </div>
           </div>
 
@@ -546,14 +554,15 @@ export default function BookingDetailPage() {
           {/* Actions */}
           {isActiveBooking && (
             <>
-              <button
-                onClick={handleRescheduleClick}
-                className="w-full h-13 rounded-xl bg-white border border-gray-900 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
-                style={{ height: 52 }}
-              >
-                <CalendarClock size={18} strokeWidth={1.6} />
-                {t.changeDate}
-              </button>
+              <div className="flex justify-center">
+                <button
+                  onClick={handleRescheduleClick}
+                  className="rounded-lg bg-white border border-gray-200 text-gray-500 text-[12px] font-medium tracking-tight inline-flex items-center justify-center gap-1.5 px-3 py-1.5"
+                >
+                  <CalendarClock size={13} strokeWidth={1.6} />
+                  {t.changeDate}
+                </button>
+              </div>
 
               <div className="flex justify-center pt-4 pb-10">
                 <button

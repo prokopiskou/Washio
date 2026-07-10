@@ -106,15 +106,16 @@ function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-const DIST_UNITS: Record<Locale, { m: string; km: string }> = {
-  el: { m: 'μ', km: 'χλμ' },
-  en: { m: 'm', km: 'km' },
+const DIST_UNITS: Record<Locale, { m: string; km: string; away: string }> = {
+  el: { m: 'μ', km: 'χλμ', away: 'μακριά' },
+  en: { m: 'm', km: 'km', away: 'away' },
 }
 
 function formatDistance(km: number, locale: Locale): string {
   const u = DIST_UNITS[locale]
-  if (km < 1) return `${Math.round(km * 1000)} ${u.m}`
-  return `${km.toFixed(1)} ${u.km}`
+  if (km < 1) return `${Math.round(km * 1000)} ${u.m} ${u.away}`
+  const val = locale === 'el' ? km.toFixed(1).replace('.', ',') : km.toFixed(1)
+  return `${val} ${u.km} ${u.away}`
 }
 
 function getTodayValue() {
