@@ -172,6 +172,7 @@ function MapPageContent() {
   const markersRef = useRef<any[]>([])
   const userMarkerRef = useRef<any>(null)
   const userCircleRef = useRef<any>(null)
+  const didFitRef = useRef(false)
   const autocompleteServiceRef = useRef<any>(null)
   const placesServiceRef = useRef<any>(null)
 
@@ -320,23 +321,33 @@ function MapPageContent() {
     const map = mapInstanceRef.current
     const center = { lat: userLat, lng: userLng }
 
-    // Κουκκίδα «είσαι εδώ»
+    // «Είσαι εδώ» — διακριτική μπλε κουκκίδα με απαλό παλμό (custom overlay,
+    // όπως Apple/Google Maps) ώστε να ξεχωρίζει αμέσως η θέση σου.
+    const latLng = new g.LatLng(userLat, userLng)
     if (!userMarkerRef.current) {
-      userMarkerRef.current = new g.Marker({
-        position: center,
-        map,
-        zIndex: 999,
-        icon: {
-          path: g.SymbolPath.CIRCLE,
-          scale: 7,
-          fillColor: '#1A6FD4',
-          fillOpacity: 1,
-          strokeColor: '#FFFFFF',
-          strokeWeight: 3,
-        },
-      })
+      class UserDot extends g.OverlayView {
+        div: HTMLDivElement | null = null
+        pos: any
+        constructor(pos: any) { super(); this.pos = pos }
+        onAdd() {
+          const d = document.createElement('div')
+          d.className = 'washio-userdot'
+          d.innerHTML = '<span class="washio-userdot__pulse"></span><span class="washio-userdot__core"></span>'
+          this.div = d
+          this.getPanes()!.overlayLayer.appendChild(d)
+        }
+        draw() {
+          if (!this.div) return
+          const p = this.getProjection()?.fromLatLngToDivPixel(this.pos)
+          if (p) { this.div.style.left = `${p.x}px`; this.div.style.top = `${p.y}px` }
+        }
+        setPosition(pos: any) { this.pos = pos; this.draw() }
+        onRemove() { this.div?.remove(); this.div = null }
+      }
+      userMarkerRef.current = new UserDot(latLng)
+      userMarkerRef.current.setMap(map)
     } else {
-      userMarkerRef.current.setPosition(center)
+      userMarkerRef.current.setPosition(latLng)
     }
 
     // Περίμετρος ~3km (≈ 5–10' δρόμος)
@@ -355,9 +366,39 @@ function MapPageContent() {
       userCircleRef.current.setCenter(center)
     }
 
-    // Πλαισίωση της περιμέτρου (auto-center + zoom).
-    map.fitBounds(userCircleRef.current.getBounds())
-  }, [mapLoaded, userLat, userLng])
+    // Auto-fit ΜΙΑ φορά: κεντράρουμε στη θέση σου + τα κοντινά πλυντήρια, ώστε το zoom
+    // να «πιάνει» ακριβώς τα κοντινά σημεία (προσαρμοσμένο, όχι σταθερό zoom).
+    if (didFitRef.current) return
+
+    const nearby = filteredLocations
+      .filter(l => l.distance != null)
+      .sort((a, b) => (a.distance || 0) - (b.distance || 0))
+    let pts = nearby.filter(l => (l.distance || 0) <= 5)
+    if (pts.length === 0) pts = nearby.slice(0, 3)
+
+    const bounds = new g.LatLngBounds()
+    bounds.extend(center)
+
+    if (pts.length > 0) {
+      pts.forEach(l => bounds.extend({ lat: l.lat, lng: l.lng }))
+    } else if (allLocations.length > 0) {
+      // Καμία κοντινή επιλογή — δείξε τουλάχιστον την περίμετρο.
+      bounds.union(userCircleRef.current.getBounds())
+    } else {
+      return // τα πλυντήρια δεν έχουν φορτώσει ακόμα — περίμενε, θα ξανατρέξει
+    }
+
+    // Padding ώστε πινέζες/ονόματα να μην κρύβονται πίσω από την αναζήτηση (πάνω) & τη λίστα (κάτω).
+    map.fitBounds(bounds, { top: 170, right: 56, bottom: 240, left: 56 })
+
+    // Απόφυγε υπερβολικό zoom-in όταν τα σημεία είναι πολύ κοντά.
+    g.event.addListenerOnce(map, 'idle', () => {
+      const z = map.getZoom()
+      if (z != null && z > 15) map.setZoom(15)
+    })
+
+    didFitRef.current = true
+  }, [mapLoaded, userLat, userLng, filteredLocations, allLocations])
 
   useEffect(() => {
     if (allLocations.length > 0) {

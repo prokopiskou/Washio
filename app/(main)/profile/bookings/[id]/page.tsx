@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star } from 'lucide-react'
+import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star, RotateCw } from 'lucide-react'
 import { useT, useLocale } from '@/lib/i18n'
 
 const T = {
@@ -53,6 +53,7 @@ const T = {
     rateSubmitting: 'Υποβολή...',
     rateThanks: 'Ευχαριστούμε!',
     rateAlready: 'Έχεις ήδη βαθμολογήσει',
+    bookAgain: 'Κλείσε ραντεβού ξανά',
   },
   en: {
     confirmed: 'Upcoming', completed: 'Completed', cancelled: 'Cancelled', pending: 'Pending',
@@ -100,6 +101,7 @@ const T = {
     rateSubmitting: 'Submitting...',
     rateThanks: 'Thank you!',
     rateAlready: 'You already rated',
+    bookAgain: 'Book again',
   },
 }
 
@@ -117,6 +119,7 @@ type Booking = {
   service_id: string
   locations: {
     id: string
+    slug: string
     name: string
     address: string
     city: string
@@ -250,7 +253,7 @@ export default function BookingDetailPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, car_plate, stripe_payment_intent_id, created_at, location_id, service_id, locations(id, name, address, city), services(name)')
+        .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, car_plate, stripe_payment_intent_id, created_at, location_id, service_id, locations(id, slug, name, address, city), services(name)')
         .eq('id', bookingId)
         .single()
 
@@ -606,6 +609,17 @@ export default function BookingDetailPage() {
               isLast
             />
           </div>
+
+          {/* Book again — για ολοκληρωμένες/ακυρωμένες κρατήσεις → σελίδα πλυντηρίου */}
+          {!isActiveBooking && booking.locations?.slug && (
+            <button
+              onClick={() => router.push(`/locations/${booking.locations!.slug}`)}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gray-900 text-white py-4 text-[14px] font-semibold tracking-tight mb-3.5"
+            >
+              <RotateCw size={16} strokeWidth={2} />
+              {t.bookAgain}
+            </button>
+          )}
 
           {/* Actions */}
           {isActiveBooking && (

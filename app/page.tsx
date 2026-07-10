@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core'
 import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon } from 'lucide-react'
 import LandingPage from './landing/page'
 import { BottomNav } from '@/components/BottomNav'
+import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
 const T = {
@@ -366,6 +367,9 @@ export default function HomePage() {
 
         {/* Bottom Nav */}
         <BottomNav />
+
+        {/* Prompt αξιολόγησης app store — μετά την 1η ολοκληρωμένη κράτηση */}
+        <AppRatingPrompt />
       </div>
     </main>
   )

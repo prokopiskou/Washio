@@ -58,6 +58,45 @@ button:active, a:active, [role="button"]:active {
   button:active, a:active, [role="button"]:active { transform: none; }
 }
 
+/* «Είσαι εδώ» κουκκίδα στον χάρτη — διακριτική μπλε με απαλό παλμό. */
+.washio-userdot {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.washio-userdot__core {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  background: #1A6FD4;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+.washio-userdot__pulse {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #1A6FD4;
+  transform: translate(-50%, -50%);
+  animation: washio-pulse 2.4s ease-out infinite;
+}
+@keyframes washio-pulse {
+  0% { transform: translate(-50%, -50%) scale(0.7); opacity: 0.5; }
+  70% { opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .washio-userdot__pulse { animation: none; opacity: 0; }
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
