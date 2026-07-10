@@ -514,7 +514,7 @@ function MapPageContent() {
         const cx = W / 2
         aX = cx; aY = 70
         svgString = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="78" viewBox="0 0 ${W} 78">
+  <svg xmlns="http://www.w3.org/2000/svg" width="${W * 2}" height="156" viewBox="0 0 ${W} 78">
     <defs>
       <filter id="shadow-${loc.id}" x="-30%" y="-30%" width="160%" height="160%">
         <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.18"/>
@@ -534,7 +534,7 @@ function MapPageContent() {
       } else {
         W = 44; H = 50; aX = 22; aY = 42
         svgString = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="44" height="50" viewBox="0 0 44 50">
+  <svg xmlns="http://www.w3.org/2000/svg" width="88" height="100" viewBox="0 0 44 50">
     <defs>
       <filter id="shadow-${loc.id}" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.15"/>

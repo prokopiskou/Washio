@@ -43,6 +43,21 @@ button {
   -webkit-touch-callout: none;
 }
 
+/* Άμεση απόκριση σε tap — αφαιρεί το ~300ms double-tap delay που έκανε τα κουμπιά
+   να θέλουν 2-3 πατήματα. */
+button, a, [role="button"], label, select, summary {
+  touch-action: manipulation;
+}
+
+/* Διακριτικό «bounce» feedback στο πάτημα (ειδικά στο web όπου δεν υπάρχει δόνηση). */
+button:active, a:active, [role="button"]:active {
+  transform: scale(0.97);
+  transition: transform 70ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  button:active, a:active, [role="button"]:active { transform: none; }
+}
+
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
