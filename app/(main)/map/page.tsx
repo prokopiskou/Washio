@@ -739,13 +739,8 @@ function MapPageContent() {
 
           {/* Collapsed peek — list of locations */}
           {!selectedLocation && filteredLocations.length > 0 && (
-            <div className="bg-white rounded-t-2xl"
+            <div className="bg-white rounded-t-2xl pt-3"
                  style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06), 0 -1px 0 rgba(0,0,0,0.04)' }}>
-              {/* Drag handle */}
-              <div className="flex justify-center pt-2 pb-2">
-                <div className="w-9 h-1 rounded-full bg-gray-200" />
-              </div>
-
               {/* Header */}
               <div className="flex justify-between items-baseline px-5 pb-2">
                 <p className="text-[14px] font-semibold tracking-tight text-gray-900">
