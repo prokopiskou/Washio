@@ -538,6 +538,7 @@ function MapPageContent() {
       const marker = new window.google.maps.Marker({
         position: { lat: loc.lat, lng: loc.lng },
         map: mapInstanceRef.current,
+        optimized: false, // καθαρό (crisp) render σε retina — αλλιώς τα ονόματα βγαίνουν θολά
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
           scaledSize: new window.google.maps.Size(W, H),
@@ -730,7 +731,6 @@ function MapPageContent() {
                 <p className="text-[14px] font-semibold tracking-tight text-gray-900">
                   {filteredLocations.length} {filteredLocations.length === 1 ? t.washroomOne : t.washroomMany} {t.near}
                 </p>
-                <p className="text-[12px] font-medium text-blue-600">{t.list}</p>
               </div>
 
               {/* Horizontal compact cards */}

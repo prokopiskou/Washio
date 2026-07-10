@@ -77,27 +77,11 @@ function StatusPill({ status }: { status: string }) {
   )
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
-  return (
-    <button
-      onClick={onChange}
-      className="relative w-[51px] h-[31px] rounded-full transition-colors"
-      style={{ background: on ? '#34C759' : '#E5E5E5' }}
-    >
-      <div
-        className="absolute top-0.5 w-[27px] h-[27px] rounded-full bg-white transition-all"
-        style={{ left: on ? 22 : 2, boxShadow: '0 2px 4px rgba(0,0,0,0.15), 0 1px 0 rgba(0,0,0,0.04)' }}
-      />
-    </button>
-  )
-}
-
 export default function ProfilePage() {
   const router = useRouter()
   const t = useT(T)
   const { locale, setLocale } = useLocale()
   const [authLoading, setAuthLoading] = useState(true)
-  const [notifications, setNotifications] = useState({ email: true, sms: false })
   const [userEmail, setUserEmail] = useState('')
   const [userInitial, setUserInitial] = useState('?')
   const [userId, setUserId] = useState('')
@@ -357,23 +341,6 @@ export default function ProfilePage() {
                   className={`flex-1 h-11 rounded-xl text-[14px] font-semibold border transition-colors ${locale === 'en' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'}`}>
                   English
                 </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Notifications */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-            <div className="px-[18px] pt-4 pb-2.5">
-              <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">{t.notifications}</p>
-            </div>
-            <div className="px-2 pb-2">
-              <div className="flex items-center px-2.5 py-2.5 border-b border-gray-50">
-                <p className="flex-1 text-[15px] font-medium text-gray-900">Email</p>
-                <Toggle on={notifications.email} onChange={() => setNotifications(n => ({ ...n, email: !n.email }))} />
-              </div>
-              <div className="flex items-center px-2.5 py-2.5">
-                <p className="flex-1 text-[15px] font-medium text-gray-900">SMS</p>
-                <Toggle on={notifications.sms} onChange={() => setNotifications(n => ({ ...n, sms: !n.sms }))} />
               </div>
             </div>
           </div>
