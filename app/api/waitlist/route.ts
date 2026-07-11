@@ -11,12 +11,15 @@ const admin = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { email, areaLabel, lat, lng, userId } = await req.json()
+    const { email, areaLabel, lat, lng, userId, source } = await req.json()
 
     const clean = typeof email === 'string' ? email.trim().toLowerCase() : ''
     if (!clean || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) {
       return NextResponse.json({ error: 'Μη έγκυρο email' }, { status: 400 })
     }
+
+    // source: 'no_coverage' (δεν έχει πλυντήριο) ή 'no_availability' (γεμάτα όλα).
+    const src = source === 'no_availability' ? 'no_availability' : 'no_coverage'
 
     const { error } = await admin.from('waitlist').insert({
       email: clean,
@@ -24,7 +27,7 @@ export async function POST(req: Request) {
       area_label: typeof areaLabel === 'string' ? areaLabel.slice(0, 200) : null,
       lat: typeof lat === 'number' ? lat : null,
       lng: typeof lng === 'number' ? lng : null,
-      source: 'map',
+      source: src,
     })
 
     if (error) {

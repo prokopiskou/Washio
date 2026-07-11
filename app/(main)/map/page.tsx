@@ -32,6 +32,8 @@ const T = {
     waitSubmitting: 'Αποθήκευση...',
     waitThanks: 'Τέλεια! Θα σε ειδοποιήσουμε μόλις ανοίξουμε εδώ.',
     waitClose: 'Όχι τώρα',
+    availSub: 'Άσε το email σου και σε ειδοποιούμε μόλις ανοίξει ώρα κοντά σου.',
+    availThanks: 'Τέλεια! Θα σε ειδοποιήσουμε μόλις ανοίξει ώρα.',
   },
   en: {
     searchPlaceholder: 'Search area', now: 'Now', schedule: 'Schedule',
@@ -53,6 +55,8 @@ const T = {
     waitSubmitting: 'Saving...',
     waitThanks: "Great! We'll let you know as soon as we open here.",
     waitClose: 'Not now',
+    availSub: "Leave your email and we'll notify you the moment a slot opens near you.",
+    availThanks: "Great! We'll let you know as soon as a slot opens.",
   },
 }
 
@@ -222,6 +226,11 @@ function MapPageContent() {
   const [userEmail, setUserEmail] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
   const locWaitCheckedRef = useRef(false)
+
+  // #3 — capture όταν υπάρχει πλυντήριο αλλά γεμάτο (καμία διαθέσιμη ώρα).
+  const [availEmail, setAvailEmail] = useState('')
+  const [availSubmitting, setAvailSubmitting] = useState(false)
+  const [availDone, setAvailDone] = useState(false)
 
   const [timing, setTiming] = useState<Timing>('now')
   const [showSchedule, setShowSchedule] = useState(false)
@@ -742,10 +751,30 @@ function MapPageContent() {
     setWaitDone(true)
   }
 
+  // #3 — «ειδοποίησέ με όταν ανοίξει ώρα» (γεμάτα όλα τα κοντινά).
+  const handleAvailNotify = async () => {
+    const email = availEmail.trim()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return
+    setAvailSubmitting(true)
+    const center = mapInstanceRef.current?.getCenter?.()
+    const lat = userLat ?? (center ? center.lat() : null)
+    const lng = userLng ?? (center ? center.lng() : null)
+    try {
+      await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, areaLabel: search || 'Διαθεσιμότητα κοντά μου', lat, lng, userId, source: 'no_availability' }),
+      })
+      trackEvent('Lead', { content_name: 'no_availability' })
+    } catch { /* ignore */ }
+    setAvailSubmitting(false)
+    setAvailDone(true)
+  }
+
   // email/id χρήστη — για prefill + σύνδεση της waitlist εγγραφής.
   useEffect(() => {
     createClient().auth.getUser().then(({ data }) => {
-      if (data.user?.email) setUserEmail(data.user.email)
+      if (data.user?.email) { setUserEmail(data.user.email); setAvailEmail(prev => prev || data.user!.email || '') }
       if (data.user?.id) setUserId(data.user.id)
     }).catch(() => {})
   }, [])
@@ -926,12 +955,31 @@ function MapPageContent() {
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-gray-700 mb-1">{t.noSpots}</p>
-                <p className="text-xs text-gray-400 mb-4">{t.tryScheduleLater}</p>
-                <button onClick={() => setShowSchedule(true)}
-                  className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl flex items-center justify-center gap-2">
-                  <Calendar size={14} />
-                  {t.schedule}
-                </button>
+                {availDone ? (
+                  <p className="text-xs text-gray-500 py-3">{t.availThanks}</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-400 mb-3">{t.availSub}</p>
+                    <input
+                      type="email"
+                      inputMode="email"
+                      value={availEmail}
+                      onChange={e => setAvailEmail(e.target.value)}
+                      placeholder={t.waitEmail}
+                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-center focus:outline-none focus:border-gray-400 mb-2"
+                    />
+                    <button
+                      onClick={handleAvailNotify}
+                      disabled={availSubmitting || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(availEmail.trim())}
+                      className="w-full bg-gray-900 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-40"
+                    >
+                      {availSubmitting ? t.waitSubmitting : t.waitSubmit}
+                    </button>
+                    <button onClick={() => setShowSchedule(true)} className="text-xs font-medium text-gray-500 mt-3">
+                      {t.tryScheduleLater}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           )}

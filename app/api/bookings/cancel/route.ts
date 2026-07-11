@@ -167,6 +167,35 @@ export async function POST(req: NextRequest) {
       })
     } catch { /* best-effort */ }
 
+    // «Άνοιξε ώρα κοντά σου» — ειδοποίησε no_availability waitlist εντός 12km
+    // (best-effort, μία φορά ανά άτομο· first-come-first-served για το slot).
+    try {
+      const { data: loc } = await supabase.from('locations').select('lat, lng').eq('id', booking.location_id).single()
+      if (loc?.lat != null && loc?.lng != null) {
+        const toRad = (d: number) => (d * Math.PI) / 180
+        const km = (aLat: number, aLng: number, bLat: number, bLng: number) => {
+          const dLat = toRad(bLat - aLat), dLng = toRad(bLng - aLng)
+          const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2
+          return 6371 * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s))
+        }
+        const { data: waiters } = await supabase
+          .from('waitlist').select('id, email, lat, lng')
+          .eq('source', 'no_availability').eq('notified', false)
+        for (const w of waiters || []) {
+          if (w.lat == null || w.lng == null || km(loc.lat as number, loc.lng as number, w.lat as number, w.lng as number) > 12) continue
+          if (w.email) {
+            await resend.emails.send({
+              from: 'Washio <noreply@washio.gr>',
+              to: w.email,
+              subject: 'Άνοιξε ώρα κοντά σου!',
+              html: `<div style="font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;"><div style="background:#0A0A0A;padding:32px;text-align:center;border-radius:16px 16px 0 0;"><h1 style="color:#fff;font-size:22px;font-weight:600;margin:0;">washio</h1></div><div style="padding:32px;border:1px solid #F0F0F0;border-top:none;border-radius:0 0 16px 16px;"><h2 style="font-size:20px;font-weight:700;color:#0A0A0A;margin:0 0 14px;">Άνοιξε ώρα κοντά σου.</h2><p style="color:#444;font-size:14px;line-height:1.6;margin:0 0 24px;">Ελευθερώθηκε ώρα σε πλυντήριο κοντά σου. Κλείσ' την τώρα πριν την πάρει άλλος.</p><a href="https://washio.gr/map" style="display:block;background:#0A0A0A;color:#fff;text-align:center;padding:15px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:600;margin-bottom:24px;">Κλείσε πλύσιμο</a><p style="color:#999;font-size:12px;margin:0;">— Η ομάδα του Washio</p></div></div>`,
+            })
+          }
+          await supabase.from('waitlist').update({ notified: true }).eq('id', w.id)
+        }
+      }
+    } catch { /* best-effort */ }
+
     // Get user email
     let userEmail: string | null = null
     if (booking.user_id) {
