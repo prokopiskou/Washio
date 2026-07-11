@@ -138,6 +138,20 @@ export async function POST(req: NextRequest) {
       },
     })
 
+    // Καταγραφή checkout attempt — για abandoned-checkout recovery (best-effort).
+    try {
+      await admin.from('checkout_attempts').insert({
+        payment_intent_id: paymentIntent.id,
+        user_id: user.id,
+        email: user.email || null,
+        service_name: serviceName || service.name || '',
+        location_id: locationId || null,
+        slot_date: slotDate || null,
+        slot_start_time: slotStartTime || null,
+        amount,
+      })
+    } catch { /* μη-κρίσιμο — δεν μπλοκάρει το checkout */ }
+
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       customerSessionClientSecret,
