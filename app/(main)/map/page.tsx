@@ -25,6 +25,13 @@ const T = {
     whenTitle: 'Πότε θέλεις;', dateLabel: 'Ημερομηνία', timeLabel: 'Ώρα',
     pickTime: 'Επίλεξε ώρα', apply: 'Εφαρμογή', loading: 'Φόρτωση...',
     newRating: 'Νέο',
+    waitTitle: 'Δεν έχουμε ακόμα πλυντήριο εδώ',
+    waitSub: 'Άσε το email σου και σε ειδοποιούμε μόλις έρθει το Washio στην περιοχή σου.',
+    waitEmail: 'Το email σου',
+    waitSubmit: 'Ειδοποίησέ με',
+    waitSubmitting: 'Αποθήκευση...',
+    waitThanks: 'Τέλεια! Θα σε ειδοποιήσουμε μόλις ανοίξουμε εδώ.',
+    waitClose: 'Όχι τώρα',
   },
   en: {
     searchPlaceholder: 'Search area', now: 'Now', schedule: 'Schedule',
@@ -39,6 +46,13 @@ const T = {
     whenTitle: 'When do you want it?', dateLabel: 'Date', timeLabel: 'Time',
     pickTime: 'Select a time', apply: 'Apply', loading: 'Loading...',
     newRating: 'New',
+    waitTitle: 'No car wash here yet',
+    waitSub: "Leave your email and we'll notify you the moment Washio arrives in your area.",
+    waitEmail: 'Your email',
+    waitSubmit: 'Notify me',
+    waitSubmitting: 'Saving...',
+    waitThanks: "Great! We'll let you know as soon as we open here.",
+    waitClose: 'Not now',
   },
 }
 
@@ -79,6 +93,7 @@ type Timing = 'now' | 'later'
 const BUFFER_MINUTES = 15
 const TIGHT_SLOT_THRESHOLD = 20
 const LABEL_ZOOM = 12.5 // από αυτό το zoom και πάνω εμφανίζονται τα ονόματα στις πινέζες
+const NO_COVERAGE_KM = 10 // αν το πιο κοντινό πλυντήριο είναι πιο μακριά → «κενό κάλυψης» → capture
 
 function generateSlots(openTime: string, closeTime: string): string[] {
   const slots: string[] = []
@@ -195,6 +210,18 @@ function MapPageContent() {
   const [showTightSlotModal, setShowTightSlotModal] = useState(false)
   const [pendingBookingUrl, setPendingBookingUrl] = useState<string | null>(null)
   const [minutesUntilSlot, setMinutesUntilSlot] = useState(0)
+
+  // «Ειδοποίησέ με» capture — εμφανίζεται ΜΟΝΟ όταν δεν υπάρχει πλυντήριο κοντά
+  // (στην τοποθεσία του χρήστη ή σε searched περιοχή), όχι σε τυχαίο pan.
+  const [showWaitlist, setShowWaitlist] = useState(false)
+  const [waitArea, setWaitArea] = useState('')
+  const [waitCoords, setWaitCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [waitEmail, setWaitEmail] = useState('')
+  const [waitSubmitting, setWaitSubmitting] = useState(false)
+  const [waitDone, setWaitDone] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
+  const [userId, setUserId] = useState<string | null>(null)
+  const locWaitCheckedRef = useRef(false)
 
   const [timing, setTiming] = useState<Timing>('now')
   const [showSchedule, setShowSchedule] = useState(false)
@@ -666,6 +693,57 @@ function MapPageContent() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  // Απόσταση από το πιο κοντινό πλυντήριο (Infinity αν δεν έχουν φορτώσει δεδομένα).
+  const nearestKm = (lat: number, lng: number): number => {
+    if (allLocations.length === 0) return Infinity
+    return Math.min(...allLocations.map(l => getDistance(lat, lng, l.lat, l.lng)))
+  }
+
+  // Δείξε το capture ΜΟΝΟ αν όντως δεν υπάρχει πλυντήριο κοντά σε αυτό το σημείο.
+  const maybeShowWaitlist = (lat: number, lng: number, areaLabel: string) => {
+    if (waitDone || showWaitlist || allLocations.length === 0) return
+    if (nearestKm(lat, lng) > NO_COVERAGE_KM) {
+      setWaitArea(areaLabel)
+      setWaitCoords({ lat, lng })
+      setWaitEmail(prev => prev || userEmail)
+      setShowWaitlist(true)
+      trackEvent('Search', { content_type: 'no_coverage_area', content_name: areaLabel })
+    }
+  }
+
+  const handleWaitlistSubmit = async () => {
+    const email = waitEmail.trim()
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return
+    setWaitSubmitting(true)
+    try {
+      await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, areaLabel: waitArea, lat: waitCoords?.lat, lng: waitCoords?.lng, userId }),
+      })
+      trackEvent('Lead', { content_name: waitArea }) // capture ως Meta Lead + GA4
+    } catch { /* ignore */ }
+    setWaitSubmitting(false)
+    setWaitDone(true)
+  }
+
+  // email/id χρήστη — για prefill + σύνδεση της waitlist εγγραφής.
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      if (data.user?.email) setUserEmail(data.user.email)
+      if (data.user?.id) setUserId(data.user.id)
+    }).catch(() => {})
+  }, [])
+
+  // Trigger A: η τοποθεσία του χρήστη δεν έχει πλυντήριο κοντά → capture (μία φορά).
+  useEffect(() => {
+    if (locWaitCheckedRef.current) return
+    if (userLat == null || userLng == null || allLocations.length === 0) return
+    locWaitCheckedRef.current = true
+    maybeShowWaitlist(userLat, userLng, locale === 'en' ? 'My location' : 'Η τοποθεσία μου')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLat, userLng, allLocations, locale])
+
   const handleSelectSuggestion = (prediction: any) => {
     if (!placesServiceRef.current || !mapInstanceRef.current) return
     placesServiceRef.current.getDetails(
@@ -674,8 +752,11 @@ function MapPageContent() {
         if (status !== window.google.maps.places.PlacesServiceStatus.OK || !place?.geometry?.location) return
         mapInstanceRef.current.panTo(place.geometry.location)
         mapInstanceRef.current.setZoom(15)
-        setSearch(place.name || prediction.description || '')
+        const label = place.name || prediction.description || ''
+        setSearch(label)
         setShowSuggestions(false)
+        // Searched περιοχή χωρίς κοντινό πλυντήριο → capture.
+        maybeShowWaitlist(place.geometry.location.lat(), place.geometry.location.lng(), label)
       }
     )
   }
@@ -955,6 +1036,52 @@ function MapPageContent() {
         {/* Bottom Nav */}
         <BottomNav />
       </div>
+
+      {/* «Ειδοποίησέ με» capture — κενό κάλυψης */}
+      {showWaitlist && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowWaitlist(false)} />
+          <div className="relative bg-white rounded-t-3xl px-6 pt-6 pb-10 w-full max-w-md z-10 text-center">
+            <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+
+            {waitDone ? (
+              <div className="py-6">
+                <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center mx-auto mb-4">
+                  <MapPin size={22} color="white" />
+                </div>
+                <p className="text-[16px] font-semibold text-gray-900">{t.waitThanks}</p>
+              </div>
+            ) : (
+              <>
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                  <MapPin size={22} className="text-gray-900" />
+                </div>
+                <p className="text-[18px] font-bold tracking-tight text-gray-900">{t.waitTitle}</p>
+                <p className="text-[13px] text-gray-500 leading-relaxed mt-2 mb-5 px-2">{t.waitSub}</p>
+
+                <input
+                  type="email"
+                  inputMode="email"
+                  value={waitEmail}
+                  onChange={e => setWaitEmail(e.target.value)}
+                  placeholder={t.waitEmail}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 text-center"
+                />
+                <button
+                  onClick={handleWaitlistSubmit}
+                  disabled={waitSubmitting || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(waitEmail.trim())}
+                  className="w-full bg-gray-900 text-white text-[15px] font-semibold py-3.5 rounded-xl mt-3 disabled:opacity-40"
+                >
+                  {waitSubmitting ? t.waitSubmitting : t.waitSubmit}
+                </button>
+                <button onClick={() => setShowWaitlist(false)} className="mt-3 text-[13px] font-medium text-gray-400">
+                  {t.waitClose}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tight Slot Modal */}
       {showTightSlotModal && selectedLocation && (
