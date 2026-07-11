@@ -337,7 +337,8 @@ function MapPageContent() {
         // Το κεντράρισμα γίνεται στο effect [mapLoaded, userLat, userLng] παρακάτω,
         // γιατί εδώ ο χάρτης μπορεί να μην έχει φορτώσει ακόμα.
       },
-      () => loadLocations()
+      () => loadLocations(),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     )
   }, [])
 
@@ -558,10 +559,24 @@ function MapPageContent() {
   }
 
   const handleLocateMe = () => {
+    // Αν έχουμε ήδη θέση → πήγαινε εκεί.
     if (userLat && userLng && mapInstanceRef.current) {
       mapInstanceRef.current.panTo({ lat: userLat, lng: userLng })
       mapInstanceRef.current.setZoom(15)
+      return
     }
+    // Αλλιώς ξαναζήτα θέση (π.χ. αν είχε απορριφθεί/αποτύχει το permission).
+    navigator.geolocation?.getCurrentPosition(
+      pos => {
+        setUserLat(pos.coords.latitude)
+        setUserLng(pos.coords.longitude)
+        loadLocations(pos.coords.latitude, pos.coords.longitude)
+        mapInstanceRef.current?.panTo({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        mapInstanceRef.current?.setZoom(15)
+      },
+      () => { /* denied/failed — μένει χωρίς θέση */ },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    )
   }
 
   const updateMarkers = useCallback(() => {
@@ -840,16 +855,14 @@ function MapPageContent() {
           </div>
         </div>
 
-        {/* Locate-me FAB */}
-        {userLat && userLng && (
-          <button
-            onClick={handleLocateMe}
-            className="absolute right-4 top-44 z-10 w-11 h-11 bg-white rounded-xl flex items-center justify-center text-gray-900"
-            style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)' }}
-          >
-            <Locate size={18} />
-          </button>
-        )}
+        {/* Locate-me FAB — πάντα ορατό ώστε να μπορεί ο χρήστης να ζητήσει/ξαναζητήσει θέση */}
+        <button
+          onClick={handleLocateMe}
+          className="absolute right-4 top-44 z-10 w-11 h-11 bg-white rounded-xl flex items-center justify-center text-gray-900"
+          style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)' }}
+        >
+          <Locate size={18} className={userLat && userLng ? 'text-blue-600' : 'text-gray-900'} />
+        </button>
 
         <div ref={mapRef} className="w-full h-full" />
 
