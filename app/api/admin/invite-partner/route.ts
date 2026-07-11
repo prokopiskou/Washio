@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
+import { geocodeAddress } from '@/lib/geocode'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,6 +45,9 @@ export async function POST(req: NextRequest) {
 
     const slug = slugify(businessName)
 
+    // Σωστές συντεταγμένες από τη διεύθυνση (όχι placeholder κέντρο Αθήνας).
+    const coords = await geocodeAddress(address, city)
+
     await supabase.from('locations').insert({
       name: businessName,
       city: city || '',
@@ -52,11 +56,12 @@ export async function POST(req: NextRequest) {
       is_active: false,
       commission_rate: 10,
       slug,
-      lat: 37.9838,
-      lng: 23.7275,
+      lat: coords?.lat ?? null,
+      lng: coords?.lng ?? null,
     })
 
-    return NextResponse.json({ success: true })
+    // geocoded=false → ο admin πρέπει να βάλει lat/lng χειροκίνητα πριν το activate.
+    return NextResponse.json({ success: true, geocoded: coords != null })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'
     console.error('Invite error:', message)
