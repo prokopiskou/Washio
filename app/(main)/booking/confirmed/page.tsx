@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { successHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
+import { PushReminderPrompt } from '@/components/PushReminderPrompt'
 import { useT } from '@/lib/i18n'
 
 const T = {
@@ -301,6 +302,9 @@ function ConfirmedContent() {
               {t.bookAnother}
             </button>
           </div>
+
+          {/* Opt-in για reminders επόμενου πλυσίματος */}
+          <PushReminderPrompt />
         </div>
       </div>
     </main>
