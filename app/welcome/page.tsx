@@ -68,18 +68,18 @@ export default function WelcomePage() {
 
   return (
     <main className="min-h-screen bg-white">
-      <div className="max-w-md mx-auto">
+      <div className="max-w-md mx-auto relative">
 
-        {/* Sticky header — only login button, no duplicate logo (logo is in hero) */}
-        <header className="sticky top-0 z-10 bg-white px-5 pt-14 pb-3.5 flex items-center justify-end">
+        {/* Login button — floats over the hero, no dead white band */}
+        <header className="absolute top-0 right-0 z-10 px-5 pt-[calc(env(safe-area-inset-top)+14px)]">
           <Link href="/login" className="h-8 px-3 rounded-lg border border-gray-200 bg-white text-gray-900 text-xs font-semibold inline-flex items-center">
             {t.signIn}
           </Link>
         </header>
 
         {/* Hero */}
-        <section className="px-5 pt-4 pb-8 flex flex-col items-center text-center">
-          <img src="/washio-logo.png" alt="Washio" className="h-40 w-auto -mb-2 -mt-4" />
+        <section className="px-5 pt-[calc(env(safe-area-inset-top)+6px)] pb-8 flex flex-col items-center text-center">
+          <img src="/washio-logo.png" alt="Washio" className="h-40 w-auto -mb-2 -mt-6" />
 
           <h1 className="text-[32px] font-bold leading-[1.1] tracking-[-1.2px] text-gray-900">
             {t.heroTitle1}<br />

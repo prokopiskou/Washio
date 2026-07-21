@@ -1,6 +1,8 @@
 'use client'
 
 import { FormEvent, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { ChevronLeft } from 'lucide-react'
 
 type FormValues = {
   businessName: string
@@ -37,6 +39,7 @@ const initialValues: FormValues = {
 }
 
 export default function ApplyPage() {
+  const router = useRouter()
   const [values, setValues] = useState<FormValues>(initialValues)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [loading, setLoading] = useState(false)
@@ -88,7 +91,15 @@ export default function ApplyPage() {
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md px-5 py-8">
+      <div className="w-full max-w-md px-5 py-8 pt-[calc(env(safe-area-inset-top)+16px)]">
+        {/* Back — σελίδα χωρίς bottom nav */}
+        <button
+          onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
+          aria-label="Back"
+          className="w-10 h-10 -ml-1 mb-4 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-900"
+        >
+          <ChevronLeft size={18} />
+        </button>
         <div className="mb-6">
           <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto mb-4" />
           <h1 className="text-lg font-semibold text-gray-900">Γίνε μέλος του Washio</h1>

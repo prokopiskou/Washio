@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { signInWithProvider } from '@/lib/native-auth'
 import { useT } from '@/lib/i18n'
@@ -167,6 +168,17 @@ function LoginPageContent() {
   return (
     <main className="min-h-screen bg-white flex flex-col items-center justify-start">
       <div className="w-full max-w-md px-5">
+
+        {/* Back — σελίδα χωρίς bottom nav */}
+        <div className="pt-[calc(env(safe-area-inset-top)+12px)] -mb-8">
+          <button
+            onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
+            aria-label="Back"
+            className="w-10 h-10 -ml-1 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-900"
+          >
+            <ChevronLeft size={18} />
+          </button>
+        </div>
 
         <div className="pt-14 pb-8 flex flex-col items-center">
           <img src="/washio_logo.png" alt="Washio" className="h-16 w-auto mb-5" />
