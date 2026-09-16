@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, successHaptic, errorHaptic } from '@/lib/haptics'
-import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut } from 'lucide-react'
+import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Store } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
@@ -19,6 +19,7 @@ const T = {
     mainTag: 'ΚΥΡΙΟ', main: 'Κύριο', plate: 'Πινακίδα', cancel: 'Άκυρο', addVehicle: 'Προσθήκη οχήματος',
     notifications: 'Ειδοποιήσεις', support: 'Επικοινωνία & Support', logout: 'Έξοδος',
     deleteAccount: 'Διαγραφή λογαριασμού', language: 'Γλώσσα',
+    partnerHub: 'Η επιχείρησή μου', partnerHubSub: 'Άνοιξε το dashboard του πλυντηρίου',
     confirmDelete1: 'Διαγραφή λογαριασμού; Η ενέργεια είναι οριστική και θα διαγράψει τα στοιχεία σου (οχήματα, αγαπημένα, προφίλ).',
     confirmDelete2: 'Είσαι σίγουρος/η; Δεν μπορεί να αναιρεθεί.',
     deleteFailed: 'Η διαγραφή απέτυχε. Δοκίμασε ξανά.',
@@ -33,6 +34,7 @@ const T = {
     mainTag: 'MAIN', main: 'Main', plate: 'Plate', cancel: 'Cancel', addVehicle: 'Add vehicle',
     notifications: 'Notifications', support: 'Contact & Support', logout: 'Log out',
     deleteAccount: 'Delete account', language: 'Language',
+    partnerHub: 'My business', partnerHubSub: 'Open your car-wash dashboard',
     confirmDelete1: 'Delete account? This is permanent and will erase your data (vehicles, favorites, profile).',
     confirmDelete2: 'Are you sure? This cannot be undone.',
     deleteFailed: 'Deletion failed. Please try again.',
@@ -106,6 +108,7 @@ export default function ProfilePage() {
   const [savedCar, setSavedCar] = useState(false)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [favorites, setFavorites] = useState<Favorite[]>([])
+  const [isPartner, setIsPartner] = useState(false)
 
   const loadVehicles = async (id: string) => {
     const supabase = createClient()
@@ -124,6 +127,11 @@ export default function ProfilePage() {
     const { data } = await supabase.from('favorites').select('id, location_id, locations(id, name, slug)').eq('user_id', id).limit(3)
     setFavorites((data as unknown as Favorite[]) || [])
   }
+  const loadPartnerStatus = async (id: string) => {
+    const supabase = createClient()
+    const { data } = await supabase.from('locations').select('id').eq('owner_id', id).limit(1).maybeSingle()
+    setIsPartner(!!data?.id)
+  }
 
   useEffect(() => {
     const loadUser = async () => {
@@ -137,7 +145,7 @@ export default function ProfilePage() {
       setUserId(user?.id || '')
       setFullName((user?.user_metadata?.full_name as string) || '')
       setPhone((user?.user_metadata?.phone as string) || '')
-      await Promise.all([loadVehicles(user.id), loadBookings(user.id), loadFavorites(user.id)])
+      await Promise.all([loadVehicles(user.id), loadBookings(user.id), loadFavorites(user.id), loadPartnerStatus(user.id)])
       setAuthLoading(false)
     }
     loadUser()
@@ -365,6 +373,25 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Partner hub — visible only for car-wash owners */}
+          {isPartner && (
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <button
+                onClick={() => { lightTap(); router.push('/dashboard') }}
+                className="w-full flex items-center gap-3 px-[18px] py-[18px]"
+              >
+                <div className="w-9 h-9 rounded-full bg-gray-900 flex items-center justify-center shrink-0">
+                  <Store size={16} className="text-white" strokeWidth={1.8} />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-[15px] font-semibold text-gray-900 leading-tight">{t.partnerHub}</p>
+                  <p className="text-[12px] text-gray-500 mt-0.5">{t.partnerHubSub}</p>
+                </div>
+                <ChevronRight size={16} className="text-gray-300" />
+              </button>
+            </div>
+          )}
 
           {/* Support */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
