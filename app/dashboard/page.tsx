@@ -542,7 +542,6 @@ export default function DashboardPage() {
             ['calendar', 'Ημερολόγιο'],
             ['services', 'Υπηρεσίες'],
             ['hours', 'Ωράριο'],
-            ['staff', 'Προσωπικό'],
             ['feedback', 'Feedback'],
           ] as [TabKey, string][]).map(([key, label]) => (
             <button key={key}
