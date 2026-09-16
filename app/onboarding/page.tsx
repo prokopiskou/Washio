@@ -31,7 +31,7 @@ const initialValues: FormValues = {
 }
 
 const inputClass =
-  'w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400'
+  'w-full border-2 border-gray-300 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-gray-900 transition-colors'
 
 /** Έλεγχος ελληνικού ΑΦΜ (9 ψηφία + ψηφίο ελέγχου mod 11). */
 function isValidAfm(value: string): boolean {
@@ -279,7 +279,7 @@ export default function OnboardingPage() {
                 type="checkbox"
                 checked={values.declarationAccepted}
                 onChange={e => set('declarationAccepted', e.target.checked)}
-                className="mt-1 shrink-0"
+                className="mt-0.5 shrink-0 w-4 h-4 accent-gray-900"
               />
               <span className="text-xs text-gray-600 leading-relaxed">
                 Δηλώνω υπεύθυνα ότι η επιχείρηση λειτουργεί νόμιμα και διαθέτει τις απαιτούμενες
