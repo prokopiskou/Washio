@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Capacitor } from '@capacitor/core'
-import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon } from 'lucide-react'
+import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon, Store } from 'lucide-react'
 import LandingPage from './landing/page'
 import { BottomNav } from '@/components/BottomNav'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
@@ -30,6 +30,9 @@ const T = {
     nextBooking: 'Επόμενη κράτηση',
     recent: 'Πρόσφατα',
     all: 'Όλα →',
+    partnerBannerTitle: 'Η επιχείρησή σου είναι live',
+    partnerBannerSub: 'Δες κρατήσεις, τιμές και ωράριο',
+    partnerBannerCta: 'Άνοιξε το dashboard',
   },
   en: {
     loading: 'Loading...',
@@ -49,6 +52,9 @@ const T = {
     nextBooking: 'Next booking',
     recent: 'Recent',
     all: 'All →',
+    partnerBannerTitle: 'Your business is live',
+    partnerBannerSub: 'See bookings, prices and hours',
+    partnerBannerCta: 'Open dashboard',
   },
 }
 
@@ -88,6 +94,7 @@ export default function HomePage() {
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [lastBooking, setLastBooking] = useState<Booking | null>(null)
   const [activeLocationsCount, setActiveLocationsCount] = useState(0)
+  const [isPartner, setIsPartner] = useState(false)
 
   useEffect(() => {
     const init = async () => {
@@ -115,6 +122,7 @@ export default function HomePage() {
         { data: last },
         { data: favs },
         { data: locs },
+        { data: ownedLocation },
       ] = await Promise.all([
         // Επόμενη κράτηση
         supabase
@@ -148,6 +156,13 @@ export default function HomePage() {
           .select('id, name, city, slug', { count: 'exact' })
           .eq('is_active', true)
           .limit(3),
+        // Partner check — έχει ο χρήστης δικό του πλυντήριο;
+        supabase
+          .from('locations')
+          .select('id')
+          .eq('owner_id', user.id)
+          .limit(1)
+          .maybeSingle(),
       ])
 
       setUpcomingBooking(upcoming as unknown as Booking)
@@ -155,6 +170,7 @@ export default function HomePage() {
       setFavorites((favs as unknown as Favorite[]) || [])
       setRecentLocations((locs as Location[]) || [])
       setActiveLocationsCount(locs?.length || 0)
+      setIsPartner(!!(ownedLocation as { id?: string } | null)?.id)
 
       setAuthChecking(false)
     }
@@ -184,6 +200,29 @@ export default function HomePage() {
           <div className="flex justify-center items-center -my-8">
             <img src="/washio-logo.png" alt="Washio" className="h-48 md:h-40 w-auto" />
           </div>
+
+          {/* Partner banner — εμφανίζεται μόνο σε ιδιοκτήτες πλυντηρίων */}
+          {isPartner && (
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="w-full bg-gray-900 rounded-2xl px-4 py-3.5 flex items-center gap-3 text-left"
+              style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+            >
+              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                <Store size={18} className="text-white" strokeWidth={1.8} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold text-white leading-tight truncate">
+                  {t.partnerBannerTitle}
+                </p>
+                <p className="text-[11px] text-white/70 mt-0.5 truncate">
+                  {t.partnerBannerCta} →
+                </p>
+              </div>
+              <ChevronRight size={18} className="text-white/70 shrink-0" />
+            </button>
+          )}
+
           <h1 className="text-[26px] font-bold tracking-tight leading-[1.15] text-gray-900 text-center">
             {t.heading}
           </h1>
