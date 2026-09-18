@@ -25,3 +25,20 @@ export function athensMinutesOfDay(d: Date = new Date()): number {
   const p = athensFields(d)
   return Number(p.hour) * 60 + Number(p.minute)
 }
+
+// Ημερομηνία ημερολογίου ως 'YYYY-MM-DD' από τοπικά πεδία του Date (όχι UTC / toISOString).
+export function ymdFromLocalDate(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// Ημέρα εβδομάδας για 'YYYY-MM-DD': 1 = Δευτέρα … 7 = Κυριακή
+// (ίδιο mapping με location_hours.day_of_week).
+export function weekdayMon1FromYmd(ymd: string): number {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const utcNoon = new Date(Date.UTC(y, (m || 1) - 1, d || 1, 12, 0, 0))
+  const jsDay = utcNoon.getUTCDay()
+  return jsDay === 0 ? 7 : jsDay
+}

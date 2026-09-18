@@ -4,6 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import { alertCritical } from '@/lib/alert'
 import { sendPush, getLocationOwnerId } from '@/lib/push'
+import { slotBookingBlockReason } from '@/lib/booking-availability'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -107,17 +108,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Μη έγκυρο ποσό' }, { status: 400 })
     }
 
-    // 3) Re-check διαθεσιμότητας slot.
-    const { data: existingBookings } = await admin
-      .from('bookings')
-      .select('id')
-      .eq('location_id', locationId)
-      .eq('slot_date', slotDate)
-      .eq('slot_start_time', slotStartTime)
-      .not('status', 'in', '("cancelled")')
-
-    if (existingBookings && existingBookings.length > 0) {
-      return NextResponse.json({ error: 'Το slot μόλις κλείστηκε. Διάλεξε άλλη ώρα.' }, { status: 409 })
+    // 3) Re-check διαθεσιμότητας: ωράριο/εξαιρέσεις, 15' lead time, occupied.
+    const slotBlock = await slotBookingBlockReason(admin, locationId, slotDate, slotStartTime)
+    if (slotBlock) {
+      return NextResponse.json({ error: slotBlock }, { status: 409 })
     }
 
     // 4) Δημιουργία κράτησης — ΜΕΤΡΗΤΑ (χωρίς Stripe).

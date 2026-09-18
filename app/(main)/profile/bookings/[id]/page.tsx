@@ -5,6 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star, RotateCw } from 'lucide-react'
 import { useT, useLocale } from '@/lib/i18n'
+import { INACTIVE_STATUS_FILTER, offeredTimesForDay, weekdayMon1FromYmd } from '@/lib/slots'
+import { ymdFromLocalDate } from '@/lib/time'
 
 const T = {
   el: {
@@ -127,25 +129,6 @@ type Booking = {
   services: {
     name: string
   } | null
-}
-
-function generateSlots(openTime: string, closeTime: string): string[] {
-  const slots: string[] = []
-  const [openH, openM] = openTime.split(':').map(Number)
-  const [closeH, closeM] = closeTime.split(':').map(Number)
-  let current = openH * 60 + openM
-  const end = closeH * 60 + closeM
-  while (current < end) {
-    const h = Math.floor(current / 60).toString().padStart(2, '0')
-    const m = (current % 60).toString().padStart(2, '0')
-    slots.push(`${h}:${m}`)
-    current += 30
-  }
-  return slots
-}
-
-function jsDayToSupabase(jsDay: number): number {
-  return jsDay === 0 ? 7 : jsDay
 }
 
 function effectiveStatus(status: string, slotDate: string, slotStartTime: string): 'cancelled' | 'completed' | 'confirmed' | 'pending' {
@@ -380,8 +363,7 @@ export default function BookingDetailPage() {
     const loadSlots = async () => {
       setSlotsLoading(true)
       const supabase = createClient()
-      const dateObj = new Date(newDate)
-      const dayOfWeek = jsDayToSupabase(dateObj.getDay())
+      const dayOfWeek = weekdayMon1FromYmd(newDate)
 
       const { data: exceptionData } = await supabase
         .from('location_hours_exceptions')
@@ -390,31 +372,22 @@ export default function BookingDetailPage() {
         .eq('exception_date', newDate)
         .maybeSingle()
 
-      let allTimes: string[] = []
-
-      if (exceptionData) {
-        if (exceptionData.is_closed) {
-          setAvailableSlots([])
-          setSlotsLoading(false)
-          return
-        }
-        for (const period of exceptionData.periods) {
-          allTimes = [...allTimes, ...generateSlots(period.open, period.close)]
-        }
-      } else {
-        const { data: hoursData } = await supabase
+      let hoursData: { open_time: string; close_time: string; is_closed?: boolean | null } | null = null
+      if (!exceptionData) {
+        const { data } = await supabase
           .from('location_hours')
           .select('open_time, close_time, is_closed')
           .eq('location_id', booking.location_id)
           .eq('day_of_week', dayOfWeek)
-          .single()
+          .maybeSingle()
+        hoursData = data
+      }
 
-        if (!hoursData || hoursData.is_closed) {
-          setAvailableSlots([])
-          setSlotsLoading(false)
-          return
-        }
-        allTimes = generateSlots(hoursData.open_time, hoursData.close_time)
+      const allTimes = offeredTimesForDay(hoursData, exceptionData)
+      if (allTimes.length === 0) {
+        setAvailableSlots([])
+        setSlotsLoading(false)
+        return
       }
 
       const { data: bookedData } = await supabase
@@ -422,20 +395,23 @@ export default function BookingDetailPage() {
         .select('slot_start_time')
         .eq('location_id', booking.location_id)
         .eq('slot_date', newDate)
-        .not('status', 'in', '("cancelled")')
+        .not('status', 'in', INACTIVE_STATUS_FILTER)
         .neq('id', booking.id)
 
-      const booked = new Set((bookedData || []).map((b: any) => b.slot_start_time?.slice(0, 5)))
+      const booked = new Set(
+        (bookedData || [])
+          .map((b: { slot_start_time?: string | null }) => b.slot_start_time?.slice(0, 5))
+          .filter((t): t is string => !!t),
+      )
 
       const now = new Date()
-      const todayLocalStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-      const isToday = newDate === todayLocalStr
+      const isToday = newDate === ymdFromLocalDate(now)
 
       const available = allTimes.filter(t => {
         if (booked.has(t)) return false
         if (isToday) {
           const [h, m] = t.split(':').map(Number)
-          const slotMinutes = h * 60 + m
+          const slotMinutes = (h || 0) * 60 + (m || 0)
           const nowMinutes = now.getHours() * 60 + now.getMinutes()
           if (slotMinutes < nowMinutes + 120) return false
         }
