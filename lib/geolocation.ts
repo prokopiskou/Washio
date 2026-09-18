@@ -15,11 +15,50 @@ function isDenied(status: { location?: string; coarseLocation?: string }): boole
 }
 
 /**
- * Θέση συσκευής. Στο native χρησιμοποιεί @capacitor/geolocation (CLLocationManager),
- * όχι navigator.geolocation του WKWebView (που ξαναρωτά σε κάθε cold start).
+ * WKWebView / browser geolocation. Same path the map used before #9.
+ */
+function getWebPosition(opts: {
+  interactive: boolean
+  maximumAge: number
+}): Promise<UserCoords | null> {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return Promise.resolve(null)
+
+  const run = async () => {
+    try {
+      const permissions = navigator.permissions
+      if (permissions?.query) {
+        const result = await permissions.query({ name: 'geolocation' })
+        if (result.state === 'denied') return null
+        if (result.state === 'prompt' && !opts.interactive) return null
+      }
+    } catch {
+      // Safari / παλιοί browsers μπορεί να μην υποστηρίζουν permissions.query
+    }
+
+    return new Promise<UserCoords | null>(resolve => {
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: opts.maximumAge },
+      )
+    })
+  }
+
+  return run()
+}
+
+/**
+ * Θέση συσκευής.
  *
+ * Native + plugin διαθέσιμο: @capacitor/geolocation (CLLocationManager).
  * checkPermissions πρώτα. requestPermissions ΜΟΝΟ αν είναι prompt.
  * Αν granted, παίρνουμε θέση χωρίς dialog.
+ *
+ * Αν το native plugin λείπει (παλιό iOS binary χωρίς cap sync) ή αποτύχει
+ * με UNIMPLEMENTED, πέφτουμε στο navigator.geolocation — αλλιώς ο χάρτης
+ * μένει χωρίς θέση μέχρι native rebuild.
+ *
+ * Denied στο native: δεν κάνουμε web fallback (θα ξαναρωτούσε στο WKWebView).
  */
 export async function getDevicePosition(opts?: {
   interactive?: boolean
@@ -30,42 +69,26 @@ export async function getDevicePosition(opts?: {
 
   if (isNativePlatform()) {
     try {
-      const { Geolocation } = await import('@capacitor/geolocation')
-      let status = await Geolocation.checkPermissions()
-      if (!isGranted(status)) {
-        if (!interactive || isDenied(status)) return null
-        status = await Geolocation.requestPermissions()
-        if (!isGranted(status)) return null
+      const { Capacitor } = await import('@capacitor/core')
+      if (Capacitor.isPluginAvailable('Geolocation')) {
+        const { Geolocation } = await import('@capacitor/geolocation')
+        let status = await Geolocation.checkPermissions()
+        if (!isGranted(status)) {
+          if (!interactive || isDenied(status)) return null
+          status = await Geolocation.requestPermissions()
+          if (!isGranted(status)) return null
+        }
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge,
+        })
+        return { lat: pos.coords.latitude, lng: pos.coords.longitude }
       }
-      const pos = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge,
-      })
-      return { lat: pos.coords.latitude, lng: pos.coords.longitude }
     } catch {
-      return null
+      // Παλιό binary / plugin unimplemented / GPS error → web path
     }
   }
 
-  if (typeof navigator === 'undefined' || !navigator.geolocation) return null
-
-  try {
-    const permissions = navigator.permissions
-    if (permissions?.query) {
-      const result = await permissions.query({ name: 'geolocation' })
-      if (result.state === 'denied') return null
-      if (result.state === 'prompt' && !interactive) return null
-    }
-  } catch {
-    // Safari / παλιοί browsers μπορεί να μην υποστηρίζουν permissions.query
-  }
-
-  return new Promise(resolve => {
-    navigator.geolocation.getCurrentPosition(
-      pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve(null),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge },
-    )
-  })
+  return getWebPosition({ interactive, maximumAge })
 }
