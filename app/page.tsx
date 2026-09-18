@@ -390,7 +390,7 @@ export default function HomePage() {
                       }}
                     >
                       <div className="absolute top-1.5 left-2 font-mono text-[8px] text-gray-400">
-                        // photo
+                        {'// photo'}
                       </div>
                     </div>
                     <div>
