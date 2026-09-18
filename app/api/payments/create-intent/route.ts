@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { alertCritical } from '@/lib/alert'
+import { slotBookingBlockReason } from '@/lib/booking-availability'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -64,18 +65,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Μη έγκυρο ποσό' }, { status: 400 })
     }
 
-    // 3) Re-check διαθεσιμότητας slot (κλείνει το μεγαλύτερο μέρος του race· πλήρης ατομικότητα
-    //    με DB unique index — βλ. supabase/slot_uniqueness.sql).
-    const { data: existingBookings } = await admin
-      .from('bookings')
-      .select('id')
-      .eq('location_id', locationId)
-      .eq('slot_date', slotDate)
-      .eq('slot_start_time', slotStartTime)
-      .not('status', 'in', '("cancelled")')
-
-    if (existingBookings && existingBookings.length > 0) {
-      return NextResponse.json({ error: 'Το slot μόλις κλείστηκε. Διάλεξε άλλη ώρα.' }, { status: 409 })
+    // 3) Re-check διαθεσιμότητας: ωράριο/εξαιρέσεις, 15' lead time, occupied.
+    //    Πλήρης ατομικότητα με DB unique index — βλ. supabase/slot_uniqueness.sql.
+    const slotBlock = await slotBookingBlockReason(admin, locationId, slotDate, slotStartTime)
+    if (slotBlock) {
+      return NextResponse.json({ error: slotBlock }, { status: 409 })
     }
 
     // 4) Αποθηκευμένες κάρτες: get-or-create Stripe Customer για τον χρήστη

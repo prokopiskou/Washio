@@ -5,7 +5,13 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
-import { athensToday, athensMinutesOfDay } from '@/lib/time'
+import { athensToday, ymdFromLocalDate } from '@/lib/time'
+import {
+  annotateSlots,
+  INACTIVE_STATUS_FILTER,
+  offeredTimesForDay,
+  weekdayMon1FromYmd,
+} from '@/lib/slots'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
@@ -74,25 +80,6 @@ type Slot = {
   id: string
   time: string
   available: boolean
-}
-
-function jsDayToSupabase(jsDay: number): number {
-  return jsDay === 0 ? 7 : jsDay
-}
-
-function generateSlots(openTime: string, closeTime: string): string[] {
-  const slots: string[] = []
-  const [openH, openM] = openTime.split(':').map(Number)
-  const [closeH, closeM] = closeTime.split(':').map(Number)
-  let current = openH * 60 + openM
-  const end = closeH * 60 + closeM
-  while (current < end) {
-    const h = Math.floor(current / 60).toString().padStart(2, '0')
-    const m = (current % 60).toString().padStart(2, '0')
-    slots.push(`${h}:${m}`)
-    current += 30
-  }
-  return slots
 }
 
 function getDatesForMonth(year: number, month: number) {
@@ -208,8 +195,8 @@ export default function LocationPage() {
     setSlotsLoading(true)
     const supabase = createClient()
 
-    const dayOfWeek = jsDayToSupabase(date.getDay())
-    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    const dateStr = ymdFromLocalDate(date)
+    const dayOfWeek = weekdayMon1FromYmd(dateStr)
 
     const { data: exceptionData } = await supabase
       .from('location_hours_exceptions')
@@ -218,25 +205,13 @@ export default function LocationPage() {
       .eq('exception_date', dateStr)
       .maybeSingle()
 
-    let allTimes: string[] = []
+    const dayHours = locationHours.find(h => h.day_of_week === dayOfWeek)
+    const allTimes = offeredTimesForDay(dayHours, exceptionData)
 
-    if (exceptionData) {
-      if (exceptionData.is_closed) {
-        setSlots([])
-        setSlotsLoading(false)
-        return
-      }
-      for (const period of exceptionData.periods) {
-        allTimes = [...allTimes, ...generateSlots(period.open, period.close)]
-      }
-    } else {
-      const dayHours = locationHours.find(h => h.day_of_week === dayOfWeek)
-      if (!dayHours || dayHours.is_closed) {
-        setSlots([])
-        setSlotsLoading(false)
-        return
-      }
-      allTimes = generateSlots(dayHours.open_time, dayHours.close_time)
+    if (allTimes.length === 0) {
+      setSlots([])
+      setSlotsLoading(false)
+      return
     }
 
     const { data: bookedData } = await supabase
@@ -244,22 +219,19 @@ export default function LocationPage() {
       .select('slot_start_time')
       .eq('location_id', locationId)
       .eq('slot_date', dateStr)
-      .not('status', 'in', '("cancelled")')
+      .not('status', 'in', INACTIVE_STATUS_FILTER)
 
-    const bookedTimes = new Set((bookedData || []).map((b: any) => b.slot_start_time?.slice(0, 5)))
+    const bookedTimes = new Set(
+      (bookedData || [])
+        .map((b: { slot_start_time?: string | null }) => b.slot_start_time?.slice(0, 5))
+        .filter((t): t is string => !!t),
+    )
 
-    const isToday = dateStr === athensToday()
-    const nowMinutes = athensMinutesOfDay()
-
-    setSlots(allTimes.map(time => {
-      const [h, m] = time.split(':').map(Number)
-      const isPast = isToday && (h * 60 + m) <= nowMinutes
-      return {
-        id: time,
-        time,
-        available: !bookedTimes.has(time) && !isPast,
-      }
-    }))
+    setSlots(annotateSlots(allTimes, bookedTimes, dateStr).map(s => ({
+      id: s.time,
+      time: s.time,
+      available: s.available,
+    })))
 
     setSlotsLoading(false)
   }, [locationHours])
@@ -593,7 +565,7 @@ export default function LocationPage() {
         >
           {canBook ? (
             <button
-              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${selectedDate.toISOString().split('T')[0]}&vehicleType=${encodeURIComponent(vehicleType)}`)}
+              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`)}
               className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
             >
               <span>{t.book}</span>

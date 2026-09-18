@@ -6,6 +6,8 @@ import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
 import PushInit from '@/components/PushInit'
+import { isCashBooking } from '@/lib/payment'
+import { INACTIVE_STATUS_FILTER } from '@/lib/slots'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'staff' | 'feedback'
 type Period = '7D' | '30D' | '3M' | '6M' | '12M'
@@ -20,6 +22,7 @@ type Booking = {
   service_id?: string
   user_id?: string
   created_at?: string
+  stripe_payment_status?: string | null
   profiles?: { full_name?: string; phone?: string; email?: string } | null
 }
 
@@ -125,7 +128,7 @@ function flashTabTitle(locationName: string) {
   }, 800)
 }
 
-async function showBrowserNotification(locationName: string) {
+async function showBrowserNotification(locationName: string, isCash?: boolean) {
   if (!('Notification' in window)) return
 
   if (Notification.permission === 'default') {
@@ -133,18 +136,30 @@ async function showBrowserNotification(locationName: string) {
   }
 
   if (Notification.permission === 'granted') {
-    new Notification('🔔 Νέα Κράτηση! — Washio', {
-      body: `Νέα κράτηση στο ${locationName}`,
+    new Notification('Νέα κράτηση — Washio', {
+      body: isCash ? `Μετρητά — ${locationName}` : `Νέα κράτηση στο ${locationName}`,
       icon: '/washio_logo.png',
-      requireInteraction: true, // Δεν εξαφανίζεται μόνο του
+      requireInteraction: true,
     })
   }
 }
 
-function triggerNewBookingAlert(locationName: string) {
+function triggerNewBookingAlert(locationName: string, booking?: Booking) {
   playNotificationSound()
   flashTabTitle(locationName)
-  showBrowserNotification(locationName)
+  showBrowserNotification(locationName, booking ? isCashBooking(booking) : false)
+}
+
+function CashMark() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-tight"
+      style={{ background: '#FEF3C7', color: '#92400E' }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#92400E' }} />
+      Μετρητά
+    </span>
+  )
 }
 
 export default function DashboardPage() {
@@ -175,6 +190,8 @@ export default function DashboardPage() {
   const [notifPermission, setNotifPermission] = useState<string>('default')
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
+  const [noShowTarget, setNoShowTarget] = useState<Booking | null>(null)
+  const [noShowSaving, setNoShowSaving] = useState(false)
   const locationIdRef = useRef<string | null>(null)
   const calendarDateRef = useRef<Date>(calendarDate)
   useEffect(() => { calendarDateRef.current = calendarDate }, [calendarDate])
@@ -197,10 +214,10 @@ export default function DashboardPage() {
     const dateStr = date.toISOString().split('T')[0]
     const { data } = await supabase
       .from('bookings')
-      .select('id, slot_start_time, total_amount, status, profiles(full_name)')
+      .select('id, slot_start_time, total_amount, status, stripe_payment_status, profiles(full_name)')
       .eq('location_id', location.id)
       .eq('slot_date', dateStr)
-      .not('status', 'in', '("cancelled")')
+      .not('status', 'in', INACTIVE_STATUS_FILTER)
       .order('slot_start_time', { ascending: true })
     setCalendarBookings((data as Booking[]) || [])
     setCalendarLoading(false)
@@ -241,7 +258,7 @@ export default function DashboardPage() {
 
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
         supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, profiles(full_name, phone, email)')
+          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, profiles(full_name, phone, email)')
           .eq('location_id', locationId)
           .order('created_at', { ascending: false }),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
@@ -298,7 +315,7 @@ export default function DashboardPage() {
             const nb = payload.new as Booking
             setBookings(prev => [nb, ...prev])
             setNewBookingsCount(prev => prev + 1)
-            triggerNewBookingAlert(locationName)
+            triggerNewBookingAlert(locationName, nb)
             // Νέα κράτηση → εμφανίζεται ΑΜΕΣΩΣ στο calendar αν αφορά τη μέρα που βλέπει ο πρατηριούχος.
             const viewedDate = calendarDateRef.current.toISOString().split('T')[0]
             if ((nb as any).slot_date === viewedDate && nb.status !== 'cancelled' && (nb.status as string) !== 'no_show') {
@@ -328,7 +345,7 @@ export default function DashboardPage() {
 
       const interval = setInterval(async () => {
         const { data } = await supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, profiles(full_name, phone, email)')
+          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, profiles(full_name, phone, email)')
           .eq('location_id', locationId).order('created_at', { ascending: false })
         if (data) setBookings(data as Booking[])
       }, 30000)
@@ -398,6 +415,7 @@ export default function DashboardPage() {
     if (status === 'confirmed') return 'bg-blue-50 text-blue-600'
     if (status === 'completed') return 'bg-green-50 text-green-600'
     if (status === 'cancelled') return 'bg-red-50 text-red-500'
+    if (status === 'no_show') return 'bg-gray-50 text-gray-500'
     return 'bg-gray-50 text-gray-500'
   }
 
@@ -406,6 +424,7 @@ export default function DashboardPage() {
     if (status === 'confirmed') return 'Επιβεβαιώθηκε'
     if (status === 'completed') return 'Ολοκληρώθηκε'
     if (status === 'cancelled') return 'Ακυρώθηκε'
+    if (status === 'no_show') return 'Δεν εμφανίστηκε'
     return status || '—'
   }
 
@@ -489,6 +508,25 @@ export default function DashboardPage() {
     const supabase = createClient()
     await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id)
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status: 'cancelled' } : b))
+  }
+
+  const confirmNoShow = async () => {
+    if (!noShowTarget) return
+    setNoShowSaving(true)
+    try {
+      const res = await fetch('/api/bookings/no-show', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: noShowTarget.id }),
+      })
+      if (res.ok) {
+        setBookings(prev => prev.map(b => b.id === noShowTarget.id ? { ...b, status: 'no_show' } : b))
+        setCalendarBookings(prev => prev.filter(b => b.id !== noShowTarget.id))
+      }
+    } finally {
+      setNoShowSaving(false)
+      setNoShowTarget(null)
+    }
   }
 
   if (loading) return <main className="min-h-screen bg-white flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>
@@ -584,15 +622,31 @@ export default function DashboardPage() {
                     <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{todayBookings.length} κρατήσεις</span>
                   </div>
                   <div className="divide-y divide-gray-50">
-                    {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => (
-                      <div key={b.id} className="px-4 py-3 flex items-center justify-between">
-                        <div>
-                          <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · {'—'}</p>
+                    {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => {
+                      const canNoShow = b.status === 'pending' || b.status === 'confirmed'
+                      return (
+                      <div key={b.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)}</p>
+                            {isCashBooking(b) && <CashMark />}
+                          </div>
                           <p className="text-xs text-gray-400">{b.profiles?.full_name || 'Πελάτης'}</p>
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
+                          {canNoShow && (
+                            <button
+                              onClick={() => { lightTap(); setNoShowTarget(b) }}
+                              className="text-[11px] font-medium text-gray-600 underline underline-offset-[2px]"
+                            >
+                              Δεν εμφανίστηκε
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -607,7 +661,10 @@ export default function DashboardPage() {
                   {bookings.slice(0, 5).map(b => (
                     <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-900">{b.slot_date} · {'—'}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm text-gray-900">{b.slot_date}</p>
+                          {isCashBooking(b) && <CashMark />}
+                        </div>
                         <p className="text-xs text-gray-400">{b.profiles?.full_name || 'Πελάτης'}</p>
                       </div>
                       <div className="text-right">
@@ -697,6 +754,7 @@ export default function DashboardPage() {
               completed: bookings.filter(b => b.status === 'completed').length,
               cancelled: bookings.filter(b => b.status === 'cancelled').length,
               pending: bookings.filter(b => b.status === 'pending').length,
+              no_show: bookings.filter(b => b.status === 'no_show').length,
             }
 
             const statusPillConfig = (status?: string) => {
@@ -704,6 +762,7 @@ export default function DashboardPage() {
               if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
               if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
               if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
+              if (status === 'no_show') return { bg: '#F7F7F7', fg: '#666666', label: 'Δεν εμφανίστηκε' }
               return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
             }
 
@@ -716,6 +775,7 @@ export default function DashboardPage() {
                     { value: 'confirmed', label: 'Επιβεβαιωμένες' },
                     { value: 'completed', label: 'Ολοκληρωμένες' },
                     { value: 'cancelled', label: 'Ακυρωμένες' },
+                    { value: 'no_show', label: 'Δεν εμφανίστηκε' },
                     { value: 'pending', label: 'Εκκρεμείς' },
                   ].map(opt => {
                     const active = filterStatus === opt.value
@@ -765,6 +825,7 @@ export default function DashboardPage() {
                   {filtered.map(b => {
                     const pill = statusPillConfig(b.status)
                     const canCancel = b.status === 'pending' || b.status === 'confirmed'
+                    const canNoShow = b.status === 'pending' || b.status === 'confirmed'
                     const slotDate = b.slot_date ? new Date(b.slot_date).toLocaleDateString('el-GR', {
                       day: 'numeric', month: 'short', timeZone: 'Europe/Athens'
                     }) : '—'
@@ -800,6 +861,7 @@ export default function DashboardPage() {
                               {slotDate} · {b.slot_start_time?.slice(0, 5) || '—'}
                             </p>
                           </div>
+                          {isCashBooking(b) && <div className="mt-2"><CashMark /></div>}
                           <p className="text-[10px] text-gray-400 mt-1">Κλείστηκε: {bookedAt}</p>
                         </div>
 
@@ -814,6 +876,14 @@ export default function DashboardPage() {
                             <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
                             {pill.label}
                           </span>
+                          {canNoShow && (
+                            <button
+                              onClick={() => { lightTap(); setNoShowTarget(b) }}
+                              className="text-[11px] font-medium text-gray-600 underline underline-offset-[2px]"
+                            >
+                              Δεν εμφανίστηκε
+                            </button>
+                          )}
                           {canCancel && (
                             <button
                               onClick={() => { errorHaptic(); cancelBooking(b.id) }}
@@ -860,7 +930,7 @@ export default function DashboardPage() {
             // Count bookings per date for the month
             const dateBookingCount: Record<string, number> = {}
             bookings.forEach(b => {
-              if (!b.slot_date || b.status === 'cancelled') return
+              if (!b.slot_date || b.status === 'cancelled' || b.status === 'no_show') return
               const d = new Date(b.slot_date)
               if (d.getFullYear() === year && d.getMonth() === month) {
                 const dateNum = d.getDate()
@@ -873,6 +943,7 @@ export default function DashboardPage() {
               if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
               if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
               if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
+              if (status === 'no_show') return { bg: '#F7F7F7', fg: '#666666', label: 'Δεν εμφανίστηκε' }
               return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
             }
 
@@ -982,10 +1053,11 @@ export default function DashboardPage() {
                     <div className="flex flex-col gap-1.5 mt-3.5">
                       {calendarBookings.map(b => {
                         const pill = statusPillConfig(b.status)
+                        const canNoShow = b.status === 'pending' || b.status === 'confirmed'
                         return (
                           <div
                             key={b.id}
-                            className="flex items-center gap-3 px-3.5 py-3 rounded-[10px] bg-gray-50"
+                            className="flex items-center gap-3 px-3.5 py-3 rounded-[10px] bg-gray-50 flex-wrap"
                           >
                             <span
                               className="text-[14px] font-bold tracking-tight text-gray-900 w-[52px] shrink-0"
@@ -996,6 +1068,7 @@ export default function DashboardPage() {
                             <span className="flex-1 text-[13px] font-medium text-gray-900 truncate">
                               {b.profiles?.full_name || 'Πελάτης'}
                             </span>
+                            {isCashBooking(b) && <CashMark />}
                             <span className="text-[13px] font-semibold text-gray-900">
                               €{Number(b.total_amount || 0).toFixed(0)}
                             </span>
@@ -1006,6 +1079,14 @@ export default function DashboardPage() {
                               <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
                               {pill.label}
                             </span>
+                            {canNoShow && (
+                              <button
+                                onClick={() => { lightTap(); setNoShowTarget(b) }}
+                                className="text-[11px] font-medium text-gray-600 underline underline-offset-[2px] shrink-0"
+                              >
+                                Δεν εμφανίστηκε
+                              </button>
+                            )}
                           </div>
                         )
                       })}
@@ -1611,6 +1692,38 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
+      {noShowTarget && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !noShowSaving && setNoShowTarget(null)} />
+          <div className="relative bg-white rounded-t-3xl sm:rounded-2xl px-5 pt-6 pb-8 w-full max-w-md z-10">
+            <p className="text-[17px] font-semibold tracking-tight text-gray-900">Δεν εμφανίστηκε</p>
+            <p className="text-[13px] text-gray-500 mt-2">
+              Ο πελάτης θα σημειωθεί ως μη εμφανισθείς
+              {noShowTarget.slot_start_time ? ` για τις ${noShowTarget.slot_start_time.slice(0, 5)}` : ''}.
+              Το slot απελευθερώνεται. Δεν γίνεται επιστροφή χρημάτων.
+            </p>
+            <div className="flex gap-2 mt-6">
+              <button
+                type="button"
+                disabled={noShowSaving}
+                onClick={() => setNoShowTarget(null)}
+                className="flex-1 h-12 rounded-xl border border-gray-200 text-[14px] font-semibold text-gray-700"
+              >
+                Άκυρο
+              </button>
+              <button
+                type="button"
+                disabled={noShowSaving}
+                onClick={confirmNoShow}
+                className="flex-1 h-12 rounded-xl bg-gray-900 text-white text-[14px] font-semibold"
+              >
+                {noShowSaving ? 'Αποθήκευση...' : 'Επιβεβαίωση'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
