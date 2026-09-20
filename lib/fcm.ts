@@ -17,22 +17,40 @@ const sb = createClient(
 )
 
 let fcmReady: boolean | null = null
+let fcmInitError: string | null = null
 
 function ensureFirebase(): boolean {
   if (fcmReady !== null) return fcmReady
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT
-  if (!raw) { fcmReady = false; return false }
+  if (!raw) { fcmReady = false; fcmInitError = 'FIREBASE_SERVICE_ACCOUNT λείπει'; return false }
   try {
     if (getApps().length === 0) {
-      const creds = JSON.parse(raw)
+      // Δέχεται είτε raw JSON είτε base64 (πιο ασφαλές paste — χωρίς θέματα \n).
+      let jsonStr = raw.trim()
+      if (!jsonStr.startsWith('{')) {
+        jsonStr = Buffer.from(jsonStr, 'base64').toString('utf8')
+      }
+      const creds = JSON.parse(jsonStr)
+      // Το private_key μπορεί να έχει literal "\n" αντί για πραγματικές νέες γραμμές.
+      if (typeof creds.private_key === 'string' && creds.private_key.includes('\\n')) {
+        creds.private_key = creds.private_key.replace(/\\n/g, '\n')
+      }
       initializeApp({ credential: cert(creds) })
     }
     fcmReady = true
+    fcmInitError = null
   } catch (e) {
+    fcmInitError = e instanceof Error ? e.message : String(e)
     console.error('FCM init failed:', e)
     fcmReady = false
   }
   return fcmReady
+}
+
+/** Το τελευταίο σφάλμα αρχικοποίησης firebase-admin (ή null αν ΟΚ). */
+export function fcmInitErrorMessage(): string | null {
+  ensureFirebase()
+  return fcmInitError
 }
 
 export async function sendNativePush(

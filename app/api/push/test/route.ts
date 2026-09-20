@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { sendPush } from '@/lib/push'
-import { sendNativePushDebug } from '@/lib/fcm'
+import { sendNativePushDebug, fcmInitErrorMessage } from '@/lib/fcm'
 
 // ============================================================
 // ΔΙΑΓΝΩΣΤΙΚΟ: στέλνει test push στον ΣΥΝΔΕΔΕΜΕΝΟ χρήστη και
@@ -65,6 +65,7 @@ export async function GET() {
     webSubscriptions: webRes.data?.length ?? 0,
     webTableError: webRes.error?.message ?? null,
     fcmConfigured: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+    fcmInitError: fcmInitErrorMessage(),
     vapidConfigured: !!(process.env.VAPID_EMAIL && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
     fcm,
     sendError,
