@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
+import { sendNativePush } from '@/lib/fcm'
 
 // Server-side push sender (best-effort). Χρησιμοποιείται από webhook, create-cash,
 // cancel, cron κ.λπ. για να ειδοποιεί έναν χρήστη (π.χ. τον πρατηριούχο).
@@ -26,8 +27,20 @@ export async function sendPush(
   userId: string | null | undefined,
   payload: { title: string; body: string; url?: string }
 ): Promise<void> {
+  if (!userId) return
+  // Στέλνει ΚΑΙ web push ΚΑΙ native (iOS/Android FCM) — ό,τι υπάρχει.
+  await Promise.all([
+    sendWebPush(userId, payload),
+    sendNativePush(userId, payload),
+  ])
+}
+
+async function sendWebPush(
+  userId: string,
+  payload: { title: string; body: string; url?: string }
+): Promise<void> {
   try {
-    if (!userId || !ensureVapid()) return
+    if (!ensureVapid()) return
     const { data: subs } = await admin
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth')

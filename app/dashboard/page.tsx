@@ -9,6 +9,8 @@ import { CORE_SERVICES, type CatalogService } from '@/lib/services-catalog'
 import { ymdFromLocalDate } from '@/lib/time'
 import { isAdminEmail } from '@/lib/admins'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
+import { Capacitor } from '@capacitor/core'
+import { registerNativePush, nativePushGranted } from '@/lib/native-push'
 import PushInit from '@/components/PushInit'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
@@ -242,7 +244,24 @@ export default function DashboardPage() {
     if (notifBusy) return
     setNotifBusy(true)
     try {
-      // 1) Υπάρχει καθόλου API ειδοποιήσεων στη συσκευή;
+      // NATIVE app (iOS/Android): εγγραφή μέσω FCM.
+      if (Capacitor.isNativePlatform()) {
+        const supabase = createClient()
+        const { data: sess } = await supabase.auth.getSession()
+        const userId = sess.session?.user?.id
+        if (!userId) { alert('Χρειάζεται να είσαι συνδεδεμένος.'); return }
+        await registerNativePush(userId)
+        const ok = await nativePushGranted()
+        setNotifPermission(ok ? 'granted' : 'denied')
+        if (!ok) {
+          alert('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν. Ενεργοποίησέ τες από Ρυθμίσεις → Washio → Ειδοποιήσεις.')
+        } else {
+          selectionHaptic()
+        }
+        return
+      }
+
+      // 1) WEB: υπάρχει καθόλου API ειδοποιήσεων;
       if (typeof Notification === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
         alert('Η συσκευή σου δεν υποστηρίζει ειδοποιήσεις μέσα από το app. Δοκίμασε να ανοίξεις το washio.gr από τον browser (Safari/Chrome) και ενεργοποίησέ τες από εκεί.')
         return

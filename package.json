@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@capacitor-firebase/messaging": "^8.5.2",
     "@capacitor/android": "^8.3.4",
     "@capacitor/app": "^8.1.0",
     "@capacitor/browser": "^8.0.0",
@@ -18,6 +19,7 @@
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.3.4",
     "@capacitor/keyboard": "^8.0.3",
+    "@capacitor/push-notifications": "^8.1.2",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
     "@stripe/react-stripe-js": "^6.1.0",
@@ -26,6 +28,7 @@
     "@supabase/supabase-js": "^2.101.0",
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",
+    "firebase-admin": "^14.4.0",
     "lucide-react": "^1.7.0",
     "next": "16.2.1",
     "react": "19.2.4",

@@ -1,18 +1,26 @@
 'use client'
 
 import { useEffect } from 'react'
+import { Capacitor } from '@capacitor/core'
 import { createClient } from '@/lib/supabase/client'
+import { registerNativePush } from '@/lib/native-push'
 
 export default function PushInit() {
   useEffect(() => {
     const register = async () => {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
       const userId = data.session?.user?.id
       if (!userId) return
 
+      // NATIVE (iOS/Android): FCM μέσω Capacitor.
+      if (Capacitor.isNativePlatform()) {
+        await registerNativePush(userId)
+        return
+      }
+
+      // WEB: web push (service worker + VAPID).
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
       try {
         const registration = await navigator.serviceWorker.register('/sw.js')
         const permission = await Notification.requestPermission()
