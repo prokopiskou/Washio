@@ -753,6 +753,14 @@ export default function AdminPage() {
                             <div className="flex-1 min-w-0">
                               <p className="text-[14px] font-semibold tracking-tight text-gray-900 truncate">{loc.name}</p>
                               <p className="text-[11px] text-gray-400 mt-0.5 truncate">{loc.city} · {loc.address}</p>
+                              {/* Support mode: άνοιγμα του dashboard του σημείου ως admin */}
+                              <button
+                                onClick={() => router.push(`/dashboard?location=${loc.id}`)}
+                                className="inline-flex items-center gap-1 mt-1.5 px-2 py-1 rounded-md text-[11px] font-semibold"
+                                style={{ background: '#F3E8FF', color: '#7C3AED' }}
+                              >
+                                🛠 Άνοιγμα dashboard
+                              </button>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <span

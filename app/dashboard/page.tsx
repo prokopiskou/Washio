@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
 import { CORE_SERVICES, type CatalogService } from '@/lib/services-catalog'
 import { ymdFromLocalDate } from '@/lib/time'
+import { isAdminEmail } from '@/lib/admins'
 import PushInit from '@/components/PushInit'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
@@ -200,6 +201,8 @@ export default function DashboardPage() {
   const [capacity, setCapacity] = useState(1)
   const [savingCapacity, setSavingCapacity] = useState(false)
   const [capacitySaved, setCapacitySaved] = useState(false)
+  // Support mode: admin βλέπει/χειρίζεται το dashboard συγκεκριμένου πλυντηρίου.
+  const [supportMode, setSupportMode] = useState(false)
   // Κεντρικός κατάλογος βασικών υπηρεσιών — από τη βάση (admin-managed),
   // με fallback το hardcoded seed μέχρι να τρέξει το SQL.
   const [catalog, setCatalog] = useState<CatalogService[]>(CORE_SERVICES)
@@ -265,11 +268,24 @@ export default function DashboardPage() {
         return
       }
 
-      const { data: ownerLocation, error: locationError } = await supabase
-        .from('locations')
-        .select('*')
-        .eq('owner_id', user.id)
-        .maybeSingle()
+      // Support mode: αν ο συνδεδεμένος είναι ADMIN και το URL έχει ?location=<id>,
+      // φορτώνουμε ΕΚΕΙΝΟ το πλυντήριο (η DB πρόσβαση ανοίγει από τα RLS policies
+      // του supabase/admin_support_access.sql). Αλλιώς: το δικό του σημείο.
+      const supportLocationId = new URLSearchParams(window.location.search).get('location')
+      const isSupport = isAdminEmail(user.email) && !!supportLocationId
+      setSupportMode(isSupport)
+
+      const { data: ownerLocation, error: locationError } = isSupport
+        ? await supabase
+            .from('locations')
+            .select('*')
+            .eq('id', supportLocationId)
+            .maybeSingle()
+        : await supabase
+            .from('locations')
+            .select('*')
+            .eq('owner_id', user.id)
+            .maybeSingle()
 
       if (locationError) console.error('Dashboard location load error')
 
@@ -564,7 +580,10 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ locationId: location.id, name, active: nextActive }),
       })
-      const json = await res.json()
+      // Ασφαλές parse: αν ο server γυρίσει μη-JSON (crash page), να ΦΑΝΕΙ το σφάλμα.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let json: { service?: any; error?: string } = {}
+      try { json = await res.json() } catch { json = { error: `Σφάλμα server (HTTP ${res.status})` } }
       if (!res.ok || !json.service) {
         errorHaptic()
         // Το σφάλμα πρέπει να ΦΑΙΝΕΤΑΙ — όχι σιωπηλή δόνηση.
@@ -740,6 +759,24 @@ export default function DashboardPage() {
             </button>
           )}
         </div>
+
+        {/* Support mode banner — ο admin βλέπει ξένο dashboard */}
+        {supportMode && (
+          <div className="px-5 py-2.5 flex items-center gap-2" style={{ background: '#7C3AED' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
+              <path d="M14.7 6.3a5 5 0 0 0-7 7l-4 4 3 3 4-4a5 5 0 0 0 7-7l-3 3-3-3 3-3z"/>
+            </svg>
+            <p className="flex-1 text-[12px] font-semibold text-white truncate">
+              Λειτουργία υποστήριξης — {location?.name || 'πλυντήριο'}
+            </p>
+            <button
+              onClick={() => { window.location.href = '/admin' }}
+              className="text-[11px] font-semibold text-white/90 underline underline-offset-2 shrink-0"
+            >
+              Έξοδος
+            </button>
+          </div>
+        )}
 
         <div className="sticky top-0 z-20 bg-white border-b border-gray-100">
           <div className="flex overflow-x-auto scrollbar-hide px-5 gap-[22px]">

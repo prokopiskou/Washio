@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { checkSlotAvailability } from '@/lib/availability-server'
 import { catalogEntry } from '@/lib/services-catalog'
+import { isAdminEmail } from '@/lib/admins'
 
 // Χειροκίνητη κράτηση από τον ΙΔΙΟΚΤΗΤΗ του πλυντηρίου (π.χ. τηλεφωνική).
 // Μπαίνει στο ημερολόγιο και ΔΕΣΜΕΥΕΙ διαθεσιμότητα στην πλατφόρμα.
@@ -37,7 +38,8 @@ export async function POST(req: NextRequest) {
       .eq('id', locationId)
       .maybeSingle()
 
-    if (!location || location.owner_id !== user.id) {
+    // Ιδιοκτήτης ή admin (support mode).
+    if (!location || (location.owner_id !== user.id && !isAdminEmail(user.email))) {
       return NextResponse.json({ error: 'Δεν έχεις δικαίωμα σε αυτό το πλυντήριο' }, { status: 403 })
     }
 
@@ -59,12 +61,14 @@ export async function POST(req: NextRequest) {
       service = (data as SvcRow | null)
     } else {
       const cleanName = String(serviceName).trim()
-      const { data: existingSvc } = await admin
+      // limit(1) — ανθεκτικό σε τυχόν διπλά rows.
+      const { data: existingSvcRows } = await admin
         .from('services')
         .select('id, name, price, duration_minutes')
         .eq('location_id', locationId)
         .eq('name', cleanName)
-        .maybeSingle()
+        .limit(1)
+      const existingSvc = existingSvcRows?.[0]
 
       if (existingSvc) {
         service = existingSvc as SvcRow
