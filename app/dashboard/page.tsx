@@ -987,7 +987,7 @@ export default function DashboardPage() {
 
             const statusPillConfig = (status?: string) => {
               if (status === 'pending') return { bg: '#FEF3C7', fg: '#92400E', label: 'Εκκρεμεί' }
-              if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
+              if (status === 'confirmed') return null // «Επιβεβαιωμένη» = κανονική κατάσταση, χωρίς σήμανση.
               if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
               if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
               if (status === 'no_show') return { bg: '#F3E8FF', fg: '#7E22CE', label: 'Δεν ήρθε' }
@@ -1008,7 +1008,6 @@ export default function DashboardPage() {
                 <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
                   {[
                     { value: 'all', label: 'Όλες' },
-                    { value: 'confirmed', label: 'Επιβεβαιωμένες' },
                     { value: 'completed', label: 'Ολοκληρωμένες' },
                     { value: 'no_show', label: 'Δεν ήρθαν' },
                     { value: 'cancelled', label: 'Ακυρωμένες' },
@@ -1113,13 +1112,15 @@ export default function DashboardPage() {
                           <p className="text-[16px] font-bold tracking-tight text-gray-900">
                             €{Number(b.total_amount || 0).toFixed(0)}
                           </p>
-                          <span
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-tight"
-                            style={{ background: pill.bg, color: pill.fg }}
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
-                            {pill.label}
-                          </span>
+                          {pill && (
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-tight"
+                              style={{ background: pill.bg, color: pill.fg }}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
+                              {pill.label}
+                            </span>
+                          )}
                           {canMarkNoShow(b) && (
                             <button
                               onClick={() => { lightTap(); markNoShow(b) }}
