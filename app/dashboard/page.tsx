@@ -10,7 +10,7 @@ import { ymdFromLocalDate } from '@/lib/time'
 import { isAdminEmail } from '@/lib/admins'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { Capacitor } from '@capacitor/core'
-import { registerNativePush, nativePushGranted } from '@/lib/native-push'
+import { registerNativePush } from '@/lib/native-push'
 import PushInit from '@/components/PushInit'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
@@ -250,13 +250,20 @@ export default function DashboardPage() {
         const { data: sess } = await supabase.auth.getSession()
         const userId = sess.session?.user?.id
         if (!userId) { alert('Χρειάζεται να είσαι συνδεδεμένος.'); return }
-        await registerNativePush(userId)
-        const ok = await nativePushGranted()
-        setNotifPermission(ok ? 'granted' : 'denied')
-        if (!ok) {
-          alert('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν. Ενεργοποίησέ τες από Ρυθμίσεις → Washio → Ειδοποιήσεις.')
+        const result = await registerNativePush(userId)
+        setNotifPermission(result.ok ? 'granted' : 'denied')
+        if (!result.ok) {
+          const r = result.reason || 'άγνωστο'
+          if (r.includes('not implemented') || r.includes('UNIMPLEMENTED')) {
+            alert('Τρέχεις παλιό build χωρίς ειδοποιήσεις. Κάνε update από το TestFlight στο 1.0.2 (5).')
+          } else if (r.startsWith('permission')) {
+            alert('Δεν δόθηκε άδεια. Ενεργοποίησέ τες από Ρυθμίσεις → Washio → Ειδοποιήσεις.')
+          } else {
+            alert('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν.\nΛόγος: ' + r)
+          }
         } else {
           selectionHaptic()
+          alert('Οι ειδοποιήσεις ενεργοποιήθηκαν! ✅')
         }
         return
       }

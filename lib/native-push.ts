@@ -2,40 +2,41 @@
 
 import { Capacitor } from '@capacitor/core'
 
-// Native push εγγραφή (iOS/Android) μέσω FCM.
+// Native push εγγραφή (iOS/Android) μέσω Firebase Cloud Messaging.
+// ΣΩΣΤΟ token = FCM token από @capacitor-firebase/messaging (ΟΧΙ το APNs
+// token του @capacitor/push-notifications — ο server στέλνει μέσω FCM).
 // Στο web κάνει no-op — εκεί δουλεύει το web push (PushInit).
 
-export async function registerNativePush(userId: string): Promise<void> {
-  if (!Capacitor.isNativePlatform()) return
+export type RegisterResult = { ok: boolean; reason?: string }
+
+export async function registerNativePush(userId: string): Promise<RegisterResult> {
+  if (!Capacitor.isNativePlatform()) return { ok: false, reason: 'not-native' }
   try {
-    // Δυναμικό import — τα plugins υπάρχουν μόνο στο native bundle.
-    const { PushNotifications } = await import('@capacitor/push-notifications')
+    // Δυναμικό import — το native plugin υπάρχει μόνο στο app bundle (build 5+).
+    const { FirebaseMessaging } = await import('@capacitor-firebase/messaging')
 
-    const perm = await PushNotifications.checkPermissions()
-    let status = perm.receive
-    if (status === 'prompt' || status === 'prompt-with-rationale') {
-      status = (await PushNotifications.requestPermissions()).receive
+    let perm = await FirebaseMessaging.checkPermissions()
+    if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+      perm = await FirebaseMessaging.requestPermissions()
     }
-    if (status !== 'granted') return
+    if (perm.receive !== 'granted') {
+      return { ok: false, reason: 'permission-' + perm.receive }
+    }
 
-    // Παίρνει το APNs/FCM token μέσω του listener και το στέλνει στον server.
-    await PushNotifications.addListener('registration', async (token) => {
-      try {
-        await fetch('/api/push/register-native', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: token.value, platform: Capacitor.getPlatform() }),
-        })
-      } catch { /* best-effort */ }
+    const { token } = await FirebaseMessaging.getToken()
+    if (!token) return { ok: false, reason: 'no-fcm-token' }
+
+    const res = await fetch('/api/push/register-native', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, platform: Capacitor.getPlatform() }),
     })
+    if (!res.ok) return { ok: false, reason: 'server-' + res.status }
 
-    await PushNotifications.addListener('registrationError', (err) => {
-      console.error('Native push registration error:', err)
-    })
-
-    await PushNotifications.register()
+    return { ok: true }
   } catch (e) {
-    console.error('registerNativePush failed:', e)
+    // π.χ. «not implemented on ios» = τρέχει ΠΑΛΙΟ build χωρίς το plugin.
+    return { ok: false, reason: e instanceof Error ? e.message : String(e) }
   }
 }
 
@@ -43,8 +44,8 @@ export async function registerNativePush(userId: string): Promise<void> {
 export async function nativePushGranted(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) return false
   try {
-    const { PushNotifications } = await import('@capacitor/push-notifications')
-    const perm = await PushNotifications.checkPermissions()
+    const { FirebaseMessaging } = await import('@capacitor-firebase/messaging')
+    const perm = await FirebaseMessaging.checkPermissions()
     return perm.receive === 'granted'
   } catch {
     return false
