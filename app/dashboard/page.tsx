@@ -1431,8 +1431,21 @@ export default function DashboardPage() {
               <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 w-full max-w-md z-10">
                 <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
                 <p className="text-base font-semibold text-gray-900 mb-1">Προσθήκη ραντεβού</p>
+                {/* Η ημερομηνία ΕΜΦΑΝΗΣ — να την επιβεβαιώνει ο πλυντηριάς πριν αποθηκεύσει. */}
+                <div
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mb-2"
+                  style={{ background: '#EAF2FD', color: '#1A6FD4' }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+                  </svg>
+                  <span className="text-[13px] font-bold tracking-tight capitalize">
+                    {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
+                  </span>
+                </div>
                 <p className="text-[12px] text-gray-400 mb-4">
                   Για κρατήσεις που έρχονται από τηλέφωνο ή από τον πάγκο. Δεσμεύει την ώρα ώστε να μη διπλοκλειστεί.
+                  Το ραντεβού θα μπει στην παραπάνω ημερομηνία — αν θες άλλη μέρα, κλείσε και διάλεξέ τη πρώτα στο ημερολόγιο.
                 </p>
 
                 <div className="mb-3">
@@ -1503,7 +1516,9 @@ export default function DashboardPage() {
                   disabled={manualSaving}
                   className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40"
                 >
-                  {manualSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                  {manualSaving
+                    ? 'Αποθήκευση...'
+                    : `Αποθήκευση για ${calendarDate.toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })} · ${manualTime}`}
                 </button>
               </div>
             </div>
