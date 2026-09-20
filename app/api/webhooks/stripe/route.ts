@@ -5,6 +5,7 @@ import { Resend } from 'resend'
 import { alertCritical } from '@/lib/alert'
 import { sendPush } from '@/lib/push'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
+import { shouldNotifyOwnerNow } from '@/lib/availability-server'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -142,11 +143,15 @@ export async function POST(req: NextRequest) {
       .single()
 
     // Push στον πρατηριούχο: νέα κράτηση (κάρτα).
-    await sendPush((locationData as { owner_id?: string })?.owner_id, {
-      title: '💳 Νέα κράτηση — ΠΛΗΡΩΜΕΝΗ με κάρτα',
-      body: `Μη ζητήσεις χρήματα, €${parseFloat(m.amount).toFixed(2)} εξοφλημένα online • ${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${m.carPlate ? ' • ' + m.carPlate : ''}`,
-      url: '/dashboard',
-    })
+    // ΜΟΝΟ αν είναι για σήμερα ΚΑΙ το πλυντήριο είναι ανοιχτό τώρα.
+    // (Μελλοντικές/εκτός ωραρίου → τις βλέπει στο πρόγραμμα, καμία push.)
+    if (await shouldNotifyOwnerNow(supabase, m.locationId, m.slotDate)) {
+      await sendPush((locationData as { owner_id?: string })?.owner_id, {
+        title: '💳 Νέα κράτηση — ΠΛΗΡΩΜΕΝΗ με κάρτα',
+        body: `Μη ζητήσεις χρήματα, €${parseFloat(m.amount).toFixed(2)} εξοφλημένα online • ${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${m.carPlate ? ' • ' + m.carPlate : ''}`,
+        url: '/dashboard',
+      })
+    }
 
     // Get user email
     let userEmail = m.userEmail || null

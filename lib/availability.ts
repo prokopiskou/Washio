@@ -181,3 +181,39 @@ export function canBookSlot(args: ComputeSlotsArgs & { startTime: string }): boo
   const t = args.startTime.slice(0, 5)
   return slots.some(s => s.time === t && s.available)
 }
+
+/**
+ * true αν το πλυντήριο είναι ΑΝΟΙΧΤΟ τη δοσμένη στιγμή (λεπτά από μεσάνυχτα),
+ * με βάση το ωράριο της μέρας + τυχόν εξαίρεση. Δεν κοιτάει capacity/κρατήσεις —
+ * μόνο «λειτουργεί τώρα;». Χρησιμοποιείται για να αποφασίσουμε αν θα σταλεί
+ * ειδοποίηση νέας κράτησης στον πρατηριούχο (μόνο εντός ωραρίου).
+ */
+export function isOpenAtMinutes(args: {
+  dayHours: WeeklyHours
+  exception?: HoursException
+  minutes: number
+}): boolean {
+  const { dayHours, exception, minutes } = args
+
+  if (exception?.is_closed) return false
+
+  let baseRanges: { open: string; close: string }[]
+  const legacyPeriods = exception?.periods
+  const hasLegacy = !exception?.closed_from && Array.isArray(legacyPeriods) && legacyPeriods.length > 0
+  if (hasLegacy) {
+    baseRanges = legacyPeriods!
+  } else {
+    if (!dayHours || dayHours.is_closed) return false
+    baseRanges = [{ open: dayHours.open_time.slice(0, 5), close: dayHours.close_time.slice(0, 5) }]
+  }
+
+  const inBase = baseRanges.some(rg => minutes >= toMinutes(rg.open) && minutes < toMinutes(rg.close))
+  if (!inBase) return false
+
+  const closedFrom = exception?.closed_from ? toMinutes(exception.closed_from.slice(0, 5)) : null
+  const closedTo = exception?.closed_to ? toMinutes(exception.closed_to.slice(0, 5)) : null
+  if (closedFrom !== null && closedTo !== null && closedTo > closedFrom
+      && minutes >= closedFrom && minutes < closedTo) return false
+
+  return true
+}

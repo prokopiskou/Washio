@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import { alertCritical } from '@/lib/alert'
 import { sendPush, getLocationOwnerId } from '@/lib/push'
-import { checkSlotAvailability } from '@/lib/availability-server'
+import { checkSlotAvailability, shouldNotifyOwnerNow } from '@/lib/availability-server'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -153,14 +153,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Push στον πρατηριούχο: νέα κράτηση (μετρητά).
+    // ΜΟΝΟ αν είναι για σήμερα ΚΑΙ το πλυντήριο είναι ανοιχτό τώρα.
+    // (Μελλοντικές/εκτός ωραρίου → τις βλέπει στο πρόγραμμα, καμία push.)
     try {
-      const ownerId = await getLocationOwnerId(locationId)
-      const dPush = new Date(slotDate)
-      await sendPush(ownerId, {
-        title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
-        body: `Εισπράττεις εσύ €${amount.toFixed(2)} στο κατάστημα • ${serviceName || service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
-        url: '/dashboard',
-      })
+      if (await shouldNotifyOwnerNow(admin, locationId, slotDate)) {
+        const ownerId = await getLocationOwnerId(locationId)
+        const dPush = new Date(slotDate)
+        await sendPush(ownerId, {
+          title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
+          body: `Εισπράττεις εσύ €${amount.toFixed(2)} στο κατάστημα • ${serviceName || service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
+          url: '/dashboard',
+        })
+      }
     } catch { /* best-effort */ }
 
     // 5) Επιβεβαιωτικό email (best-effort).
