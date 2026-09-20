@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { sendPush } from '@/lib/push'
+import { sendNativePushDebug } from '@/lib/fcm'
 
 // ============================================================
 // ΔΙΑΓΝΩΣΤΙΚΟ: στέλνει test push στον ΣΥΝΔΕΔΕΜΕΝΟ χρήστη και
@@ -40,14 +41,18 @@ export async function GET() {
     .select('endpoint')
     .eq('user_id', user.id)
 
-  // Στείλε το test push (best-effort).
+  // Στείλε το test push με ΠΛΗΡΗ διαγνωστικά από το FCM.
+  const payload = {
+    title: '🔔 Test ειδοποίηση Washio',
+    body: 'Αν το βλέπεις αυτό, οι ειδοποιήσεις δουλεύουν κανονικά.',
+    url: '/dashboard',
+  }
   let sendError: string | null = null
+  let fcm: Awaited<ReturnType<typeof sendNativePushDebug>> | null = null
   try {
-    await sendPush(user.id, {
-      title: '🔔 Test ειδοποίηση Washio',
-      body: 'Αν το βλέπεις αυτό, οι ειδοποιήσεις δουλεύουν κανονικά.',
-      url: '/dashboard',
-    })
+    fcm = await sendNativePushDebug(user.id, payload)
+    // Web push μόνο αν υπάρχει subscription (native το στέλνει το debug από πάνω).
+    if ((webRes.data?.length ?? 0) > 0) await sendPush(user.id, payload)
   } catch (e) {
     sendError = e instanceof Error ? e.message : String(e)
   }
@@ -61,6 +66,7 @@ export async function GET() {
     webTableError: webRes.error?.message ?? null,
     fcmConfigured: !!process.env.FIREBASE_SERVICE_ACCOUNT,
     vapidConfigured: !!(process.env.VAPID_EMAIL && process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
+    fcm,
     sendError,
     sentAt: new Date().toISOString(),
   })

@@ -79,3 +79,51 @@ export async function sendNativePush(
     // best-effort — δεν μπλοκάρει ποτέ τη ροή
   }
 }
+
+// ΔΙΑΓΝΩΣΤΙΚΟ: ίδιο με sendNativePush αλλά επιστρέφει την πλήρη απάντηση του FCM
+// (success/failure + κωδικοί σφάλματος) ώστε να βλέπουμε ΓΙΑΤΙ δεν παραδίδεται.
+export type NativePushDebug = {
+  fcmReady: boolean
+  tokenCount: number
+  successCount: number
+  failureCount: number
+  errors: { code?: string; message?: string }[]
+  exception?: string
+}
+
+export async function sendNativePushDebug(
+  userId: string | null | undefined,
+  payload: { title: string; body: string; url?: string }
+): Promise<NativePushDebug> {
+  const out: NativePushDebug = {
+    fcmReady: false, tokenCount: 0, successCount: 0, failureCount: 0, errors: [],
+  }
+  try {
+    out.fcmReady = ensureFirebase()
+    if (!userId || !out.fcmReady) return out
+
+    const { data: rows } = await sb
+      .from('native_push_tokens')
+      .select('token')
+      .eq('user_id', userId)
+    const tokens = (rows || []).map(r => r.token).filter(Boolean)
+    out.tokenCount = tokens.length
+    if (tokens.length === 0) return out
+
+    const res: BatchResponse = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: { title: payload.title, body: payload.body },
+      data: payload.url ? { url: payload.url } : undefined,
+      apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+      android: { priority: 'high', notification: { sound: 'default' } },
+    })
+    out.successCount = res.successCount
+    out.failureCount = res.failureCount
+    res.responses.forEach(r => {
+      if (!r.success) out.errors.push({ code: r.error?.code, message: r.error?.message })
+    })
+  } catch (e) {
+    out.exception = e instanceof Error ? e.message : String(e)
+  }
+  return out
+}
