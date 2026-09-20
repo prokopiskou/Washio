@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import admin from 'firebase-admin'
+import { initializeApp, getApps, cert } from 'firebase-admin/app'
+import { getMessaging, type BatchResponse } from 'firebase-admin/messaging'
 
 // ============================================================
 // Native push (iOS/Android) μέσω Firebase Cloud Messaging.
@@ -22,9 +23,9 @@ function ensureFirebase(): boolean {
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT
   if (!raw) { fcmReady = false; return false }
   try {
-    if (admin.apps.length === 0) {
+    if (getApps().length === 0) {
       const creds = JSON.parse(raw)
-      admin.initializeApp({ credential: admin.credential.cert(creds) })
+      initializeApp({ credential: cert(creds) })
     }
     fcmReady = true
   } catch (e) {
@@ -48,7 +49,7 @@ export async function sendNativePush(
     const tokens = (rows || []).map(r => r.token).filter(Boolean)
     if (tokens.length === 0) return
 
-    const res = await admin.messaging().sendEachForMulticast({
+    const res: BatchResponse = await getMessaging().sendEachForMulticast({
       tokens,
       notification: { title: payload.title, body: payload.body },
       data: payload.url ? { url: payload.url } : undefined,
@@ -63,7 +64,7 @@ export async function sendNativePush(
 
     // Καθάρισμα άκυρων tokens (π.χ. απεγκατάσταση app).
     const stale: string[] = []
-    res.responses.forEach((r: admin.messaging.SendResponse, i: number) => {
+    res.responses.forEach((r, i) => {
       if (!r.success) {
         const code = r.error?.code || ''
         if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) {
