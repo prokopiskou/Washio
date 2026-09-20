@@ -30,12 +30,16 @@ drop policy if exists "catalog_public_read" on public.service_catalog;
 create policy "catalog_public_read" on public.service_catalog
   for select using (true);
 
+-- Μετονομασία «Πλύσιμο» → «Πλύσιμο Μοτο» ΠΑΝΤΟΥ (idempotent).
+update public.service_catalog set name = 'Πλύσιμο Μοτο' where name = 'Πλύσιμο';
+update public.services set name = 'Πλύσιμο Μοτο' where name = 'Πλύσιμο';
+
 -- Seed: οι 5 αρχικές βασικές υπηρεσίες (δεν ξαναγράφονται αν υπάρχουν).
 insert into public.service_catalog (name, duration_minutes, vehicles, sort_order) values
   ('Μέσα',                  30, array['ΙΧ','SUV'],        1),
   ('Έξω',                   30, array['ΙΧ','SUV'],        2),
   ('Μέσα & Έξω',            30, array['ΙΧ','SUV'],        3),
-  ('Πλύσιμο',               30, array['Μοτοσικλέτα'],     4),
+  ('Πλύσιμο Μοτο',          30, array['Μοτοσικλέτα'],     4),
   ('Βιολογικός καθαρισμός', 90, array['ΙΧ','SUV'],        5)
 on conflict (name) do nothing;
 

@@ -10,6 +10,7 @@ import { mediumTap, errorHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
+import { athensToday } from '@/lib/time'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -281,7 +282,7 @@ function BookingPageContent() {
 
   const serviceId = params.get('service') || ''
   const locationId = params.get('location') || ''
-  const dateStr = params.get('date') || new Date().toISOString().split('T')[0]
+  const dateStr = params.get('date') || athensToday()
   const slotTime = decodeURIComponent(params.get('slot') || '09:00')
   const vehicleType = decodeURIComponent(params.get('vehicleType') || 'ΙΧ')
 

@@ -10,6 +10,7 @@ import { track as trackEvent } from '@/lib/analytics'
 import { athensToday, athensMinutesOfDay } from '@/lib/time'
 import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } from '@/lib/availability'
 import { getCurrentPosition } from '@/lib/geo'
+import { isMotoService } from '@/lib/services-catalog'
 import { BottomNav } from '@/components/BottomNav'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
@@ -254,8 +255,8 @@ function MapPageContent() {
   const visibleServices = locationServices.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
     if (!(Number(priceFor(s)) > 0)) return false
-    if (vehicleType === 'ΙΧ' || vehicleType === 'SUV') return s.name !== 'Πλύσιμο'
-    if (vehicleType === 'Μοτοσικλέτα') return s.name === 'Πλύσιμο'
+    if (vehicleType === 'ΙΧ' || vehicleType === 'SUV') return !isMotoService(s.name)
+    if (vehicleType === 'Μοτοσικλέτα') return isMotoService(s.name)
     return true
   })
 

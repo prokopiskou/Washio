@@ -6,6 +6,7 @@ import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
 import { CORE_SERVICES, type CatalogService } from '@/lib/services-catalog'
+import { ymdFromLocalDate } from '@/lib/time'
 import PushInit from '@/components/PushInit'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
@@ -205,7 +206,9 @@ export default function DashboardPage() {
   // Χειροκίνητη κράτηση (ημερολόγιο).
   const [bookableServices, setBookableServices] = useState<BookableService[]>([])
   const [showManualForm, setShowManualForm] = useState(false)
-  const [manualServiceId, setManualServiceId] = useState('')
+  // Όνομα υπηρεσίας από τον ΚΑΤΑΛΟΓΟ — όχι id, ώστε ο πλυντηριάς να μπορεί
+  // να περάσει ραντεβού και για υπηρεσία που δεν έχει ενεργοποιήσει στην πλατφόρμα.
+  const [manualServiceName, setManualServiceName] = useState('')
   const [manualTime, setManualTime] = useState('10:00')
   const [manualFirstName, setManualFirstName] = useState('')
   const [manualLastName, setManualLastName] = useState('')
@@ -234,7 +237,8 @@ export default function DashboardPage() {
     if (!location?.id) return
     setCalendarLoading(true)
     const supabase = createClient()
-    const dateStr = date.toISOString().split('T')[0]
+    // ΤΟΠΙΚΗ ημερομηνία (όχι UTC): στο +3 το toISOString γύριζε την ΠΡΟΗΓΟΥΜΕΝΗ μέρα.
+    const dateStr = ymdFromLocalDate(date)
     const { data } = await supabase
       .from('bookings')
       .select('id, slot_start_time, total_amount, status, duration_minutes, source, customer_name, stripe_payment_status, profiles(full_name), services(name)')
@@ -368,7 +372,7 @@ export default function DashboardPage() {
             setNewBookingsCount(prev => prev + 1)
             triggerNewBookingAlert(locationName)
             // Νέα κράτηση → εμφανίζεται ΑΜΕΣΩΣ στο calendar αν αφορά τη μέρα που βλέπει ο πρατηριούχος.
-            const viewedDate = calendarDateRef.current.toISOString().split('T')[0]
+            const viewedDate = ymdFromLocalDate(calendarDateRef.current)
             if ((nb as any).slot_date === viewedDate && nb.status !== 'cancelled' && (nb.status as string) !== 'no_show') {
               setCalendarBookings(prev => {
                 if (prev.some(b => b.id === nb.id)) return prev
@@ -415,7 +419,7 @@ export default function DashboardPage() {
       const points = Array.from({ length: days }, (_, i) => {
         const d = new Date(now)
         d.setDate(now.getDate() - (days - 1 - i))
-        const dateStr = d.toISOString().split('T')[0]
+        const dateStr = ymdFromLocalDate(d)
         return {
           label: `${d.getDate()}/${d.getMonth() + 1}`,
           dateStr,
@@ -459,7 +463,7 @@ export default function DashboardPage() {
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   const monthlyBookings = bookings.filter(b => b.slot_date && new Date(b.slot_date) >= monthStart)
   const monthlyRevenue = monthlyBookings.filter(b => b.status === 'completed').reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
-  const todayBookings = bookings.filter(b => b.slot_date === new Date().toISOString().split('T')[0])
+  const todayBookings = bookings.filter(b => b.slot_date === ymdFromLocalDate(new Date()))
 
   const statusClass = (status?: string) => {
     if (status === 'pending') return 'bg-amber-50 text-amber-600'
@@ -561,7 +565,12 @@ export default function DashboardPage() {
         body: JSON.stringify({ locationId: location.id, name, active: nextActive }),
       })
       const json = await res.json()
-      if (!res.ok || !json.service) { errorHaptic(); return }
+      if (!res.ok || !json.service) {
+        errorHaptic()
+        // Το σφάλμα πρέπει να ΦΑΙΝΕΤΑΙ — όχι σιωπηλή δόνηση.
+        alert(`Δεν ενεργοποιήθηκε η υπηρεσία: ${json.error || 'άγνωστο σφάλμα'}`)
+        return
+      }
       const svc = json.service
       setBookableServices(prev => {
         const exists = prev.some(s => s.id === svc.id)
@@ -622,20 +631,20 @@ export default function DashboardPage() {
   }
 
   const createManualBooking = async () => {
-    if (!location?.id || !manualServiceId || !manualTime || !manualFirstName.trim()) {
+    if (!location?.id || !manualServiceName || !manualTime || !manualFirstName.trim()) {
       setManualError('Συμπλήρωσε υπηρεσία, ώρα και όνομα.')
       return
     }
     setManualSaving(true)
     setManualError('')
     try {
-      const dateStr = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}-${String(calendarDate.getDate()).padStart(2, '0')}`
+      const dateStr = ymdFromLocalDate(calendarDate)
       const res = await fetch('/api/bookings/create-manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           locationId: location.id,
-          serviceId: manualServiceId,
+          serviceName: manualServiceName,
           slotDate: dateStr,
           slotStartTime: manualTime,
           customerName: `${manualFirstName.trim()} ${manualLastName.trim()}`.trim(),
@@ -1246,7 +1255,7 @@ export default function DashboardPage() {
                         </div>
                         <button
                           onClick={() => {
-                            setManualServiceId(bookableServices.find(s => s.is_active)?.id || '')
+                            setManualServiceName(bookableServices.find(s => s.is_active)?.name || '')
                             setManualError('')
                             setShowManualForm(true)
                             lightTap()
@@ -1364,12 +1373,14 @@ export default function DashboardPage() {
                 <div className="mb-3">
                   <p className="text-xs text-gray-400 mb-1.5">Υπηρεσία</p>
                   <select
-                    value={manualServiceId}
-                    onChange={e => setManualServiceId(e.target.value)}
+                    value={manualServiceName}
+                    onChange={e => setManualServiceName(e.target.value)}
                     className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm bg-white focus:outline-none"
                   >
+                    {/* ΜΟΝΟ οι υπηρεσίες που έχει ενεργοποιήσει το σημείο στο Washio —
+                        ό,τι προσφέρει στην πλατφόρμα μπορεί να το βάλει και ως δικό του ραντεβού. */}
                     {bookableServices.filter(s => s.is_active).map(s => (
-                      <option key={s.id} value={s.id}>
+                      <option key={s.id} value={s.name}>
                         {s.name} · {s.duration_minutes}′
                       </option>
                     ))}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { checkSlotAvailability } from '@/lib/availability-server'
+import { catalogEntry } from '@/lib/services-catalog'
 
 // Χειροκίνητη κράτηση από τον ΙΔΙΟΚΤΗΤΗ του πλυντηρίου (π.χ. τηλεφωνική).
 // Μπαίνει στο ημερολόγιο και ΔΕΣΜΕΥΕΙ διαθεσιμότητα στην πλατφόρμα.
@@ -15,7 +16,7 @@ const admin = createClient(
 export async function POST(req: NextRequest) {
   try {
     const {
-      locationId, serviceId, slotDate, slotStartTime,
+      locationId, serviceId, serviceName, slotDate, slotStartTime,
       customerName, customerPhone,
     } = await req.json()
 
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Απαιτείται σύνδεση' }, { status: 401 })
     }
 
-    if (!locationId || !serviceId || !slotDate || !slotStartTime || !customerName) {
+    if (!locationId || (!serviceId && !serviceName) || !slotDate || !slotStartTime || !customerName) {
       return NextResponse.json({ error: 'Λείπουν στοιχεία κράτησης' }, { status: 400 })
     }
 
@@ -41,11 +42,60 @@ export async function POST(req: NextRequest) {
     }
 
     // 2) Υπηρεσία → τιμή/διάρκεια server-side.
-    const { data: service } = await admin
-      .from('services')
-      .select('id, name, price, duration_minutes')
-      .eq('id', serviceId)
-      .maybeSingle()
+    //    Κατά id (παλιό flow) ή κατά όνομα από τον κατάλογο (νέο flow).
+    //    Αν το σημείο ΔΕΝ έχει ακόμα τη συγκεκριμένη υπηρεσία, δημιουργείται
+    //    ΑΝΕΝΕΡΓΟ row (τιμή 0) — δεν εμφανίζεται στους πελάτες, αλλά επιτρέπει
+    //    στον πλυντηριά να καταγράψει τηλεφωνικό ραντεβού (π.χ. βιολογικό)
+    //    ώστε η διαθεσιμότητα να είναι σωστή.
+    type SvcRow = { id: string; name: string; price: number; duration_minutes: number }
+    let service: SvcRow | null = null
+
+    if (serviceId) {
+      const { data } = await admin
+        .from('services')
+        .select('id, name, price, duration_minutes')
+        .eq('id', serviceId)
+        .maybeSingle()
+      service = (data as SvcRow | null)
+    } else {
+      const cleanName = String(serviceName).trim()
+      const { data: existingSvc } = await admin
+        .from('services')
+        .select('id, name, price, duration_minutes')
+        .eq('location_id', locationId)
+        .eq('name', cleanName)
+        .maybeSingle()
+
+      if (existingSvc) {
+        service = existingSvc as SvcRow
+      } else {
+        // Δεν υπάρχει στο σημείο — πάρε τη διάρκεια από τον κατάλογο (DB → fallback seed).
+        const { data: catRow } = await admin
+          .from('service_catalog')
+          .select('name, duration_minutes')
+          .eq('name', cleanName)
+          .maybeSingle()
+        const entry = catRow || catalogEntry(cleanName)
+        if (!entry) {
+          return NextResponse.json({ error: 'Άγνωστη υπηρεσία' }, { status: 400 })
+        }
+        const { data: created, error: createErr } = await admin
+          .from('services')
+          .insert({
+            location_id: locationId,
+            name: cleanName,
+            duration_minutes: entry.duration_minutes,
+            price: 0,
+            is_active: false, // ΔΕΝ εμφανίζεται στους πελάτες
+          })
+          .select('id, name, price, duration_minutes')
+          .single()
+        if (createErr || !created) {
+          return NextResponse.json({ error: 'Αποτυχία δημιουργίας υπηρεσίας' }, { status: 500 })
+        }
+        service = created as SvcRow
+      }
+    }
 
     if (!service) {
       return NextResponse.json({ error: 'Άκυρη υπηρεσία' }, { status: 400 })
@@ -54,7 +104,7 @@ export async function POST(req: NextRequest) {
     // 3) Κοινός έλεγχος διαθεσιμότητας (capacity, ωράριο, εξαιρέσεις, διάρκεια).
     //    Χωρίς lead time όμως: ο πλυντηριάς μπορεί να περάσει πελάτη που ήρθε τώρα.
     const availability = await checkSlotAvailability(admin, {
-      locationId, serviceId, slotDate, slotStartTime,
+      locationId, serviceId: service.id, slotDate, slotStartTime,
     })
     // Για χειροκίνητες δεχόμαστε και «μη διαθέσιμο λόγω lead time»:
     // ξαναελέγχουμε μόνο χωρητικότητα αν απέτυχε — απλοποίηση: αν απέτυχε
@@ -98,7 +148,7 @@ export async function POST(req: NextRequest) {
       booking_ref: bookingRef,
       user_id: null,
       location_id: locationId,
-      service_id: serviceId,
+      service_id: service.id,
       slot_id: null,
       slot_date: slotDate,
       slot_start_time: slotStartTime,

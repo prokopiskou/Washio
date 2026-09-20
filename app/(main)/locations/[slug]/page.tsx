@@ -5,8 +5,9 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
-import { athensToday, athensMinutesOfDay } from '@/lib/time'
+import { athensToday, athensMinutesOfDay, ymdFromLocalDate } from '@/lib/time'
 import { computeSlots, type OccupancyBooking, type HoursException } from '@/lib/availability'
+import { isMotoService } from '@/lib/services-catalog'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
@@ -279,8 +280,8 @@ export default function LocationPage() {
   const visibleServices = services.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
     if (!(Number(priceFor(s)) > 0)) return false
-    if (vehicleType === 'ΙΧ' || vehicleType === 'SUV') return s.name !== 'Πλύσιμο'
-    if (vehicleType === 'Μοτοσικλέτα') return s.name === 'Πλύσιμο'
+    if (vehicleType === 'ΙΧ' || vehicleType === 'SUV') return !isMotoService(s.name)
+    if (vehicleType === 'Μοτοσικλέτα') return isMotoService(s.name)
     return true
   })
 
@@ -576,7 +577,7 @@ export default function LocationPage() {
         >
           {canBook ? (
             <button
-              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${selectedDate.toISOString().split('T')[0]}&vehicleType=${encodeURIComponent(vehicleType)}`)}
+              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`)}
               className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
             >
               <span>{t.book}</span>

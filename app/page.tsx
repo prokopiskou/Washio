@@ -10,6 +10,7 @@ import LandingPage from './landing/page'
 import { BottomNav } from '@/components/BottomNav'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
+import { athensToday } from '@/lib/time'
 
 const T = {
   el: {
@@ -115,7 +116,7 @@ export default function HomePage() {
       const user = sessionData.session.user
 
       // Load all data in parallel
-      const today = new Date().toISOString().split('T')[0]
+      const today = athensToday()
 
       const [
         { data: upcoming },
