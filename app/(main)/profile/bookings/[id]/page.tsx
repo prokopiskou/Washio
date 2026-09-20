@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star, RotateCw } from 'lucide-react'
 import { useT, useLocale } from '@/lib/i18n'
 import { INACTIVE_STATUS_FILTER, offeredTimesForDay, weekdayMon1FromYmd } from '@/lib/slots'
@@ -219,6 +220,9 @@ export default function BookingDetailPage() {
 
   // Rating state
   const [showRating, setShowRating] = useState(false)
+
+  // iOS fix: κλείδωμα body όσο είναι ανοιχτό sheet.
+  useBodyScrollLock(showCancelLate || showCancelFlow || showRescheduleLate || showReschedule || showRating)
   const [ratingValue, setRatingValue] = useState(0)
   const [ratingComment, setRatingComment] = useState('')
   const [submittingRating, setSubmittingRating] = useState(false)
@@ -654,7 +658,7 @@ export default function BookingDetailPage() {
       {showCancelLate && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowCancelLate(false)} />
-          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10">
+          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10 max-h-[82vh] overflow-y-auto overscroll-contain">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
 
             <div className="text-center mb-5">
@@ -690,7 +694,7 @@ export default function BookingDetailPage() {
       {showRescheduleLate && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowRescheduleLate(false)} />
-          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10">
+          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10 max-h-[82vh] overflow-y-auto overscroll-contain">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
 
             <div className="text-center mb-5">
@@ -943,7 +947,7 @@ export default function BookingDetailPage() {
       {showRating && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => !submittingRating && setShowRating(false)} />
-          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10">
+          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10 max-h-[82vh] overflow-y-auto overscroll-contain">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
 
             <p className="text-base font-semibold text-gray-900 text-center mb-5">{t.rateTitle}</p>

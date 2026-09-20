@@ -139,7 +139,7 @@ export function AppRatingPrompt() {
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={later} />
-      <div className="relative bg-white rounded-t-3xl px-6 pt-7 pb-10 w-full max-w-md z-10 text-center">
+      <div className="relative bg-white rounded-t-3xl px-6 pt-7 pb-10 w-full max-w-md z-10 text-center max-h-[82vh] overflow-y-auto overscroll-contain">
         <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-6" />
 
         {view === 'stars' && (

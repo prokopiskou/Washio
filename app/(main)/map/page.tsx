@@ -13,6 +13,7 @@ import { getCurrentPosition } from '@/lib/geo'
 import { isMotoService } from '@/lib/services-catalog'
 import { BottomNav } from '@/components/BottomNav'
 import { useT, useLocale, Locale } from '@/lib/i18n'
+import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 
 const T = {
   el: {
@@ -238,6 +239,9 @@ function MapPageContent() {
 
   const [timing, setTiming] = useState<Timing>('now')
   const [showSchedule, setShowSchedule] = useState(false)
+
+  // iOS fix: κλείδωμα body όσο είναι ανοιχτό sheet (πεδία ορατά αλλά «νεκρά» με keyboard).
+  useBodyScrollLock(showWaitlist || showTightSlotModal || showSchedule)
   const [selectedDate, setSelectedDate] = useState(getTodayValue())
   const [selectedTime, setSelectedTime] = useState('')
   const [showTimePicker, setShowTimePicker] = useState(false)
@@ -1111,7 +1115,7 @@ function MapPageContent() {
       {showWaitlist && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowWaitlist(false)} />
-          <div className="relative bg-white rounded-t-3xl px-6 pt-6 pb-10 w-full max-w-md z-10 text-center">
+          <div className="relative bg-white rounded-t-3xl px-6 pt-6 pb-10 w-full max-w-md z-10 text-center max-h-[82vh] overflow-y-auto overscroll-contain">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
 
             {waitDone ? (
@@ -1157,7 +1161,7 @@ function MapPageContent() {
       {showTightSlotModal && selectedLocation && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowTightSlotModal(false)} />
-          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10">
+          <div className="relative bg-white rounded-t-3xl px-5 pt-6 pb-10 w-full max-w-md z-10 max-h-[82vh] overflow-y-auto overscroll-contain">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
 
             <div className="flex items-center gap-2 mb-4">
@@ -1210,7 +1214,7 @@ function MapPageContent() {
       {showSchedule && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
           <div className="absolute inset-0 bg-black/30" onClick={() => setShowSchedule(false)} />
-          <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 z-10">
+          <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 z-10 max-h-[82vh] overflow-y-auto overscroll-contain">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
             <div className="flex items-center justify-between mb-5">
               <p className="text-base font-semibold text-gray-900">{t.whenTitle}</p>

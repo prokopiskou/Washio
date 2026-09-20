@@ -8,6 +8,7 @@ import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
 import { CORE_SERVICES, type CatalogService } from '@/lib/services-catalog'
 import { ymdFromLocalDate } from '@/lib/time'
 import { isAdminEmail } from '@/lib/admins'
+import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import PushInit from '@/components/PushInit'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
@@ -230,6 +231,10 @@ export default function DashboardPage() {
       setNotifPermission(Notification.permission)
     }
   }, [])
+
+  // Κλείδωμα body όσο είναι ανοιχτό bottom-sheet — fix για το iOS
+  // «πεδία ορατά αλλά δεν πατιούνται» (hit-testing offset με keyboard).
+  useBodyScrollLock(showManualForm || showExceptionPicker)
 
   const requestNotifications = async () => {
     const permission = await Notification.requestPermission()
@@ -1428,8 +1433,17 @@ export default function DashboardPage() {
           {showManualForm && (
             <div className="fixed inset-0 z-50 flex items-end justify-center">
               <div className="absolute inset-0 bg-black/30" onClick={() => setShowManualForm(false)} />
-              <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 w-full max-w-md z-10">
-                <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+              {/* max-h + scroll: με ανοιχτό πληκτρολόγιο σκρολάρεις ΠΑΝΤΑ σε όλα τα πεδία/κουμπιά. */}
+              <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 w-full max-w-md z-10 max-h-[82vh] overflow-y-auto overscroll-contain">
+                <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3" />
+                {/* Κουμπί κλεισίματος — ΠΑΝΤΑ ορατό, ακόμα κι αν το backdrop κρύβεται από το πληκτρολόγιο. */}
+                <button
+                  onClick={() => setShowManualForm(false)}
+                  aria-label="Κλείσιμο"
+                  className="absolute top-3.5 right-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
                 <p className="text-base font-semibold text-gray-900 mb-1">Προσθήκη ραντεβού</p>
                 {/* Η ημερομηνία ΕΜΦΑΝΗΣ — να την επιβεβαιώνει ο πλυντηριάς πριν αποθηκεύσει. */}
                 <div
@@ -1512,7 +1526,11 @@ export default function DashboardPage() {
                 {manualError && <p className="text-[12px] text-red-500 mb-3">{manualError}</p>}
 
                 <button
-                  onClick={createManualBooking}
+                  onClick={() => {
+                    // Κλείσε το πληκτρολόγιο πριν την αποθήκευση — αποφεύγει κολλήματα του iOS WebView.
+                    ;(document.activeElement as HTMLElement | null)?.blur?.()
+                    createManualBooking()
+                  }}
                   disabled={manualSaving}
                   className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40"
                 >
@@ -1908,8 +1926,15 @@ export default function DashboardPage() {
               {showExceptionPicker && (
                 <div className="fixed inset-0 z-50 flex items-end justify-center">
                   <div className="absolute inset-0 bg-black/30" onClick={() => setShowExceptionPicker(false)} />
-                  <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 w-full max-w-md z-10">
-                    <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+                  <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 w-full max-w-md z-10 max-h-[82vh] overflow-y-auto overscroll-contain">
+                    <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3" />
+                    <button
+                      onClick={() => setShowExceptionPicker(false)}
+                      aria-label="Κλείσιμο"
+                      className="absolute top-3.5 right-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </button>
                     <p className="text-base font-semibold text-gray-900 mb-1">Προσθήκη εξαίρεσης</p>
                     <p className="text-[12px] text-gray-400 mb-4">Δήλωσε πότε ΔΕΝ θα δουλέψεις — οι ώρες κλείνουν αυτόματα για κρατήσεις.</p>
 
