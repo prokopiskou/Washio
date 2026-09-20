@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
+import { CORE_SERVICES, type CatalogService } from '@/lib/services-catalog'
 import PushInit from '@/components/PushInit'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
@@ -523,6 +524,43 @@ export default function DashboardPage() {
       setBookableServices(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
       selectionHaptic()
     } else {
+      errorHaptic()
+    }
+  }
+
+  // Toggle βασικής υπηρεσίας από τον ΚΕΝΤΡΙΚΟ κατάλογο.
+  // Αν το σημείο δεν έχει ακόμα τη συγκεκριμένη υπηρεσία, δημιουργείται server-side.
+  const toggleCoreService = async (name: string, existingId: string | null, nextActive: boolean) => {
+    if (!location?.id) return
+    // Υπάρχον row + απενεργοποίηση → απλό update.
+    if (existingId && !nextActive) {
+      await updateBaseService(existingId, { is_active: false })
+      return
+    }
+    try {
+      const res = await fetch('/api/services/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locationId: location.id, name, active: nextActive }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.service) { errorHaptic(); return }
+      const svc = json.service
+      setBookableServices(prev => {
+        const exists = prev.some(s => s.id === svc.id)
+        const mapped: BookableService = {
+          id: svc.id,
+          name: svc.name,
+          price: Number(svc.price) || 0,
+          price_moto: svc.price_moto != null ? Number(svc.price_moto) : null,
+          price_suv: svc.price_suv != null ? Number(svc.price_suv) : null,
+          duration_minutes: Math.max(30, Number(svc.duration_minutes) || 30),
+          is_active: !!svc.is_active,
+        }
+        return exists ? prev.map(s => s.id === svc.id ? mapped : s) : [...prev, mapped]
+      })
+      selectionHaptic()
+    } catch {
       errorHaptic()
     }
   }
@@ -1385,77 +1423,114 @@ export default function DashboardPage() {
                 Βασικές υπηρεσίες
               </p>
               <p className="text-[13px] text-gray-500 -mt-2 leading-relaxed">
-                Οι κύριες υπηρεσίες του σημείου σου. Όρισε τιμή για ΙΧ, SUV και Μοτοσικλέτα —
-                ό,τι αλλάξεις εμφανίζεται αμέσως στο προφίλ σου και στον χάρτη.
+                Ενεργοποίησε όσες υπηρεσίες προσφέρεις και όρισε τιμή για ΙΧ, SUV και Μοτοσικλέτα.
+                Μια υπηρεσία εμφανίζεται στους πελάτες μόνο όταν είναι ενεργή ΚΑΙ έχει τιμή.
               </p>
 
               <div className="space-y-2.5">
-                {bookableServices.map(bs => (
-                  <div
-                    key={bs.id}
-                    className="bg-white border border-gray-100 rounded-2xl p-4"
-                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] font-semibold tracking-tight text-gray-900">
-                          {bs.name}
-                          <span className="text-[12px] font-medium text-gray-400 ml-1.5">· {bs.duration_minutes}′</span>
-                        </p>
-                        <p className={`text-[12px] font-medium mt-0.5 ${bs.is_active ? 'text-green-600' : 'text-gray-400'}`}>
-                          {bs.is_active ? '● Ενεργή' : '○ Ανενεργή'}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => { lightTap(); updateBaseService(bs.id, { is_active: !bs.is_active }) }}
-                        className="relative w-[44px] h-[26px] rounded-full transition-colors shrink-0"
-                        style={{ background: bs.is_active ? '#34C759' : '#E5E5E5' }}
-                      >
-                        <div
-                          className="absolute top-0.5 w-[22px] h-[22px] rounded-full bg-white transition-all"
-                          style={{
-                            left: bs.is_active ? 20 : 2,
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.15), 0 1px 0 rgba(0,0,0,0.04)',
-                          }}
-                        />
-                      </button>
-                    </div>
+                {(() => {
+                  // ΚΕΝΤΡΙΚΟΣ κατάλογος + ό,τι έχει ήδη το σημείο (merge κατά όνομα).
+                  const catalogView = CORE_SERVICES.map(c => {
+                    const existing = bookableServices.find(s => s.name === c.name)
+                    return {
+                      key: c.name,
+                      id: existing?.id ?? null,
+                      name: c.name,
+                      duration_minutes: existing?.duration_minutes ?? c.duration_minutes,
+                      vehicles: c.vehicles,
+                      price: existing?.price ?? 0,
+                      price_moto: existing?.price_moto ?? null,
+                      price_suv: existing?.price_suv ?? null,
+                      is_active: existing?.is_active ?? false,
+                    }
+                  })
+                  // Τυχόν custom υπηρεσίες του σημείου εκτός καταλόγου — εμφανίζονται κι αυτές.
+                  const extras = bookableServices
+                    .filter(s => !CORE_SERVICES.some(c => c.name === s.name))
+                    .map(s => ({
+                      key: s.name, id: s.id as string | null, name: s.name,
+                      duration_minutes: s.duration_minutes,
+                      vehicles: ['ΙΧ', 'SUV', 'Μοτοσικλέτα'] as CatalogService['vehicles'],
+                      price: s.price, price_moto: s.price_moto ?? null, price_suv: s.price_suv ?? null,
+                      is_active: s.is_active,
+                    }))
 
-                    {bs.is_active && (
-                      <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 gap-2">
-                        {([
-                          ['ΙΧ', 'price', bs.price] as const,
-                          ['SUV', 'price_suv', bs.price_suv] as const,
-                          ['Μοτο', 'price_moto', bs.price_moto] as const,
-                        ]).map(([label, field, value]) => (
-                          <div key={field} className="bg-gray-50 rounded-xl p-2.5">
-                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-500 mb-1">
-                              {label}
+                  return [...catalogView, ...extras].map(bs => {
+                    const forMoto = bs.vehicles.includes('Μοτοσικλέτα')
+                    const forCar = bs.vehicles.includes('ΙΧ')
+                    const missingPrice = bs.is_active && !(Number(bs.price) > 0) && !(Number(bs.price_moto) > 0)
+                    return (
+                      <div
+                        key={bs.key}
+                        className="bg-white border border-gray-100 rounded-2xl p-4"
+                        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[15px] font-semibold tracking-tight text-gray-900">
+                              {bs.name}
+                              <span className="text-[12px] font-medium text-gray-400 ml-1.5">· {bs.duration_minutes}′</span>
                             </p>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[14px] font-semibold text-gray-500">€</span>
-                              <input
-                                type="number"
-                                defaultValue={value ?? ''}
-                                placeholder="—"
-                                onBlur={e => {
-                                  const val = parseFloat(e.target.value)
-                                  if (isNaN(val) || val <= 0) return
-                                  updateBaseService(bs.id, { [field]: val } as Partial<BookableService>)
-                                }}
-                                className="w-full bg-transparent text-[17px] font-bold tracking-tight text-gray-900 focus:outline-none"
-                                style={{ fontVariantNumeric: 'tabular-nums' }}
-                              />
-                            </div>
+                            <p className={`text-[12px] font-medium mt-0.5 ${bs.is_active ? 'text-green-600' : 'text-gray-400'}`}>
+                              {bs.is_active ? '● Ενεργή' : '○ Ανενεργή'}
+                              {!forCar && <span className="text-gray-400"> · μόνο μοτοσικλέτα</span>}
+                            </p>
                           </div>
-                        ))}
+                          <button
+                            onClick={() => { lightTap(); toggleCoreService(bs.name, bs.id, !bs.is_active) }}
+                            className="relative w-[44px] h-[26px] rounded-full transition-colors shrink-0"
+                            style={{ background: bs.is_active ? '#34C759' : '#E5E5E5' }}
+                          >
+                            <div
+                              className="absolute top-0.5 w-[22px] h-[22px] rounded-full bg-white transition-all"
+                              style={{
+                                left: bs.is_active ? 20 : 2,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.15), 0 1px 0 rgba(0,0,0,0.04)',
+                              }}
+                            />
+                          </button>
+                        </div>
+
+                        {bs.is_active && bs.id && (
+                          <>
+                            <div className={`mt-4 pt-4 border-t border-gray-100 grid gap-2 ${forCar && forMoto ? 'grid-cols-3' : forCar ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                              {([
+                                ...(forCar ? [['ΙΧ', 'price', bs.price] as const, ['SUV', 'price_suv', bs.price_suv] as const] : []),
+                                ...(forMoto ? [['Μοτο', 'price_moto', bs.price_moto] as const] : []),
+                              ]).map(([label, field, value]) => (
+                                <div key={field} className="bg-gray-50 rounded-xl p-2.5">
+                                  <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-500 mb-1">
+                                    {label}
+                                  </p>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-[14px] font-semibold text-gray-500">€</span>
+                                    <input
+                                      type="number"
+                                      defaultValue={value && Number(value) > 0 ? Number(value) : ''}
+                                      placeholder="—"
+                                      onBlur={e => {
+                                        const val = parseFloat(e.target.value)
+                                        if (isNaN(val) || val <= 0 || !bs.id) return
+                                        updateBaseService(bs.id, { [field]: val } as Partial<BookableService>)
+                                      }}
+                                      className="w-full bg-transparent text-[17px] font-bold tracking-tight text-gray-900 focus:outline-none"
+                                      style={{ fontVariantNumeric: 'tabular-nums' }}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            {missingPrice && (
+                              <p className="text-[11px] font-medium text-orange-600 mt-2">
+                                ⚠ Βάλε τιμή για να εμφανιστεί η υπηρεσία στους πελάτες.
+                              </p>
+                            )}
+                          </>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
-                {bookableServices.length === 0 && (
-                  <p className="text-[13px] text-gray-400">Δεν έχουν οριστεί βασικές υπηρεσίες. Επικοινώνησε με το Washio.</p>
-                )}
+                    )
+                  })
+                })()}
               </div>
 
               <div className="h-px bg-gray-100" />

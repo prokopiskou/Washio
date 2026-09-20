@@ -252,6 +252,8 @@ function MapPageContent() {
     : s.price
 
   const visibleServices = locationServices.filter(s => {
+    // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
+    if (!(Number(priceFor(s)) > 0)) return false
     if (vehicleType === 'ΙΧ' || vehicleType === 'SUV') return s.name !== 'Πλύσιμο'
     if (vehicleType === 'Μοτοσικλέτα') return s.name === 'Πλύσιμο'
     return true
