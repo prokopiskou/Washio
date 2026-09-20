@@ -35,6 +35,10 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([])
   const [applications, setApplications] = useState<any[]>([])
   const [addons, setAddons] = useState<any[]>([])
+  const [catalogItems, setCatalogItems] = useState<any[]>([])
+  const [addingCatalog, setAddingCatalog] = useState(false)
+  const [newCatalog, setNewCatalog] = useState({ name: '', duration: 30, vehicles: ['ΙΧ', 'SUV'] as string[] })
+  const [catalogError, setCatalogError] = useState('')
   const [payouts, setPayouts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [newAddon, setNewAddon] = useState({ name: '', price: '' })
@@ -76,6 +80,7 @@ export default function AdminPage() {
       { data: applicationsData },
       { data: addonsData },
       { data: payoutsData },
+      { data: catalogData },
     ] = await Promise.all([
       supabase.from('bookings')
         .select('*, locations(name, city), services(name, price), profiles(full_name, phone, email)')
@@ -85,6 +90,7 @@ export default function AdminPage() {
       supabase.from('applications').select('*').order('created_at', { ascending: false }),
       supabase.from('addons').select('*').order('sort_order', { ascending: true }),
       supabase.from('payouts').select('*, locations(name)').order('created_at', { ascending: false }),
+      supabase.from('service_catalog').select('*').order('sort_order', { ascending: true }),
     ])
 
     setBookings(bookingsData || [])
@@ -93,6 +99,7 @@ export default function AdminPage() {
     setApplications(applicationsData || [])
     setAddons(addonsData || [])
     setPayouts(payoutsData || [])
+    setCatalogItems(catalogData || [])
     setLoading(false)
   }, [])
 
@@ -261,6 +268,43 @@ export default function AdminPage() {
     const { data } = await supabase.from('bookings').select('*, locations(name), services(name)')
       .eq('user_id', userId).order('created_at', { ascending: false })
     setUserBookings(data || [])
+  }
+
+  // ── Κατάλογος βασικών υπηρεσιών (service_catalog) — μέσω admin API ──
+  const handleAddCatalog = async () => {
+    setCatalogError('')
+    try {
+      const res = await fetch('/api/admin/catalog', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCatalog.name,
+          durationMinutes: newCatalog.duration,
+          vehicles: newCatalog.vehicles,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) { setCatalogError(json.error || 'Κάτι πήγε στραβά'); return }
+      setCatalogItems(prev => [...prev, json.item])
+      setNewCatalog({ name: '', duration: 30, vehicles: ['ΙΧ', 'SUV'] })
+      setAddingCatalog(false)
+    } catch {
+      setCatalogError('Κάτι πήγε στραβά')
+    }
+  }
+
+  const toggleCatalogItem = async (item: any) => {
+    try {
+      const res = await fetch('/api/admin/catalog', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, is_active: !item.is_active }),
+      })
+      const json = await res.json()
+      if (res.ok && json.item) {
+        setCatalogItems(prev => prev.map(c => c.id === item.id ? json.item : c))
+      }
+    } catch { /* best-effort */ }
   }
 
   const handleAddAddon = async () => {
@@ -1561,19 +1605,143 @@ export default function AdminPage() {
 
               {activeTab === 'addons' && (() => {
                 const activeCount = addons.filter(a => a.is_active).length
+                const catActive = catalogItems.filter(c => c.is_active).length
 
                 return (
                   <div>
+                    {/* ═══════ ΒΑΣΙΚΕΣ ΥΠΗΡΕΣΙΕΣ (κεντρικός κατάλογος) ═══════ */}
                     <div className="flex items-center justify-between mb-3.5">
                       <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
-                        {addons.length} υπηρεσίες · {activeCount} ενεργές
+                        Βασικές υπηρεσίες · {catalogItems.length} στον κατάλογο · {catActive} ενεργές
+                      </p>
+                      <button
+                        onClick={() => setAddingCatalog(v => !v)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                        Προσθήκη βασικής
+                      </button>
+                    </div>
+
+                    {addingCatalog && (
+                      <div className="bg-white rounded-[14px] border border-gray-100 p-4 mb-3.5"
+                           style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                        <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-3">
+                          Νέα βασική υπηρεσία
+                        </p>
+                        <div className="space-y-3">
+                          <div>
+                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">Όνομα</p>
+                            <input
+                              value={newCatalog.name}
+                              onChange={e => setNewCatalog(n => ({ ...n, name: e.target.value }))}
+                              placeholder="π.χ. Κεραμική προστασία"
+                              className="w-full h-10 px-3 rounded-[9px] bg-white border border-gray-200 text-[13px] font-semibold text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                            />
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">Διάρκεια</p>
+                            <div className="flex gap-1.5">
+                              {[30, 60, 90, 120].map(d => (
+                                <button key={d}
+                                  onClick={() => setNewCatalog(n => ({ ...n, duration: d }))}
+                                  className={`flex-1 h-9 rounded-lg text-[12px] font-semibold border transition-colors ${
+                                    newCatalog.duration === d ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'
+                                  }`}
+                                >
+                                  {d}′
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">Οχήματα</p>
+                            <div className="flex gap-1.5">
+                              {['ΙΧ', 'SUV', 'Μοτοσικλέτα'].map(v => {
+                                const on = newCatalog.vehicles.includes(v)
+                                return (
+                                  <button key={v}
+                                    onClick={() => setNewCatalog(n => ({
+                                      ...n,
+                                      vehicles: on ? n.vehicles.filter(x => x !== v) : [...n.vehicles, v],
+                                    }))}
+                                    className={`flex-1 h-9 rounded-lg text-[12px] font-semibold border transition-colors ${
+                                      on ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'
+                                    }`}
+                                  >
+                                    {v === 'Μοτοσικλέτα' ? 'Μοτο' : v}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                          {catalogError && <p className="text-[12px] text-red-500">{catalogError}</p>}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => { setAddingCatalog(false); setCatalogError(''); setNewCatalog({ name: '', duration: 30, vehicles: ['ΙΧ', 'SUV'] }) }}
+                              className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-[13px] font-semibold"
+                            >
+                              Άκυρο
+                            </button>
+                            <button
+                              onClick={handleAddCatalog}
+                              disabled={!newCatalog.name.trim() || newCatalog.vehicles.length === 0}
+                              className="flex-1 h-11 rounded-xl bg-gray-900 text-white text-[13px] font-semibold disabled:opacity-40"
+                            >
+                              Αποθήκευση
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="bg-white rounded-[14px] border border-gray-100 overflow-hidden mb-6"
+                         style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                      {catalogItems.length === 0 && (
+                        <p className="px-3.5 py-4 text-[13px] text-gray-400">
+                          Ο κατάλογος είναι άδειος — τρέξε το supabase/service_catalog.sql.
+                        </p>
+                      )}
+                      {catalogItems.map((item, i) => (
+                        <div key={item.id}
+                          className={`px-3.5 py-3 flex items-center gap-2.5 ${i === 0 ? '' : 'border-t border-gray-100'}`}>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-[13px] font-semibold tracking-tight truncate ${item.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
+                              {item.name}
+                              <span className="text-[11px] font-medium text-gray-400 ml-1.5">· {item.duration_minutes}′</span>
+                            </p>
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                              {(item.vehicles || []).map((v: string) => v === 'Μοτοσικλέτα' ? 'Μοτο' : v).join(' · ')}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => toggleCatalogItem(item)}
+                            className="relative w-[44px] h-[26px] rounded-full transition-colors shrink-0"
+                            style={{ background: item.is_active ? '#34C759' : '#E5E5E5' }}
+                          >
+                            <div
+                              className="absolute top-0.5 w-[22px] h-[22px] rounded-full bg-white transition-all"
+                              style={{
+                                left: item.is_active ? 20 : 2,
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.15), 0 1px 0 rgba(0,0,0,0.04)',
+                              }}
+                            />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ═══════ ΔΕΥΤΕΡΕΥΟΥΣΕΣ ΥΠΗΡΕΣΙΕΣ (πρόσθετα checkout) ═══════ */}
+                    <div className="flex items-center justify-between mb-3.5">
+                      <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                        Δευτερεύουσες · {addons.length} υπηρεσίες · {activeCount} ενεργές
                       </p>
                       <button
                         onClick={() => setAddingAddon(v => !v)}
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
                       >
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                        Νέα υπηρεσία
+                        Προσθήκη δευτερεύουσας
                       </button>
                     </div>
 
@@ -1581,7 +1749,7 @@ export default function AdminPage() {
                       <div className="bg-white rounded-[14px] border border-gray-100 p-4 mb-3.5"
                            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                         <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-3">
-                          Νέα υπηρεσία
+                          Νέα δευτερεύουσα υπηρεσία
                         </p>
 
                         <div className="space-y-3">
@@ -1637,7 +1805,7 @@ export default function AdminPage() {
                          style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                       <div className="flex items-center justify-between px-3.5 pt-3.5 pb-2">
                         <p className="text-[13px] font-semibold tracking-tight text-gray-900">
-                          Global υπηρεσίες
+                          Δευτερεύουσες (πρόσθετα στο checkout)
                         </p>
                         <span className="text-[11px] font-bold text-gray-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
                           {addons.length}

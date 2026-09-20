@@ -199,6 +199,9 @@ export default function DashboardPage() {
   const [capacity, setCapacity] = useState(1)
   const [savingCapacity, setSavingCapacity] = useState(false)
   const [capacitySaved, setCapacitySaved] = useState(false)
+  // Κεντρικός κατάλογος βασικών υπηρεσιών — από τη βάση (admin-managed),
+  // με fallback το hardcoded seed μέχρι να τρέξει το SQL.
+  const [catalog, setCatalog] = useState<CatalogService[]>(CORE_SERVICES)
   // Χειροκίνητη κράτηση (ημερολόγιο).
   const [bookableServices, setBookableServices] = useState<BookableService[]>([])
   const [showManualForm, setShowManualForm] = useState(false)
@@ -338,6 +341,20 @@ export default function DashboardPage() {
         .eq('location_id', locationId)
         .order('exception_date', { ascending: true })
       setExceptions((exceptionsData as HourException[]) || [])
+
+      // Κεντρικός κατάλογος βασικών υπηρεσιών (admin-managed).
+      const { data: catalogData } = await supabase
+        .from('service_catalog')
+        .select('name, duration_minutes, vehicles')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+      if (catalogData && catalogData.length > 0) {
+        setCatalog(catalogData.map((c: any) => ({
+          name: c.name,
+          duration_minutes: Math.max(30, Number(c.duration_minutes) || 30),
+          vehicles: (Array.isArray(c.vehicles) ? c.vehicles : ['ΙΧ', 'SUV']) as CatalogService['vehicles'],
+        })))
+      }
 
       setLoading(false)
 
@@ -1430,7 +1447,7 @@ export default function DashboardPage() {
               <div className="space-y-2.5">
                 {(() => {
                   // ΚΕΝΤΡΙΚΟΣ κατάλογος + ό,τι έχει ήδη το σημείο (merge κατά όνομα).
-                  const catalogView = CORE_SERVICES.map(c => {
+                  const catalogView = catalog.map(c => {
                     const existing = bookableServices.find(s => s.name === c.name)
                     return {
                       key: c.name,
@@ -1446,7 +1463,7 @@ export default function DashboardPage() {
                   })
                   // Τυχόν custom υπηρεσίες του σημείου εκτός καταλόγου — εμφανίζονται κι αυτές.
                   const extras = bookableServices
-                    .filter(s => !CORE_SERVICES.some(c => c.name === s.name))
+                    .filter(s => !catalog.some(c => c.name === s.name))
                     .map(s => ({
                       key: s.name, id: s.id as string | null, name: s.name,
                       duration_minutes: s.duration_minutes,

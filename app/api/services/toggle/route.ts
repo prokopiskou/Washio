@@ -33,7 +33,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Μόνο υπηρεσίες του κεντρικού καταλόγου δημιουργούνται από εδώ.
-    const entry = catalogEntry(String(name))
+    // Πηγή αλήθειας: πίνακας service_catalog (admin-managed). Fallback: hardcoded seed.
+    const { data: catRow } = await admin
+      .from('service_catalog')
+      .select('name, duration_minutes')
+      .eq('name', String(name))
+      .eq('is_active', true)
+      .maybeSingle()
+    const entry = catRow || catalogEntry(String(name))
 
     const { data: existing } = await admin
       .from('services')
