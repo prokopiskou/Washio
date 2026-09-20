@@ -236,9 +236,53 @@ export default function DashboardPage() {
   // «πεδία ορατά αλλά δεν πατιούνται» (hit-testing offset με keyboard).
   useBodyScrollLock(showManualForm || showExceptionPicker)
 
+  const [notifBusy, setNotifBusy] = useState(false)
+
   const requestNotifications = async () => {
-    const permission = await Notification.requestPermission()
-    setNotifPermission(permission)
+    if (notifBusy) return
+    setNotifBusy(true)
+    try {
+      // 1) Υπάρχει καθόλου API ειδοποιήσεων στη συσκευή;
+      if (typeof Notification === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('Η συσκευή σου δεν υποστηρίζει ειδοποιήσεις μέσα από το app. Δοκίμασε να ανοίξεις το washio.gr από τον browser (Safari/Chrome) και ενεργοποίησέ τες από εκεί.')
+        return
+      }
+
+      // 2) Άδεια χρήστη.
+      const permission = await Notification.requestPermission()
+      setNotifPermission(permission)
+      if (permission !== 'granted') {
+        alert('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν. Αν πάτησες «Να μην επιτρέπεται», ενεργοποίησέ τες από τις Ρυθμίσεις της συσκευής για το Washio.')
+        return
+      }
+
+      // 3) Πραγματική εγγραφή push (service worker + subscription + αποθήκευση).
+      const supabase = createClient()
+      const { data: sess } = await supabase.auth.getSession()
+      const userId = sess.session?.user?.id
+      if (!userId) { alert('Χρειάζεται να είσαι συνδεδεμένος.'); return }
+
+      const registration = await navigator.serviceWorker.register('/sw.js')
+      const existing = await registration.pushManager.getSubscription()
+      const subscription = existing || await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+      })
+
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription, userId }),
+      })
+      if (!res.ok) { alert('Κάτι πήγε στραβά στην εγγραφή. Δοκίμασε ξανά.'); return }
+
+      selectionHaptic()
+    } catch (err) {
+      console.error('Notif enable error:', err)
+      alert('Δεν ήταν δυνατή η ενεργοποίηση των ειδοποιήσεων σε αυτή τη συσκευή.')
+    } finally {
+      setNotifBusy(false)
+    }
   }
 
   const loadCalendarBookings = async (date: Date) => {
@@ -787,7 +831,8 @@ export default function DashboardPage() {
           ) : (
             <button
               onClick={requestNotifications}
-              className="mt-3 w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5"
+              disabled={notifBusy}
+              className="mt-3 w-full flex items-center gap-2.5 rounded-xl px-3 py-2.5 disabled:opacity-60"
               style={{ background: '#FEF6E6', border: '1px solid #FBE7B8' }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A6209" strokeWidth="1.75" strokeLinecap="round">
@@ -795,7 +840,7 @@ export default function DashboardPage() {
                 <path d="M10 19a2 2 0 0 0 4 0"/>
               </svg>
               <span className="flex-1 text-left text-[12px] font-medium" style={{ color: '#8A6209' }}>Ενεργοποίησε ειδοποιήσεις</span>
-              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md" style={{ background: '#8A6209', color: '#fff' }}>Ενεργοποίηση</span>
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md" style={{ background: '#8A6209', color: '#fff' }}>{notifBusy ? '...' : 'Ενεργοποίηση'}</span>
             </button>
           )}
         </div>
