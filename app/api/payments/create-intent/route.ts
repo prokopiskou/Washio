@@ -31,15 +31,76 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Λείπουν στοιχεία κράτησης' }, { status: 400 })
     }
 
-    // 2) Τιμή υπολογίζεται SERVER-SIDE από τη DB — ποτέ από τον client.
-    const { data: service, error: serviceErr } = await admin
-      .from('services')
-      .select('id, name, price, price_moto, price_suv')
-      .eq('id', serviceId)
-      .single()
+    // 2+3+4 ΠΑΡΑΛΛΗΛΑ — τιμή, addons, διαθεσιμότητα και Stripe customer
+    //    τρέχουν ταυτόχρονα: ο συνολικός χρόνος πέφτει στο πιο αργό κομμάτι
+    //    αντί για το άθροισμα όλων.
+    const requestedAddonIds: string[] = Array.isArray(addonIds) ? addonIds : []
+
+    // Αποθηκευμένες κάρτες: get-or-create Stripe Customer για τον χρήστη.
+    // Αν οτιδήποτε αποτύχει, συνεχίζουμε ΧΩΡΙΣ saved-card features.
+    const customerSetup = async (): Promise<{ customerId?: string; customerSessionClientSecret?: string }> => {
+      try {
+        let customerId: string | undefined
+        if (user.email) {
+          const existing = await stripe.customers.list({ email: user.email, limit: 100 })
+          const match = existing.data.find((c) => c.metadata?.supabaseUserId === user.id)
+          customerId = match?.id
+        }
+        if (!customerId) {
+          const created = await stripe.customers.create({
+            email: user.email || undefined,
+            metadata: { supabaseUserId: user.id },
+          })
+          customerId = created.id
+        }
+        const session = await stripe.customerSessions.create({
+          customer: customerId,
+          components: {
+            payment_element: {
+              enabled: true,
+              features: {
+                payment_method_redisplay: 'enabled',
+                payment_method_save: 'enabled',
+                payment_method_save_usage: 'on_session',
+                payment_method_remove: 'enabled',
+              },
+            },
+          },
+        })
+        return { customerId, customerSessionClientSecret: session.client_secret }
+      } catch (custErr: unknown) {
+        const m = custErr instanceof Error ? custErr.message : 'unknown'
+        console.error('Customer/session setup skipped:', m)
+        return {}
+      }
+    }
+
+    const [
+      { data: service, error: serviceErr },
+      { data: locAddons },
+      availability,
+      { customerId, customerSessionClientSecret },
+    ] = await Promise.all([
+      admin.from('services')
+        .select('id, name, price, price_moto, price_suv')
+        .eq('id', serviceId)
+        .single(),
+      requestedAddonIds.length > 0
+        ? admin.from('location_addons')
+            .select('addon_id, price_override, addons(price)')
+            .eq('location_id', locationId)
+            .in('addon_id', requestedAddonIds)
+        : Promise.resolve({ data: [] as any[] }),
+      checkSlotAvailability(admin, { locationId, serviceId, slotDate, slotStartTime }),
+      customerSetup(),
+    ])
 
     if (serviceErr || !service) {
       return NextResponse.json({ error: 'Άκυρη υπηρεσία' }, { status: 400 })
+    }
+
+    if (!availability.ok) {
+      return NextResponse.json({ error: availability.error }, { status: 409 })
     }
 
     // Τιμή ανά τύπο οχήματος — ΠΑΝΤΑ server-side από τη DB.
@@ -49,74 +110,14 @@ export async function POST(req: NextRequest) {
       : isSuv && service.price_suv != null ? Number(service.price_suv)
       : Number(service.price)
 
-    // Addons: μόνο όσα ανήκουν πραγματικά στο location, με την τιμή της DB.
-    const requestedAddonIds: string[] = Array.isArray(addonIds) ? addonIds : []
-    if (requestedAddonIds.length > 0) {
-      const { data: locAddons } = await admin
-        .from('location_addons')
-        .select('addon_id, price_override, addons(price)')
-        .eq('location_id', locationId)
-        .in('addon_id', requestedAddonIds)
-
-      for (const a of locAddons || []) {
-        const priceOverride = (a as { price_override: number | null }).price_override
-        const basePrice = (a as { addons?: { price?: number } }).addons?.price
-        amount += Number(priceOverride ?? basePrice ?? 0)
-      }
+    for (const a of locAddons || []) {
+      const priceOverride = (a as { price_override: number | null }).price_override
+      const basePrice = (a as { addons?: { price?: number } }).addons?.price
+      amount += Number(priceOverride ?? basePrice ?? 0)
     }
 
     if (!(amount > 0)) {
       return NextResponse.json({ error: 'Μη έγκυρο ποσό' }, { status: 400 })
-    }
-
-    // 3) Re-check διαθεσιμότητας — κοινοί κανόνες (ωράριο, εξαιρέσεις,
-    //    capacity μανικών, διάρκεια υπηρεσίας, lead time).
-    const availability = await checkSlotAvailability(admin, {
-      locationId, serviceId, slotDate, slotStartTime,
-    })
-    if (!availability.ok) {
-      return NextResponse.json({ error: availability.error }, { status: 409 })
-    }
-
-    // 4) Αποθηκευμένες κάρτες: get-or-create Stripe Customer για τον χρήστη
-    //    (χωρίς αλλαγή στη βάση — ταυτοποίηση μέσω metadata.supabaseUserId).
-    //    Αν οτιδήποτε αποτύχει, συνεχίζουμε ΧΩΡΙΣ saved-card features ώστε
-    //    το checkout να μη σπάει ποτέ.
-    let customerId: string | undefined
-    let customerSessionClientSecret: string | undefined
-    try {
-      if (user.email) {
-        const existing = await stripe.customers.list({ email: user.email, limit: 100 })
-        const match = existing.data.find((c) => c.metadata?.supabaseUserId === user.id)
-        customerId = match?.id
-      }
-      if (!customerId) {
-        const created = await stripe.customers.create({
-          email: user.email || undefined,
-          metadata: { supabaseUserId: user.id },
-        })
-        customerId = created.id
-      }
-      const session = await stripe.customerSessions.create({
-        customer: customerId,
-        components: {
-          payment_element: {
-            enabled: true,
-            features: {
-              payment_method_redisplay: 'enabled',
-              payment_method_save: 'enabled',
-              payment_method_save_usage: 'on_session',
-              payment_method_remove: 'enabled',
-            },
-          },
-        },
-      })
-      customerSessionClientSecret = session.client_secret
-    } catch (custErr: unknown) {
-      const m = custErr instanceof Error ? custErr.message : 'unknown'
-      console.error('Customer/session setup skipped:', m)
-      customerId = undefined
-      customerSessionClientSecret = undefined
     }
 
     const paymentIntent = await stripe.paymentIntents.create({

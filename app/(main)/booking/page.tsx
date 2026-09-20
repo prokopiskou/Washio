@@ -290,6 +290,60 @@ function BookingPageContent() {
   const formattedDate = `${date.getDate()} ${MONTHS_SHORT[locale][date.getMonth()]}`
   const fullFormattedDate = `${WEEKDAYS[locale][date.getDay()]}, ${date.getDate()} ${MONTHS_SHORT[locale][date.getMonth()]}`
 
+  // ── PREFETCH PaymentIntent ──────────────────────────────────────────
+  // Το intent στήνεται στο ΠΑΡΑΣΚΗΝΙΟ μόλις σταθεροποιηθούν οι επιλογές,
+  // ώστε το «Πληρωμή» να ανοίγει το Stripe σχεδόν ακαριαία.
+  const intentCacheRef = useRef<{
+    key: string
+    promise: Promise<{ clientSecret?: string; customerSessionClientSecret?: string; error?: string }>
+  } | null>(null)
+
+  type IntentResult = { clientSecret?: string; customerSessionClientSecret?: string; error?: string }
+
+  const fetchIntent = (serviceArg: Service, plateArg: string, addonsArg: string[]): Promise<IntentResult> => {
+    const key = JSON.stringify([serviceArg.id, locationId, dateStr, slotTime, plateArg, vehicleType, [...addonsArg].sort()])
+    if (intentCacheRef.current?.key === key) return intentCacheRef.current.promise
+    const promise: Promise<IntentResult> = fetch('/api/payments/create-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        serviceId: serviceArg.id,
+        locationId,
+        slotId: null,
+        slotDate: dateStr,
+        slotStartTime: slotTime,
+        carPlate: plateArg,
+        serviceName: serviceArg.name,
+        vehicleType,
+        addonIds: addonsArg,
+      }),
+    })
+      .then(async res => {
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !data.clientSecret) {
+          // Μην κρατάς αποτυχία στο cache — το επόμενο κάλεσμα ξαναδοκιμάζει.
+          if (intentCacheRef.current?.key === key) intentCacheRef.current = null
+          return { error: data.error || 'Αποτυχία εκκίνησης πληρωμής' }
+        }
+        return data as IntentResult
+      })
+      .catch(() => {
+        if (intentCacheRef.current?.key === key) intentCacheRef.current = null
+        return { error: 'Πρόβλημα σύνδεσης' }
+      })
+    intentCacheRef.current = { key, promise }
+    return promise
+  }
+
+  // Prefetch με μικρό debounce όταν αλλάζουν οι επιλογές (addons, πινακίδα).
+  useEffect(() => {
+    if (!service || sessionLoading || showPayment) return
+    const t = setTimeout(() => { fetchIntent(service, plate, selectedAddons) }, 800)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [service, plate, selectedAddons, sessionLoading, showPayment])
+  // ────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     const loadData = async () => {
       const supabase = createClient()
@@ -401,24 +455,14 @@ function BookingPageContent() {
       await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', session.user.id)
     }
 
-    const res = await fetch('/api/payments/create-intent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        // Η τιμή υπολογίζεται server-side· στέλνουμε μόνο τα στοιχεία επιλογής.
-        serviceId: service.id,
-        locationId,
-        slotId: null,
-        slotDate: dateStr,
-        slotStartTime: slotTime,
-        carPlate: plate,
-        serviceName: service.name,
-        vehicleType,
-        addonIds: selectedAddons,
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok || !data.clientSecret) {
+    // Χρησιμοποίησε το ΗΔΗ προετοιμασμένο intent (prefetch) — αλλιώς φτιάξ' το τώρα.
+    let data = await fetchIntent(service, plate, selectedAddons)
+    if (data.error) {
+      // Δεύτερη προσπάθεια με φρέσκο intent (π.χ. αν το πρώτο έπεσε σε στιγμιαίο σφάλμα).
+      intentCacheRef.current = null
+      data = await fetchIntent(service, plate, selectedAddons)
+    }
+    if (data.error || !data.clientSecret) {
       errorHaptic()
       alert(data.error || t.couldNotStartPayment)
       return
