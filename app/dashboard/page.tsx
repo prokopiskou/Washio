@@ -6,10 +6,8 @@ import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
 import PushInit from '@/components/PushInit'
-import { isCashBooking } from '@/lib/payment'
-import { INACTIVE_STATUS_FILTER } from '@/lib/slots'
 
-type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'staff' | 'feedback'
+type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
 type Period = '7D' | '30D' | '3M' | '6M' | '12M'
 type Metric = 'revenue' | 'bookings'
 
@@ -23,7 +21,22 @@ type Booking = {
   user_id?: string
   created_at?: string
   stripe_payment_status?: string | null
+  source?: string | null
+  customer_name?: string | null
+  customer_phone?: string | null
+  duration_minutes?: number | null
   profiles?: { full_name?: string; phone?: string; email?: string } | null
+  services?: { name?: string } | null
+}
+
+type BookableService = {
+  id: string
+  name: string
+  price: number
+  price_moto?: number | null
+  price_suv?: number | null
+  duration_minutes: number
+  is_active: boolean
 }
 
 type DashboardService = {
@@ -49,6 +62,8 @@ type HourException = {
   exception_date: string
   periods: { open: string; close: string }[]
   is_closed: boolean
+  closed_from?: string | null
+  closed_to?: string | null
 }
 
 type StaffMember = {
@@ -128,7 +143,7 @@ function flashTabTitle(locationName: string) {
   }, 800)
 }
 
-async function showBrowserNotification(locationName: string, isCash?: boolean) {
+async function showBrowserNotification(locationName: string) {
   if (!('Notification' in window)) return
 
   if (Notification.permission === 'default') {
@@ -136,30 +151,18 @@ async function showBrowserNotification(locationName: string, isCash?: boolean) {
   }
 
   if (Notification.permission === 'granted') {
-    new Notification('Νέα κράτηση — Washio', {
-      body: isCash ? `Μετρητά — ${locationName}` : `Νέα κράτηση στο ${locationName}`,
+    new Notification('🔔 Νέα Κράτηση! — Washio', {
+      body: `Νέα κράτηση στο ${locationName}`,
       icon: '/washio_logo.png',
-      requireInteraction: true,
+      requireInteraction: true, // Δεν εξαφανίζεται μόνο του
     })
   }
 }
 
-function triggerNewBookingAlert(locationName: string, booking?: Booking) {
+function triggerNewBookingAlert(locationName: string) {
   playNotificationSound()
   flashTabTitle(locationName)
-  showBrowserNotification(locationName, booking ? isCashBooking(booking) : false)
-}
-
-function CashMark() {
-  return (
-    <span
-      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-tight"
-      style={{ background: '#FEF3C7', color: '#92400E' }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#92400E' }} />
-      Μετρητά
-    </span>
-  )
+  showBrowserNotification(locationName)
 }
 
 export default function DashboardPage() {
@@ -187,11 +190,27 @@ export default function DashboardPage() {
   const [exceptionDate, setExceptionDate] = useState('')
   const [exceptionPeriods, setExceptionPeriods] = useState<{ open: string; close: string }[]>([{ open: '09:00', close: '17:00' }])
   const [exceptionClosed, setExceptionClosed] = useState(false)
+  // Νέο μοντέλο εξαιρέσεων: 'day' = κλειστό όλη μέρα, 'hours' = κλειστό από-έως.
+  const [exceptionMode, setExceptionMode] = useState<'day' | 'hours'>('day')
+  const [exceptionFrom, setExceptionFrom] = useState('12:00')
+  const [exceptionTo, setExceptionTo] = useState('15:00')
+  // Ρυθμίσεις: μάνικες / θέσεις εξυπηρέτησης.
+  const [capacity, setCapacity] = useState(1)
+  const [savingCapacity, setSavingCapacity] = useState(false)
+  const [capacitySaved, setCapacitySaved] = useState(false)
+  // Χειροκίνητη κράτηση (ημερολόγιο).
+  const [bookableServices, setBookableServices] = useState<BookableService[]>([])
+  const [showManualForm, setShowManualForm] = useState(false)
+  const [manualServiceId, setManualServiceId] = useState('')
+  const [manualTime, setManualTime] = useState('10:00')
+  const [manualFirstName, setManualFirstName] = useState('')
+  const [manualLastName, setManualLastName] = useState('')
+  const [manualPhone, setManualPhone] = useState('')
+  const [manualSaving, setManualSaving] = useState(false)
+  const [manualError, setManualError] = useState('')
   const [notifPermission, setNotifPermission] = useState<string>('default')
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
-  const [noShowTarget, setNoShowTarget] = useState<Booking | null>(null)
-  const [noShowSaving, setNoShowSaving] = useState(false)
   const locationIdRef = useRef<string | null>(null)
   const calendarDateRef = useRef<Date>(calendarDate)
   useEffect(() => { calendarDateRef.current = calendarDate }, [calendarDate])
@@ -214,10 +233,10 @@ export default function DashboardPage() {
     const dateStr = date.toISOString().split('T')[0]
     const { data } = await supabase
       .from('bookings')
-      .select('id, slot_start_time, total_amount, status, stripe_payment_status, profiles(full_name)')
+      .select('id, slot_start_time, total_amount, status, duration_minutes, source, customer_name, stripe_payment_status, profiles(full_name), services(name)')
       .eq('location_id', location.id)
       .eq('slot_date', dateStr)
-      .not('status', 'in', INACTIVE_STATUS_FILTER)
+      .not('status', 'in', '("cancelled")')
       .order('slot_start_time', { ascending: true })
     setCalendarBookings((data as Booking[]) || [])
     setCalendarLoading(false)
@@ -256,13 +275,16 @@ export default function DashboardPage() {
       const locationId = ownerLocation.id
       locationIdRef.current = locationId
 
+      // Μάνικες / θέσεις εξυπηρέτησης του πλυντηρίου.
+      setCapacity(Math.max(1, Number((ownerLocation as { capacity?: number }).capacity) || 1))
+
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
         supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, profiles(full_name, phone, email)')
+          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, profiles(full_name, phone, email)')
           .eq('location_id', locationId)
           .order('created_at', { ascending: false }),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
-        supabase.from('services').select('id, price_moto').eq('location_id', locationId),
+        supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, is_active, sort_order').eq('location_id', locationId).order('sort_order', { ascending: true }),
         supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
         supabase.from('location_hours').select('id, day_of_week, is_closed, open_time, close_time').eq('location_id', locationId).order('day_of_week', { ascending: true }),
         supabase.from('staff').select('id, full_name, role, phone').eq('location_id', locationId).order('created_at', { ascending: false }),
@@ -285,6 +307,17 @@ export default function DashboardPage() {
         is_active: activeIds.has(a.id),
       })))
 
+      // Βασικές υπηρεσίες του πλυντηρίου (τιμές, ενεργές/ανενεργές, ημερολόγιο).
+      setBookableServices(((servicesRes.data as any[]) || []).map(s => ({
+        id: s.id,
+        name: s.name,
+        price: Number(s.price) || 0,
+        price_moto: s.price_moto != null ? Number(s.price_moto) : null,
+        price_suv: s.price_suv != null ? Number(s.price_suv) : null,
+        duration_minutes: Math.max(30, Number(s.duration_minutes) || 30),
+        is_active: s.is_active !== false,
+      })))
+
       setStaff((staffRes.data as StaffMember[]) || [])
       setReviews((reviewsRes.data as Review[]) || [])
       if ((hoursRes.data as any[] | null)?.length) {
@@ -300,7 +333,7 @@ export default function DashboardPage() {
 
       const { data: exceptionsData } = await supabase
         .from('location_hours_exceptions')
-        .select('id, exception_date, periods, is_closed')
+        .select('id, exception_date, periods, is_closed, closed_from, closed_to')
         .eq('location_id', locationId)
         .order('exception_date', { ascending: true })
       setExceptions((exceptionsData as HourException[]) || [])
@@ -315,7 +348,7 @@ export default function DashboardPage() {
             const nb = payload.new as Booking
             setBookings(prev => [nb, ...prev])
             setNewBookingsCount(prev => prev + 1)
-            triggerNewBookingAlert(locationName, nb)
+            triggerNewBookingAlert(locationName)
             // Νέα κράτηση → εμφανίζεται ΑΜΕΣΩΣ στο calendar αν αφορά τη μέρα που βλέπει ο πρατηριούχος.
             const viewedDate = calendarDateRef.current.toISOString().split('T')[0]
             if ((nb as any).slot_date === viewedDate && nb.status !== 'cancelled' && (nb.status as string) !== 'no_show') {
@@ -345,7 +378,7 @@ export default function DashboardPage() {
 
       const interval = setInterval(async () => {
         const { data } = await supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, profiles(full_name, phone, email)')
+          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, profiles(full_name, phone, email)')
           .eq('location_id', locationId).order('created_at', { ascending: false })
         if (data) setBookings(data as Booking[])
       }, 30000)
@@ -415,7 +448,6 @@ export default function DashboardPage() {
     if (status === 'confirmed') return 'bg-blue-50 text-blue-600'
     if (status === 'completed') return 'bg-green-50 text-green-600'
     if (status === 'cancelled') return 'bg-red-50 text-red-500'
-    if (status === 'no_show') return 'bg-gray-50 text-gray-500'
     return 'bg-gray-50 text-gray-500'
   }
 
@@ -424,7 +456,6 @@ export default function DashboardPage() {
     if (status === 'confirmed') return 'Επιβεβαιώθηκε'
     if (status === 'completed') return 'Ολοκληρώθηκε'
     if (status === 'cancelled') return 'Ακυρώθηκε'
-    if (status === 'no_show') return 'Δεν εμφανίστηκε'
     return status || '—'
   }
 
@@ -460,24 +491,117 @@ export default function DashboardPage() {
 
   const saveException = async () => {
     if (!location?.id || !exceptionDate) return
+    if (exceptionMode === 'hours' && exceptionFrom >= exceptionTo) return
     const supabase = createClient()
     await supabase.from('location_hours_exceptions').upsert({
       location_id: location.id,
       exception_date: exceptionDate,
-      periods: exceptionClosed ? [] : exceptionPeriods,
-      is_closed: exceptionClosed,
+      periods: [],
+      is_closed: exceptionMode === 'day',
+      closed_from: exceptionMode === 'hours' ? exceptionFrom : null,
+      closed_to: exceptionMode === 'hours' ? exceptionTo : null,
     }, { onConflict: 'location_id,exception_date' })
 
     const { data } = await supabase
       .from('location_hours_exceptions')
-      .select('id, exception_date, periods, is_closed')
+      .select('id, exception_date, periods, is_closed, closed_from, closed_to')
       .eq('location_id', location.id)
       .order('exception_date', { ascending: true })
     setExceptions((data as HourException[]) || [])
     setShowExceptionPicker(false)
     setExceptionDate('')
-    setExceptionPeriods([{ open: '09:00', close: '17:00' }])
-    setExceptionClosed(false)
+    setExceptionMode('day')
+    setExceptionFrom('12:00')
+    setExceptionTo('15:00')
+  }
+
+  // Ενημέρωση βασικής υπηρεσίας (τιμές ΙΧ/SUV/Μοτο, ενεργή/ανενεργή).
+  const updateBaseService = async (id: string, patch: Partial<BookableService>) => {
+    const supabase = createClient()
+    const { error } = await supabase.from('services').update(patch).eq('id', id)
+    if (!error) {
+      setBookableServices(prev => prev.map(s => s.id === id ? { ...s, ...patch } : s))
+      selectionHaptic()
+    } else {
+      errorHaptic()
+    }
+  }
+
+  const saveCapacity = async () => {
+    if (!location?.id) return
+    setSavingCapacity(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('locations')
+      .update({ capacity })
+      .eq('id', location.id)
+    setSavingCapacity(false)
+    if (!error) {
+      setCapacitySaved(true)
+      setTimeout(() => setCapacitySaved(false), 2000)
+    } else {
+      errorHaptic()
+    }
+  }
+
+  // «Δεν εμφανίστηκε» — μόνο αφού περάσουν 15' από την ώρα του ραντεβού.
+  const markNoShow = async (b: Booking) => {
+    if (!confirm('Ο πελάτης δεν εμφανίστηκε; Η κράτηση θα σημανθεί ως no-show.')) return
+    const supabase = createClient()
+    const { error } = await supabase.from('bookings')
+      .update({ status: 'no_show' })
+      .eq('id', b.id)
+    if (!error) {
+      setBookings(prev => prev.map(x => x.id === b.id ? { ...x, status: 'no_show' } : x))
+      setCalendarBookings(prev => prev.map(x => x.id === b.id ? { ...x, status: 'no_show' } : x))
+      selectionHaptic()
+    } else {
+      errorHaptic()
+    }
+  }
+
+  const canMarkNoShow = (b: Booking): boolean => {
+    if (b.status !== 'confirmed' && b.status !== 'pending') return false
+    if (!b.slot_date || !b.slot_start_time) return false
+    const start = new Date(`${b.slot_date}T${b.slot_start_time.slice(0, 8) || '00:00:00'}`)
+    return Date.now() > start.getTime() + 15 * 60 * 1000
+  }
+
+  const createManualBooking = async () => {
+    if (!location?.id || !manualServiceId || !manualTime || !manualFirstName.trim()) {
+      setManualError('Συμπλήρωσε υπηρεσία, ώρα και όνομα.')
+      return
+    }
+    setManualSaving(true)
+    setManualError('')
+    try {
+      const dateStr = `${calendarDate.getFullYear()}-${String(calendarDate.getMonth() + 1).padStart(2, '0')}-${String(calendarDate.getDate()).padStart(2, '0')}`
+      const res = await fetch('/api/bookings/create-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationId: location.id,
+          serviceId: manualServiceId,
+          slotDate: dateStr,
+          slotStartTime: manualTime,
+          customerName: `${manualFirstName.trim()} ${manualLastName.trim()}`.trim(),
+          customerPhone: manualPhone.trim() || null,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setManualError(json.error || 'Κάτι πήγε στραβά.')
+        setManualSaving(false)
+        return
+      }
+      selectionHaptic()
+      setShowManualForm(false)
+      setManualFirstName(''); setManualLastName(''); setManualPhone('')
+      await loadCalendarBookings(calendarDate)
+    } catch {
+      setManualError('Κάτι πήγε στραβά. Δοκίμασε ξανά.')
+    } finally {
+      setManualSaving(false)
+    }
   }
 
   const deleteException = async (date: string) => {
@@ -508,25 +632,6 @@ export default function DashboardPage() {
     const supabase = createClient()
     await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id)
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status: 'cancelled' } : b))
-  }
-
-  const confirmNoShow = async () => {
-    if (!noShowTarget) return
-    setNoShowSaving(true)
-    try {
-      const res = await fetch('/api/bookings/no-show', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: noShowTarget.id }),
-      })
-      if (res.ok) {
-        setBookings(prev => prev.map(b => b.id === noShowTarget.id ? { ...b, status: 'no_show' } : b))
-        setCalendarBookings(prev => prev.filter(b => b.id !== noShowTarget.id))
-      }
-    } finally {
-      setNoShowSaving(false)
-      setNoShowTarget(null)
-    }
   }
 
   if (loading) return <main className="min-h-screen bg-white flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>
@@ -580,6 +685,7 @@ export default function DashboardPage() {
             ['calendar', 'Ημερολόγιο'],
             ['services', 'Υπηρεσίες'],
             ['hours', 'Ωράριο'],
+            ['settings', 'Ρυθμίσεις'],
             ['feedback', 'Feedback'],
           ] as [TabKey, string][]).map(([key, label]) => (
             <button key={key}
@@ -622,31 +728,15 @@ export default function DashboardPage() {
                     <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{todayBookings.length} κρατήσεις</span>
                   </div>
                   <div className="divide-y divide-gray-50">
-                    {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => {
-                      const canNoShow = b.status === 'pending' || b.status === 'confirmed'
-                      return (
-                      <div key={b.id} className="px-4 py-3 flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)}</p>
-                            {isCashBooking(b) && <CashMark />}
-                          </div>
+                    {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => (
+                      <div key={b.id} className="px-4 py-3 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · {'—'}</p>
                           <p className="text-xs text-gray-400">{b.profiles?.full_name || 'Πελάτης'}</p>
                         </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
-                          {canNoShow && (
-                            <button
-                              onClick={() => { lightTap(); setNoShowTarget(b) }}
-                              className="text-[11px] font-medium text-gray-600 underline underline-offset-[2px]"
-                            >
-                              Δεν εμφανίστηκε
-                            </button>
-                          )}
-                        </div>
+                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
                       </div>
-                      )
-                    })}
+                    ))}
                   </div>
                 </div>
               )}
@@ -661,10 +751,7 @@ export default function DashboardPage() {
                   {bookings.slice(0, 5).map(b => (
                     <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                       <div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm text-gray-900">{b.slot_date}</p>
-                          {isCashBooking(b) && <CashMark />}
-                        </div>
+                        <p className="text-sm text-gray-900">{b.slot_date} · {'—'}</p>
                         <p className="text-xs text-gray-400">{b.profiles?.full_name || 'Πελάτης'}</p>
                       </div>
                       <div className="text-right">
@@ -762,8 +849,16 @@ export default function DashboardPage() {
               if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
               if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
               if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
-              if (status === 'no_show') return { bg: '#F7F7F7', fg: '#666666', label: 'Δεν εμφανίστηκε' }
+              if (status === 'no_show') return { bg: '#F3E8FF', fg: '#7E22CE', label: 'Δεν ήρθε' }
               return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
+            }
+
+            // Τρόπος πληρωμής — ΡΗΤΑ, για να ξέρει ο πλυντηριάς αν εισπράττει.
+            const paymentBadge = (b: Booking) => {
+              if (b.source === 'manual') return { bg: '#F3F4F6', fg: '#4B5563', label: 'Εκτός πλατφόρμας' }
+              if (b.stripe_payment_status === 'pay_at_venue') return { bg: '#FFEDD5', fg: '#C2410C', label: '💵 ΜΕΤΡΗΤΑ — εισπράττεις εσύ' }
+              if (b.stripe_payment_status === 'paid') return { bg: '#E7F6EF', fg: '#0F7A5C', label: '💳 Πληρωμένη με κάρτα' }
+              return null
             }
 
             return (
@@ -774,8 +869,8 @@ export default function DashboardPage() {
                     { value: 'all', label: 'Όλες' },
                     { value: 'confirmed', label: 'Επιβεβαιωμένες' },
                     { value: 'completed', label: 'Ολοκληρωμένες' },
+                    { value: 'no_show', label: 'Δεν ήρθαν' },
                     { value: 'cancelled', label: 'Ακυρωμένες' },
-                    { value: 'no_show', label: 'Δεν εμφανίστηκε' },
                     { value: 'pending', label: 'Εκκρεμείς' },
                   ].map(opt => {
                     const active = filterStatus === opt.value
@@ -825,13 +920,14 @@ export default function DashboardPage() {
                   {filtered.map(b => {
                     const pill = statusPillConfig(b.status)
                     const canCancel = b.status === 'pending' || b.status === 'confirmed'
-                    const canNoShow = b.status === 'pending' || b.status === 'confirmed'
                     const slotDate = b.slot_date ? new Date(b.slot_date).toLocaleDateString('el-GR', {
                       day: 'numeric', month: 'short', timeZone: 'Europe/Athens'
                     }) : '—'
                     const bookedAt = b.created_at ? new Date(b.created_at).toLocaleDateString('el-GR', {
                       day: 'numeric', month: 'short', timeZone: 'Europe/Athens'
                     }) : '—'
+
+                    const payBadge = paymentBadge(b)
 
                     return (
                       <div
@@ -841,8 +937,16 @@ export default function DashboardPage() {
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-[14px] font-semibold tracking-tight text-gray-900">
-                            {b.profiles?.full_name || 'Πελάτης'}
+                            {b.customer_name || b.profiles?.full_name || 'Πελάτης'}
                           </p>
+                          {payBadge && (
+                            <span
+                              className="inline-flex items-center mt-1 px-2 py-0.5 rounded-md text-[11px] font-bold tracking-tight"
+                              style={{ background: payBadge.bg, color: payBadge.fg }}
+                            >
+                              {payBadge.label}
+                            </span>
+                          )}
                           {(b.profiles?.phone || b.profiles?.email) && (
                             <div className="flex items-center gap-1.5 mt-1">
                               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.6" strokeLinecap="round">
@@ -861,7 +965,6 @@ export default function DashboardPage() {
                               {slotDate} · {b.slot_start_time?.slice(0, 5) || '—'}
                             </p>
                           </div>
-                          {isCashBooking(b) && <div className="mt-2"><CashMark /></div>}
                           <p className="text-[10px] text-gray-400 mt-1">Κλείστηκε: {bookedAt}</p>
                         </div>
 
@@ -876,10 +979,10 @@ export default function DashboardPage() {
                             <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
                             {pill.label}
                           </span>
-                          {canNoShow && (
+                          {canMarkNoShow(b) && (
                             <button
-                              onClick={() => { lightTap(); setNoShowTarget(b) }}
-                              className="text-[11px] font-medium text-gray-600 underline underline-offset-[2px]"
+                              onClick={() => { lightTap(); markNoShow(b) }}
+                              className="px-2.5 py-1.5 rounded-lg bg-purple-50 text-purple-700 text-[11px] font-semibold border border-purple-100"
                             >
                               Δεν εμφανίστηκε
                             </button>
@@ -930,7 +1033,7 @@ export default function DashboardPage() {
             // Count bookings per date for the month
             const dateBookingCount: Record<string, number> = {}
             bookings.forEach(b => {
-              if (!b.slot_date || b.status === 'cancelled' || b.status === 'no_show') return
+              if (!b.slot_date || b.status === 'cancelled') return
               const d = new Date(b.slot_date)
               if (d.getFullYear() === year && d.getMonth() === month) {
                 const dateNum = d.getDate()
@@ -943,7 +1046,7 @@ export default function DashboardPage() {
               if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
               if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
               if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
-              if (status === 'no_show') return { bg: '#F7F7F7', fg: '#666666', label: 'Δεν εμφανίστηκε' }
+              if (status === 'no_show') return { bg: '#F3E8FF', fg: '#7E22CE', label: 'Δεν ήρθε' }
               return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
             }
 
@@ -1040,74 +1143,329 @@ export default function DashboardPage() {
                 {/* Separator */}
                 <div className="h-px bg-gray-100" />
 
-                {/* Selected day list */}
-                <div>
-                  <p className="text-[16px] font-semibold tracking-tight text-gray-900 capitalize">
-                    {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
-                  </p>
-                  <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mt-1">
-                    {calendarLoading ? 'Φόρτωση...' : `${calendarBookings.length} ${calendarBookings.length === 1 ? 'κράτηση' : 'κρατήσεις'}`}
-                  </p>
+                {/* Day timeline — 08:00–22:00, τύπου Google Calendar */}
+                {(() => {
+                  const DAY_START = 8 * 60
+                  const DAY_END = 22 * 60
+                  const PX_PER_MIN = 44 / 30 // 30' = 44px
+                  const timelineHeight = (DAY_END - DAY_START) * PX_PER_MIN
 
-                  {calendarBookings.length > 0 && !calendarLoading && (
-                    <div className="flex flex-col gap-1.5 mt-3.5">
-                      {calendarBookings.map(b => {
-                        const pill = statusPillConfig(b.status)
-                        const canNoShow = b.status === 'pending' || b.status === 'confirmed'
-                        return (
-                          <div
-                            key={b.id}
-                            className="flex items-center gap-3 px-3.5 py-3 rounded-[10px] bg-gray-50 flex-wrap"
-                          >
-                            <span
-                              className="text-[14px] font-bold tracking-tight text-gray-900 w-[52px] shrink-0"
-                              style={{ fontVariantNumeric: 'tabular-nums' }}
-                            >
-                              {b.slot_start_time?.slice(0, 5)}
-                            </span>
-                            <span className="flex-1 text-[13px] font-medium text-gray-900 truncate">
-                              {b.profiles?.full_name || 'Πελάτης'}
-                            </span>
-                            {isCashBooking(b) && <CashMark />}
-                            <span className="text-[13px] font-semibold text-gray-900">
-                              €{Number(b.total_amount || 0).toFixed(0)}
-                            </span>
-                            <span
-                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-tight shrink-0"
-                              style={{ background: pill.bg, color: pill.fg }}
-                            >
-                              <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
-                              {pill.label}
-                            </span>
-                            {canNoShow && (
-                              <button
-                                onClick={() => { lightTap(); setNoShowTarget(b) }}
-                                className="text-[11px] font-medium text-gray-600 underline underline-offset-[2px] shrink-0"
+                  const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5))
+
+                  // Lane assignment για επικαλυπτόμενες κρατήσεις (δίπλα-δίπλα).
+                  const timed = calendarBookings
+                    .filter(b => b.slot_start_time)
+                    .map(b => {
+                      const s = toMin(b.slot_start_time!)
+                      return { b, s, e: s + Math.max(30, b.duration_minutes || 30) }
+                    })
+                    .sort((a, x) => a.s - x.s || a.e - x.e)
+
+                  const laneEnds: number[] = []
+                  const placed = timed.map(item => {
+                    let lane = laneEnds.findIndex(end => end <= item.s)
+                    if (lane === -1) { lane = laneEnds.length; laneEnds.push(item.e) }
+                    else laneEnds[lane] = item.e
+                    return { ...item, lane }
+                  })
+                  const laneCount = Math.max(1, laneEnds.length)
+
+                  const blockStyle = (bk: Booking) => {
+                    if (bk.status === 'no_show') return { bg: '#F3E8FF', border: '#C084FC', fg: '#7E22CE' }
+                    if (bk.status === 'completed') return { bg: '#E7F6EF', border: '#34C79A', fg: '#0F7A5C' }
+                    if (bk.source === 'manual') return { bg: '#F3F4F6', border: '#9CA3AF', fg: '#374151' }
+                    if (bk.stripe_payment_status === 'pay_at_venue') return { bg: '#FFEDD5', border: '#FB923C', fg: '#C2410C' }
+                    return { bg: '#EAF2FD', border: '#5C9CE6', fg: '#1A6FD4' }
+                  }
+
+                  return (
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-[16px] font-semibold tracking-tight text-gray-900 capitalize">
+                            {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
+                          </p>
+                          <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mt-1">
+                            {calendarLoading ? 'Φόρτωση...' : `${calendarBookings.length} ${calendarBookings.length === 1 ? 'κράτηση' : 'κρατήσεις'}`}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setManualServiceId(bookableServices.find(s => s.is_active)?.id || '')
+                            setManualError('')
+                            setShowManualForm(true)
+                            lightTap()
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gray-900 text-white text-[13px] font-semibold"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                          Ραντεβού
+                        </button>
+                      </div>
+
+                      {/* Υπόμνημα */}
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
+                        {[
+                          { c: '#5C9CE6', l: 'Κάρτα' },
+                          { c: '#FB923C', l: 'Μετρητά' },
+                          { c: '#9CA3AF', l: 'Εκτός πλατφόρμας' },
+                          { c: '#34C79A', l: 'Ολοκληρωμένη' },
+                          { c: '#C084FC', l: 'Δεν ήρθε' },
+                        ].map(x => (
+                          <span key={x.l} className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500">
+                            <span className="w-2 h-2 rounded-full" style={{ background: x.c }} />
+                            {x.l}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Timeline */}
+                      <div className="relative mt-3 select-none" style={{ height: timelineHeight }}>
+                        {/* Γραμμές ωρών */}
+                        {Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }).map((_, i) => {
+                          const minutes = DAY_START + i * 60
+                          const top = (minutes - DAY_START) * PX_PER_MIN
+                          return (
+                            <div key={i} className="absolute left-0 right-0 flex items-start" style={{ top }}>
+                              <span
+                                className="w-[42px] shrink-0 text-[10px] font-semibold text-gray-400 -mt-1.5"
+                                style={{ fontVariantNumeric: 'tabular-nums' }}
                               >
-                                Δεν εμφανίστηκε
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
+                                {String(Math.floor(minutes / 60)).padStart(2, '0')}:00
+                              </span>
+                              <div className="flex-1 h-px bg-gray-100" />
+                            </div>
+                          )
+                        })}
+                        {/* Μισάωρα (αχνές γραμμές) */}
+                        {Array.from({ length: (DAY_END - DAY_START) / 60 }).map((_, i) => {
+                          const minutes = DAY_START + i * 60 + 30
+                          const top = (minutes - DAY_START) * PX_PER_MIN
+                          return (
+                            <div key={`h-${i}`} className="absolute right-0 h-px bg-gray-50" style={{ top, left: 42 }} />
+                          )
+                        })}
 
-                  {!calendarLoading && calendarBookings.length === 0 && (
-                    <p className="text-[13px] text-gray-400 mt-4">Δεν υπάρχουν κρατήσεις αυτή τη μέρα.</p>
-                  )}
-                </div>
+                        {/* Κρατήσεις */}
+                        {placed.map(({ b, s, e, lane }) => {
+                          const st = blockStyle(b)
+                          const top = Math.max(0, (s - DAY_START) * PX_PER_MIN)
+                          const height = Math.max(30, (e - s) * PX_PER_MIN - 3)
+                          const areaLeft = 48
+                          const widthPct = 100 / laneCount
+                          return (
+                            <div
+                              key={b.id}
+                              className="absolute rounded-lg px-2 py-1 overflow-hidden"
+                              style={{
+                                top,
+                                height,
+                                left: `calc(${areaLeft}px + (100% - ${areaLeft}px) * ${lane * widthPct / 100})`,
+                                width: `calc((100% - ${areaLeft}px) * ${widthPct / 100} - 3px)`,
+                                background: st.bg,
+                                borderLeft: `3px solid ${st.border}`,
+                                opacity: b.status === 'no_show' || b.status === 'cancelled' ? 0.65 : 1,
+                              }}
+                            >
+                              <p className="text-[10px] font-bold leading-tight" style={{ color: st.fg, fontVariantNumeric: 'tabular-nums' }}>
+                                {b.slot_start_time?.slice(0, 5)}–{`${String(Math.floor(e / 60)).padStart(2, '0')}:${String(e % 60).padStart(2, '0')}`}
+                              </p>
+                              <p className="text-[11px] font-semibold leading-tight truncate mt-0.5" style={{ color: st.fg }}>
+                                {b.customer_name || b.profiles?.full_name || 'Πελάτης'}
+                              </p>
+                              {height > 56 && (
+                                <p className="text-[10px] leading-tight truncate mt-0.5" style={{ color: st.fg, opacity: 0.8 }}>
+                                  {b.services?.name || ''}
+                                </p>
+                              )}
+                            </div>
+                          )
+                        })}
+
+                        {!calendarLoading && placed.length === 0 && (
+                          <p className="absolute left-[60px] top-6 text-[13px] text-gray-400">
+                            Δεν υπάρχουν κρατήσεις αυτή τη μέρα.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
             )
           })()}
 
+          {/* Modal χειροκίνητης κράτησης (τηλεφωνική / εκτός πλατφόρμας) */}
+          {showManualForm && (
+            <div className="fixed inset-0 z-50 flex items-end justify-center">
+              <div className="absolute inset-0 bg-black/30" onClick={() => setShowManualForm(false)} />
+              <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 w-full max-w-md z-10">
+                <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+                <p className="text-base font-semibold text-gray-900 mb-1">Προσθήκη ραντεβού</p>
+                <p className="text-[12px] text-gray-400 mb-4">
+                  Για κρατήσεις που έρχονται από τηλέφωνο ή από τον πάγκο. Δεσμεύει την ώρα ώστε να μη διπλοκλειστεί.
+                </p>
+
+                <div className="mb-3">
+                  <p className="text-xs text-gray-400 mb-1.5">Υπηρεσία</p>
+                  <select
+                    value={manualServiceId}
+                    onChange={e => setManualServiceId(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm bg-white focus:outline-none"
+                  >
+                    {bookableServices.filter(s => s.is_active).map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} · {s.duration_minutes}′
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mb-3">
+                  <p className="text-xs text-gray-400 mb-1.5">Ώρα έναρξης</p>
+                  <select
+                    value={manualTime}
+                    onChange={e => setManualTime(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm bg-white focus:outline-none"
+                    style={{ fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {Array.from({ length: 28 }).map((_, i) => {
+                      const m = 8 * 60 + i * 30
+                      const t = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+                      return <option key={t} value={t}>{t}</option>
+                    })}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1.5">Όνομα</p>
+                    <input
+                      type="text" value={manualFirstName}
+                      onChange={e => setManualFirstName(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1.5">Επίθετο</p>
+                    <input
+                      type="text" value={manualLastName}
+                      onChange={e => setManualLastName(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <p className="text-xs text-gray-400 mb-1.5">Κινητό</p>
+                  <input
+                    type="tel" value={manualPhone}
+                    onChange={e => setManualPhone(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm focus:outline-none"
+                  />
+                </div>
+
+                {manualError && <p className="text-[12px] text-red-500 mb-3">{manualError}</p>}
+
+                <button
+                  onClick={createManualBooking}
+                  disabled={manualSaving}
+                  className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40"
+                >
+                  {manualSaving ? 'Αποθήκευση...' : 'Αποθήκευση'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'services' && (
             <div className="space-y-4">
+              {/* ───────── ΒΑΣΙΚΕΣ ΥΠΗΡΕΣΙΕΣ ───────── */}
               <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
-                Διαθέσιμες υπηρεσίες
+                Βασικές υπηρεσίες
               </p>
               <p className="text-[13px] text-gray-500 -mt-2 leading-relaxed">
-                Επίλεξε τις υπηρεσίες που προσφέρεις στο σημείο σου και όρισε τις τιμές ξεχωριστά για ΙΧ και Μοτοσικλέτα.
+                Οι κύριες υπηρεσίες του σημείου σου. Όρισε τιμή για ΙΧ, SUV και Μοτοσικλέτα —
+                ό,τι αλλάξεις εμφανίζεται αμέσως στο προφίλ σου και στον χάρτη.
+              </p>
+
+              <div className="space-y-2.5">
+                {bookableServices.map(bs => (
+                  <div
+                    key={bs.id}
+                    className="bg-white border border-gray-100 rounded-2xl p-4"
+                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-semibold tracking-tight text-gray-900">
+                          {bs.name}
+                          <span className="text-[12px] font-medium text-gray-400 ml-1.5">· {bs.duration_minutes}′</span>
+                        </p>
+                        <p className={`text-[12px] font-medium mt-0.5 ${bs.is_active ? 'text-green-600' : 'text-gray-400'}`}>
+                          {bs.is_active ? '● Ενεργή' : '○ Ανενεργή'}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => { lightTap(); updateBaseService(bs.id, { is_active: !bs.is_active }) }}
+                        className="relative w-[44px] h-[26px] rounded-full transition-colors shrink-0"
+                        style={{ background: bs.is_active ? '#34C759' : '#E5E5E5' }}
+                      >
+                        <div
+                          className="absolute top-0.5 w-[22px] h-[22px] rounded-full bg-white transition-all"
+                          style={{
+                            left: bs.is_active ? 20 : 2,
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.15), 0 1px 0 rgba(0,0,0,0.04)',
+                          }}
+                        />
+                      </button>
+                    </div>
+
+                    {bs.is_active && (
+                      <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-3 gap-2">
+                        {([
+                          ['ΙΧ', 'price', bs.price] as const,
+                          ['SUV', 'price_suv', bs.price_suv] as const,
+                          ['Μοτο', 'price_moto', bs.price_moto] as const,
+                        ]).map(([label, field, value]) => (
+                          <div key={field} className="bg-gray-50 rounded-xl p-2.5">
+                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-500 mb-1">
+                              {label}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[14px] font-semibold text-gray-500">€</span>
+                              <input
+                                type="number"
+                                defaultValue={value ?? ''}
+                                placeholder="—"
+                                onBlur={e => {
+                                  const val = parseFloat(e.target.value)
+                                  if (isNaN(val) || val <= 0) return
+                                  updateBaseService(bs.id, { [field]: val } as Partial<BookableService>)
+                                }}
+                                className="w-full bg-transparent text-[17px] font-bold tracking-tight text-gray-900 focus:outline-none"
+                                style={{ fontVariantNumeric: 'tabular-nums' }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {bookableServices.length === 0 && (
+                  <p className="text-[13px] text-gray-400">Δεν έχουν οριστεί βασικές υπηρεσίες. Επικοινώνησε με το Washio.</p>
+                )}
+              </div>
+
+              <div className="h-px bg-gray-100" />
+
+              {/* ───────── ΔΕΥΤΕΡΕΥΟΥΣΕΣ ΥΠΗΡΕΣΙΕΣ ───────── */}
+              <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
+                Δευτερεύουσες υπηρεσίες
+              </p>
+              <p className="text-[13px] text-gray-500 -mt-2 leading-relaxed">
+                Πρόσθετα που μπορεί να επιλέξει ο πελάτης μαζί με τη βασική υπηρεσία.
               </p>
 
               <div className="space-y-2.5">
@@ -1336,11 +1694,18 @@ export default function DashboardPage() {
                                 className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold"
                                 style={{ background: '#FCEAEA', color: '#B43C3C' }}
                               >
-                                Κλειστό
+                                Κλειστά όλη τη μέρα
+                              </span>
+                            ) : ex.closed_from && ex.closed_to ? (
+                              <span
+                                className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold"
+                                style={{ background: '#FFEDD5', color: '#C2410C', fontVariantNumeric: 'tabular-nums' }}
+                              >
+                                Κλειστά {ex.closed_from.slice(0, 5)} – {ex.closed_to.slice(0, 5)}
                               </span>
                             ) : (
                               <p className="text-[12px] text-gray-500 mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                {ex.periods.map(p => `${p.open} – ${p.close}`).join(' · ')}
+                                {(ex.periods || []).map(p => `Ανοιχτά ${p.open} – ${p.close}`).join(' · ') || '—'}
                               </p>
                             )}
                           </div>
@@ -1356,14 +1721,46 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-              {/* Exception picker modal */}
+              {/* Exception picker modal — Εξαίρεση ημέρας ή Εξαίρεση ώρας */}
               {showExceptionPicker && (
                 <div className="fixed inset-0 z-50 flex items-end justify-center">
                   <div className="absolute inset-0 bg-black/30" onClick={() => setShowExceptionPicker(false)} />
                   <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 w-full max-w-md z-10">
                     <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
-                    <p className="text-base font-semibold text-gray-900 mb-4">Εξαίρεση ημέρας</p>
+                    <p className="text-base font-semibold text-gray-900 mb-1">Προσθήκη εξαίρεσης</p>
+                    <p className="text-[12px] text-gray-400 mb-4">Δήλωσε πότε ΔΕΝ θα δουλέψεις — οι ώρες κλείνουν αυτόματα για κρατήσεις.</p>
 
+                    {/* Δύο επιλογές */}
+                    <div className="grid grid-cols-2 gap-2 mb-4">
+                      <button
+                        onClick={() => { setExceptionMode('day'); lightTap() }}
+                        className={`rounded-xl border-2 p-3.5 text-left transition-colors ${
+                          exceptionMode === 'day' ? 'border-gray-900 bg-gray-900' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <p className={`text-[14px] font-semibold ${exceptionMode === 'day' ? 'text-white' : 'text-gray-900'}`}>
+                          Εξαίρεση ημέρας
+                        </p>
+                        <p className={`text-[11px] mt-1 leading-snug ${exceptionMode === 'day' ? 'text-white/70' : 'text-gray-400'}`}>
+                          Κλειστά όλη τη μέρα
+                        </p>
+                      </button>
+                      <button
+                        onClick={() => { setExceptionMode('hours'); lightTap() }}
+                        className={`rounded-xl border-2 p-3.5 text-left transition-colors ${
+                          exceptionMode === 'hours' ? 'border-gray-900 bg-gray-900' : 'border-gray-200 bg-white'
+                        }`}
+                      >
+                        <p className={`text-[14px] font-semibold ${exceptionMode === 'hours' ? 'text-white' : 'text-gray-900'}`}>
+                          Εξαίρεση ώρας
+                        </p>
+                        <p className={`text-[11px] mt-1 leading-snug ${exceptionMode === 'hours' ? 'text-white/70' : 'text-gray-400'}`}>
+                          Κλειστά από–έως
+                        </p>
+                      </button>
+                    </div>
+
+                    {/* Ημερομηνία — και στις δύο επιλογές */}
                     <div className="mb-4">
                       <p className="text-xs text-gray-400 mb-1.5">Ημερομηνία</p>
                       <input type="date" value={exceptionDate}
@@ -1371,44 +1768,34 @@ export default function DashboardPage() {
                         className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none" />
                     </div>
 
-                    <div className="flex items-center gap-2 mb-4">
-                      <button onClick={() => setExceptionClosed(!exceptionClosed)}
-                        className={`text-xs px-3 py-1.5 rounded-lg ${exceptionClosed ? 'bg-red-50 text-red-500' : 'bg-gray-100 text-gray-500'}`}>
-                        {exceptionClosed ? '✗ Κλειστό' : 'Ανοιχτό'}
-                      </button>
-                    </div>
-
-                    {!exceptionClosed && (
-                      <div className="space-y-2 mb-4">
-                        <p className="text-xs text-gray-400">Ώρες λειτουργίας</p>
-                        {exceptionPeriods.map((period, idx) => (
-                          <div key={idx} className="flex items-center gap-2">
-                            <select value={period.open}
-                              onChange={e => setExceptionPeriods(prev => prev.map((p, i) => i === idx ? { ...p, open: e.target.value } : p))}
-                              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-                              {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
-                            </select>
-                            <span className="text-gray-400 text-xs">έως</span>
-                            <select value={period.close}
-                              onChange={e => setExceptionPeriods(prev => prev.map((p, i) => i === idx ? { ...p, close: e.target.value } : p))}
-                              className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-                              {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
-                            </select>
-                            {exceptionPeriods.length > 1 && (
-                              <button onClick={() => setExceptionPeriods(prev => prev.filter((_, i) => i !== idx))}
-                                className="text-red-400 text-xs px-1">✕</button>
-                            )}
-                          </div>
-                        ))}
-                        <button onClick={() => setExceptionPeriods(prev => [...prev, { open: '15:00', close: '20:00' }])}
-                          className="text-xs text-gray-500 border border-dashed border-gray-300 rounded-lg px-3 py-2 w-full">
-                          + Προσθήκη περιόδου
-                        </button>
+                    {/* Διάστημα — μόνο στην εξαίρεση ώρας */}
+                    {exceptionMode === 'hours' && (
+                      <div className="mb-4">
+                        <p className="text-xs text-gray-400 mb-1.5">Δεν θα δουλέψω από — έως</p>
+                        <div className="flex items-center gap-2">
+                          <select value={exceptionFrom}
+                            onChange={e => setExceptionFrom(e.target.value)}
+                            className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+                            {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+                          </select>
+                          <span className="text-gray-400 text-xs">έως</span>
+                          <select value={exceptionTo}
+                            onChange={e => setExceptionTo(e.target.value)}
+                            className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+                            {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
+                          </select>
+                        </div>
+                        {exceptionFrom >= exceptionTo && (
+                          <p className="text-[11px] text-red-500 mt-1.5">Η ώρα «έως» πρέπει να είναι μετά την «από».</p>
+                        )}
                       </div>
                     )}
 
-                    <button onClick={saveException} disabled={!exceptionDate}
-                      className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40">
+                    <button
+                      onClick={saveException}
+                      disabled={!exceptionDate || (exceptionMode === 'hours' && exceptionFrom >= exceptionTo)}
+                      className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40"
+                    >
                       Αποθήκευση
                     </button>
                   </div>
@@ -1417,6 +1804,59 @@ export default function DashboardPage() {
               </div>
             )
           })()}
+
+          {activeTab === 'settings' && (
+            <div className="space-y-5">
+              <div
+                className="bg-white border border-gray-100 rounded-[14px] p-4"
+                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+              >
+                <p className="text-[15px] font-semibold tracking-tight text-gray-900">Μάνικες / θέσεις εξυπηρέτησης</p>
+                <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">
+                  Πόσα αυτοκίνητα μπορείς να εξυπηρετείς <span className="font-semibold text-gray-900">ταυτόχρονα</span>;
+                  Αν έχεις 2 μάνικες, η ίδια ώρα μπορεί να κλειστεί 2 φορές.
+                </p>
+
+                <div className="flex items-center justify-center gap-5 mt-5">
+                  <button
+                    onClick={() => { setCapacity(c => Math.max(1, c - 1)); lightTap() }}
+                    className="w-12 h-12 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-900 text-xl font-semibold disabled:opacity-30"
+                    disabled={capacity <= 1}
+                  >
+                    −
+                  </button>
+                  <div className="w-20 text-center">
+                    <p className="text-[34px] font-bold tracking-tight text-gray-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                      {capacity}
+                    </p>
+                    <p className="text-[11px] font-semibold tracking-[1.2px] uppercase text-gray-400 -mt-1">
+                      {capacity === 1 ? 'μάνικα' : 'μάνικες'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setCapacity(c => Math.min(10, c + 1)); lightTap() }}
+                    className="w-12 h-12 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-900 text-xl font-semibold disabled:opacity-30"
+                    disabled={capacity >= 10}
+                  >
+                    +
+                  </button>
+                </div>
+
+                <button
+                  onClick={saveCapacity}
+                  disabled={savingCapacity}
+                  className="w-full h-12 mt-5 rounded-xl bg-gray-900 text-white text-[14px] font-semibold tracking-tight disabled:opacity-40"
+                >
+                  {savingCapacity ? 'Αποθήκευση...' : capacitySaved ? '✓ Αποθηκεύτηκε' : 'Αποθήκευση'}
+                </button>
+              </div>
+
+              <p className="text-[12px] text-gray-400 leading-relaxed px-1">
+                Η αλλαγή ισχύει αμέσως: αν δηλώσεις 2 μάνικες, οι πελάτες στην εφαρμογή θα βλέπουν
+                διαθέσιμη μια ώρα μέχρι να έχει 2 κρατήσεις.
+              </p>
+            </div>
+          )}
 
           {activeTab === 'staff' && (() => {
             const roleConfig = (role: string) => {
@@ -1692,38 +2132,6 @@ export default function DashboardPage() {
 
         </div>
       </div>
-
-      {noShowTarget && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => !noShowSaving && setNoShowTarget(null)} />
-          <div className="relative bg-white rounded-t-3xl sm:rounded-2xl px-5 pt-6 pb-8 w-full max-w-md z-10">
-            <p className="text-[17px] font-semibold tracking-tight text-gray-900">Δεν εμφανίστηκε</p>
-            <p className="text-[13px] text-gray-500 mt-2">
-              Ο πελάτης θα σημειωθεί ως μη εμφανισθείς
-              {noShowTarget.slot_start_time ? ` για τις ${noShowTarget.slot_start_time.slice(0, 5)}` : ''}.
-              Το slot απελευθερώνεται. Δεν γίνεται επιστροφή χρημάτων.
-            </p>
-            <div className="flex gap-2 mt-6">
-              <button
-                type="button"
-                disabled={noShowSaving}
-                onClick={() => setNoShowTarget(null)}
-                className="flex-1 h-12 rounded-xl border border-gray-200 text-[14px] font-semibold text-gray-700"
-              >
-                Άκυρο
-              </button>
-              <button
-                type="button"
-                disabled={noShowSaving}
-                onClick={confirmNoShow}
-                className="flex-1 h-12 rounded-xl bg-gray-900 text-white text-[14px] font-semibold"
-              >
-                {noShowSaving ? 'Αποθήκευση...' : 'Επιβεβαίωση'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   )
 }

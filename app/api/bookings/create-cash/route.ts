@@ -4,7 +4,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import { alertCritical } from '@/lib/alert'
 import { sendPush, getLocationOwnerId } from '@/lib/push'
-import { slotBookingBlockReason } from '@/lib/booking-availability'
+import { checkSlotAvailability } from '@/lib/availability-server'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     // 2) Τιμή server-side από τη DB — ποτέ από τον client.
     const { data: service, error: serviceErr } = await admin
       .from('services')
-      .select('id, name, price, price_moto')
+      .select('id, name, price, price_moto, price_suv')
       .eq('id', serviceId)
       .single()
 
@@ -86,8 +86,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Άκυρη υπηρεσία' }, { status: 400 })
     }
 
+    // Τιμή ανά τύπο οχήματος — ΠΑΝΤΑ server-side από τη DB.
     const isMoto = vehicleType === 'Μοτοσικλέτα'
-    let amount = isMoto && service.price_moto != null ? Number(service.price_moto) : Number(service.price)
+    const isSuv = vehicleType === 'SUV'
+    let amount = isMoto && service.price_moto != null ? Number(service.price_moto)
+      : isSuv && service.price_suv != null ? Number(service.price_suv)
+      : Number(service.price)
 
     const requestedAddonIds: string[] = Array.isArray(addonIds) ? addonIds : []
     if (requestedAddonIds.length > 0) {
@@ -108,10 +112,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Μη έγκυρο ποσό' }, { status: 400 })
     }
 
-    // 3) Re-check διαθεσιμότητας: ωράριο/εξαιρέσεις, 15' lead time, occupied.
-    const slotBlock = await slotBookingBlockReason(admin, locationId, slotDate, slotStartTime)
-    if (slotBlock) {
-      return NextResponse.json({ error: slotBlock }, { status: 409 })
+    // 3) Re-check διαθεσιμότητας — κοινοί κανόνες (ωράριο, εξαιρέσεις,
+    //    capacity μανικών, διάρκεια υπηρεσίας, lead time).
+    const availability = await checkSlotAvailability(admin, {
+      locationId, serviceId, slotDate, slotStartTime,
+    })
+    if (!availability.ok) {
+      return NextResponse.json({ error: availability.error }, { status: 409 })
     }
 
     // 4) Δημιουργία κράτησης — ΜΕΤΡΗΤΑ (χωρίς Stripe).
@@ -125,6 +132,8 @@ export async function POST(req: NextRequest) {
       slot_id: slotId || null,
       slot_date: slotDate,
       slot_start_time: slotStartTime,
+      duration_minutes: availability.durationMinutes,
+      source: 'platform',
       car_plate: carPlate || null,
       total_amount: amount,
       platform_fee: amount * 0.10,
@@ -148,8 +157,8 @@ export async function POST(req: NextRequest) {
       const ownerId = await getLocationOwnerId(locationId)
       const dPush = new Date(slotDate)
       await sendPush(ownerId, {
-        title: 'Νέα κράτηση 💵',
-        body: `${serviceName || service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''} • Μετρητά`,
+        title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
+        body: `Εισπράττεις εσύ €${amount.toFixed(2)} στο κατάστημα • ${serviceName || service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
         url: '/dashboard',
       })
     } catch { /* best-effort */ }

@@ -21,8 +21,8 @@ const T = {
     s3h: '3. Κρατήσεις & πληρωμές',
     s3: 'Η τιμή κάθε υπηρεσίας εμφανίζεται πριν την κράτηση και υπολογίζεται από το σύστημα. Η πληρωμή γίνεται online μέσω Stripe. Η επιβεβαίωση της κράτησης ισχύει μετά την επιτυχή πληρωμή. Το Washio λαμβάνει προμήθεια από το πρατήριο ανά ολοκληρωμένη κράτηση.',
 
-    s4h: '4. Ακυρώσεις & επιστροφές',
-    s4: 'Μπορείς να ακυρώσεις σύμφωνα με την πολιτική που εμφανίζεται κατά την κράτηση (δωρεάν ακύρωση έως 2 ώρες πριν). Σε επιλέξιμη ακύρωση, η επιστροφή γίνεται στην κάρτα πληρωμής εντός λίγων εργάσιμων ημερών.',
+    s4h: '4. Ακυρώσεις, επιστροφές & μη προσέλευση',
+    s4: 'Μπορείς να ακυρώσεις σύμφωνα με την πολιτική που εμφανίζεται κατά την κράτηση (δωρεάν ακύρωση έως 2 ώρες πριν). Σε επιλέξιμη ακύρωση, η επιστροφή γίνεται στην κάρτα πληρωμής εντός λίγων εργάσιμων ημερών. Μη προσέλευση (no-show): αν δεν προσέλθεις εντός 15 λεπτών από την ώρα του ραντεβού σου, η κράτηση θεωρείται μη εμφανισθείσα, το ραντεβού ακυρώνεται και δεν πραγματοποιείται επιστροφή χρημάτων.',
 
     s5h: '5. Υποχρεώσεις χρήστη',
     s5: 'Δεσμεύεσαι να χρησιμοποιείς την υπηρεσία νόμιμα, να δίνεις σωστά στοιχεία οχήματος και να εμφανίζεσαι στην ώρα της κράτησης. Καταχρηστική χρήση μπορεί να οδηγήσει σε αναστολή λογαριασμού.',
@@ -56,8 +56,8 @@ const T = {
     s3h: '3. Bookings & payments',
     s3: 'The price of each service is shown before booking and is calculated by the system. Payment is made online via Stripe. Booking confirmation takes effect after successful payment. Washio receives a commission from the station for each completed booking.',
 
-    s4h: '4. Cancellations & refunds',
-    s4: 'You can cancel in accordance with the policy shown at the time of booking (free cancellation up to 2 hours before). For an eligible cancellation, the refund is issued to the payment card within a few business days.',
+    s4h: '4. Cancellations, refunds & no-show',
+    s4: 'You can cancel in accordance with the policy shown at the time of booking (free cancellation up to 2 hours before). For an eligible cancellation, the refund is issued to the payment card within a few business days. No-show: if you do not arrive within 15 minutes of your appointment time, the booking is considered a no-show, the appointment is cancelled and no refund is issued.',
 
     s5h: '5. User obligations',
     s5: 'You agree to use the service lawfully, to provide correct vehicle details and to show up at the time of your booking. Abusive use may lead to suspension of your account.',

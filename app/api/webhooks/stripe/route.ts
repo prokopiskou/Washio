@@ -94,8 +94,15 @@ export async function POST(req: NextRequest) {
 
     const bookingRef = 'WS-' + Math.random().toString(16).slice(2, 10).toUpperCase()
 
+    // Διάρκεια υπηρεσίας (snapshot) — για σωστή δέσμευση διαδοχικών slots.
+    const { data: svcRow } = await supabase
+      .from('services').select('duration_minutes').eq('id', m.serviceId).maybeSingle()
+    const bookingDuration = Math.max(30, Number(svcRow?.duration_minutes) || 30)
+
     const { error } = await supabase.from('bookings').insert({
       booking_ref: bookingRef,
+      duration_minutes: bookingDuration,
+      source: 'platform',
       user_id: m.userId || null,
       location_id: m.locationId,
       service_id: m.serviceId,
@@ -136,8 +143,8 @@ export async function POST(req: NextRequest) {
 
     // Push στον πρατηριούχο: νέα κράτηση (κάρτα).
     await sendPush((locationData as { owner_id?: string })?.owner_id, {
-      title: 'Νέα κράτηση 💧',
-      body: `${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${m.carPlate ? ' • ' + m.carPlate : ''}`,
+      title: '💳 Νέα κράτηση — ΠΛΗΡΩΜΕΝΗ με κάρτα',
+      body: `Μη ζητήσεις χρήματα, €${parseFloat(m.amount).toFixed(2)} εξοφλημένα online • ${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${m.carPlate ? ' • ' + m.carPlate : ''}`,
       url: '/dashboard',
     })
 

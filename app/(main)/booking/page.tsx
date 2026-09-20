@@ -306,12 +306,14 @@ function BookingPageContent() {
 
       if (serviceId) {
         const { data: serviceData } = await supabase
-          .from('services').select('id, name, price, price_moto, duration_minutes')
+          .from('services').select('id, name, price, price_moto, price_suv, duration_minutes')
           .eq('id', serviceId).single()
         if (serviceData) {
           setService(serviceData)
           const price = vehicleType === 'Μοτοσικλέτα' && serviceData.price_moto
             ? serviceData.price_moto
+            : vehicleType === 'SUV' && serviceData.price_suv
+            ? serviceData.price_suv
             : serviceData.price
           setServicePrice(price)
         }

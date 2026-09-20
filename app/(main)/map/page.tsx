@@ -7,18 +7,9 @@ import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, M
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
-import { athensToday } from '@/lib/time'
-import {
-  annotateSlots,
-  INACTIVE_STATUS_FILTER,
-  minutesUntilSlot as getMinutesUntilSlot,
-  nextAvailableSlot,
-  NOW_WINDOW_MINUTES,
-  offeredTimesForDay,
-  TIGHT_SLOT_THRESHOLD_MINUTES,
-  weekdayMon1FromYmd,
-} from '@/lib/slots'
-import { getDevicePosition } from '@/lib/geolocation'
+import { athensToday, athensMinutesOfDay } from '@/lib/time'
+import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } from '@/lib/availability'
+import { getCurrentPosition } from '@/lib/geo'
 import { BottomNav } from '@/components/BottomNav'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
@@ -96,6 +87,8 @@ type Service = {
   name: string
   price: number
   price_moto?: number
+  price_suv?: number
+  duration_minutes?: number
 }
 
 type Slot = {
@@ -105,8 +98,28 @@ type Slot = {
 
 type Timing = 'now' | 'later'
 
+const TIGHT_SLOT_THRESHOLD = 20
 const LABEL_ZOOM = 12.5 // από αυτό το zoom και πάνω εμφανίζονται τα ονόματα στις πινέζες
 const NO_COVERAGE_KM = 10 // αν το πιο κοντινό πλυντήριο είναι πιο μακριά → «κενό κάλυψης» → capture
+
+function generateSlots(openTime: string, closeTime: string): string[] {
+  const slots: string[] = []
+  const [openH, openM] = openTime.split(':').map(Number)
+  const [closeH, closeM] = closeTime.split(':').map(Number)
+  let current = openH * 60 + openM
+  const endMinutes = closeH * 60 + closeM
+  while (current < endMinutes) {
+    const h = Math.floor(current / 60).toString().padStart(2, '0')
+    const m = (current % 60).toString().padStart(2, '0')
+    slots.push(`${h}:${m}`)
+    current += 30
+  }
+  return slots
+}
+
+function jsDayToSupabase(jsDay: number): number {
+  return jsDay === 0 ? 7 : jsDay
+}
 
 function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371
@@ -141,6 +154,13 @@ function getTimeSlots() {
     slots.push(`${String(h).padStart(2, '0')}:30`)
   }
   return slots
+}
+
+function getMinutesUntilSlot(slotTime: string): number {
+  const [h, m] = slotTime.split(':').map(Number)
+  const slotMinutes = h * 60 + m
+  const nowMinutes = athensMinutesOfDay()
+  return slotMinutes - nowMinutes
 }
 
 // Clean premium style — λίγο πιο ζωντανό χρώμα (μπλε νερό, πράσινα πάρκα, χρυσά highways)
@@ -220,19 +240,25 @@ function MapPageContent() {
   const [selectedDate, setSelectedDate] = useState(getTodayValue())
   const [selectedTime, setSelectedTime] = useState('')
   const [showTimePicker, setShowTimePicker] = useState(false)
-  const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'Μοτοσικλέτα'>('ΙΧ')
+  const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'SUV' | 'Μοτοσικλέτα'>('ΙΧ')
   const timePickerRef = useRef<HTMLDivElement>(null)
 
   const activeDate = timing === 'now' ? getTodayValue() : selectedDate
 
+  // Τιμή ανά τύπο οχήματος: ΙΧ = βασική, SUV = price_suv, Μοτο = price_moto.
+  const priceFor = (s: Service) =>
+    vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto
+    : vehicleType === 'SUV' && s.price_suv ? s.price_suv
+    : s.price
+
   const visibleServices = locationServices.filter(s => {
-    if (vehicleType === 'ΙΧ') return s.name !== 'Πλύσιμο'
+    if (vehicleType === 'ΙΧ' || vehicleType === 'SUV') return s.name !== 'Πλύσιμο'
     if (vehicleType === 'Μοτοσικλέτα') return s.name === 'Πλύσιμο'
     return true
   })
 
   const service = visibleServices.find(s => s.id === selectedService)
-  const selectedServicePrice = service ? (vehicleType === 'Μοτοσικλέτα' && service.price_moto ? service.price_moto : service.price) : undefined
+  const selectedServicePrice = service ? priceFor(service) : undefined
   const canBook = selectedService && selectedSlot
 
   // Get price for marker (lowest available service price for ΙΧ)
@@ -243,50 +269,54 @@ function MapPageContent() {
 
   const loadLocations = useCallback(async (lat?: number, lng?: number) => {
     const supabase = createClient()
+    const dayOfWeek = jsDayToSupabase(new Date(`${getTodayValue()}T12:00:00`).getDay())
     const checkDate = timing === 'later' ? selectedDate : getTodayValue()
     const checkTime = timing === 'later' ? selectedTime : null
-    const dayOfWeek = weekdayMon1FromYmd(checkDate)
 
     const [{ data: locsData }, { data: hoursData }, { data: bookingsData }, { data: exceptionsData }] = await Promise.all([
-      supabase.from('locations').select('id, name, address, city, slug, lat, lng').eq('is_active', true),
+      supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity').eq('is_active', true),
       supabase.from('location_hours').select('location_id, open_time, close_time, is_closed').eq('day_of_week', dayOfWeek),
-      supabase.from('bookings').select('location_id, slot_start_time').eq('slot_date', checkDate).not('status', 'in', INACTIVE_STATUS_FILTER),
-      supabase.from('location_hours_exceptions').select('location_id, periods, is_closed').eq('exception_date', checkDate),
+      supabase.from('bookings').select('location_id, slot_start_time, duration_minutes').eq('slot_date', checkDate).not('status', 'in', '("cancelled","no_show")'),
+      supabase.from('location_hours_exceptions').select('location_id, is_closed, closed_from, closed_to, periods').eq('exception_date', checkDate),
     ])
 
-    const hoursMap: Record<string, { open_time: string; close_time: string; is_closed?: boolean | null }> = {}
-    ;(hoursData || []).forEach((h: { location_id: string; open_time: string; close_time: string; is_closed?: boolean | null }) => {
-      hoursMap[h.location_id] = h
+    const hoursMap: Record<string, any> = {}
+    ;(hoursData || []).forEach((h: any) => { hoursMap[h.location_id] = h })
+
+    const exceptionsMap: Record<string, any> = {}
+    ;(exceptionsData || []).forEach((e: any) => { exceptionsMap[e.location_id] = e })
+
+    const bookingsMap: Record<string, OccupancyBooking[]> = {}
+    ;(bookingsData || []).forEach((b: any) => {
+      if (!bookingsMap[b.location_id]) bookingsMap[b.location_id] = []
+      bookingsMap[b.location_id].push({ slot_start_time: b.slot_start_time, duration_minutes: b.duration_minutes })
     })
 
-    const exceptionsMap: Record<string, { periods?: { open: string; close: string }[] | null; is_closed?: boolean | null }> = {}
-    ;(exceptionsData || []).forEach((e: { location_id: string; periods?: { open: string; close: string }[] | null; is_closed?: boolean | null }) => {
-      exceptionsMap[e.location_id] = e
-    })
+    const isCheckToday = checkDate === getTodayValue()
+    const nowMinutes = athensMinutesOfDay()
 
-    const bookingsMap: Record<string, Set<string>> = {}
-    ;(bookingsData || []).forEach((b: { location_id: string; slot_start_time?: string | null }) => {
-      if (!bookingsMap[b.location_id]) bookingsMap[b.location_id] = new Set()
-      bookingsMap[b.location_id].add(b.slot_start_time?.slice(0, 5) || '')
-    })
+    let locs: Location[] = (locsData || []).map((loc: any) => {
+      // ΚΟΙΝΗ λογική διαθεσιμότητας — ίδια με σελίδα πλυντηρίου & server.
+      const slotsForLoc = computeSlots({
+        dayHours: hoursMap[loc.id] || null,
+        exception: exceptionsMap[loc.id] as HoursException,
+        bookings: bookingsMap[loc.id] || [],
+        capacity: Math.max(1, Number(loc.capacity) || 1),
+        durationMinutes: 30,
+        isToday: isCheckToday,
+        nowMinutes,
+      })
 
-    let locs: Location[] = (locsData || []).map((loc: Location) => {
-      const allSlots = offeredTimesForDay(hoursMap[loc.id], exceptionsMap[loc.id])
-      const booked = bookingsMap[loc.id] || new Set()
       let hasAvailability = false
       let nextSlot: string | null = null
 
-      if (allSlots.length > 0) {
-        if (timing === 'later' && checkTime) {
-          const match = annotateSlots(allSlots, booked, checkDate).find(s => s.time === checkTime && s.available)
-          hasAvailability = !!match
-          nextSlot = match ? checkTime : null
-        } else {
-          nextSlot = nextAvailableSlot(allSlots, booked, checkDate, {
-            maxMinutesAhead: NOW_WINDOW_MINUTES,
-          })
-          hasAvailability = nextSlot !== null
-        }
+      if (timing === 'later' && checkTime) {
+        hasAvailability = slotsForLoc.some(s => s.time === checkTime && s.available)
+        nextSlot = checkTime
+      } else {
+        const maxMinutes = nowMinutes + 60
+        nextSlot = slotsForLoc.find(s => s.available && toMinutes(s.time) <= maxMinutes)?.time || null
+        hasAvailability = nextSlot !== null
       }
 
       return {
@@ -294,7 +324,7 @@ function MapPageContent() {
         distance: lat && lng ? getDistance(lat, lng, loc.lat, loc.lng) : undefined,
         hasAvailability,
         nextSlot,
-        bookingCount: (bookingsMap[loc.id]?.size || 0),
+        bookingCount: (bookingsMap[loc.id]?.length || 0),
       }
     })
 
@@ -319,19 +349,17 @@ function MapPageContent() {
 
   useEffect(() => {
     track('map_viewed')
-    trackEvent('ViewContent', { content_type: 'map' })
-    let cancelled = false
-    getDevicePosition({ interactive: true }).then(pos => {
-      if (cancelled) return
-      if (pos) {
-        setUserLat(pos.lat)
-        setUserLng(pos.lng)
-        loadLocations(pos.lat, pos.lng)
-      } else {
-        loadLocations()
+    trackEvent('ViewContent', { content_type: 'map' }) // browse signal (Pixel/GA4)
+    getCurrentPosition({ maximumAge: 300000 }).then(
+      pos => {
+        setUserLat(pos.latitude)
+        setUserLng(pos.longitude)
+        loadLocations(pos.latitude, pos.longitude)
+        // Το κεντράρισμα γίνεται στο effect [mapLoaded, userLat, userLng] παρακάτω,
+        // γιατί εδώ ο χάρτης μπορεί να μην έχει φορτώσει ακόμα.
       }
-    })
-    return () => { cancelled = true }
+    ).catch(() => loadLocations()
+    )
   }, [])
 
   // Με το που είναι έτοιμος ο χάρτης ΚΑΙ ξέρουμε τη θέση: κεντράρουμε πάνω στον χρήστη,
@@ -435,7 +463,7 @@ function MapPageContent() {
     }
     const loadServices = async () => {
       const supabase = createClient()
-      const { data } = await supabase.from('services').select('id, name, price, price_moto')
+      const { data } = await supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes')
         .eq('location_id', selectedLocation.id).eq('is_active', true).order('sort_order', { ascending: true })
       setLocationServices((data as Service[]) || [])
     }
@@ -453,36 +481,45 @@ function MapPageContent() {
     if (!selectedLocation) return
     const loadSlots = async () => {
       const supabase = createClient()
-      const checkDate = timing === 'now' ? getTodayValue() : selectedDate
-      const dayOfWeek = weekdayMon1FromYmd(checkDate)
+      const today = new Date()
+      const checkDate = timing === 'now'
+        ? `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+        : selectedDate
+      const dateObj = new Date(checkDate)
+      const dayOfWeek = jsDayToSupabase(dateObj.getDay())
 
-      const { data: exceptionData } = await supabase
-        .from('location_hours_exceptions')
-        .select('periods, is_closed')
-        .eq('location_id', selectedLocation.id)
-        .eq('exception_date', checkDate)
-        .maybeSingle()
-
-      let hoursData: { open_time: string; close_time: string; is_closed?: boolean | null } | null = null
-      if (!exceptionData) {
-        const { data } = await supabase.from('location_hours')
+      // ΚΟΙΝΗ λογική διαθεσιμότητας (lib/availability) — ίδια με σελίδα
+      // πλυντηρίου & server: ωράριο, εξαιρέσεις, capacity, διάρκεια, lead time.
+      const [{ data: exceptionData }, { data: hoursData }, { data: bookedData }, { data: capRow }] = await Promise.all([
+        supabase
+          .from('location_hours_exceptions')
+          .select('periods, is_closed, closed_from, closed_to')
+          .eq('location_id', selectedLocation.id)
+          .eq('exception_date', checkDate)
+          .maybeSingle(),
+        supabase.from('location_hours')
           .select('open_time, close_time, is_closed')
-          .eq('location_id', selectedLocation.id).eq('day_of_week', dayOfWeek).maybeSingle()
-        hoursData = data
-      }
+          .eq('location_id', selectedLocation.id).eq('day_of_week', dayOfWeek).maybeSingle(),
+        supabase.from('bookings').select('slot_start_time, duration_minutes')
+          .eq('location_id', selectedLocation.id).eq('slot_date', checkDate)
+          .not('status', 'in', '("cancelled","no_show")'),
+        supabase.from('locations').select('capacity').eq('id', selectedLocation.id).maybeSingle(),
+      ])
 
-      const allTimes = offeredTimesForDay(hoursData, exceptionData)
-      if (allTimes.length === 0) { setSlots([]); return }
-
-      const { data: bookedData } = await supabase.from('bookings').select('slot_start_time')
-        .eq('location_id', selectedLocation.id).eq('slot_date', checkDate).not('status', 'in', INACTIVE_STATUS_FILTER)
-
-      const bookedTimes = new Set(
-        (bookedData || [])
-          .map((b: { slot_start_time?: string | null }) => b.slot_start_time?.slice(0, 5))
-          .filter((t): t is string => !!t),
+      const serviceDuration = Math.max(
+        30,
+        locationServices.find(s => s.id === selectedService)?.duration_minutes || 30
       )
-      const computedSlots = annotateSlots(allTimes, bookedTimes, checkDate)
+
+      const computedSlots = computeSlots({
+        dayHours: hoursData as { is_closed: boolean; open_time: string; close_time: string } | null,
+        exception: exceptionData as HoursException,
+        bookings: (bookedData || []) as OccupancyBooking[],
+        capacity: Math.max(1, Number(capRow?.capacity) || 1),
+        durationMinutes: serviceDuration,
+        isToday: checkDate === getTodayValue(),
+        nowMinutes: athensMinutesOfDay(),
+      })
 
       setSlots(computedSlots)
 
@@ -495,7 +532,7 @@ function MapPageContent() {
       }
     }
     loadSlots()
-  }, [selectedLocation, timing, selectedDate, selectedTime])
+  }, [selectedLocation, timing, selectedDate, selectedTime, selectedService, locationServices])
 
   const selectLocation = (loc: Location) => {
     setSelectedLocation(loc)
@@ -527,7 +564,7 @@ function MapPageContent() {
 
     if (timing === 'now' && activeDate === getTodayValue()) {
       const minutes = getMinutesUntilSlot(selectedSlot!)
-      if (minutes <= TIGHT_SLOT_THRESHOLD_MINUTES) {
+      if (minutes <= TIGHT_SLOT_THRESHOLD) {
         setMinutesUntilSlot(minutes)
         setPendingBookingUrl(bookingUrl)
         setShowTightSlotModal(true)
@@ -538,19 +575,23 @@ function MapPageContent() {
     router.push(bookingUrl)
   }
 
-  const handleLocateMe = async () => {
+  const handleLocateMe = () => {
+    // Αν έχουμε ήδη θέση → πήγαινε εκεί.
     if (userLat && userLng && mapInstanceRef.current) {
       mapInstanceRef.current.panTo({ lat: userLat, lng: userLng })
       mapInstanceRef.current.setZoom(15)
       return
     }
-    const pos = await getDevicePosition({ interactive: true, maximumAge: 60000 })
-    if (!pos) return
-    setUserLat(pos.lat)
-    setUserLng(pos.lng)
-    loadLocations(pos.lat, pos.lng)
-    mapInstanceRef.current?.panTo({ lat: pos.lat, lng: pos.lng })
-    mapInstanceRef.current?.setZoom(15)
+    // Αλλιώς ξαναζήτα θέση (π.χ. αν είχε απορριφθεί/αποτύχει το permission).
+    getCurrentPosition({ maximumAge: 60000 }).then(
+      pos => {
+        setUserLat(pos.latitude)
+        setUserLng(pos.longitude)
+        loadLocations(pos.latitude, pos.longitude)
+        mapInstanceRef.current?.panTo({ lat: pos.latitude, lng: pos.longitude })
+        mapInstanceRef.current?.setZoom(15)
+      }
+    ).catch(() => { /* denied/failed — μένει χωρίς θέση */ })
   }
 
   const updateMarkers = useCallback(() => {
@@ -982,14 +1023,14 @@ function MapPageContent() {
 
               {/* Vehicle type segmented */}
               <div className="flex gap-2 mb-3">
-                {(['ΙΧ', 'Μοτοσικλέτα'] as const).map(type => (
+                {(['ΙΧ', 'SUV', 'Μοτοσικλέτα'] as const).map(type => (
                   <button key={type} onClick={() => setVehicleType(type)}
                     className={`px-4 py-2 rounded-full text-[13px] font-semibold border transition-all ${
                       vehicleType === type
                         ? 'bg-gray-900 text-white border-gray-900'
                         : 'bg-white text-gray-700 border-gray-200'
                     }`}>
-                    {type === 'ΙΧ' ? 'ΙΧ' : t.moto}
+                    {type === 'ΙΧ' ? 'ΙΧ' : type === 'SUV' ? 'SUV' : t.moto}
                   </button>
                 ))}
               </div>
@@ -997,7 +1038,7 @@ function MapPageContent() {
               {/* Services */}
               <div className="flex gap-2 mb-3">
                 {visibleServices.map(s => {
-                  const price = vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto : s.price
+                  const price = priceFor(s)
                   const isSelected = selectedService === s.id
                   return (
                     <button key={s.id} onClick={() => setSelectedService(s.id)}

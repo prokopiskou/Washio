@@ -3,7 +3,7 @@ import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { alertCritical } from '@/lib/alert'
-import { slotBookingBlockReason } from '@/lib/booking-availability'
+import { checkSlotAvailability } from '@/lib/availability-server'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     // 2) Τιμή υπολογίζεται SERVER-SIDE από τη DB — ποτέ από τον client.
     const { data: service, error: serviceErr } = await admin
       .from('services')
-      .select('id, name, price, price_moto')
+      .select('id, name, price, price_moto, price_suv')
       .eq('id', serviceId)
       .single()
 
@@ -42,8 +42,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Άκυρη υπηρεσία' }, { status: 400 })
     }
 
+    // Τιμή ανά τύπο οχήματος — ΠΑΝΤΑ server-side από τη DB.
     const isMoto = vehicleType === 'Μοτοσικλέτα'
-    let amount = isMoto && service.price_moto != null ? Number(service.price_moto) : Number(service.price)
+    const isSuv = vehicleType === 'SUV'
+    let amount = isMoto && service.price_moto != null ? Number(service.price_moto)
+      : isSuv && service.price_suv != null ? Number(service.price_suv)
+      : Number(service.price)
 
     // Addons: μόνο όσα ανήκουν πραγματικά στο location, με την τιμή της DB.
     const requestedAddonIds: string[] = Array.isArray(addonIds) ? addonIds : []
@@ -65,11 +69,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Μη έγκυρο ποσό' }, { status: 400 })
     }
 
-    // 3) Re-check διαθεσιμότητας: ωράριο/εξαιρέσεις, 15' lead time, occupied.
-    //    Πλήρης ατομικότητα με DB unique index — βλ. supabase/slot_uniqueness.sql.
-    const slotBlock = await slotBookingBlockReason(admin, locationId, slotDate, slotStartTime)
-    if (slotBlock) {
-      return NextResponse.json({ error: slotBlock }, { status: 409 })
+    // 3) Re-check διαθεσιμότητας — κοινοί κανόνες (ωράριο, εξαιρέσεις,
+    //    capacity μανικών, διάρκεια υπηρεσίας, lead time).
+    const availability = await checkSlotAvailability(admin, {
+      locationId, serviceId, slotDate, slotStartTime,
+    })
+    if (!availability.ok) {
+      return NextResponse.json({ error: availability.error }, { status: 409 })
     }
 
     // 4) Αποθηκευμένες κάρτες: get-or-create Stripe Customer για τον χρήστη

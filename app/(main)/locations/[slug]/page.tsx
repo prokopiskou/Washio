@@ -5,13 +5,8 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
-import { athensToday, ymdFromLocalDate } from '@/lib/time'
-import {
-  annotateSlots,
-  INACTIVE_STATUS_FILTER,
-  offeredTimesForDay,
-  weekdayMon1FromYmd,
-} from '@/lib/slots'
+import { athensToday, athensMinutesOfDay } from '@/lib/time'
+import { computeSlots, type OccupancyBooking, type HoursException } from '@/lib/availability'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
@@ -65,6 +60,7 @@ type Location = {
   address: string
   city: string
   photos?: string[] | null
+  capacity?: number
 }
 
 type Service = {
@@ -73,6 +69,7 @@ type Service = {
   description: string
   price: number
   price_moto?: number
+  price_suv?: number
   duration_minutes: number
 }
 
@@ -81,6 +78,12 @@ type Slot = {
   time: string
   available: boolean
 }
+
+function jsDayToSupabase(jsDay: number): number {
+  return jsDay === 0 ? 7 : jsDay
+}
+
+// Η λογική διαθεσιμότητας είναι ΚΟΙΝΗ σε όλη την εφαρμογή — lib/availability.ts.
 
 function getDatesForMonth(year: number, month: number) {
   const todayStr = athensToday()
@@ -119,7 +122,7 @@ export default function LocationPage() {
   const [selectedDate, setSelectedDate] = useState(today)
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
-  const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'Μοτοσικλέτα'>('ΙΧ')
+  const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'SUV' | 'Μοτοσικλέτα'>('ΙΧ')
 
   useEffect(() => {
     track('location_viewed')
@@ -132,7 +135,7 @@ export default function LocationPage() {
 
       const { data: locationData } = await supabase
         .from('locations')
-        .select('id, name, address, city, photos')
+        .select('id, name, address, city, photos, capacity')
         .eq('slug', slug)
         .single()
 
@@ -146,7 +149,7 @@ export default function LocationPage() {
       const [servicesRes, hoursRes, reviewsRes] = await Promise.all([
         supabase
           .from('services')
-          .select('id, name, description, price, price_moto, duration_minutes')
+          .select('id, name, description, price, price_moto, price_suv, duration_minutes')
           .eq('location_id', locationData.id)
           .eq('is_active', true)
           .order('sort_order', { ascending: true }),
@@ -191,57 +194,57 @@ export default function LocationPage() {
     loadData()
   }, [slug])
 
-  const loadSlots = useCallback(async (date: Date, locationId: string) => {
+  const loadSlots = useCallback(async (date: Date, locationId: string, durationMinutes: number) => {
     setSlotsLoading(true)
     const supabase = createClient()
 
-    const dateStr = ymdFromLocalDate(date)
-    const dayOfWeek = weekdayMon1FromYmd(dateStr)
+    const dayOfWeek = jsDayToSupabase(date.getDay())
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
-    const { data: exceptionData } = await supabase
-      .from('location_hours_exceptions')
-      .select('periods, is_closed')
-      .eq('location_id', locationId)
-      .eq('exception_date', dateStr)
-      .maybeSingle()
+    // ΚΟΙΝΗ λογική διαθεσιμότητας (lib/availability): ωράριο, εξαιρέσεις,
+    // capacity μανικών, διάρκεια υπηρεσίας, lead time — ίδια με χάρτη & server.
+    const [{ data: exceptionData }, { data: bookedData }] = await Promise.all([
+      supabase
+        .from('location_hours_exceptions')
+        .select('periods, is_closed, closed_from, closed_to')
+        .eq('location_id', locationId)
+        .eq('exception_date', dateStr)
+        .maybeSingle(),
+      supabase
+        .from('bookings')
+        .select('slot_start_time, duration_minutes')
+        .eq('location_id', locationId)
+        .eq('slot_date', dateStr)
+        .not('status', 'in', '("cancelled","no_show")'),
+    ])
 
-    const dayHours = locationHours.find(h => h.day_of_week === dayOfWeek)
-    const allTimes = offeredTimesForDay(dayHours, exceptionData)
+    const dayHours = locationHours.find(h => h.day_of_week === dayOfWeek) || null
 
-    if (allTimes.length === 0) {
-      setSlots([])
-      setSlotsLoading(false)
-      return
-    }
+    const computed = computeSlots({
+      dayHours,
+      exception: exceptionData as HoursException,
+      bookings: (bookedData || []) as OccupancyBooking[],
+      capacity: Math.max(1, Number(location?.capacity) || 1),
+      durationMinutes,
+      isToday: dateStr === athensToday(),
+      nowMinutes: athensMinutesOfDay(),
+    })
 
-    const { data: bookedData } = await supabase
-      .from('bookings')
-      .select('slot_start_time')
-      .eq('location_id', locationId)
-      .eq('slot_date', dateStr)
-      .not('status', 'in', INACTIVE_STATUS_FILTER)
-
-    const bookedTimes = new Set(
-      (bookedData || [])
-        .map((b: { slot_start_time?: string | null }) => b.slot_start_time?.slice(0, 5))
-        .filter((t): t is string => !!t),
-    )
-
-    setSlots(annotateSlots(allTimes, bookedTimes, dateStr).map(s => ({
-      id: s.time,
-      time: s.time,
-      available: s.available,
-    })))
-
+    setSlots(computed.map(s => ({ id: s.time, time: s.time, available: s.available })))
     setSlotsLoading(false)
-  }, [locationHours])
+  }, [locationHours, location?.capacity])
+
+  const selectedServiceDuration = Math.max(
+    30,
+    services.find(s => s.id === selectedServiceId)?.duration_minutes || 30
+  )
 
   useEffect(() => {
     if (location && locationHours.length > 0) {
-      loadSlots(selectedDate, location.id)
+      loadSlots(selectedDate, location.id, selectedServiceDuration)
       setSelectedSlot(null)
     }
-  }, [selectedDate, location, locationHours])
+  }, [selectedDate, location, locationHours, selectedServiceDuration])
 
   const toggleFavorite = async () => {
     if (!userId || !location) return
@@ -267,15 +270,21 @@ export default function LocationPage() {
 
   const dates = getDatesForMonth(viewYear, viewMonth)
 
+  // Τιμή ανά τύπο οχήματος: ΙΧ = βασική, SUV = price_suv, Μοτο = price_moto.
+  const priceFor = (s: Service) =>
+    vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto
+    : vehicleType === 'SUV' && s.price_suv ? s.price_suv
+    : s.price
+
   const visibleServices = services.filter(s => {
-    if (vehicleType === 'ΙΧ') return s.name !== 'Πλύσιμο'
+    if (vehicleType === 'ΙΧ' || vehicleType === 'SUV') return s.name !== 'Πλύσιμο'
     if (vehicleType === 'Μοτοσικλέτα') return s.name === 'Πλύσιμο'
     return true
   })
 
   const service = visibleServices.find(s => s.id === selectedServiceId)
   const canBook = selectedServiceId && selectedSlot
-  const selectedServicePrice = service ? (vehicleType === 'Μοτοσικλέτα' && service.price_moto ? service.price_moto : service.price) : null
+  const selectedServicePrice = service ? priceFor(service) : null
 
   const nextMonth = () => {
     if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1) }
@@ -395,7 +404,7 @@ export default function LocationPage() {
             {t.vehicle}
           </p>
           <div className="flex gap-2">
-            {(['ΙΧ', 'Μοτοσικλέτα'] as const).map(type => {
+            {(['ΙΧ', 'SUV', 'Μοτοσικλέτα'] as const).map(type => {
               const active = vehicleType === type
               return (
                 <button
@@ -407,8 +416,8 @@ export default function LocationPage() {
                       : 'bg-white text-gray-900 border-gray-200'
                   }`}
                 >
-                  {type === 'ΙΧ' ? <Car size={15} /> : <Bike size={15} />}
-                  {type === 'ΙΧ' ? t.car : t.moto}
+                  {type === 'Μοτοσικλέτα' ? <Bike size={15} /> : <Car size={15} />}
+                  {type === 'ΙΧ' ? t.car : type === 'SUV' ? 'SUV' : t.moto}
                 </button>
               )
             })}
@@ -421,7 +430,7 @@ export default function LocationPage() {
           <div className="flex flex-col gap-2.5">
             {visibleServices.map(s => {
               const selected = selectedServiceId === s.id
-              const price = vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto : s.price
+              const price = priceFor(s)
               return (
                 <button
                   key={s.id}
@@ -565,7 +574,7 @@ export default function LocationPage() {
         >
           {canBook ? (
             <button
-              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`)}
+              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${selectedDate.toISOString().split('T')[0]}&vehicleType=${encodeURIComponent(vehicleType)}`)}
               className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
             >
               <span>{t.book}</span>
