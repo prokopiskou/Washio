@@ -682,6 +682,13 @@ export default function DashboardPage() {
     return Date.now() > start.getTime() + 15 * 60 * 1000
   }
 
+  const openManualForm = () => {
+    setManualServiceName(bookableServices.find(s => s.is_active)?.name || '')
+    setManualError('')
+    setShowManualForm(true)
+    lightTap()
+  }
+
   const createManualBooking = async () => {
     if (!location?.id || !manualServiceName || !manualTime || !manualFirstName.trim()) {
       setManualError('Συμπλήρωσε υπηρεσία, ώρα και όνομα.')
@@ -1324,12 +1331,7 @@ export default function DashboardPage() {
                           </p>
                         </div>
                         <button
-                          onClick={() => {
-                            setManualServiceName(bookableServices.find(s => s.is_active)?.name || '')
-                            setManualError('')
-                            setShowManualForm(true)
-                            lightTap()
-                          }}
+                          onClick={openManualForm}
                           className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gray-900 text-white text-[13px] font-semibold"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -1428,6 +1430,24 @@ export default function DashboardPage() {
               </div>
             )
           })()}
+
+          {/* Αιωρούμενο κουμπί «+ Ραντεβού» — μόνο στο ημερολόγιο, ακολουθεί
+              πάντα την οθόνη ώστε ο πλυντηριάς να προσθέτει ραντεβού από
+              οποιοδήποτε σημείο του timeline. */}
+          {activeTab === 'calendar' && !showManualForm && (
+            <button
+              onClick={openManualForm}
+              aria-label="Προσθήκη ραντεβού"
+              className="fixed z-40 right-5 flex items-center gap-2 px-5 h-14 rounded-full bg-gray-900 text-white text-[15px] font-semibold active:scale-95 transition-transform"
+              style={{
+                bottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+              Ραντεβού
+            </button>
+          )}
 
           {/* Modal χειροκίνητης κράτησης (τηλεφωνική / εκτός πλατφόρμας) */}
           {showManualForm && (
