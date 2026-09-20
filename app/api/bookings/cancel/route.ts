@@ -5,6 +5,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
 import { alertCritical } from '@/lib/alert'
 import { sendPush, getLocationOwnerId } from '@/lib/push'
+import { shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { Resend } from 'resend'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
@@ -157,14 +158,17 @@ export async function POST(req: NextRequest) {
       .eq('id', bookingId)
 
     // Push στον πρατηριούχο: ακύρωση → το slot άνοιξε.
+    // Ίδιος κανόνας με τις νέες κρατήσεις: μόνο σημερινές, εντός ωραρίου.
     try {
-      const ownerId = await getLocationOwnerId(booking.location_id)
-      const cd = new Date(booking.slot_date)
-      await sendPush(ownerId, {
-        title: 'Ακύρωση κράτησης ❌',
-        body: `${booking.booking_ref} • ${cd.getDate()} ${MONTHS_SHORT[cd.getMonth()]} ${booking.slot_start_time?.slice(0, 5) || ''} — το slot άνοιξε.`,
-        url: '/dashboard',
-      })
+      if (await shouldNotifyOwnerNow(supabase, booking.location_id, booking.slot_date)) {
+        const ownerId = await getLocationOwnerId(booking.location_id)
+        const cd = new Date(booking.slot_date)
+        await sendPush(ownerId, {
+          title: 'Ακύρωση κράτησης ❌',
+          body: `${booking.booking_ref} • ${cd.getDate()} ${MONTHS_SHORT[cd.getMonth()]} ${booking.slot_start_time?.slice(0, 5) || ''} — το slot άνοιξε.`,
+          url: '/dashboard',
+        })
+      }
     } catch { /* best-effort */ }
 
     // «Άνοιξε ώρα κοντά σου» — ειδοποίησε no_availability waitlist εντός 12km
