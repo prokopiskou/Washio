@@ -36,4 +36,6 @@
     <!-- Τοποθεσία για «κοντινά πρατήρια» στον χάρτη (geolocation στο WebView) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Push ειδοποιήσεις (Android 13+ runtime permission) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

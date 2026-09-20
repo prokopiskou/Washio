@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "366927303926",
+    "project_id": "washio-69e10",
+    "storage_bucket": "washio-69e10.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:366927303926:android:d53f5f1409ad964f66c8d7",
+        "android_client_info": {
+          "package_name": "gr.washio.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxc-YC3W7YF7yrGgKbKbxDdK6d2SXohoc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
