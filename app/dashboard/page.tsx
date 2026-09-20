@@ -464,8 +464,10 @@ export default function DashboardPage() {
         })
 
       const interval = setInterval(async () => {
+        // ΙΔΙΟ select με το αρχικό — αλλιώς το auto-refresh έσβηνε τα πεδία
+        // πληρωμής (μετρητά/κάρτα, source, customer_name) κάθε 30''.
         const { data } = await supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, profiles(full_name, phone, email)')
+          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, profiles(full_name, phone, email)')
           .eq('location_id', locationId).order('created_at', { ascending: false })
         if (data) setBookings(data as Booking[])
       }, 30000)
