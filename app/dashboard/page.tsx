@@ -567,13 +567,38 @@ export default function DashboardPage() {
 
   // Toggle βασικής υπηρεσίας από τον ΚΕΝΤΡΙΚΟ κατάλογο.
   // Αν το σημείο δεν έχει ακόμα τη συγκεκριμένη υπηρεσία, δημιουργείται server-side.
+  // OPTIMISTIC: το toggle γυρνάει ΑΜΕΣΩΣ — αν αποτύχει ο server, επανέρχεται με μήνυμα.
   const toggleCoreService = async (name: string, existingId: string | null, nextActive: boolean) => {
     if (!location?.id) return
     // Υπάρχον row + απενεργοποίηση → απλό update.
     if (existingId && !nextActive) {
+      setBookableServices(prev => prev.map(s => s.id === existingId ? { ...s, is_active: false } : s))
       await updateBaseService(existingId, { is_active: false })
       return
     }
+    // Optimistic: το toggle ανάβει ΑΜΕΣΩΣ — χωρίς αναμονή server.
+    if (existingId) {
+      setBookableServices(prev => prev.map(s => s.id === existingId ? { ...s, is_active: nextActive } : s))
+    } else {
+      // Placeholder με κενό id: ο διακόπτης δείχνει ενεργός, τα πεδία τιμών
+      // εμφανίζονται μόλις έρθει το πραγματικό row από τον server.
+      setBookableServices(prev => [...prev, {
+        id: '',
+        name,
+        price: 0,
+        price_moto: null,
+        price_suv: null,
+        duration_minutes: catalog.find(c => c.name === name)?.duration_minutes || 30,
+        is_active: true,
+      }])
+    }
+    selectionHaptic()
+
+    // Επαναφορά του optimistic state σε αποτυχία.
+    const revert = () => setBookableServices(prev => prev
+      .filter(s => !(s.id === '' && s.name === name))
+      .map(s => s.id === existingId ? { ...s, is_active: !nextActive } : s))
+
     try {
       const res = await fetch('/api/services/toggle', {
         method: 'POST',
@@ -585,6 +610,7 @@ export default function DashboardPage() {
       let json: { service?: any; error?: string } = {}
       try { json = await res.json() } catch { json = { error: `Σφάλμα server (HTTP ${res.status})` } }
       if (!res.ok || !json.service) {
+        revert()
         errorHaptic()
         // Το σφάλμα πρέπει να ΦΑΙΝΕΤΑΙ — όχι σιωπηλή δόνηση.
         alert(`Δεν ενεργοποιήθηκε η υπηρεσία: ${json.error || 'άγνωστο σφάλμα'}`)
@@ -592,7 +618,8 @@ export default function DashboardPage() {
       }
       const svc = json.service
       setBookableServices(prev => {
-        const exists = prev.some(s => s.id === svc.id)
+        const cleaned = prev.filter(s => !(s.id === '' && s.name === name))
+        const exists = cleaned.some(s => s.id === svc.id)
         const mapped: BookableService = {
           id: svc.id,
           name: svc.name,
@@ -602,11 +629,12 @@ export default function DashboardPage() {
           duration_minutes: Math.max(30, Number(svc.duration_minutes) || 30),
           is_active: !!svc.is_active,
         }
-        return exists ? prev.map(s => s.id === svc.id ? mapped : s) : [...prev, mapped]
+        return exists ? cleaned.map(s => s.id === svc.id ? mapped : s) : [...cleaned, mapped]
       })
-      selectionHaptic()
     } catch {
+      revert()
       errorHaptic()
+      alert('Δεν ενεργοποιήθηκε η υπηρεσία: πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
     }
   }
 

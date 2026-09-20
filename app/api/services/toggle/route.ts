@@ -26,31 +26,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Λείπουν στοιχεία' }, { status: 400 })
     }
 
+    // Παράλληλα queries — κόβουν ~2/3 του χρόνου απόκρισης.
+    const [
+      { data: location },
+      { data: catRow },
+      { data: existingRows, error: findErr },
+    ] = await Promise.all([
+      admin.from('locations').select('id, owner_id').eq('id', locationId).maybeSingle(),
+      admin.from('service_catalog')
+        .select('name, duration_minutes')
+        .eq('name', String(name))
+        .eq('is_active', true)
+        .maybeSingle(),
+      // ΑΝΘΕΚΤΙΚΟ σε διπλά rows/πατήματα: limit(1) αντί για single.
+      admin.from('services')
+        .select('id')
+        .eq('location_id', locationId)
+        .eq('name', String(name))
+        .limit(1),
+    ])
+
     // Ιδιοκτήτης ή admin (support mode).
-    const { data: location } = await admin
-      .from('locations').select('id, owner_id').eq('id', locationId).maybeSingle()
     if (!location || (location.owner_id !== user.id && !isAdminEmail(user.email))) {
       return NextResponse.json({ error: 'Δεν έχεις δικαίωμα σε αυτό το πλυντήριο' }, { status: 403 })
     }
 
-    // Μόνο υπηρεσίες του κεντρικού καταλόγου δημιουργούνται από εδώ.
     // Πηγή αλήθειας: πίνακας service_catalog (admin-managed). Fallback: hardcoded seed.
-    const { data: catRow } = await admin
-      .from('service_catalog')
-      .select('name, duration_minutes')
-      .eq('name', String(name))
-      .eq('is_active', true)
-      .maybeSingle()
     const entry = catRow || catalogEntry(String(name))
-
-    // ΑΝΘΕΚΤΙΚΟ σε διπλά rows/πατήματα: limit(1) αντί για single,
-    // και ενημέρωση κατά (location_id, name) — πιάνει ΟΛΑ τα τυχόν διπλά.
-    const { data: existingRows, error: findErr } = await admin
-      .from('services')
-      .select('id')
-      .eq('location_id', locationId)
-      .eq('name', String(name))
-      .limit(1)
 
     if (findErr) return NextResponse.json({ error: findErr.message }, { status: 500 })
 
