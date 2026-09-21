@@ -177,7 +177,7 @@ function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, c
               name: email || 'Washio',
               email: email || undefined,
               phone: phone || undefined,
-              address: { country: 'GR' },
+              // Η διεύθυνση/ΤΚ μαζεύεται από το Element — δεν την περνάμε εδώ.
             },
           },
         },
@@ -212,7 +212,9 @@ function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, c
               name: 'never',
               email: 'never',
               phone: 'never',
-              address: 'never',
+              // Τη διεύθυνση την μαζεύει το ίδιο το Element (για κάρτα = μόνο
+              // ένα μικρό πεδίο ΤΚ). Αν βάζαμε 'never' θα έπρεπε να περνάμε
+              // ΚΑΘΕ subfield (postal_code/line1/city…) — ατέλειωτο loop.
             },
           },
         }} />
