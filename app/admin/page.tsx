@@ -414,9 +414,9 @@ export default function AdminPage() {
     fetchData()
   }
 
-  const exportCSV = () => {
+  const exportBookingsCSV = (list: any[], suffix: string) => {
     const headers = ['Ref', 'Χρήστης', 'Email', 'Σημείο', 'Υπηρεσία', 'Ημερομηνία', 'Ώρα', 'Σύνολο', 'Προμήθεια', 'Status']
-    const rows = filteredBookings.map(b => [
+    const rows = list.map(b => [
       b.booking_ref,
       b.profiles?.full_name || '',
       b.profiles?.email || '',
@@ -433,9 +433,12 @@ export default function AdminPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `washio-bookings-${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `washio-bookings-${suffix}.csv`
     a.click()
   }
+
+  // Export από το tab «Κρατήσεις» — ό,τι δείχνει το φίλτρο.
+  const exportCSV = () => exportBookingsCSV(filteredBookings, new Date().toISOString().split('T')[0])
 
   const formatMonth = (monthStr: string) => {
     const [year, month] = monthStr.split('-').map(Number)
@@ -1504,7 +1507,7 @@ export default function AdminPage() {
                         Οικονομικά στοιχεία
                       </p>
                       <button
-                        onClick={exportCSV}
+                        onClick={() => exportBookingsCSV(finBookings, `${from}_${to}`)}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
                       >
                         <Download size={12} />
