@@ -335,13 +335,27 @@ function BookingPageContent() {
     return promise
   }
 
-  // Prefetch με μικρό debounce όταν αλλάζουν οι επιλογές (addons, πινακίδα).
+  // Αν αλλάξουν addons ΕΝΩ φαίνεται η πληρωμή, το intent έχει παλιό ποσό →
+  // κλείσε την πληρωμή ώστε να ξαναπατήσει «Πληρωμή» με σωστό ποσό.
+  // (Πριν: εμφανιζόμενο σύνολο ≠ πραγματική χρέωση.)
+  useEffect(() => {
+    if (!showPayment) return
+    setShowPayment(false)
+    setClientSecret('')
+    intentCacheRef.current = null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAddons])
+
+  // Prefetch ΜΟΝΟ όταν αλλάζει κάτι που επηρεάζει το ποσό (υπηρεσία, addons).
+  // Η πινακίδα δεν αλλάζει το ποσό — πριν, κάθε παύση στην πληκτρολόγηση
+  // δημιουργούσε ΝΕΟ PaymentIntent (ορφανά στο Stripe, γραμμές checkout_attempts).
+  // Στο «Πληρωμή» ζητείται intent με την τελική πινακίδα (το πολύ 1 επιπλέον).
   useEffect(() => {
     if (!service || sessionLoading || showPayment) return
     const t = setTimeout(() => { fetchIntent(service, plate, selectedAddons) }, 800)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service, plate, selectedAddons, sessionLoading, showPayment])
+  }, [service, selectedAddons, sessionLoading, showPayment])
   // ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {

@@ -62,8 +62,10 @@ export async function POST(req: NextRequest) {
   try {
     const {
       serviceId, locationId, slotId, slotDate,
-      slotStartTime, carPlate, serviceName, vehicleType, addonIds,
+      slotStartTime, carPlate: rawPlate, vehicleType, addonIds,
     } = await req.json()
+    // Πινακίδα: μόνο γράμματα/αριθμοί/κενό/παύλα, έως 12 χαρακτήρες (μπαίνει σε email/push).
+    const carPlate = String(rawPlate || '').toUpperCase().replace(/[^A-ZΑ-Ω0-9 \-]/g, '').slice(0, 12)
 
     // 1) Auth — η ταυτότητα ΔΕΝ έρχεται από τον client.
     const supabase = await createServerClient()
@@ -115,6 +117,24 @@ export async function POST(req: NextRequest) {
 
     if (!(amount > 0)) {
       return NextResponse.json({ error: 'Μη έγκυρο ποσό' }, { status: 400 })
+    }
+
+    // 2b) Όριο κατάχρησης: οι cash κρατήσεις είναι δωρεάν να γίνουν → χωρίς
+    //     όριο κάποιος γεμίζει όλα τα slots. Max 3 ενεργές μελλοντικές ανά χρήστη.
+    {
+      const { count } = await admin
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('stripe_payment_status', 'pay_at_venue')
+        .in('status', ['confirmed', 'pending'])
+        .gte('slot_date', new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' }))
+      if ((count || 0) >= 3) {
+        return NextResponse.json(
+          { error: 'Έχεις ήδη 3 ενεργές κρατήσεις με μετρητά. Ολοκλήρωσέ τες ή πλήρωσε με κάρτα.' },
+          { status: 429 }
+        )
+      }
     }
 
     // 3) Re-check διαθεσιμότητας — κοινοί κανόνες (ωράριο, εξαιρέσεις,
@@ -171,7 +191,7 @@ export async function POST(req: NextRequest) {
         const dPush = new Date(slotDate)
         await sendPush(ownerId, {
           title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
-          body: `Εισπράττεις εσύ €${amount.toFixed(2)} στο κατάστημα • ${serviceName || service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
+          body: `Εισπράττεις εσύ €${amount.toFixed(2)} στο κατάστημα • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
           url: '/dashboard',
         })
       }
@@ -199,7 +219,7 @@ export async function POST(req: NextRequest) {
           html: cashEmailHtml({
             bookingRef,
             locationName: locationData?.name || 'Washio',
-            service: serviceName || service.name || 'Υπηρεσία',
+            service: service.name || 'Υπηρεσία',
             date: formattedDate,
             time: (slotStartTime as string)?.slice(0, 5) || '',
             plate: carPlate || '',

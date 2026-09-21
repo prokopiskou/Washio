@@ -407,11 +407,19 @@ export default function DashboardPage() {
       // Μάνικες / θέσεις εξυπηρέτησης του πλυντηρίου.
       setCapacity(Math.max(1, Number((ownerLocation as { capacity?: number }).capacity) || 1))
 
+      // Μόνο τελευταίοι 12 μήνες (όσο και η μεγαλύτερη περίοδος στατιστικών) και
+      // έως 5000 γραμμές — πριν: ΟΛΕΣ οι κρατήσεις χωρίς όριο (Supabase κόβει
+      // σιωπηλά στις 1000 → λάθος στατιστικά, βαρύ φορτίο κάθε 30'').
+      const sinceYmd = (() => { const d = new Date(); d.setMonth(d.getMonth() - 12); return ymdFromLocalDate(d) })()
+      const loadBookings = () => supabase.from('bookings')
+        .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, profiles(full_name, phone, email)')
+        .eq('location_id', locationId)
+        .gte('slot_date', sinceYmd)
+        .order('created_at', { ascending: false })
+        .range(0, 4999)
+
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
-        supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, profiles(full_name, phone, email)')
-          .eq('location_id', locationId)
-          .order('created_at', { ascending: false }),
+        loadBookings(),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
         supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, is_active, sort_order').eq('location_id', locationId).order('sort_order', { ascending: true }),
         supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
@@ -522,9 +530,7 @@ export default function DashboardPage() {
       const interval = setInterval(async () => {
         // ΙΔΙΟ select με το αρχικό — αλλιώς το auto-refresh έσβηνε τα πεδία
         // πληρωμής (μετρητά/κάρτα, source, customer_name) κάθε 30''.
-        const { data } = await supabase.from('bookings')
-          .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, profiles(full_name, phone, email)')
-          .eq('location_id', locationId).order('created_at', { ascending: false })
+        const { data } = await loadBookings()
         if (data) setBookings(data as Booking[])
       }, 30000)
 

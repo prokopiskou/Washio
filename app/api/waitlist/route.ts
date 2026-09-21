@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 
 // Capture demand όταν δεν καλύπτουμε μια περιοχή. Μπαίνει σε πίνακα waitlist,
 // ώστε (α) να ειδοποιήσουμε τον χρήστη μόλις ανοίξουμε εκεί, (β) να δούμε ΠΟΥ
@@ -11,7 +12,14 @@ const admin = createClient(
 
 export async function POST(req: Request) {
   try {
-    const { email, areaLabel, lat, lng, userId, source } = await req.json()
+    const { email, areaLabel, lat, lng, source } = await req.json()
+    // user_id ΜΟΝΟ από το session — ποτέ από το body (πριν: αυθαίρετο userId).
+    let sessionUserId: string | null = null
+    try {
+      const auth = await createServerClient()
+      const { data: { user } } = await auth.auth.getUser()
+      sessionUserId = user?.id || null
+    } catch { /* ανώνυμος */ }
 
     const clean = typeof email === 'string' ? email.trim().toLowerCase() : ''
     if (!clean || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(clean)) {
@@ -23,7 +31,7 @@ export async function POST(req: Request) {
 
     const { error } = await admin.from('waitlist').insert({
       email: clean,
-      user_id: userId || null,
+      user_id: sessionUserId,
       area_label: typeof areaLabel === 'string' ? areaLabel.slice(0, 200) : null,
       lat: typeof lat === 'number' ? lat : null,
       lng: typeof lng === 'number' ? lng : null,

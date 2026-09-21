@@ -1,3 +1,5 @@
+import { ipFrom, isThrottled } from '@/lib/throttle'
+import { escapeHtml } from '@/lib/escape-html'
 import { Resend } from 'resend'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
@@ -311,6 +313,10 @@ export async function POST(req: NextRequest) {
     if (type !== 'contact' && !isInternal && !isAdmin) {
       return NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 })
     }
+    // Δημόσια φόρμα επικοινωνίας: όριο ανά IP (σπαμ / κάψιμο Resend quota).
+    if (type === 'contact' && isThrottled('contact:' + ipFrom(req), 5, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Πολλές προσπάθειες. Δοκίμασε αργότερα.' }, { status: 429 })
+    }
 
     // Ο παραλήπτης: για contact πάντα το εσωτερικό inbox (αποτρέπει open-relay/spam).
     const recipient = type === 'contact' ? CONTACT_INBOX : body.to
@@ -347,12 +353,12 @@ export async function POST(req: NextRequest) {
         html = partnerWelcomeEmail(body)
         break
       case 'contact':
-        subject = `Νέο μήνυμα από ${body.name} — Washio`
+        subject = `Νέο μήνυμα από ${String(body.name || '').slice(0, 80)} — Washio`
         html = `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto; padding: 32px;">
     <h2 style="color: #0A0A0A;">Νέο μήνυμα επικοινωνίας</h2>
-    <p><strong>Όνομα:</strong> ${body.name}</p>
-    <p><strong>Email:</strong> ${body.email}</p>
-    <p><strong>Μήνυμα:</strong> ${body.message}</p>
+    <p><strong>Όνομα:</strong> ${escapeHtml(body.name)}</p>
+    <p><strong>Email:</strong> ${escapeHtml(body.email)}</p>
+    <p><strong>Μήνυμα:</strong> ${escapeHtml(body.message)}</p>
   </div>`
         break
       default:

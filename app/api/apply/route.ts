@@ -1,3 +1,5 @@
+import { ipFrom, isThrottled } from '@/lib/throttle'
+import { escapeHtml } from '@/lib/escape-html'
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
@@ -10,6 +12,9 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: Request) {
   try {
+    if (isThrottled('apply:' + ipFrom(req), 5, 3600000)) {
+      return NextResponse.json({ error: 'Πολλές προσπάθειες. Δοκίμασε αργότερα.' }, { status: 429 })
+    }
     const body = await req.json()
     const {
       businessName,
@@ -61,8 +66,8 @@ export async function POST(req: Request) {
               .map(
                 ([label, value]) => `
               <tr>
-                <td style="padding: 8px; border: 1px solid #e5e7eb; width: 220px; font-weight: 600;">${label}</td>
-                <td style="padding: 8px; border: 1px solid #e5e7eb;">${String(value)}</td>
+                <td style="padding: 8px; border: 1px solid #e5e7eb; width: 220px; font-weight: 600;">${escapeHtml(label)}</td>
+                <td style="padding: 8px; border: 1px solid #e5e7eb;">${escapeHtml(value)}</td>
               </tr>
             `
               )

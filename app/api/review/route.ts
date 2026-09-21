@@ -30,18 +30,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Λάθος βαθμολογία' }, { status: 400 })
     }
 
-    // Βρες την κράτηση μία φορά (user + πρατήριο).
-    let locName = '—'
-    let bUserId: string | null = null
-    if (ref) {
-      const { data: booking } = await supabase
-        .from('bookings')
-        .select('user_id, locations(name)')
-        .eq('booking_ref', String(ref))
-        .maybeSingle()
-      locName = (booking?.locations as { name?: string } | null)?.name || '—'
-      bUserId = (booking as { user_id?: string } | null)?.user_id || null
+    // Το ref είναι υποχρεωτικό και πρέπει να αντιστοιχεί σε ΠΡΑΓΜΑΤΙΚΗ κράτηση
+    // για την οποία έχει ήδη σταλεί το followup («πώς πήγε;») και είναι πρόσφατη.
+    // Αλλιώς, τυχαία refs θα άλλαζαν has_reviewed άλλων / θα σπάμαραν τον admin.
+    if (!ref || typeof ref !== 'string' || !/^WS-[A-Z0-9]{4,12}$/i.test(ref)) {
+      return NextResponse.json({ error: 'Μη έγκυρη κράτηση' }, { status: 400 })
     }
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('user_id, slot_date, followup_sent, locations(name)')
+      .eq('booking_ref', ref.toUpperCase())
+      .maybeSingle()
+    if (!booking) {
+      return NextResponse.json({ error: 'Μη έγκυρη κράτηση' }, { status: 404 })
+    }
+    const b = booking as { user_id?: string | null; slot_date?: string; followup_sent?: boolean; locations?: { name?: string } | null }
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    if (!b.followup_sent || !b.slot_date || b.slot_date < thirtyDaysAgo) {
+      return NextResponse.json({ error: 'Η αξιολόγηση δεν είναι διαθέσιμη για αυτή την κράτηση' }, { status: 403 })
+    }
+    const locName = b.locations?.name || '—'
+    const bUserId = b.user_id || null
 
     // Μαρκάρουμε τον χρήστη ως «έχει βαθμολογήσει» ώστε να ΜΗΝ του
     // ξαναζητηθεί review σε μελλοντικά πλυσίματα (best-effort).

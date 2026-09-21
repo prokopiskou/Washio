@@ -1,3 +1,4 @@
+import { ipFrom, isThrottled } from '@/lib/throttle'
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { createClient } from '@supabase/supabase-js'
@@ -58,6 +59,9 @@ function escapeHtml(value: unknown): string {
 
 export async function POST(req: Request) {
   try {
+    if (isThrottled('onboarding:' + ipFrom(req), 5, 3600000)) {
+      return NextResponse.json({ error: 'Πολλές προσπάθειες. Δοκίμασε αργότερα.' }, { status: 429 })
+    }
     const body = await req.json()
     const {
       businessName,

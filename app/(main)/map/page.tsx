@@ -598,6 +598,9 @@ function MapPageContent() {
     ).catch(() => { /* denied/failed — μένει χωρίς θέση */ })
   }
 
+  // Μόνο η ΑΛΛΑΓΗ αυτού του boolean ξαναζωγραφίζει πινέζες — όχι κάθε zoom tick.
+  const showLabels = mapZoom >= LABEL_ZOOM
+
   const updateMarkers = useCallback(() => {
     if (!mapLoaded || !mapInstanceRef.current) return
     markersRef.current.forEach(m => m.setMap(null))
@@ -613,7 +616,7 @@ function MapPageContent() {
       const rawName = loc.name || ''
       const label = rawName.length > 20 ? rawName.slice(0, 19) + '…' : rawName
       // Το όνομα εμφανίζεται μόνο όταν έχει γίνει αρκετό zoom (καθαρό, χωρίς μπούχτισμα).
-      const showLabel = mapZoom >= LABEL_ZOOM
+      const showLabel = showLabels
 
       let svgString: string
       let W: number, H: number, aX: number, aY: number
@@ -674,7 +677,7 @@ function MapPageContent() {
       marker.addListener('click', () => selectLocation(loc))
       markersRef.current.push(marker)
     })
-  }, [mapLoaded, filteredLocations, selectedLocation, mapZoom])
+  }, [mapLoaded, filteredLocations, selectedLocation, showLabels])
 
   useEffect(() => { updateMarkers() }, [updateMarkers])
 
@@ -696,11 +699,21 @@ function MapPageContent() {
       setMapLoaded(true)
     }
 
+    // Ήδη φορτωμένο (επιστροφή από σελίδα πλυντηρίου); Μην ξαναβάλεις το script —
+    // η Google το απαγορεύει («included multiple times») και σπάει ο χάρτης.
+    if (typeof window !== 'undefined' && (window as any).google?.maps?.Map) {
+      ;(window as any).initMap()
+      return
+    }
+    // Αν ήδη φορτώνει από προηγούμενο mount, απλώς περίμενε το callback.
+    if (document.querySelector('script[data-washio-gmaps]')) return
+
     const script = document.createElement('script')
     script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&callback=initMap&libraries=places&loading=async`
     script.async = true
+    script.setAttribute('data-washio-gmaps', '1')
     document.head.appendChild(script)
-    return () => { document.head.removeChild(script) }
+    // ΔΕΝ το αφαιρούμε στο unmount: το Maps API μένει φορτωμένο για όλη τη συνεδρία.
   }, [])
 
   useEffect(() => {

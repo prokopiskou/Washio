@@ -17,8 +17,10 @@ export async function POST(req: NextRequest) {
   try {
     const {
       serviceId, locationId, slotId, slotDate,
-      slotStartTime, carPlate, serviceName, vehicleType, addonIds,
+      slotStartTime, carPlate: rawPlate, vehicleType, addonIds,
     } = await req.json()
+    // Πινακίδα: μόνο γράμματα/αριθμοί/κενό/παύλα, έως 12 χαρακτήρες (μπαίνει σε email/push).
+    const carPlate = String(rawPlate || '').toUpperCase().replace(/[^A-ZΑ-Ω0-9 \-]/g, '').slice(0, 12)
 
     // 1) Authentication — η ταυτότητα ΔΕΝ έρχεται από τον client.
     const supabase = await createServerClient()
@@ -137,7 +139,7 @@ export async function POST(req: NextRequest) {
         carPlate: carPlate || '',
         userId: user.id,
         userEmail: user.email || '',
-        serviceName: serviceName || service.name || '',
+        serviceName: service.name || '', // ΜΟΝΟ από τη βάση — όχι από τον client
         amount: amount.toString(),
       },
     })
@@ -148,7 +150,7 @@ export async function POST(req: NextRequest) {
         payment_intent_id: paymentIntent.id,
         user_id: user.id,
         email: user.email || null,
-        service_name: serviceName || service.name || '',
+        service_name: service.name || '',
         location_id: locationId || null,
         slot_date: slotDate || null,
         slot_start_time: slotStartTime || null,

@@ -20,11 +20,13 @@ export default function PushInit() {
       }
 
       // WEB: web push (service worker + VAPID).
-      if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+      // ΠΟΤΕ prompt εδώ (χωρίς user gesture, σε κάθε φόρτωση → οι browsers
+      // το μπλοκάρουν μόνιμα μετά από λίγες απορρίψεις). Μόνο σιωπηλή
+      // επανεγγραφή αν η άδεια έχει ΗΔΗ δοθεί. Το prompt γίνεται από το κουμπί «Ενεργοποίηση».
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') return
+      if (Notification.permission !== 'granted') return
       try {
         const registration = await navigator.serviceWorker.register('/sw.js')
-        const permission = await Notification.requestPermission()
-        if (permission !== 'granted') return
 
         const existing = await registration.pushManager.getSubscription()
         const subscription = existing || await registration.pushManager.subscribe({
