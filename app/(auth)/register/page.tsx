@@ -102,7 +102,7 @@ function RegisterPageContent() {
         </button>
       </div>
 
-      <div className="pt-[calc(env(safe-area-inset-top)+20px)] pb-10 flex flex-col items-center">
+      <div className="pt-[calc(max(env(safe-area-inset-top),47px)+16px)] pb-10 flex flex-col items-center">
         <img src="/logo.png" alt="Washio" className="h-14 w-auto mb-6" />
         <h1 className="text-xl font-semibold text-gray-900">{t.title}</h1>
         <p className="text-sm text-gray-400 mt-1">{t.subtitle}</p>

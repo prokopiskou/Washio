@@ -221,9 +221,9 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">
       <div className="w-full max-w-md md:max-w-2xl pb-28">
-        <div className="px-5 pt-[calc(env(safe-area-inset-top)+16px)] flex flex-col gap-3.5">
+        <div className="px-5 pt-[calc(max(env(safe-area-inset-top),47px)+8px)] flex flex-col gap-3.5">
 
-          <div className="flex justify-center -my-6">
+          <div className="flex justify-center -mb-6">
             <img src="/washio-logo.png" alt="Washio" className="h-32 w-auto" />
           </div>
 

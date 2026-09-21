@@ -189,7 +189,7 @@ function LoginPageContent() {
           </button>
         </div>
 
-        <div className="pt-[calc(env(safe-area-inset-top)+20px)] pb-8 flex flex-col items-center">
+        <div className="pt-[calc(max(env(safe-area-inset-top),47px)+16px)] pb-8 flex flex-col items-center">
           <img src="/washio_logo.png" alt="Washio" className="h-16 w-auto mb-5" />
           <h1 className="text-lg font-semibold text-gray-900">
             {sent ? t.checkEmail : t.loginRegister}
