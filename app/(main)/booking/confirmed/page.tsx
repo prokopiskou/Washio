@@ -133,19 +133,26 @@ function ConfirmedContent() {
       }
       const supabase = createClient()
 
-      // Μετρητά: το ref έρχεται από τον server (create-cash) — έγκυρο.
+      // Το ref έρχεται ΕΤΟΙΜΟ στο URL (κάρτα: από create-intent metadata·
+      // μετρητά: από create-cash). Το δείχνουμε ΑΜΕΣΩΣ — ποτέ «-----».
       if (refParam) {
         setBookingRef(refParam)
         setPayState('ok')
         successHaptic()
         track('booking_paid')
-        const { data } = await supabase
-          .from('bookings')
-          .select('booking_ref, locations(name, address, city)')
-          .eq('booking_ref', refParam)
-          .maybeSingle()
-        if (data) applyLocation(data.locations as any)
         trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: refParam })
+        // Στοιχεία πλυντηρίου (best-effort, session-independent μέσω server).
+        try {
+          if (intentId) {
+            const r = await fetch(`/api/bookings/by-intent?pi=${encodeURIComponent(intentId)}`)
+            if (r.ok) { const j = await r.json(); if (j.location) applyLocation(j.location) }
+          } else {
+            const { data } = await supabase
+              .from('bookings').select('locations(name, address, city)')
+              .eq('booking_ref', refParam).maybeSingle()
+            if (data) applyLocation(data.locations as any)
+          }
+        } catch { /* το ref φαίνεται ήδη */ }
         return
       }
 

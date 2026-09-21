@@ -122,7 +122,7 @@ function MapThumb() {
   )
 }
 
-function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, clientSecret, plate }: {
+function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef }: {
   total: number
   email: string
   phone: string
@@ -131,6 +131,7 @@ function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, c
   slotTime: string
   clientSecret: string
   plate: string
+  bookingRef: string
 }) {
   const t = useT(T)
   const stripe = useStripe()
@@ -168,7 +169,7 @@ function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, c
         elements,
         clientSecret,
         confirmParams: {
-          return_url: `${window.location.origin}/booking/confirmed?email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}&plate=${encodeURIComponent(plate)}&total=${encodeURIComponent(total.toString())}`,
+          return_url: `${window.location.origin}/booking/confirmed?ref=${encodeURIComponent(bookingRef)}&email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}&plate=${encodeURIComponent(plate)}&total=${encodeURIComponent(total.toString())}`,
           // Κρύβουμε τα billing πεδία στο Element (fields: 'never') → ΠΡΕΠΕΙ να τα
           // περάσουμε εδώ, αλλιώς το Stripe πετάει σφάλμα. Δεν εμφανίζεται τίποτα
           // επιπλέον στη φόρμα.
@@ -283,6 +284,7 @@ function BookingPageContent() {
   const [showPayment, setShowPayment] = useState(false)
   const [clientSecret, setClientSecret] = useState('')
   const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | undefined>(undefined)
+  const [bookingRef, setBookingRef] = useState('')
   const [cashLoading, setCashLoading] = useState(false)
   const paymentAnchorRef = useRef<HTMLDivElement>(null)
 
@@ -318,7 +320,7 @@ function BookingPageContent() {
     promise: Promise<{ clientSecret?: string; customerSessionClientSecret?: string; error?: string }>
   } | null>(null)
 
-  type IntentResult = { clientSecret?: string; customerSessionClientSecret?: string; error?: string }
+  type IntentResult = { clientSecret?: string; customerSessionClientSecret?: string; bookingRef?: string; error?: string }
 
   const fetchIntent = (serviceArg: Service, plateArg: string, addonsArg: string[]): Promise<IntentResult> => {
     const key = JSON.stringify([serviceArg.id, locationId, dateStr, slotTime, plateArg, vehicleType, [...addonsArg].sort()])
@@ -503,6 +505,7 @@ function BookingPageContent() {
     }
     setClientSecret(data.clientSecret)
     setCustomerSessionClientSecret(data.customerSessionClientSecret)
+    setBookingRef(data.bookingRef || '')
     setShowPayment(true)
     // Έφτασε στην οθόνη πληρωμής (κάρτα).
     trackEvent('InitiateCheckout', { value: total, currency: 'EUR', content_ids: [locationId || serviceId] })
@@ -800,7 +803,7 @@ function BookingPageContent() {
             <CheckoutForm
               total={total} email={email} phone={phone} service={service}
               formattedDate={formattedDate} slotTime={slotTime}
-              clientSecret={clientSecret} plate={plate}
+              clientSecret={clientSecret} plate={plate} bookingRef={bookingRef}
             />
           </Elements>
 

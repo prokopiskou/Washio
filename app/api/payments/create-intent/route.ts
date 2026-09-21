@@ -125,12 +125,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Μη έγκυρο ποσό' }, { status: 400 })
     }
 
+    // Ο κωδικός κράτησης φτιάχνεται ΕΔΩ και μπαίνει στο metadata — ώστε (α) το
+    // webhook να τον χρησιμοποιεί (όχι νέο τυχαίο) και (β) η σελίδα επιβεβαίωσης
+    // να τον δείχνει ΑΜΕΣΩΣ (ποτέ «-----»).
+    const bookingRef = 'WS-' + Math.random().toString(16).slice(2, 10).toUpperCase()
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
       currency: 'eur',
       payment_method_types: ['card'],
       ...(customerId ? { customer: customerId } : {}),
       metadata: {
+        bookingRef,
         serviceId: serviceId || '',
         locationId: locationId || '',
         slotId: slotId || '',
@@ -161,6 +167,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       clientSecret: paymentIntent.client_secret,
       customerSessionClientSecret,
+      bookingRef,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'

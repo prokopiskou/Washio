@@ -94,7 +94,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, duplicate: true })
     }
 
-    const bookingRef = 'WS-' + Math.random().toString(16).slice(2, 10).toUpperCase()
+    // Ο κωδικός φτιάχτηκε στο create-intent και είναι στο metadata — ώστε ο
+    // πελάτης να τον βλέπει ΑΜΕΣΩΣ στην επιβεβαίωση. Fallback σε τυχαίο.
+    const bookingRef = (m.bookingRef && /^WS-[A-Z0-9]{4,12}$/.test(m.bookingRef))
+      ? m.bookingRef
+      : 'WS-' + Math.random().toString(16).slice(2, 10).toUpperCase()
 
     // Διάρκεια υπηρεσίας (snapshot) — για σωστή δέσμευση διαδοχικών slots.
     const { data: svcRow } = await supabase
