@@ -205,7 +205,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">
       <div className="w-full max-w-md md:max-w-2xl pb-24">
-        <div className="px-5 pt-6 pb-6 flex flex-col gap-5">
+        <div className="px-5 pt-[calc(env(safe-area-inset-top)+16px)] pb-6 flex flex-col gap-5">
 
           {/* Header — centered logo */}
           <div className="flex justify-center items-center -my-8">
