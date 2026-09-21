@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ChevronRight, Download, RefreshCw, Check, X, Power } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { ADMIN_EMAILS } from '@/lib/admins'
+import { bankFromIban } from '@/lib/greek-banks'
 
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
@@ -36,7 +37,6 @@ export default function AdminPage() {
   const [applications, setApplications] = useState<any[]>([])
   const [onboardings, setOnboardings] = useState<any[]>([])
   const [activatingId, setActivatingId] = useState<string | null>(null)
-  const [openingId, setOpeningId] = useState<string | null>(null)
   const [addons, setAddons] = useState<any[]>([])
   const [catalogItems, setCatalogItems] = useState<any[]>([])
   const [addingCatalog, setAddingCatalog] = useState(false)
@@ -139,30 +139,11 @@ export default function AdminPage() {
       // Ενημέρωση τοπικά + refresh.
       setOnboardings(prev => prev.map(o => o.id === id ? { ...o, status: 'active' } : o))
       await fetchData()
-      alert('Το πρατήριο δημιουργήθηκε ✅ και εμφανίζεται στα «Πρατήρια» (ανενεργό).\n\nΑπό εκεί βάλε: τοποθεσία στον χάρτη, φωτογραφία, υπηρεσίες + τιμές, ωράριο. Μετά «Άνοιγμα λογαριασμού» και ενεργοποίηση.')
+      alert('Το πρατήριο δημιουργήθηκε ✅ και εμφανίζεται στα «Πρατήρια» (ανενεργό).\n\nΑπό εκεί: «📍 Επεξεργασία» (τοποθεσία, φωτο, υπηρεσίες + τιμές, ωράριο) και μετά ⏻ ενεργοποίηση — τότε ανοίγει αυτόματα και ο λογαριασμός του owner.')
     } catch {
       alert('Πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
     } finally {
       setActivatingId(null)
-    }
-  }
-
-  const openAccess = async (id: string) => {
-    if (openingId) return
-    setOpeningId(id)
-    try {
-      const res = await fetch('/api/admin/open-access', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ onboardingId: id }),
-      })
-      const json = await res.json()
-      if (!res.ok) { alert(json.error || 'Αποτυχία ανοίγματος πρόσβασης'); return }
-      alert(`Έτοιμο ✅  (${json.email})\n\nΤο πλυντήριο μπαίνει όπως κάθε χρήστης: στο login βάζει το email του → λαμβάνει 8ψήφιο κωδικό στο email → μπαίνει και βλέπει το dashboard (επειδή είναι πλέον owner).\n\nΤο σύστημα δεν στέλνει τίποτα από μόνο του — ο κωδικός OTP φεύγει μόνο όταν το πλυντήριο πατήσει «Αποστολή κωδικού».`)
-    } catch {
-      alert('Πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
-    } finally {
-      setOpeningId(null)
     }
   }
 
@@ -199,25 +180,59 @@ export default function AdminPage() {
   // Payouts για επιλεγμένο μήνα
   const payoutData = locations.map(loc => {
     const [year, month] = payoutMonth.split('-').map(Number)
+    const rate = Number(loc.commission_rate ?? 10)
+
+    // Κρατήσεις του μήνα με οικονομική σημασία (completed / no_show / cancelled).
     const monthBookings = bookings.filter(b => {
       if (b.locations?.name !== loc.name) return false
       if (!b.slot_date) return false
-      if (b.status === 'cancelled') return false
       const d = new Date(b.slot_date)
-      return d.getFullYear() === year && d.getMonth() + 1 === month
+      if (!(d.getFullYear() === year && d.getMonth() + 1 === month)) return false
+      return ['completed', 'no_show', 'cancelled'].includes(b.status)
     })
-    const totalRevenue = monthBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
-    const commission = monthBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
-    const owedAmount = totalRevenue - commission
+
+    let onlineKept = 0   // online που κράτησε η Washio (μείον refunds) — incl. no-show
+    let cashGross = 0    // μετρητά σε ολοκληρωμένο πλύσιμο (τα κρατά το πλυντήριο)
+    let refunded = 0
+    let completed = 0, noShow = 0, cancelled = 0
+
+    for (const b of monthBookings) {
+      const amt = Number(b.total_amount || 0)
+      const refund = Number(b.refund_amount || 0)
+      const ps = b.stripe_payment_status
+      if (ps === 'paid') onlineKept += amt
+      else if (ps === 'partially_refunded') onlineKept += Math.max(0, amt - refund)
+      // 'refunded' → 0
+      if (refund > 0) refunded += refund
+      if (ps === 'pay_at_venue' && b.status === 'completed') cashGross += amt
+      if (b.status === 'completed') completed++
+      else if (b.status === 'no_show') noShow++
+      else if (b.status === 'cancelled') cancelled++
+    }
+
+    const gross = onlineKept + cashGross
+    const commission = +(gross * rate / 100).toFixed(2)  // τι παίρνεις ΕΣΥ
+    const washGets = +(gross - commission).toFixed(2)    // τι παίρνει ο ΠΛΥΝΤΗΡΙΑΣ (90%)
+    // Καθαρός διακανονισμός: 90% online − 10% μετρητών.
+    // >0 → του πληρώνεις.  <0 → σου χρωστάει προμήθεια.
+    const net = +(onlineKept - commission).toFixed(2)
+    const bank = loc.bank_name || bankFromIban(loc.iban) || ''
 
     const existingPayout = payouts.find(p => p.location_id === loc.id && p.month === payoutMonth)
 
     return {
       ...loc,
-      monthBookings: monthBookings.length,
-      totalRevenue,
-      commission,
-      owedAmount,
+      monthBookings: completed + noShow + cancelled,
+      completed, noShow, cancelled,
+      onlineKept: +onlineKept.toFixed(2),
+      cashGross: +cashGross.toFixed(2),
+      refunded: +refunded.toFixed(2),
+      totalRevenue: +gross.toFixed(2),
+      commission,      // εσύ
+      washGets,
+      net,             // καθαρό (μπορεί αρνητικό)
+      owedAmount: net, // συμβατότητα με markAsPaid
+      bank,
       existingPayout,
     }
   }).filter(loc => loc.monthBookings > 0 || loc.existingPayout)
@@ -247,6 +262,7 @@ export default function AdminPage() {
   const updateLocationBankInfo = async (id: string, field: 'iban' | 'bank_name', value: string) => {
     const supabase = createClient()
     await supabase.from('locations').update({ [field]: value }).eq('id', id)
+    if (field === 'iban') fetchData() // ξανα-ανίχνευση τράπεζας από το νέο IBAN
   }
 
   const getUserDisplay = (profile: any) => profile?.full_name || profile?.email || 'Επισκέπτης'
@@ -296,8 +312,24 @@ export default function AdminPage() {
   }
 
   const toggleLocation = async (id: string, isActive: boolean) => {
-    const supabase = createClient()
-    await supabase.from('locations').update({ is_active: !isActive }).eq('id', id)
+    const active = !isActive
+    try {
+      const res = await fetch('/api/admin/activate-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locationId: id, active }),
+      })
+      const json = await res.json()
+      if (!res.ok) { alert(json.error || 'Αποτυχία'); return }
+      // Ενεργοποίηση με νέο owner → δείξε στοιχεία εισόδου.
+      if (active && json.ownerLinked && json.email) {
+        alert(`Ενεργό ✅ — ο λογαριασμός του πλυντηρίου άνοιξε.\n\n${json.email}\n\nΜπαίνει όπως κάθε χρήστης: στο login βάζει το email του → λαμβάνει 8ψήφιο κωδικό → βλέπει το dashboard (owner). Το σύστημα δεν στέλνει τίποτα μόνο του.`)
+      } else if (active && json.noOnboarding) {
+        alert('Ενεργό ✅\n\n(Χειροκίνητο πρατήριο χωρίς αίτηση — δεν δημιουργήθηκε λογαριασμός owner αυτόματα.)')
+      }
+    } catch {
+      alert('Πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
+    }
     fetchData()
   }
 
@@ -1104,17 +1136,12 @@ export default function AdminPage() {
                               disabled={activatingId === o.id}
                               className="mt-3.5 w-full h-11 rounded-xl bg-gray-900 text-white text-[13px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
                             >
-                              {activatingId === o.id ? 'Ενεργοποίηση...' : 'Ενεργοποίηση — Δημιουργία πρατηρίου'}
+                              {activatingId === o.id ? 'Αποδοχή...' : 'Αποδοχή — Δημιουργία πρατηρίου'}
                             </button>
                           ) : (
-                            <button
-                              onClick={() => openAccess(o.id)}
-                              disabled={openingId === o.id}
-                              className="mt-3.5 w-full h-11 rounded-xl text-[13px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
-                              style={{ background: '#EAF2FD', color: '#1A6FD4' }}
-                            >
-                              {openingId === o.id ? 'Άνοιγμα...' : 'Άνοιγμα λογαριασμού (owner)'}
-                            </button>
+                            <p className="mt-3.5 text-[12px] text-gray-500 leading-relaxed bg-gray-50 rounded-xl px-3 py-2.5">
+                              ✓ Δημιουργήθηκε. Συμπλήρωσέ το από «Πρατήρια» → «📍 Επεξεργασία» (τοποθεσία, φωτο, υπηρεσίες, ωράριο) και πάτησε ⏻ για ενεργοποίηση — τότε ανοίγει αυτόματα και ο λογαριασμός του owner.
+                            </p>
                           )}
                         </div>
                       )
@@ -1599,8 +1626,8 @@ export default function AdminPage() {
                   <div className="grid grid-cols-3 gap-1.5 mb-3.5">
                     {[
                       { label: 'Έσοδα', value: `€${payoutData.reduce((s, l) => s + l.totalRevenue, 0).toFixed(0)}` },
-                      { label: 'Προμήθεια', value: `€${payoutData.reduce((s, l) => s + l.commission, 0).toFixed(0)}` },
-                      { label: 'Οφείλεται', value: `€${payoutData.reduce((s, l) => s + (l.existingPayout?.status === 'paid' ? 0 : l.owedAmount), 0).toFixed(0)}` },
+                      { label: 'Προμήθεια (εσύ)', value: `€${payoutData.reduce((s, l) => s + l.commission, 0).toFixed(0)}` },
+                      { label: 'Να πληρώσεις', value: `€${payoutData.reduce((s, l) => s + (l.existingPayout?.status === 'paid' ? 0 : Math.max(0, l.net)), 0).toFixed(0)}` },
                     ].map(s => (
                       <div key={s.label} className="bg-white rounded-[11px] p-2.5 border border-gray-100">
                         <p className="text-[9px] font-semibold tracking-[1.2px] uppercase text-gray-500 truncate">
@@ -1651,12 +1678,12 @@ export default function AdminPage() {
                             </span>
                           </div>
 
-                          {/* Stats — 3-col mini cards */}
+                          {/* Stats — online / μετρητά / προμήθεια (εσύ) */}
                           <div className="grid grid-cols-3 gap-2 mt-3">
                             {[
-                              { label: 'Κρατήσεις', value: loc.monthBookings },
-                              { label: 'Έσοδα', value: `€${loc.totalRevenue.toFixed(0)}` },
-                              { label: 'Να αποδοθεί', value: `€${loc.owedAmount.toFixed(0)}` },
+                              { label: 'Online', value: `€${loc.onlineKept.toFixed(0)}` },
+                              { label: 'Μετρητά', value: `€${loc.cashGross.toFixed(0)}` },
+                              { label: 'Προμήθεια (εσύ)', value: `€${loc.commission.toFixed(0)}` },
                             ].map(s => (
                               <div key={s.label} className="bg-gray-50 rounded-[9px] px-2.5 py-2">
                                 <p className="text-[9px] font-semibold tracking-[1.2px] uppercase text-gray-500 truncate">
@@ -1667,6 +1694,25 @@ export default function AdminPage() {
                                 </p>
                               </div>
                             ))}
+                          </div>
+
+                          {/* Ανάλυση κρατήσεων */}
+                          <p className="text-[11px] text-gray-400 mt-2">
+                            Ολοκληρωμένα {loc.completed} · No-show {loc.noShow} · Ακυρώσεις {loc.cancelled}
+                            {loc.refunded > 0 ? ` · Επιστροφές €${loc.refunded.toFixed(0)}` : ''}
+                          </p>
+
+                          {/* Καθαρός διακανονισμός */}
+                          <div
+                            className="mt-2.5 px-3 py-2.5 rounded-[10px] flex items-center justify-between"
+                            style={{ background: loc.net >= 0 ? '#F0F7F3' : '#FCF1F1' }}
+                          >
+                            <p className="text-[12px] font-medium" style={{ color: loc.net >= 0 ? '#0F7A5C' : '#B43C3C' }}>
+                              {loc.net >= 0 ? 'Πληρώνεις στον πλυντήρια' : 'Σου χρωστάει προμήθεια'}
+                            </p>
+                            <p className="text-[16px] font-bold tracking-tight" style={{ color: loc.net >= 0 ? '#0F7A5C' : '#B43C3C', fontVariantNumeric: 'tabular-nums' }}>
+                              €{Math.abs(loc.net).toFixed(2)}
+                            </p>
                           </div>
 
                           {/* IBAN + Bank */}
@@ -1688,14 +1734,11 @@ export default function AdminPage() {
                             </div>
                             <div className="flex-1">
                               <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">
-                                Τράπεζα
+                                Τράπεζα (auto)
                               </p>
-                              <input
-                                defaultValue={loc.bank_name || ''}
-                                onBlur={e => updateLocationBankInfo(loc.id, 'bank_name', e.target.value)}
-                                placeholder="NBG"
-                                className="w-full h-10 px-3 rounded-[9px] bg-white border border-gray-200 text-[13px] font-semibold text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
-                              />
+                              <div className="w-full h-10 px-3 rounded-[9px] bg-gray-50 border border-gray-100 flex items-center text-[13px] font-semibold text-gray-900 truncate">
+                                {loc.bank || '—'}
+                              </div>
                             </div>
                           </div>
 
@@ -1714,12 +1757,19 @@ export default function AdminPage() {
                                 Αναίρεση
                               </button>
                             </div>
-                          ) : (
+                          ) : loc.net > 0 ? (
                             <button
-                              onClick={() => markAsPaid(loc.id, loc.owedAmount, loc.existingPayout?.id)}
+                              onClick={() => markAsPaid(loc.id, loc.net, loc.existingPayout?.id)}
                               className="w-full h-11 mt-3 rounded-[10px] bg-gray-900 text-white text-[13px] font-semibold tracking-tight"
                             >
-                              Σήμανση ως Πληρωμένο — €{loc.owedAmount.toFixed(0)}
+                              Σήμανση ως Πληρωμένο — €{loc.net.toFixed(2)}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => markAsPaid(loc.id, loc.net, loc.existingPayout?.id)}
+                              className="w-full h-11 mt-3 rounded-[10px] bg-white border border-gray-200 text-gray-600 text-[13px] font-semibold tracking-tight"
+                            >
+                              Σήμανση ως τακτοποιημένο
                             </button>
                           )}
                         </div>
