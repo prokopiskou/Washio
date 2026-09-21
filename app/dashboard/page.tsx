@@ -295,7 +295,14 @@ export default function DashboardPage() {
       const permission = await Notification.requestPermission()
       setNotifPermission(permission)
       if (permission !== 'granted') {
-        alert('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν. Αν πάτησες «Να μην επιτρέπεται», ενεργοποίησέ τες από τις Ρυθμίσεις της συσκευής για το Washio.')
+        const isDesktop = !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
+        if (permission === 'denied' && isDesktop) {
+          alert('Οι ειδοποιήσεις είναι μπλοκαρισμένες σε αυτόν τον browser για το washio.gr.\n\nΞεμπλόκαρέ τες: πάτησε το εικονίδιο 🔒 (ή ⚙️) αριστερά από τη διεύθυνση → «Ειδοποιήσεις» → «Να επιτρέπεται», μετά κάνε refresh και πάτησε ξανά «Ενεργοποίηση».')
+        } else if (permission === 'denied') {
+          alert('Οι ειδοποιήσεις είναι μπλοκαρισμένες. Ενεργοποίησέ τες από τις Ρυθμίσεις του browser/συσκευής για το washio.gr και δοκίμασε ξανά.')
+        } else {
+          alert('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν. Δοκίμασε ξανά και πάτησε «Επιτρέπω» στο παράθυρο του browser.')
+        }
         return
       }
 
