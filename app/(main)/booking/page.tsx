@@ -576,7 +576,7 @@ function BookingPageContent() {
       <div className="w-full max-w-md md:max-w-4xl pb-32 bg-gray-50">
 
         {/* Header */}
-        <div className="px-5 pt-[calc(env(safe-area-inset-top)+14px)] pb-4 flex items-center gap-3.5 bg-gray-50">
+        <div className="px-5 pt-[calc(max(env(safe-area-inset-top),47px)+14px)] pb-4 flex items-center gap-3.5 bg-gray-50">
           <button
             onClick={() => router.back()}
             className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-900"

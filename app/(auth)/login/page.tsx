@@ -180,7 +180,7 @@ function LoginPageContent() {
       <div className="w-full max-w-md px-5">
 
         {/* Back — σελίδα χωρίς bottom nav */}
-        <div className="pt-[calc(env(safe-area-inset-top)+12px)] -mb-8">
+        <div className="pt-[calc(max(env(safe-area-inset-top),47px)+12px)] -mb-8">
           <button
             onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
             aria-label="Back"

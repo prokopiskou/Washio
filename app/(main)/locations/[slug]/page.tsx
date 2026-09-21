@@ -340,7 +340,7 @@ export default function LocationPage() {
           )}
 
           {/* Nav buttons floating over hero */}
-          <div className="absolute top-[calc(env(safe-area-inset-top)+14px)] left-4 right-4 flex justify-between">
+          <div className="absolute top-[calc(max(env(safe-area-inset-top),47px)+14px)] left-4 right-4 flex justify-between">
             <button
               onClick={() => router.back()}
               className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-900"

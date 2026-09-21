@@ -220,7 +220,7 @@ export default function ProfileBookingsPage() {
       <div className="w-full max-w-md pb-10">
 
         {/* Sticky header */}
-        <div className="sticky top-0 z-10 bg-gray-50 pt-[calc(env(safe-area-inset-top)+14px)] pb-3.5 px-5">
+        <div className="sticky top-0 z-10 bg-gray-50 pt-[calc(max(env(safe-area-inset-top),47px)+14px)] pb-3.5 px-5">
           <div className="flex items-center gap-3.5 mb-4">
             <button
               onClick={() => router.push('/profile')}

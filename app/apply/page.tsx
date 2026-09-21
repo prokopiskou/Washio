@@ -91,7 +91,7 @@ export default function ApplyPage() {
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md px-5 py-8 pt-[calc(env(safe-area-inset-top)+16px)]">
+      <div className="w-full max-w-md px-5 py-8 pt-[calc(max(env(safe-area-inset-top),47px)+16px)]">
         {/* Back — σελίδα χωρίς bottom nav */}
         <button
           onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}

@@ -66,7 +66,7 @@ export default function ProfileFavoritesPage() {
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md pb-8">
-        <div className="flex items-center gap-3 px-5 pb-4 pt-[calc(env(safe-area-inset-top)+16px)] border-b border-gray-100">
+        <div className="flex items-center gap-3 px-5 pb-4 pt-[calc(max(env(safe-area-inset-top),47px)+16px)] border-b border-gray-100">
           <button onClick={() => router.push('/profile')} className="text-gray-400">
             <ArrowLeft size={18} />
           </button>

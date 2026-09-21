@@ -463,7 +463,7 @@ export default function AdminPage() {
       <div className="max-w-5xl mx-auto pb-10">
 
         {/* Header */}
-        <div className="bg-white px-6 pt-[calc(env(safe-area-inset-top)+14px)] pb-1">
+        <div className="bg-white px-6 pt-[calc(max(env(safe-area-inset-top),47px)+14px)] pb-1">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
               <div className="flex items-center gap-2">
