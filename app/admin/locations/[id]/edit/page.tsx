@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { extractCityLabel } from '@/lib/geo'
 import { ArrowLeft, MapPin, X, Upload } from 'lucide-react'
 import { WashioLoader } from '@/components/WashioLoader'
 
@@ -77,14 +78,15 @@ export default function EditLocationPage() {
         if (!place.geometry) return
         const lat = place.geometry.location.lat().toString()
         const lng = place.geometry.location.lng().toString()
-        let route = '', streetNumber = '', city = '', postal_code = ''
+        let route = '', streetNumber = '', postal_code = ''
         for (const c of place.address_components) {
           const t = c.types
           if (t.includes('route')) route = c.long_name
           if (t.includes('street_number')) streetNumber = c.long_name
-          if (t.includes('locality') || t.includes('administrative_area_level_3')) city = c.long_name
           if (t.includes('postal_code')) postal_code = c.long_name
         }
+        // Περιοχή: δήμος + «Αττικής» (π.χ. «Άλιμος Αττικής»), όχι «Νότιος Τομέας».
+        const city = extractCityLabel(place.address_components)
         // Ελληνική σειρά: «Δρόμος Αριθμός» (π.χ. Διγενή 7). Κρατάμε και τα δύο.
         const address = [route, streetNumber].filter(Boolean).join(' ')
         setForm(prev => ({

@@ -29,7 +29,7 @@ const T = {
     pickOtherTime: 'Επίλεξε άλλη ώρα', understandContinue: 'Κατανοώ, συνέχεια',
     whenTitle: 'Πότε θέλεις;', dateLabel: 'Ημερομηνία', timeLabel: 'Ώρα',
     pickTime: 'Επίλεξε ώρα', apply: 'Εφαρμογή', loading: 'Φόρτωση...',
-    newRating: 'Νέο',
+    passed: 'πέρασε', newRating: 'Νέο',
     waitTitle: 'Δεν έχουμε ακόμα πλυντήριο εδώ',
     waitSub: 'Άσε το email σου και σε ειδοποιούμε μόλις έρθει το Washio στην περιοχή σου.',
     waitEmail: 'Το email σου',
@@ -52,7 +52,7 @@ const T = {
     pickOtherTime: 'Pick another time', understandContinue: 'I understand, continue',
     whenTitle: 'When do you want it?', dateLabel: 'Date', timeLabel: 'Time',
     pickTime: 'Select a time', apply: 'Apply', loading: 'Loading...',
-    newRating: 'New',
+    passed: 'passed', newRating: 'New',
     waitTitle: 'No car wash here yet',
     waitSub: "Leave your email and we'll notify you the moment Washio arrives in your area.",
     waitEmail: 'Your email',
@@ -1255,14 +1255,23 @@ function MapPageContent() {
               </button>
               {showTimePicker && (
                 <div className="mt-1 border border-gray-200 rounded-xl bg-white shadow-md max-h-44 overflow-y-auto">
-                  {getTimeSlots().map(slot => (
-                    <button key={slot} onClick={() => { setSelectedTime(slot); setShowTimePicker(false) }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
-                        selectedTime === slot ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'
-                      }`}>
-                      {slot}
-                    </button>
-                  ))}
+                  {getTimeSlots().map(slot => {
+                    // Αν η επιλεγμένη μέρα είναι σήμερα, οι ώρες που πέρασαν δεν
+                    // κλείνονται — δείξ' τες ανενεργές με ένδειξη «πέρασε».
+                    const isTodaySel = selectedDate === getTodayValue()
+                    const past = isTodaySel && getMinutesUntilSlot(slot) <= 0
+                    return (
+                      <button key={slot} disabled={past}
+                        onClick={() => { if (past) return; setSelectedTime(slot); setShowTimePicker(false) }}
+                        className={`w-full text-left px-4 py-2.5 text-sm transition-colors flex items-center justify-between ${
+                          past ? 'text-gray-300 cursor-not-allowed'
+                            : selectedTime === slot ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-50'
+                        }`}>
+                        <span>{slot}</span>
+                        {past && <span className="text-[10px] uppercase tracking-wide">{t.passed}</span>}
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </div>

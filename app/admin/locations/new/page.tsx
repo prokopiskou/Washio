@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { extractCityLabel } from '@/lib/geo'
 import { ArrowLeft, MapPin } from 'lucide-react'
 
 declare global {
@@ -52,16 +53,16 @@ export default function NewLocationPage() {
 
         let route = ''
         let streetNumber = ''
-        let city = ''
         let postal_code = ''
 
         for (const component of place.address_components) {
           const types = component.types
           if (types.includes('route')) route = component.long_name
           if (types.includes('street_number')) streetNumber = component.long_name
-          if (types.includes('locality') || types.includes('administrative_area_level_3')) city = component.long_name
           if (types.includes('postal_code')) postal_code = component.long_name
         }
+        // Περιοχή: δήμος + «Αττικής» (π.χ. «Άλιμος Αττικής»), όχι «Νότιος Τομέας».
+        const city = extractCityLabel(place.address_components)
         // Ελληνική σειρά: «Δρόμος Αριθμός» (π.χ. Διγενή 7).
         const address = [route, streetNumber].filter(Boolean).join(' ')
 
