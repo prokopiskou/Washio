@@ -1,12 +1,11 @@
 'use client'
 
 import { useEffect } from 'react'
-import { successHaptic } from '@/lib/haptics'
 
 export function CapacitorInit() {
   useEffect(() => {
-    successHaptic()
-
+    // (Καμία δόνηση στο άνοιγμα — το success haptic ανήκει στην επιβεβαίωση
+    // κράτησης, όχι σε κάθε launch του app.)
     const init = async () => {
       try {
         // Dynamic import — μόνο όταν τρέχει σε Capacitor
