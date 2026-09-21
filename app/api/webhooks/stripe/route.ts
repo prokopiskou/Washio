@@ -7,6 +7,7 @@ import { sendPush } from '@/lib/push'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { insertBookingAtomic } from '@/lib/book-atomic'
+import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -181,6 +182,22 @@ export async function POST(req: NextRequest) {
         url: '/dashboard',
       })
     }
+
+    // Email στον πρατηριούχο για ΚΑΘΕ νέα κράτηση (και μελλοντικές). Το push
+    // πιάνει μόνο τις σημερινές — το email καλύπτει τα υπόλοιπα ώστε να μη
+    // χάνεται καμία κράτηση. Best-effort, μόνο εδώ (καμία μαζική αποστολή).
+    await sendOwnerBookingEmail(supabase, {
+      ownerId: (locationData as { owner_id?: string })?.owner_id,
+      locationId: m.locationId,
+      locationName: locationData?.name,
+      bookingRef,
+      serviceName: m.serviceName,
+      slotDate: m.slotDate,
+      slotStartTime: m.slotStartTime,
+      carPlate: m.carPlate,
+      total: parseFloat(m.amount),
+      isCash: false,
+    })
 
     // Get user email
     let userEmail = m.userEmail || null

@@ -7,6 +7,7 @@ import { alertCritical } from '@/lib/alert'
 import { sendPush, getLocationOwnerId } from '@/lib/push'
 import { checkSlotAvailability, shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { insertBookingAtomic } from '@/lib/book-atomic'
+import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -200,6 +201,19 @@ export async function POST(req: NextRequest) {
         })
       }
     } catch { /* best-effort */ }
+
+    // Email στον πρατηριούχο για ΚΑΘΕ νέα κράτηση (και μελλοντικές). Best-effort,
+    // μόνο εδώ (στιγμή δημιουργίας) — καμία μαζική/αναδρομική αποστολή.
+    await sendOwnerBookingEmail(admin, {
+      locationId,
+      bookingRef,
+      serviceName: service.name,
+      slotDate,
+      slotStartTime: slotStartTime as string,
+      carPlate,
+      total: amount,
+      isCash: true,
+    })
 
     // 5) Επιβεβαιωτικό email (best-effort).
     try {
