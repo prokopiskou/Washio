@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star, RotateCw } from 'lucide-react'
 import { useT, useLocale } from '@/lib/i18n'
+import { WashioLoader } from '@/components/WashioLoader'
 import { INACTIVE_STATUS_FILTER } from '@/lib/slots'
 import { ymdFromLocalDate, weekdayMon1FromYmd, athensToday, athensMinutesOfDay } from '@/lib/time'
 import { computeSlots, toMinutes, type HoursException, type OccupancyBooking } from '@/lib/availability'
@@ -433,7 +434,7 @@ export default function BookingDetailPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-xs text-gray-400">{t.loading}</p>
+        <WashioLoader />
       </main>
     )
   }
@@ -733,7 +734,7 @@ export default function BookingDetailPage() {
             <div className="mb-5">
               <p className="text-xs text-gray-400 mb-1.5">{t.availableTimes}</p>
               {slotsLoading ? (
-                <p className="text-xs text-gray-400 py-4">{t.loading}</p>
+                <WashioLoader className="py-4" />
               ) : availableSlots.length === 0 ? (
                 <p className="text-xs text-gray-400 py-4">{t.noSlots}</p>
               ) : (

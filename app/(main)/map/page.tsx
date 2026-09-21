@@ -10,6 +10,7 @@ import { track as trackEvent } from '@/lib/analytics'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } from '@/lib/availability'
 import { getCurrentPosition } from '@/lib/geo'
+import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService } from '@/lib/services-catalog'
 import { BottomNav } from '@/components/BottomNav'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -920,7 +921,7 @@ function MapPageContent() {
 
         {!mapLoaded && (
           <div className="absolute inset-0 bg-gray-50 flex items-center justify-center">
-            <p className="text-xs text-gray-400">{t.loadingMap}</p>
+            <WashioLoader label={t.loadingMap} />
           </div>
         )}
 
@@ -1279,7 +1280,7 @@ function MapPageContent() {
 
 export default function MapPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-white flex flex-col items-center"><div className="w-full max-w-md h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></div></div>}>
+    <Suspense fallback={<div className="min-h-screen bg-white flex flex-col items-center"><div className="w-full max-w-md h-screen flex items-center justify-center"><WashioLoader /></div></div>}>
       <MapPageContent />
     </Suspense>
   )

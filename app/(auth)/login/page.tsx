@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { signInWithProvider } from '@/lib/native-auth'
+import { WashioLoader } from '@/components/WashioLoader'
 import { useT } from '@/lib/i18n'
 
 const T = {
@@ -313,7 +314,7 @@ function LoginPageContent() {
 
 function LoginFallback() {
   const t = useT(T)
-  return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">{t.loading}</p></div>
+  return <div className="min-h-screen flex items-center justify-center"><WashioLoader /></div>
 }
 
 export default function LoginPage() {

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ArrowLeft, MapPin, X, Upload } from 'lucide-react'
+import { WashioLoader } from '@/components/WashioLoader'
 
 declare global {
   interface Window {
@@ -147,7 +148,7 @@ export default function EditLocationPage() {
   }
 
   if (loadingData) {
-    return <main className="min-h-screen bg-white flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>
+    return <main className="min-h-screen bg-white flex items-center justify-center"><WashioLoader /></main>
   }
 
   return (

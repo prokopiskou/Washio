@@ -8,6 +8,7 @@ import { track } from '@vercel/analytics'
 import { athensToday, athensMinutesOfDay, ymdFromLocalDate } from '@/lib/time'
 import { computeSlots, type OccupancyBooking, type HoursException } from '@/lib/availability'
 import { isMotoService } from '@/lib/services-catalog'
+import { WashioLoader } from '@/components/WashioLoader'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
@@ -308,7 +309,7 @@ export default function LocationPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-xs text-gray-400">{t.loading}</p>
+        <WashioLoader />
       </main>
     )
   }
@@ -531,7 +532,7 @@ export default function LocationPage() {
             {t.time} · {selectedDate.getDate()} {MONTHS_SHORT_L[locale][selectedDate.getMonth()]}
           </p>
           {slotsLoading ? (
-            <p className="text-xs text-gray-400">{t.loadingHours}</p>
+            <WashioLoader label={t.loadingHours} />
           ) : slots.length === 0 ? (
             <p className="text-xs text-gray-400">{t.noSlots}</p>
           ) : (

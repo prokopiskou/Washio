@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { ChevronLeft, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { lightTap } from '@/lib/haptics'
+import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
 const T = {
@@ -101,7 +102,7 @@ export default function ReviewsPage() {
   if (loading) {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-xs text-gray-400">{t.loading}</p>
+        <WashioLoader />
       </main>
     )
   }

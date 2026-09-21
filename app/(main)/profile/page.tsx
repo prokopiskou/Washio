@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { lightTap, successHaptic, errorHaptic } from '@/lib/haptics'
 import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Store } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
+import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
 const T = {
@@ -154,7 +155,7 @@ export default function ProfilePage() {
   if (authLoading) {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-xs text-gray-400">{t.loading}</p>
+        <WashioLoader />
       </main>
     )
   }

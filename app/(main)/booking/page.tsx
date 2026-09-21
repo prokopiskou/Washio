@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { mediumTap, errorHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
+import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday } from '@/lib/time'
 
@@ -563,7 +564,7 @@ function BookingPageContent() {
   }
 
   if (sessionLoading) {
-    return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-xs text-gray-400">{t.loading}</p></main>
+    return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><WashioLoader /></main>
   }
 
   if (!service) {
@@ -864,7 +865,7 @@ function BookingPageContent() {
 
 export default function BookingPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>}>
+    <Suspense fallback={<main className="min-h-screen bg-gray-50 flex items-center justify-center"><WashioLoader /></main>}>
       <BookingPageContent />
     </Suspense>
   )

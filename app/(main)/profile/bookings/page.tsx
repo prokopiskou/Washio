@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 
 const T = {
@@ -252,7 +253,7 @@ export default function ProfileBookingsPage() {
         {/* List */}
         {loading ? (
           <div className="px-5 py-8">
-            <p className="text-xs text-gray-400">{t.loading}</p>
+            <WashioLoader />
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center text-center px-10 pt-24">

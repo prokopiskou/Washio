@@ -9,6 +9,7 @@ import { CORE_SERVICES, type CatalogService } from '@/lib/services-catalog'
 import { ymdFromLocalDate } from '@/lib/time'
 import { isAdminEmail } from '@/lib/admins'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
+import { WashioLoader } from '@/components/WashioLoader'
 import { Capacitor } from '@capacitor/core'
 import { registerNativePush, nativePushGranted } from '@/lib/native-push'
 import PushInit from '@/components/PushInit'
@@ -893,7 +894,7 @@ export default function DashboardPage() {
     }
   }
 
-  if (loading) return <main className="min-h-screen bg-white flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>
+  if (loading) return <main className="min-h-screen bg-white flex items-center justify-center"><WashioLoader /></main>
   if (!location?.id) return (
     <main className="min-h-screen bg-white flex flex-col items-center justify-center gap-4 px-6 text-center">
       <p className="text-sm text-gray-500">Δεν έχεις συνδεδεμένο πλυντήριο.</p>

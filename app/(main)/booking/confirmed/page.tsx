@@ -8,6 +8,7 @@ import { successHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
 import { PushReminderPrompt } from '@/components/PushReminderPrompt'
+import { WashioLoader } from '@/components/WashioLoader'
 import { useT } from '@/lib/i18n'
 
 const T = {
@@ -392,7 +393,7 @@ export default function ConfirmedPage() {
     <Suspense
       fallback={
         <main className="min-h-screen bg-white flex items-center justify-center">
-          <p className="text-xs text-gray-400">Φόρτωση...</p>
+          <WashioLoader />
         </main>
       }
     >

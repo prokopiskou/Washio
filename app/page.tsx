@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core'
 import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon, Store } from 'lucide-react'
 import LandingPage from './landing/page'
 import { BottomNav } from '@/components/BottomNav'
+import { WashioLoader } from '@/components/WashioLoader'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday } from '@/lib/time'
@@ -195,7 +196,7 @@ export default function HomePage() {
   if (authChecking) {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-xs text-gray-400">{t.loading}</p>
+        <WashioLoader />
       </main>
     )
   }

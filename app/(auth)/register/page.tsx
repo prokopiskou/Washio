@@ -7,6 +7,7 @@ import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { signInWithProvider } from '@/lib/native-auth'
 import { track as trackEvent } from '@/lib/analytics'
+import { WashioLoader } from '@/components/WashioLoader'
 import { useT } from '@/lib/i18n'
 
 const T = {
@@ -170,7 +171,7 @@ function RegisterPageContent() {
 
 function RegisterFallback() {
   const t = useT(T)
-  return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">{t.loading}</p></div>
+  return <div className="min-h-screen flex items-center justify-center"><WashioLoader /></div>
 }
 
 export default function RegisterPage() {

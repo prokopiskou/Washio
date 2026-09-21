@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { WashioLoader } from '@/components/WashioLoader'
 import { useT } from '@/lib/i18n'
 
 const T = {
@@ -74,7 +75,7 @@ export default function ProfileFavoritesPage() {
 
         {loading ? (
           <div className="px-5 py-8">
-            <p className="text-xs text-gray-400">{t.loading}</p>
+            <WashioLoader />
           </div>
         ) : favorites.length === 0 ? (
           <div className="px-5 py-8">

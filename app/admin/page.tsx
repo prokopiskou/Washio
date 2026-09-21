@@ -7,6 +7,7 @@ import { ChevronRight, Download, RefreshCw, Check, X, Power } from 'lucide-react
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { ADMIN_EMAILS } from '@/lib/admins'
 import { bankFromIban } from '@/lib/greek-banks'
+import { WashioLoader } from '@/components/WashioLoader'
 
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
@@ -454,7 +455,7 @@ export default function AdminPage() {
     return new Date(year, month - 1).toLocaleDateString('el-GR', { month: 'long', year: 'numeric' })
   }
 
-  if (authChecking) return <div className="min-h-screen flex items-center justify-center"><p className="text-xs text-gray-400">Έλεγχος πρόσβασης...</p></div>
+  if (authChecking) return <div className="min-h-screen flex items-center justify-center"><WashioLoader label="Έλεγχος πρόσβασης..." /></div>
   if (!authorized) return null
 
   return (
@@ -543,7 +544,7 @@ export default function AdminPage() {
 
         <div className="px-6 pt-5">
           {loading ? (
-            <div className="text-center py-10"><p className="text-xs text-gray-400">Φόρτωση...</p></div>
+            <div className="text-center py-10"><WashioLoader /></div>
           ) : (
             <>
               {activeTab === 'overview' && (
