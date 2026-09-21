@@ -110,7 +110,7 @@ function ConfirmedContent() {
 
   // 'ok' = πραγματική κράτηση βρέθηκε · 'pending' = περιμένουμε το webhook ·
   // 'failed' = το Stripe γύρισε redirect_status≠succeeded (π.χ. 3DS απέτυχε).
-  const [payState, setPayState] = useState<'ok' | 'pending' | 'failed'>('pending')
+  const [payState, setPayState] = useState<'ok' | 'pending' | 'slow' | 'failed'>('pending')
 
   useEffect(() => {
     setShow(true)
@@ -149,29 +149,35 @@ function ConfirmedContent() {
         return
       }
 
-      // Κάρτα: η κράτηση γράφεται από το webhook λίγο μετά. Ρωτάμε μέχρι ~20''.
+      // Κάρτα: η κράτηση γράφεται από το webhook λίγο μετά. Ρωτάμε μέχρι ~40''.
       // ΠΟΤΕ ψεύτικος κωδικός — μόνο ο πραγματικός από τη βάση.
       if (intentId) {
-        for (let attempt = 0; attempt < 8; attempt++) {
-          const { data } = await supabase
-            .from('bookings')
-            .select('booking_ref, locations(name, address, city)')
-            .eq('stripe_payment_intent_id', intentId)
-            .maybeSingle()
-          if (data?.booking_ref) {
-            setBookingRef(data.booking_ref)
-            applyLocation(data.locations as any)
+        for (let attempt = 0; attempt < 16; attempt++) {
+          // Μέσω server (service role) — δεν εξαρτάται από το session, που
+          // μετά το redirect του Stripe μπορεί να μην έχει φορτωθεί → RLS block.
+          let found: { ref?: string; location?: any } | null = null
+          try {
+            const res = await fetch(`/api/bookings/by-intent?pi=${encodeURIComponent(intentId)}`)
+            if (res.ok) found = await res.json()
+          } catch { /* retry */ }
+          if (found?.ref) {
+            setBookingRef(found.ref)
+            applyLocation(found.location)
             setPayState('ok')
             successHaptic()
             track('booking_paid')
             // eventId = booking_ref → dedup με το server-side CAPI (webhook).
-            trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: data.booking_ref })
+            trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: found.ref })
             return
           }
           await new Promise(r => setTimeout(r, 2500))
         }
-        // Δεν ήρθε ακόμα: η πληρωμή πέρασε, το email με τον κωδικό θα φτάσει.
-        // Μένουμε 'pending' (χωρίς ψεύτικο ref).
+        // Η πληρωμή πέρασε αλλά το webhook αργεί να γράψει την κράτηση. ΔΕΝ
+        // δείχνουμε ψεύτικο ref ή ατέρμονο spinner — φιλικό μήνυμα «καταχωρείται».
+        setPayState('slow')
+        successHaptic()
+        track('booking_paid')
+        trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: intentId })
         return
       }
 
@@ -230,17 +236,33 @@ function ConfirmedContent() {
               <h1 className="text-[24px] font-bold tracking-tight text-center text-gray-900 leading-[1.2]">
                 {payState === 'pending' && !isCash
                   ? <>Επιβεβαιώνουμε<br />την πληρωμή σου…</>
+                  : payState === 'slow'
+                  ? <>Η πληρωμή<br />ολοκληρώθηκε ✅</>
                   : <>{t.confirmedTitle1}<br />{t.confirmedTitle2}</>}
               </h1>
               <p className="text-[14px] text-gray-500 text-center mt-2">
                 {payState === 'pending' && !isCash
                   ? 'Λίγα δευτερόλεπτα. Θα λάβεις και email με τον κωδικό κράτησης.'
+                  : payState === 'slow'
+                  ? 'Η κράτησή σου καταχωρείται — θα τη βρεις στις «Κρατήσεις μου» και στο email σου σε λίγο.'
                   : (isCash ? t.cashSub : t.emailSub)}
               </p>
+              {payState === 'slow' && (
+                <div className="flex flex-col gap-2.5 mt-8">
+                  <button onClick={() => router.push('/profile/bookings')}
+                    className="w-full rounded-xl bg-gray-900 text-white text-[15px] font-semibold flex items-center justify-center" style={{ height: 52 }}>
+                    {t.viewBookings}
+                  </button>
+                  <button onClick={() => router.push('/')}
+                    className="w-full rounded-xl bg-white border border-gray-200 text-gray-900 text-[15px] font-semibold flex items-center justify-center" style={{ height: 52 }}>
+                    {t.backHome}
+                  </button>
+                </div>
+              )}
             </>
           )}
 
-          {payState !== 'failed' && (<>
+          {payState !== 'failed' && payState !== 'slow' && (<>
           {/* Apple Wallet–style pass */}
           <div
             className="mt-8 bg-gray-900 text-white rounded-[20px] p-5 relative overflow-hidden"
