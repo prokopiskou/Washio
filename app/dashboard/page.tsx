@@ -227,6 +227,8 @@ export default function DashboardPage() {
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
   const locationIdRef = useRef<string | null>(null)
   const calendarDateRef = useRef<Date>(calendarDate)
+  // Cleanup του realtime channel + polling interval (ορίζεται μέσα στο loadDashboard).
+  const cleanupRef = useRef<(() => void) | null>(null)
   useEffect(() => { calendarDateRef.current = calendarDate }, [calendarDate])
 
   useEffect(() => {
@@ -251,9 +253,12 @@ export default function DashboardPage() {
 
   // «Θυμήσου την τελευταία όψη»: μαρκάρω ότι ο χρήστης είναι στο dashboard,
   // ώστε την επόμενη φορά που ανοίγει το app να έρθει κατευθείαν εδώ.
+  // ΜΟΝΟ όταν όντως έχει πλυντήριο — αλλιώς ένας πελάτης που έπεσε εδώ
+  // θα κλειδωνόταν σε owner mode σε κάθε άνοιγμα του app.
   useEffect(() => {
+    if (!location?.id) return
     try { localStorage.setItem('washio_mode', 'partner') } catch { /* ignore */ }
-  }, [])
+  }, [location?.id])
 
   const [notifBusy, setNotifBusy] = useState(false)
 
@@ -357,6 +362,7 @@ export default function DashboardPage() {
   }, [activeTab, calendarDate, location])
 
   useEffect(() => {
+    let disposed = false
     const loadDashboard = async () => {
       const supabase = createClient()
       const { data: authData } = await supabase.auth.getSession()
@@ -522,9 +528,18 @@ export default function DashboardPage() {
         if (data) setBookings(data as Booking[])
       }, 30000)
 
-      return () => { supabase.removeChannel(channel); clearInterval(interval) }
+      // Αν το component ξε-mount-άρισε όσο φορτώναμε, καθάρισε αμέσως.
+      if (disposed) { supabase.removeChannel(channel); clearInterval(interval); return }
+      cleanupRef.current = () => { supabase.removeChannel(channel); clearInterval(interval) }
     }
     loadDashboard()
+    // ΠΡΑΓΜΑΤΙΚΟ cleanup του effect (πριν, το return ήταν μέσα στην async
+    // συνάρτηση και δεν έτρεχε ποτέ → leak channel + interval σε κάθε mount).
+    return () => {
+      disposed = true
+      cleanupRef.current?.()
+      cleanupRef.current = null
+    }
   }, [router])
 
   // Chart data based on period and metric
@@ -856,13 +871,37 @@ export default function DashboardPage() {
   }
 
   const cancelBooking = async (id: string) => {
-    const supabase = createClient()
-    await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', id)
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, status: 'cancelled' } : b))
+    // Πάντα μέσω API: κάνει το Stripe refund (αν ήταν κάρτα), ενημερώνει
+    // τον πελάτη με email και ανοίγει το slot. Ποτέ απευθείας update.
+    try {
+      const res = await fetch('/api/bookings/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: id, reason: 'owner_cancelled' }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { alert(json.error || 'Η ακύρωση δεν ολοκληρώθηκε.'); return }
+      setBookings(prev => prev.map(b => b.id === id ? { ...b, status: 'cancelled' } : b))
+    } catch {
+      alert('Πρόβλημα σύνδεσης. Η κράτηση ΔΕΝ ακυρώθηκε.')
+    }
   }
 
   if (loading) return <main className="min-h-screen bg-white flex items-center justify-center"><p className="text-xs text-gray-400">Φόρτωση...</p></main>
-  if (!location?.id) return <main className="min-h-screen bg-white flex items-center justify-center"><p className="text-sm text-gray-500">Δεν έχεις συνδεδεμένο πλυντήριο.</p></main>
+  if (!location?.id) return (
+    <main className="min-h-screen bg-white flex flex-col items-center justify-center gap-4 px-6 text-center">
+      <p className="text-sm text-gray-500">Δεν έχεις συνδεδεμένο πλυντήριο.</p>
+      <button
+        onClick={() => {
+          try { localStorage.setItem('washio_mode', 'customer') } catch { /* ignore */ }
+          router.push('/')
+        }}
+        className="h-11 px-5 rounded-xl bg-gray-900 text-white text-[13px] font-semibold"
+      >
+        Επιστροφή στην εφαρμογή
+      </button>
+    </main>
+  )
 
   return (
     <main className="min-h-screen bg-gray-50">

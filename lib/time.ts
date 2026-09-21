@@ -42,3 +42,13 @@ export function weekdayMon1FromYmd(ymd: string): number {
   const jsDay = utcNoon.getUTCDay()
   return jsDay === 0 ? 7 : jsDay
 }
+
+// Το instant (epoch ms) μιας ώρας 'YYYY-MM-DD' + 'HH:MM' σε τοπική ώρα Ελλάδας.
+// Χειρίζεται σωστά θερινή/χειμερινή ώρα. Ασφαλές για server (UTC) και client.
+export function athensEpoch(dateStr: string, timeStr: string): number {
+  const naive = new Date(`${dateStr}T${String(timeStr).slice(0, 5)}:00Z`).getTime()
+  const local = new Date(naive)
+  const asAthens = new Date(local.toLocaleString('en-US', { timeZone: 'Europe/Athens' }))
+  const asUtc = new Date(local.toLocaleString('en-US', { timeZone: 'UTC' }))
+  return naive + (asUtc.getTime() - asAthens.getTime())
+}

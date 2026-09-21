@@ -197,6 +197,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     const supabase = createClient()
+    try { localStorage.removeItem('washio_mode') } catch { /* ignore */ }
     await supabase.auth.signOut()
     router.push('/login')
   }

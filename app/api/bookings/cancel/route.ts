@@ -6,6 +6,7 @@ import { isAdminEmail } from '@/lib/admins'
 import { alertCritical } from '@/lib/alert'
 import { sendPush, getLocationOwnerId } from '@/lib/push'
 import { shouldNotifyOwnerNow } from '@/lib/availability-server'
+import { athensEpoch } from '@/lib/time'
 import { Resend } from 'resend'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
@@ -25,7 +26,13 @@ function cancellationEmailHtml(data: {
   time: string
   refundAmount: string
   isPartial: boolean
+  isCash?: boolean
 }) {
+  const refundBox = data.isCash
+    ? `<p style="color: #555; font-size: 12px; margin: 0; line-height: 1.6;">Η κράτηση ήταν με πληρωμή στο πλυντήριο — δεν υπάρχει χρέωση ή επιστροφή.</p>`
+    : `<p style="color: #E53E3E; font-size: 12px; margin: 0; line-height: 1.6;">
+            💳 ${data.isPartial ? 'Μερική επιστροφή' : 'Πλήρης επιστροφή'} <strong>€${data.refundAmount}</strong> εντός <strong>5-7 εργάσιμων ημερών</strong>.
+          </p>`
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
       <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
@@ -45,10 +52,8 @@ function cancellationEmailHtml(data: {
             <tr><td style="color: #999; padding: 6px 0;">Ώρα</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0;">${data.time}</td></tr>
           </table>
         </div>
-        <div style="background: #FFF5F5; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
-          <p style="color: #E53E3E; font-size: 12px; margin: 0; line-height: 1.6;">
-            💳 ${data.isPartial ? 'Μερική επιστροφή' : 'Πλήρης επιστροφή'} <strong>€${data.refundAmount}</strong> εντός <strong>5-7 εργάσιμων ημερών</strong>.
-          </p>
+        <div style="background: ${data.isCash ? '#F7F7F7' : '#FFF5F5'}; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
+          ${refundBox}
         </div>
         <a href="https://washio.gr" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px;">Νέα κράτηση →</a>
         <p style="color: #CCC; font-size: 11px; text-align: center; margin: 0;">Washio · support@washio.gr</p>
@@ -79,7 +84,7 @@ export async function POST(req: NextRequest) {
         id, booking_ref, slot_date, slot_start_time, total_amount,
         stripe_payment_intent_id, user_id, location_id, service_id,
         status, refund_amount, stripe_payment_status,
-        locations(name),
+        locations(name, owner_id),
         services(name)
       `)
       .eq('id', bookingId)
@@ -90,36 +95,63 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
-    if (!admin && booking.user_id !== user.id) {
+    // Ποιος ακυρώνει: admin, ο πελάτης της κράτησης, ή ο ιδιοκτήτης του πλυντηρίου.
+    const locOwnerId = (booking.locations as { owner_id?: string | null } | null)?.owner_id || null
+    const isCustomer = booking.user_id === user.id
+    const isOwner = !!locOwnerId && locOwnerId === user.id
+    if (!admin && !isCustomer && !isOwner) {
       return NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 })
     }
 
-    // Το ποσό επιστροφής: μόνο admin μπορεί να ορίσει custom/partial.
-    // Ο πελάτης παίρνει πάντα πλήρη επιστροφή του ποσού της κράτησης — δεν το ελέγχει αυτός.
+    // Μόνο ενεργές κρατήσεις ακυρώνονται — όχι ολοκληρωμένες / no-show / ήδη ακυρωμένες.
+    if (!['confirmed', 'pending'].includes(String(booking.status))) {
+      return NextResponse.json({ error: 'Η κράτηση δεν μπορεί να ακυρωθεί (έχει ολοκληρωθεί ή ακυρωθεί ήδη).' }, { status: 409 })
+    }
+
+    // Όριο πελάτη: όχι ακύρωση < 2 ώρες πριν (server-side — το UI μόνο δεν φτάνει).
+    if (isCustomer && !admin && !isOwner) {
+      const slotMs = athensEpoch(String(booking.slot_date), String(booking.slot_start_time || '00:00'))
+      if (slotMs - Date.now() < 2 * 60 * 60 * 1000) {
+        return NextResponse.json({ error: 'Δεν γίνεται ακύρωση λιγότερο από 2 ώρες πριν το ραντεβού.' }, { status: 409 })
+      }
+    }
+
+    // Πληρωμή με κάρτα μέσω Stripe; Αλλιώς (μετρητά/εξωτερική) δεν υπάρχει τίποτα να επιστραφεί.
+    const isCardPaid = !!booking.stripe_payment_intent_id && booking.stripe_payment_status === 'paid'
+
+    // Ποσό επιστροφής: μόνο admin ορίζει custom/partial. Πελάτης/ιδιοκτήτης = πλήρης.
     const totalAmount = Number(booking.total_amount)
-    let finalRefundAmount = totalAmount
-    if (admin && refundAmount != null) {
+    let finalRefundAmount = isCardPaid ? totalAmount : 0
+    if (admin && isCardPaid && refundAmount != null) {
       finalRefundAmount = Number(refundAmount)
     }
     if (!(finalRefundAmount >= 0) || finalRefundAmount > totalAmount) {
       return NextResponse.json({ error: 'Μη έγκυρο ποσό επιστροφής' }, { status: 400 })
     }
 
-    const alreadyRefunded =
-      booking.status === 'cancelled' ||
-      Number(booking.refund_amount || 0) > 0 ||
-      booking.stripe_payment_status === 'refunded' ||
-      booking.stripe_payment_status === 'partially_refunded'
-
-    if (alreadyRefunded) {
-      return NextResponse.json({ error: 'Booking already refunded' }, { status: 409 })
+    // ΑΤΟΜΙΚΗ δέσμευση: μεταβαίνει σε cancelled ΜΟΝΟ αν είναι ακόμα ενεργή.
+    // Αν δύο αιτήματα τρέξουν ταυτόχρονα, μόνο το ένα «παίρνει» τη γραμμή →
+    // αδύνατο διπλό refund. Γίνεται ΠΡΙΝ το Stripe.
+    const { data: claimed } = await supabase
+      .from('bookings')
+      .update({
+        status: 'cancelled',
+        cancellation_reason: reason || (admin ? 'admin_refund' : isOwner ? 'owner_cancelled' : 'customer_cancelled'),
+        cancellation_details: details || (isPartial ? `Μερική επιστροφή €${finalRefundAmount}` : isCardPaid ? 'Πλήρης επιστροφή' : 'Ακύρωση (χωρίς χρέωση)'),
+        cancelled_at: new Date().toISOString(),
+      })
+      .eq('id', bookingId)
+      .in('status', ['confirmed', 'pending'])
+      .select('id')
+    if (!claimed || claimed.length === 0) {
+      return NextResponse.json({ error: 'Booking already cancelled' }, { status: 409 })
     }
 
-    // Stripe refund
-    if (booking.stripe_payment_intent_id) {
+    // Stripe refund (μόνο για κάρτα). Αν αποτύχει, ΕΠΑΝΑΦΕΡΟΥΜΕ την κράτηση.
+    if (isCardPaid && finalRefundAmount > 0) {
       try {
         await stripe.refunds.create({
-          payment_intent: booking.stripe_payment_intent_id,
+          payment_intent: booking.stripe_payment_intent_id as string,
           amount: Math.round(finalRefundAmount * 100), // σε λεπτά
           reason: 'requested_by_customer',
         })
@@ -128,34 +160,32 @@ export async function POST(req: NextRequest) {
         const isAlreadyRefundedStripe =
           stripeErr instanceof Stripe.errors.StripeError &&
           stripeErr.code === 'charge_already_refunded'
-        if (isAlreadyRefundedStripe) {
-          return NextResponse.json({ error: 'Booking already refunded' }, { status: 409 })
+        if (!isAlreadyRefundedStripe) {
+          // Rollback: η κράτηση παραμένει ενεργή, ο πελάτης ΔΕΝ έχασε τα λεφτά του.
+          await supabase.from('bookings')
+            .update({ status: booking.status, cancellation_reason: null, cancellation_details: null, cancelled_at: null })
+            .eq('id', bookingId)
+          const msg = stripeErr instanceof Error ? stripeErr.message : 'unknown'
+          console.error('Stripe refund error:', msg)
+          await alertCritical(
+            'Αποτυχία refund',
+            `booking: ${booking.booking_ref}\nΠοσό: €${finalRefundAmount}\nΣφάλμα: ${msg}`
+          )
+          return NextResponse.json({ error: 'Refund failed: ' + msg }, { status: 500 })
         }
-        const msg = stripeErr instanceof Error ? stripeErr.message : 'unknown'
-        console.error('Stripe refund error:', msg)
-        await alertCritical(
-          'Αποτυχία refund',
-          `booking: ${booking.booking_ref}\nΠοσό: €${finalRefundAmount}\nΣφάλμα: ${msg}`
-        )
-        return NextResponse.json({ error: 'Refund failed: ' + msg }, { status: 500 })
       }
     }
 
-    // Update booking
-    const stripePaymentStatus =
-      finalRefundAmount >= totalAmount ? 'refunded' : 'partially_refunded'
-
-    await supabase
-      .from('bookings')
-      .update({
-        status: 'cancelled',
-        cancellation_reason: reason || 'admin_refund',
-        cancellation_details: details || (isPartial ? `Μερική επιστροφή €${finalRefundAmount}` : 'Πλήρης επιστροφή'),
-        cancelled_at: new Date().toISOString(),
-        refund_amount: finalRefundAmount,
-        stripe_payment_status: stripePaymentStatus,
-      })
-      .eq('id', bookingId)
+    // Καταγραφή ποσού/κατάστασης πληρωμής (μετρητά: μένει όπως ήταν, refund 0).
+    if (isCardPaid) {
+      await supabase
+        .from('bookings')
+        .update({
+          refund_amount: finalRefundAmount,
+          stripe_payment_status: finalRefundAmount >= totalAmount ? 'refunded' : 'partially_refunded',
+        })
+        .eq('id', bookingId)
+    }
 
     // Push στον πρατηριούχο: ακύρωση → το slot άνοιξε.
     // Ίδιος κανόνας με τις νέες κρατήσεις: μόνο σημερινές, εντός ωραρίου.
@@ -234,6 +264,7 @@ export async function POST(req: NextRequest) {
             time: booking.slot_start_time?.slice(0, 5) || '',
             refundAmount: finalRefundAmount.toFixed(2),
             isPartial: !!isPartial,
+            isCash: !isCardPaid,
           }),
         })
       } catch (emailErr: unknown) {

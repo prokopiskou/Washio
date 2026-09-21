@@ -6,6 +6,7 @@ import { alertCritical } from '@/lib/alert'
 import { sendPush } from '@/lib/push'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { shouldNotifyOwnerNow } from '@/lib/availability-server'
+import { insertBookingAtomic } from '@/lib/book-atomic'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -100,7 +101,10 @@ export async function POST(req: NextRequest) {
       .from('services').select('duration_minutes').eq('id', m.serviceId).maybeSingle()
     const bookingDuration = Math.max(30, Number(svcRow?.duration_minutes) || 30)
 
-    const { error } = await supabase.from('bookings').insert({
+    // ΑΤΟΜΙΚΟ insert (κλειδαριά + έλεγχος πληρότητας στη βάση). Αν το slot
+    // γέμισε όσο ο πελάτης πλήρωνε (π.χ. μετρητά από άλλον), ΔΕΝ γράφουμε
+    // διπλή κράτηση: επιστρέφουμε αυτόματα τα χρήματα και ειδοποιούμε.
+    const inserted = await insertBookingAtomic(supabase, {
       booking_ref: bookingRef,
       duration_minutes: bookingDuration,
       source: 'platform',
@@ -119,13 +123,34 @@ export async function POST(req: NextRequest) {
       status: 'confirmed',
     })
 
-    if (error) {
-      console.error('Booking insert error:', error)
+    if (!inserted.ok) {
+      if (inserted.code === 'DUPLICATE') {
+        // Ταυτόχρονο redelivery — το booking υπάρχει ήδη (unique index στο PI).
+        console.log('Duplicate webhook for payment:', intent.id, '— skipping')
+        return NextResponse.json({ received: true, duplicate: true })
+      }
+      if (inserted.code === 'SLOT_FULL') {
+        // Ο πελάτης πλήρωσε για ώρα που δεν χωράει πια → πλήρες refund.
+        let refunded = false
+        try {
+          await stripe.refunds.create({ payment_intent: intent.id, reason: 'requested_by_customer' })
+          refunded = true
+        } catch (e) {
+          console.error('Auto-refund failed:', e instanceof Error ? e.message : e)
+        }
+        await alertCritical(
+          'Πληρωμή για ΓΕΜΑΤΟ slot' + (refunded ? ' — έγινε αυτόματο refund' : ' — ΤΟ REFUND ΑΠΕΤΥΧΕ'),
+          `payment_intent: ${intent.id}\nΠοσό: €${m.amount}\nΠλυντήριο: ${m.locationId}\nSlot: ${m.slotDate} ${m.slotStartTime}\nΠελάτης: ${m.userEmail || m.userId || '—'}`
+        )
+        // 200: δεν θέλουμε retry από το Stripe — το χειριστήκαμε.
+        return NextResponse.json({ received: true, slotFull: true, refunded })
+      }
+      console.error('Booking insert error:', inserted.message)
       await alertCritical(
         'Πληρωμή ΟΚ αλλά booking ΑΠΕΤΥΧΕ',
-        `payment_intent: ${intent.id}\nΠοσό: €${m.amount}\nΣφάλμα: ${error.message}`
+        `payment_intent: ${intent.id}\nΠοσό: €${m.amount}\nΣφάλμα: ${inserted.message}`
       )
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: inserted.message }, { status: 500 })
     }
 
     // Meta CAPI Purchase (server-side, dedup με event_id = booking_ref).

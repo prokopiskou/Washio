@@ -53,7 +53,15 @@ async function sendWebPush(
             { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
             JSON.stringify(payload)
           )
-          .catch(() => null)
+          .catch(async (err: unknown) => {
+            // 404/410 = ο browser έκανε unsubscribe / έληξε → σβήσε τη γραμμή,
+            // αλλιώς χτυπάμε για πάντα νεκρά endpoints σε κάθε αποστολή.
+            const code = (err as { statusCode?: number })?.statusCode
+            if (code === 404 || code === 410) {
+              await admin.from('push_subscriptions').delete().eq('endpoint', s.endpoint).then(() => null, () => null)
+            }
+            return null
+          })
       )
     )
   } catch {

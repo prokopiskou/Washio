@@ -311,35 +311,29 @@ export default function BookingDetailPage() {
     if (!booking || !reason || !acknowledged) return
     setCancelling(true)
 
-    const supabase = createClient()
-
-    await supabase
-      .from('bookings')
-      .update({
-        status: 'cancelled',
-        cancellation_reason: reason,
-        cancellation_details: details || null,
-        cancelled_at: new Date().toISOString(),
-      })
-      .eq('id', booking.id)
-
+    // ΜΟΝΟ το API αλλάζει status: κάνει το Stripe refund, γράφει cancelled,
+    // στέλνει email. (Πριν, το client έγραφε cancelled ΠΡΙΝ το API → το API
+    // το έβλεπε ως «ήδη ακυρωμένο» και δεν έκανε ποτέ refund.)
     try {
-      await fetch('/api/bookings/cancel', {
+      const res = await fetch('/api/bookings/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          reason,
-          details,
-        }),
+        body: JSON.stringify({ bookingId: booking.id, reason, details }),
       })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setCancelling(false)
+        alert(json.error || 'Η ακύρωση δεν ολοκληρώθηκε. Δοκίμασε ξανά ή επικοινώνησε μαζί μας.')
+        return
+      }
+      setBooking({ ...booking, status: 'cancelled', cancellation_reason: reason } as typeof booking)
+      setShowCancelFlow(false)
     } catch (e) {
       console.error('Cancel API error:', e)
+      alert('Πρόβλημα σύνδεσης. Η κράτηση ΔΕΝ ακυρώθηκε — δοκίμασε ξανά.')
+    } finally {
+      setCancelling(false)
     }
-
-    setCancelling(false)
-    setShowCancelFlow(false)
-    setBooking({ ...booking, status: 'cancelled' })
   }
 
   // === RESCHEDULE ===

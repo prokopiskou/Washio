@@ -5,6 +5,7 @@ import { Resend } from 'resend'
 import { alertCritical } from '@/lib/alert'
 import { sendPush, getLocationOwnerId } from '@/lib/push'
 import { checkSlotAvailability, shouldNotifyOwnerNow } from '@/lib/availability-server'
+import { insertBookingAtomic } from '@/lib/book-atomic'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -124,7 +125,9 @@ export async function POST(req: NextRequest) {
     // 4) Δημιουργία κράτησης — ΜΕΤΡΗΤΑ (χωρίς Stripe).
     const bookingRef = 'WS-' + Math.random().toString(16).slice(2, 10).toUpperCase()
 
-    const { error: insertError } = await admin.from('bookings').insert({
+    // ΑΤΟΜΙΚΟ insert: κλειδαριά ανά (πλυντήριο, μέρα) + έλεγχος πληρότητας
+    // μέσα στη βάση — δύο ταυτόχρονες κρατήσεις δεν χωράνε πια στο ίδιο slot.
+    const inserted = await insertBookingAtomic(admin, {
       booking_ref: bookingRef,
       user_id: user.id,
       location_id: locationId,
@@ -143,13 +146,16 @@ export async function POST(req: NextRequest) {
       status: 'confirmed',
     })
 
-    if (insertError) {
-      console.error('Cash booking insert error:', insertError)
+    if (!inserted.ok) {
+      if (inserted.code === 'SLOT_FULL') {
+        return NextResponse.json({ error: inserted.message }, { status: 409 })
+      }
+      console.error('Cash booking insert error:', inserted.message)
       await alertCritical(
         'Cash booking ΑΠΕΤΥΧΕ',
-        `user: ${user.id}\nΠοσό: €${amount}\nΣφάλμα: ${insertError.message}`
+        `user: ${user.id}\nΠοσό: €${amount}\nΣφάλμα: ${inserted.message}`
       )
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+      return NextResponse.json({ error: inserted.message }, { status: 500 })
     }
 
     // Push στον πρατηριούχο: νέα κράτηση (μετρητά).
