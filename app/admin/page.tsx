@@ -36,6 +36,7 @@ export default function AdminPage() {
   const [applications, setApplications] = useState<any[]>([])
   const [onboardings, setOnboardings] = useState<any[]>([])
   const [activatingId, setActivatingId] = useState<string | null>(null)
+  const [locsWithHours, setLocsWithHours] = useState<Set<string>>(new Set())
   const [addons, setAddons] = useState<any[]>([])
   const [catalogItems, setCatalogItems] = useState<any[]>([])
   const [addingCatalog, setAddingCatalog] = useState(false)
@@ -88,6 +89,7 @@ export default function AdminPage() {
       { data: addonsData },
       { data: payoutsData },
       { data: catalogData },
+      { data: hoursData },
     ] = await Promise.all([
       supabase.from('bookings')
         .select('*, locations(name, city), services(name, price), profiles(full_name, phone, email)')
@@ -98,10 +100,12 @@ export default function AdminPage() {
       supabase.from('addons').select('*').order('sort_order', { ascending: true }),
       supabase.from('payouts').select('*, locations(name)').order('created_at', { ascending: false }),
       supabase.from('service_catalog').select('*').order('sort_order', { ascending: true }),
+      supabase.from('location_hours').select('location_id'),
     ])
 
     setBookings(bookingsData || [])
     setLocations(locationsData || [])
+    setLocsWithHours(new Set((hoursData || []).map((h: any) => h.location_id)))
     setUsers(profilesData || [])
     setApplications(applicationsData || [])
     setAddons(addonsData || [])
@@ -328,10 +332,15 @@ export default function AdminPage() {
       const json = await res.json()
       if (!res.ok) { alert(json.error || 'Αποτυχία'); return }
       // Ενεργοποίηση με νέο owner → δείξε στοιχεία εισόδου.
+      const hoursWarn = active && json.noHours
+        ? '\n\n⚠️ ΠΡΟΣΟΧΗ: Το πλυντήριο ΔΕΝ έχει ωράριο — δεν θα φαίνεται στον χάρτη μέχρι να ορίσεις ωράριο (Άνοιγμα dashboard → Ωράριο).'
+        : ''
       if (active && json.ownerLinked && json.email) {
-        alert(`Ενεργό ✅ — ο λογαριασμός του πλυντηρίου άνοιξε.\n\n${json.email}\n\nΜπαίνει όπως κάθε χρήστης: στο login βάζει το email του → λαμβάνει 8ψήφιο κωδικό → βλέπει το dashboard (owner). Το σύστημα δεν στέλνει τίποτα μόνο του.`)
+        alert(`Ενεργό ✅ — ο λογαριασμός του πλυντηρίου άνοιξε.\n\n${json.email}\n\nΜπαίνει όπως κάθε χρήστης: στο login βάζει το email του → λαμβάνει 8ψήφιο κωδικό → βλέπει το dashboard (owner). Το σύστημα δεν στέλνει τίποτα μόνο του.${hoursWarn}`)
       } else if (active && json.noOnboarding) {
-        alert('Ενεργό ✅\n\n(Χειροκίνητο πρατήριο χωρίς αίτηση — δεν δημιουργήθηκε λογαριασμός owner αυτόματα.)')
+        alert(`Ενεργό ✅\n\n(Χειροκίνητο πρατήριο χωρίς αίτηση — δεν δημιουργήθηκε λογαριασμός owner αυτόματα.)${hoursWarn}`)
+      } else if (active && json.noHours) {
+        alert(`Ενεργό ✅${hoursWarn}`)
       }
     } catch {
       alert('Πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
@@ -845,6 +854,11 @@ export default function AdminPage() {
                                   📍 Επεξεργασία
                                 </button>
                               </div>
+                              {loc.is_active && !locsWithHours.has(loc.id) && (
+                                <p className="mt-1.5 inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold" style={{ background: '#FCEAEA', color: '#B43C3C' }}>
+                                  ⚠ Χωρίς ωράριο — δεν φαίνεται στον χάρτη
+                                </p>
+                              )}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <span

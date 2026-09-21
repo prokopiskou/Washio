@@ -45,13 +45,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, active: false })
     }
 
+    // Έλεγχος ωραρίου — χωρίς ωράριο ΔΕΝ φαίνεται στον χάρτη.
+    const { count: hoursCount } = await supabase
+      .from('location_hours').select('*', { count: 'exact', head: true }).eq('location_id', locationId)
+    const noHours = !hoursCount
+
     // 2) Ενεργοποίηση → σιγουρέψου ότι υπάρχει owner.
     const { data: loc } = await supabase
       .from('locations').select('owner_id').eq('id', locationId).single()
 
     if (loc?.owner_id) {
       // Έχει ήδη owner — τίποτα άλλο.
-      return NextResponse.json({ success: true, active: true, ownerLinked: false, alreadyOwner: true })
+      return NextResponse.json({ success: true, active: true, ownerLinked: false, alreadyOwner: true, noHours })
     }
 
     // Βρες την αίτηση onboarding που είχε συνδεθεί σε αυτό το location (notes).
@@ -64,7 +69,7 @@ export async function POST(req: NextRequest) {
     const email = app?.email ? String(app.email).trim().toLowerCase() : ''
     if (!email) {
       // Χειροκίνητα φτιαγμένο πρατήριο χωρίς αίτηση → μόνο ενεργοποίηση.
-      return NextResponse.json({ success: true, active: true, ownerLinked: false, noOnboarding: true })
+      return NextResponse.json({ success: true, active: true, ownerLinked: false, noOnboarding: true, noHours })
     }
 
     // Δημιούργησε confirmed χρήστη ΧΩΡΙΣ κωδικό (μπαίνει με OTP), ή βρες υπάρχοντα.
@@ -92,7 +97,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Αποτυχία σύνδεσης owner: ' + linkErr.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true, active: true, ownerLinked: true, email, existed })
+    return NextResponse.json({ success: true, active: true, ownerLinked: true, email, existed, noHours })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'
     console.error('activate-location error:', message)
