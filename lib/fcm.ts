@@ -72,7 +72,9 @@ export async function sendNativePush(
       notification: { title: payload.title, body: payload.body },
       data: payload.url ? { url: payload.url } : undefined,
       apns: {
-        payload: { aps: { sound: 'default', badge: 1 } },
+        // badge: 0 → καμία ειδοποίηση δεν αφήνει κόκκινο σημάδι στο icon,
+        // και κάθε νέο push ΚΑΘΑΡΙΖΕΙ τυχόν υπάρχον badge (δεν έχουμε in-app inbox).
+        payload: { aps: { sound: 'default', badge: 0 } },
       },
       android: {
         priority: 'high',
@@ -132,7 +134,7 @@ export async function sendNativePushDebug(
       tokens,
       notification: { title: payload.title, body: payload.body },
       data: payload.url ? { url: payload.url } : undefined,
-      apns: { payload: { aps: { sound: 'default', badge: 1 } } },
+      apns: { payload: { aps: { sound: 'default', badge: 0 } } },
       android: { priority: 'high', notification: { sound: 'default' } },
     })
     out.successCount = res.successCount
