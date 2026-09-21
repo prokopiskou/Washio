@@ -19,8 +19,7 @@ const statusColors: Record<string, string> = {
 }
 
 const statusLabels: Record<string, string> = {
-  completed: 'Ολοκληρώθηκε',
-  confirmed: 'Επιβεβαιώθηκε',
+  confirmed: 'Ολοκληρωμένη',
   pending: 'Εκκρεμεί',
   cancelled: 'Ακυρώθηκε',
   no_show: 'Δεν εμφανίστηκε',
@@ -122,6 +121,7 @@ export default function AdminPage() {
   const totalCommission = bookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
   const completedBookings = bookings.filter(b => b.status === 'completed').length
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length
+  const cancelledBookings = bookings.filter(b => b.status === 'cancelled').length
   const pendingApplications = applications.filter(a => a.status === 'pending').length
   const pendingOnboardings = onboardings.filter(o => o.status !== 'active').length
 
@@ -182,13 +182,18 @@ export default function AdminPage() {
     const [year, month] = payoutMonth.split('-').map(Number)
     const rate = Number(loc.commission_rate ?? 10)
 
-    // Κρατήσεις του μήνα με οικονομική σημασία (completed / no_show / cancelled).
+    // «Ολοκληρωμένη» = confirmed (που πέρασε η ημ/νία) ή completed — αρκεί να μην ακυρώθηκε.
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' })
+    const isDone = (b: any) =>
+      b.status === 'completed' || (b.status === 'confirmed' && String(b.slot_date) <= todayStr)
+
+    // Κρατήσεις του μήνα με οικονομική σημασία.
     const monthBookings = bookings.filter(b => {
       if (b.locations?.name !== loc.name) return false
       if (!b.slot_date) return false
       const d = new Date(b.slot_date)
       if (!(d.getFullYear() === year && d.getMonth() + 1 === month)) return false
-      return ['completed', 'no_show', 'cancelled'].includes(b.status)
+      return isDone(b) || b.status === 'no_show' || b.status === 'cancelled'
     })
 
     let onlineKept = 0   // online που κράτησε η Washio (μείον refunds) — incl. no-show
@@ -200,12 +205,13 @@ export default function AdminPage() {
       const amt = Number(b.total_amount || 0)
       const refund = Number(b.refund_amount || 0)
       const ps = b.stripe_payment_status
+      const done = isDone(b)
       if (ps === 'paid') onlineKept += amt
       else if (ps === 'partially_refunded') onlineKept += Math.max(0, amt - refund)
       // 'refunded' → 0
       if (refund > 0) refunded += refund
-      if (ps === 'pay_at_venue' && b.status === 'completed') cashGross += amt
-      if (b.status === 'completed') completed++
+      if (ps === 'pay_at_venue' && done) cashGross += amt
+      if (done) completed++
       else if (b.status === 'no_show') noShow++
       else if (b.status === 'cancelled') cancelled++
     }
@@ -268,11 +274,6 @@ export default function AdminPage() {
   const getUserDisplay = (profile: any) => profile?.full_name || profile?.email || 'Επισκέπτης'
   const getUserInitial = (profile: any) => (profile?.full_name || profile?.email || '?').charAt(0).toUpperCase()
 
-  const updateBookingStatus = async (id: string, status: string) => {
-    const supabase = createClient()
-    await supabase.from('bookings').update({ status }).eq('id', id)
-    fetchData()
-  }
 
   const handleCancelBooking = (booking: any) => {
     setRefundModal({ booking })
@@ -536,8 +537,8 @@ export default function AdminPage() {
                     {[
                       { label: 'Έσοδα', value: `€${totalRevenue.toFixed(0)}` },
                       { label: 'Προμήθεια', value: `€${totalCommission.toFixed(0)}` },
-                      { label: 'Επιβεβ.', value: confirmedBookings },
-                      { label: 'Ολοκλ.', value: completedBookings },
+                      { label: 'Ολοκλ.', value: confirmedBookings + completedBookings },
+                      { label: 'Ακυρώσεις', value: cancelledBookings },
                     ].map(s => (
                       <div key={s.label} className="bg-white rounded-[11px] p-2.5 border border-gray-100">
                         <p className="text-[9px] font-semibold tracking-[1.2px] uppercase text-gray-500 truncate">
@@ -639,7 +640,7 @@ export default function AdminPage() {
               {activeTab === 'bookings' && (() => {
                 const statusPillConfig = (status?: string) => {
                   if (status === 'pending') return { bg: '#FEF6E6', fg: '#8A6209', label: 'Εκκρεμεί' }
-                  if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
+                  if (status === 'confirmed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
                   if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
                   if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
                   if (status === 'no_show') return { bg: '#F7F7F7', fg: '#666666', label: 'No-show' }
@@ -752,25 +753,7 @@ export default function AdminPage() {
                                 </p>
 
                                 <div className="flex flex-col gap-1 mt-1">
-                                  {b.status === 'pending' && (
-                                    <button
-                                      onClick={() => updateBookingStatus(b.id, 'confirmed')}
-                                      className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
-                                      style={{ background: '#EAF2FD', color: '#1A6FD4' }}
-                                    >
-                                      Confirm
-                                    </button>
-                                  )}
-                                  {b.status === 'confirmed' && (
-                                    <button
-                                      onClick={() => updateBookingStatus(b.id, 'completed')}
-                                      className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
-                                      style={{ background: '#E7F6EF', color: '#0F7A5C' }}
-                                    >
-                                      Complete
-                                    </button>
-                                  )}
-                                  {b.status !== 'cancelled' && b.status !== 'completed' && (
+                                  {b.status !== 'cancelled' && (
                                     <button
                                       onClick={() => handleCancelBooking(b)}
                                       className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
@@ -925,7 +908,7 @@ export default function AdminPage() {
               {activeTab === 'users' && (() => {
                 const statusPillConfig = (status?: string) => {
                   if (status === 'pending') return { bg: '#FEF6E6', fg: '#8A6209', label: 'Εκκρεμεί' }
-                  if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
+                  if (status === 'confirmed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
                   if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
                   if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
                   return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
