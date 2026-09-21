@@ -50,17 +50,20 @@ export default function NewLocationPage() {
         const lat = place.geometry.location.lat().toString()
         const lng = place.geometry.location.lng().toString()
 
-        let address = ''
+        let route = ''
+        let streetNumber = ''
         let city = ''
         let postal_code = ''
 
         for (const component of place.address_components) {
           const types = component.types
-          if (types.includes('route')) address = component.long_name
-          if (types.includes('street_number')) address = `${address} ${component.long_name}`.trim()
+          if (types.includes('route')) route = component.long_name
+          if (types.includes('street_number')) streetNumber = component.long_name
           if (types.includes('locality') || types.includes('administrative_area_level_3')) city = component.long_name
           if (types.includes('postal_code')) postal_code = component.long_name
         }
+        // Ελληνική σειρά: «Δρόμος Αριθμός» (π.χ. Διγενή 7).
+        const address = [route, streetNumber].filter(Boolean).join(' ')
 
         setForm(prev => ({
           ...prev,
