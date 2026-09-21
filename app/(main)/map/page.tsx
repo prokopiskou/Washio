@@ -10,6 +10,7 @@ import { track as trackEvent } from '@/lib/analytics'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } from '@/lib/availability'
 import { getCurrentPosition } from '@/lib/geo'
+import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService } from '@/lib/services-catalog'
 import { BottomNav } from '@/components/BottomNav'
@@ -888,7 +889,7 @@ function MapPageContent() {
           <div className="inline-flex bg-white rounded-full p-1 self-start"
                style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)' }}>
             <button
-              onClick={() => { setTiming('now'); setSelectedTime(''); setSelectedSlot(null) }}
+              onClick={() => { selectionHaptic(); setTiming('now'); setSelectedTime(''); setSelectedSlot(null) }}
               className={`px-3.5 py-2 rounded-full text-[13px] font-semibold tracking-tight flex items-center gap-1.5 transition-all ${
                 timing === 'now' ? 'bg-gray-900 text-white' : 'text-gray-500'
               }`}
@@ -897,7 +898,10 @@ function MapPageContent() {
               {t.now}
             </button>
             <button
-              onClick={() => setShowSchedule(true)}
+              // Το μαύρο μεταφέρεται ΑΜΕΣΩΣ στον «Προγραμματισμό» μόλις πατηθεί
+              // (φεύγει από το «Τώρα») + δόνηση. Αν κλείσει χωρίς επιλογή ώρας,
+              // το modal-close επαναφέρει σε «Τώρα».
+              onClick={() => { selectionHaptic(); setTiming('later'); setShowSchedule(true) }}
               className={`px-3.5 py-2 rounded-full text-[13px] font-medium tracking-tight flex items-center gap-1.5 transition-all ${
                 timing === 'later' ? 'bg-gray-900 text-white font-semibold' : 'text-gray-500'
               }`}
@@ -1224,12 +1228,12 @@ function MapPageContent() {
       {/* Schedule Bottom Sheet */}
       {showSchedule && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setShowSchedule(false)} />
+          <div className="absolute inset-0 bg-black/30" onClick={() => { setShowSchedule(false); if (!selectedTime) setTiming('now') }} />
           <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 z-10 max-h-[82vh] overflow-y-auto overscroll-contain">
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
             <div className="flex items-center justify-between mb-5">
               <p className="text-base font-semibold text-gray-900">{t.whenTitle}</p>
-              <button onClick={() => setShowSchedule(false)} className="text-gray-400"><X size={18} /></button>
+              <button onClick={() => { setShowSchedule(false); if (!selectedTime) setTiming('now') }} className="text-gray-400"><X size={18} /></button>
             </div>
 
             <div className="mb-3">
