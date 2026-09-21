@@ -59,7 +59,7 @@ function escapeHtml(value: unknown): string {
 
 export async function POST(req: Request) {
   try {
-    if (isThrottled('onboarding:' + ipFrom(req), 5, 3600000)) {
+    if (await isThrottled('onboarding:' + ipFrom(req), 5, 3600000)) {
       return NextResponse.json({ error: 'Πολλές προσπάθειες. Δοκίμασε αργότερα.' }, { status: 429 })
     }
     const body = await req.json()

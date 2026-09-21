@@ -1,3 +1,4 @@
+import { ipFrom, isThrottled } from '@/lib/throttle'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
@@ -24,6 +25,9 @@ function escapeHtml(v: unknown): string {
 
 export async function POST(req: Request) {
   try {
+    if (await isThrottled('review:' + ipFrom(req), 10, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Πολλές προσπάθειες. Δοκίμασε αργότερα.' }, { status: 429 })
+    }
     const { ref, rating, comment } = await req.json()
     const r = Number(rating)
     if (!Number.isInteger(r) || r < 1 || r > 5) {

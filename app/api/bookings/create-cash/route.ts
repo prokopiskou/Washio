@@ -1,3 +1,4 @@
+import { ipFrom, isThrottled } from '@/lib/throttle'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
@@ -72,6 +73,9 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Απαιτείται σύνδεση' }, { status: 401 })
+    }
+    if (await isThrottled('cash:u:' + user.id, 10, 60 * 60 * 1000) || await isThrottled('cash:ip:' + ipFrom(req), 30, 60 * 60 * 1000)) {
+      return NextResponse.json({ error: 'Πολλές κρατήσεις σε λίγο χρόνο. Δοκίμασε αργότερα.' }, { status: 429 })
     }
 
     if (!serviceId || !locationId || !slotDate || !slotStartTime) {

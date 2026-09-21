@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { timingSafeEqual } from 'crypto'
+import { ipFrom, isThrottled } from '@/lib/throttle'
 
 // Demo login bypass ΜΟΝΟ για τον λογαριασμό review της Apple.
 // Ο reviewer βάζει το demo email + έναν σταθερό 8-ψήφιο κωδικό (DEMO_LOGIN_CODE).
@@ -17,21 +18,6 @@ const admin = createClient(
 )
 
 const DEMO_EMAIL = 'appreview@washio.gr'
-const MAX_ATTEMPTS = 5
-const WINDOW_MS = 15 * 60 * 1000
-
-// Per-instance throttle (serverless: όχι μοιρασμένο, αλλά αρκεί σε συνδυασμό
-// με το kill switch και την καθυστέρηση).
-const attempts = new Map<string, { n: number; resetAt: number }>()
-
-function throttled(ip: string): boolean {
-  const now = Date.now()
-  const rec = attempts.get(ip)
-  if (!rec || rec.resetAt < now) { attempts.set(ip, { n: 1, resetAt: now + WINDOW_MS }); return false }
-  rec.n += 1
-  return rec.n > MAX_ATTEMPTS
-}
-
 function safeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a), bb = Buffer.from(b)
   if (ab.length !== bb.length) return false
@@ -43,8 +29,7 @@ export async function POST(req: NextRequest) {
     if (process.env.DEMO_LOGIN_ENABLED !== 'true') {
       return NextResponse.json({ error: 'Μη διαθέσιμο' }, { status: 404 })
     }
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    if (throttled(ip)) {
+    if (await isThrottled('demo:' + ipFrom(req), 5, 15 * 60 * 1000)) {
       return NextResponse.json({ error: 'Πολλές προσπάθειες. Δοκίμασε αργότερα.' }, { status: 429 })
     }
 

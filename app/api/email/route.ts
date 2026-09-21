@@ -314,7 +314,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 })
     }
     // Δημόσια φόρμα επικοινωνίας: όριο ανά IP (σπαμ / κάψιμο Resend quota).
-    if (type === 'contact' && isThrottled('contact:' + ipFrom(req), 5, 60 * 60 * 1000)) {
+    if (type === 'contact' && await isThrottled('contact:' + ipFrom(req), 5, 60 * 60 * 1000)) {
       return NextResponse.json({ error: 'Πολλές προσπάθειες. Δοκίμασε αργότερα.' }, { status: 429 })
     }
 

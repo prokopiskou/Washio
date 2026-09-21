@@ -9,7 +9,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 // Δεν πάει στο store — έρχεται σε εμάς για να το χειριστούμε.
 export async function POST(req: Request) {
   try {
-    if (isThrottled('feedback:' + ipFrom(req), 10, 3600000)) {
+    if (await isThrottled('feedback:' + ipFrom(req), 10, 3600000)) {
       return NextResponse.json({ error: 'Πολλές προσπάθειες. Δοκίμασε αργότερα.' }, { status: 429 })
     }
     const body = await req.json()

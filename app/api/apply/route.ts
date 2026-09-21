@@ -12,7 +12,7 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: Request) {
   try {
-    if (isThrottled('apply:' + ipFrom(req), 5, 3600000)) {
+    if (await isThrottled('apply:' + ipFrom(req), 5, 3600000)) {
       return NextResponse.json({ error: 'Πολλές προσπάθειες. Δοκίμασε αργότερα.' }, { status: 429 })
     }
     const body = await req.json()
