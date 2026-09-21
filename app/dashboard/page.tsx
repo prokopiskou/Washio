@@ -915,7 +915,7 @@ export default function DashboardPage() {
       <PushInit />
       <div className="max-w-3xl mx-auto">
 
-        <div className="px-5 pt-14 pb-4 bg-white">
+        <div className="px-5 pt-[calc(env(safe-area-inset-top)+14px)] pb-4 bg-white">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <h1 className="text-[22px] font-bold tracking-tight leading-[1.2] text-gray-900">{location.name}</h1>
