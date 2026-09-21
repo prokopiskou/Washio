@@ -16,9 +16,12 @@ export function CapacitorInit() {
         const { SplashScreen } = await import('@capacitor/splash-screen')
         const { StatusBar, Style } = await import('@capacitor/status-bar')
 
-        // Status bar styling
+        // Full-screen edge-to-edge: το webview περνάει ΚΑΤΩ από το status bar /
+        // Dynamic Island, ώστε να μη μένει μαύρη λωρίδα στην κορυφή. Το περιεχόμενο
+        // κρατά απόσταση από το νησί μέσω του pt-14 στα headers + viewport-fit=cover.
+        await StatusBar.setOverlaysWebView({ overlay: true })
+        // Style.Light = σκούρο κείμενο (ώρα/μπαταρία) για τα ανοιχτόχρωμα φόντα.
         await StatusBar.setStyle({ style: Style.Light })
-        await StatusBar.setBackgroundColor({ color: '#0A0A0A' })
 
         // Hide splash after content is ready
         setTimeout(async () => {
