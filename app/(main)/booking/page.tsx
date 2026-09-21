@@ -168,6 +168,16 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
         clientSecret,
         confirmParams: {
           return_url: `${window.location.origin}/booking/confirmed?email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}&plate=${encodeURIComponent(plate)}&total=${encodeURIComponent(total.toString())}`,
+          // Κρύβουμε τα billing πεδία στο Element (fields: 'never') → ΠΡΕΠΕΙ να τα
+          // περάσουμε εδώ, αλλιώς το Stripe πετάει σφάλμα. Δεν εμφανίζεται τίποτα
+          // επιπλέον στη φόρμα.
+          payment_method_data: {
+            billing_details: {
+              name: email || 'Washio',
+              email: email || undefined,
+              address: { country: 'GR' },
+            },
+          },
         },
       })
       if (confirmError) {
