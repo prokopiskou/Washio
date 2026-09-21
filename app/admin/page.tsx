@@ -748,9 +748,6 @@ export default function AdminPage() {
                                 <p className="text-[16px] font-bold tracking-tight text-gray-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   €{Number(b.total_amount || 0).toFixed(0)}
                                 </p>
-                                <p className="text-[10px] text-gray-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                  +€{Number(b.platform_fee || 0).toFixed(0)} fee
-                                </p>
 
                                 <div className="flex flex-col gap-1 mt-1">
                                   {b.status !== 'cancelled' && (
