@@ -154,10 +154,15 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
     setLoading(true)
     setError('')
     try {
-      // ΠΡΟΣΟΧΗ: Το Elements δημιουργείται ΜΕ clientSecret. Σε αυτό το flow
-      // ΔΕΝ καλείται elements.submit() — το mixed pattern (submit + clientSecret)
-      // πετάει IntegrationError → «άγνωστο σφάλμα» και ΚΑΜΙΑ πληρωμή δεν περνάει.
-      // Το confirmPayment κάνει μόνο του validation + επιστρέφει confirmError.
+      // DEFERRED flow (το Element δημιουργείται με mode/amount, ΧΩΡΙΣ clientSecret):
+      // ΠΡΩΤΑ elements.submit() (μαζεύει/validάρει την κάρτα), ΜΕΤΑ confirmPayment
+      // με το clientSecret του server. Χωρίς το submit → IntegrationError.
+      const { error: submitError } = await elements.submit()
+      if (submitError) {
+        setError(submitError.message || t.paymentFailed)
+        errorHaptic()
+        return
+      }
       const { error: confirmError } = await stripe.confirmPayment({
         elements,
         clientSecret,
@@ -763,7 +768,12 @@ function BookingPageContent() {
           <>
           <div ref={paymentAnchorRef} className="scroll-mt-4" />
           <Elements stripe={stripePromise} options={{
-            clientSecret,
+            // DEFERRED: mode/amount/currency ΑΝΤΙ για clientSecret. Το clientSecret
+            // δίνεται μόνο στο confirmPayment. (Το hybrid clientSecret+submit έσκαγε.)
+            mode: 'payment',
+            amount: Math.round(total * 100),
+            currency: 'eur',
+            paymentMethodTypes: ['card'], // ίδιο με το PaymentIntent (κάρτα + wallets)
             ...(customerSessionClientSecret ? { customerSessionClientSecret } : {}),
             locale,
             appearance: {
