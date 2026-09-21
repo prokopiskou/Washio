@@ -34,6 +34,8 @@ export default function AdminPage() {
   const [locations, setLocations] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])
   const [applications, setApplications] = useState<any[]>([])
+  const [onboardings, setOnboardings] = useState<any[]>([])
+  const [activatingId, setActivatingId] = useState<string | null>(null)
   const [addons, setAddons] = useState<any[]>([])
   const [catalogItems, setCatalogItems] = useState<any[]>([])
   const [addingCatalog, setAddingCatalog] = useState(false)
@@ -100,6 +102,16 @@ export default function AdminPage() {
     setAddons(addonsData || [])
     setPayouts(payoutsData || [])
     setCatalogItems(catalogData || [])
+
+    // partner_onboarding: RLS χωρίς policies → server-side fetch (service role).
+    try {
+      const obRes = await fetch('/api/admin/onboardings')
+      if (obRes.ok) {
+        const obJson = await obRes.json()
+        setOnboardings(obJson.onboardings || [])
+      }
+    } catch { /* best-effort */ }
+
     setLoading(false)
   }, [])
 
@@ -110,6 +122,33 @@ export default function AdminPage() {
   const completedBookings = bookings.filter(b => b.status === 'completed').length
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length
   const pendingApplications = applications.filter(a => a.status === 'pending').length
+  const pendingOnboardings = onboardings.filter(o => o.status !== 'active').length
+
+  const activateOnboarding = async (id: string) => {
+    if (activatingId) return
+    setActivatingId(id)
+    try {
+      const res = await fetch('/api/admin/activate-onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onboardingId: id }),
+      })
+      const json = await res.json()
+      if (!res.ok) { alert(json.error || 'Αποτυχία ενεργοποίησης'); return }
+      // Ενημέρωση τοπικά + refresh.
+      setOnboardings(prev => prev.map(o => o.id === id ? { ...o, status: 'active' } : o))
+      await fetchData()
+      if (!json.geocoded) {
+        alert('Το πρατήριο δημιουργήθηκε ✅ αλλά ΔΕΝ βρέθηκαν συντεταγμένες από τη διεύθυνση. Βάλε lat/lng χειροκίνητα στα Πρατήρια πριν το ενεργοποιήσεις.')
+      } else {
+        alert('Το πρατήριο δημιουργήθηκε ✅. Συμπλήρωσε υπηρεσίες/ωράριο στα «Πρατήρια» και άνοιξε πρόσβαση όταν είσαι έτοιμος.')
+      }
+    } catch {
+      alert('Πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
+    } finally {
+      setActivatingId(null)
+    }
+  }
 
   const monthlyRevenue = Array.from({ length: 6 }, (_, i) => {
     const d = new Date()
@@ -402,7 +441,7 @@ export default function AdminPage() {
               { key: 'bookings', label: 'Κρατήσεις', count: bookings.length },
               { key: 'locations', label: 'Πρατήρια', count: locations.length },
               { key: 'users', label: 'Χρήστες', count: users.length },
-              { key: 'applications', label: 'Αιτήσεις', count: pendingApplications, highlight: pendingApplications > 0 },
+              { key: 'applications', label: 'Αιτήσεις', count: pendingApplications + pendingOnboardings, highlight: (pendingApplications + pendingOnboardings) > 0 },
               { key: 'financials', label: 'Οικονομικά' },
               { key: 'payouts', label: 'Εκκαθαρίσεις' },
               { key: 'addons', label: 'Υπηρεσίες', count: addons.length },
@@ -1005,9 +1044,54 @@ export default function AdminPage() {
 
                 return (
                   <div className="space-y-2.5">
+                    {/* ── ΝΕΕΣ ΑΙΤΗΣΕΙΣ ONBOARDING (/onboarding → partner_onboarding) ── */}
                     <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 py-1">
-                      {pendingCount} εκκρεμείς · {preApprovedCount} σε εξέλιξη
+                      Αιτήσεις onboarding · {pendingOnboardings} εκκρεμείς
                     </p>
+                    {onboardings.length === 0 && (
+                      <p className="text-[13px] text-gray-400 py-2">Καμία αίτηση onboarding.</p>
+                    )}
+                    {onboardings.map(o => {
+                      const activated = o.status === 'active'
+                      return (
+                        <div key={o.id} className="rounded-2xl border border-gray-200 bg-white p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[15px] font-bold text-gray-900 truncate">{o.business_name}</p>
+                              <p className="text-[12px] text-gray-500 mt-0.5">{o.address}</p>
+                            </div>
+                            <span className="shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-lg" style={activated ? { background: '#E7F6EF', color: '#0F7A5C' } : { background: '#FEF6E6', color: '#8A6209' }}>
+                              {activated ? 'Ενεργοποιήθηκε' : 'Εκκρεμεί'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-3 text-[12px]">
+                            <div><span className="text-gray-400">ΑΦΜ:</span> <span className="font-semibold text-gray-800">{o.afm}</span></div>
+                            <div><span className="text-gray-400">ΔΟΥ:</span> <span className="font-semibold text-gray-800">{o.doy}</span></div>
+                            <div className="col-span-2"><span className="text-gray-400">Δικαιούχος:</span> <span className="font-semibold text-gray-800">{o.iban_holder}</span></div>
+                            <div className="col-span-2"><span className="text-gray-400">IBAN:</span> <span className="font-semibold text-gray-800" style={{ fontFamily: 'ui-monospace, monospace' }}>{o.iban}</span></div>
+                            <div><span className="text-gray-400">Υπεύθυνος:</span> <span className="font-semibold text-gray-800">{o.contact_name}</span></div>
+                            <div><span className="text-gray-400">Τηλ:</span> <span className="font-semibold text-gray-800">{o.phone}</span></div>
+                            <div className="col-span-2"><span className="text-gray-400">Email:</span> <span className="font-semibold text-gray-800">{o.email}</span></div>
+                          </div>
+                          {!activated && (
+                            <button
+                              onClick={() => activateOnboarding(o.id)}
+                              disabled={activatingId === o.id}
+                              className="mt-3.5 w-full h-11 rounded-xl bg-gray-900 text-white text-[13px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
+                            >
+                              {activatingId === o.id ? 'Ενεργοποίηση...' : 'Ενεργοποίηση — Δημιουργία πρατηρίου'}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+
+                    {/* ── ΠΑΛΙΕΣ ΑΙΤΗΣΕΙΣ (legacy /apply → applications) ── */}
+                    {applications.length > 0 && (
+                      <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-400 py-1 pt-4">
+                        Παλιές αιτήσεις · {pendingCount} εκκρεμείς · {preApprovedCount} σε εξέλιξη
+                      </p>
+                    )}
 
                     {applications.map(app => {
                       const isPending = app.status === 'pending'
