@@ -612,13 +612,21 @@ export default function DashboardPage() {
     if (!location?.id) return
     setSavingHours(true)
     const supabase = createClient()
-    await Promise.all(hours.map(row =>
-      supabase.from('location_hours').upsert(
-        { location_id: location.id, day_of_week: row.day_of_week, is_closed: !row.is_open, open_time: row.open_time, close_time: row.close_time },
-        { onConflict: 'location_id,day_of_week' }
-      )
-    ))
+    // Delete + insert αντί για upsert onConflict — δεν εξαρτάται από unique
+    // constraint στον πίνακα (που έλειπε και έσκαγε με 400).
+    const { error: delErr } = await supabase.from('location_hours').delete().eq('location_id', location.id)
+    if (delErr) { setSavingHours(false); alert('Σφάλμα αποθήκευσης ωραρίου: ' + delErr.message); return }
+    const rows = hours.map(row => ({
+      location_id: location.id,
+      day_of_week: row.day_of_week,
+      is_closed: !row.is_open,
+      open_time: row.open_time,
+      close_time: row.close_time,
+    }))
+    const { error: insErr } = await supabase.from('location_hours').insert(rows)
     setSavingHours(false)
+    if (insErr) { alert('Σφάλμα αποθήκευσης ωραρίου: ' + insErr.message); return }
+    alert('Το ωράριο αποθηκεύτηκε ✅')
   }
 
   const saveException = async () => {
