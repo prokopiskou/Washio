@@ -10,7 +10,7 @@ import { ymdFromLocalDate } from '@/lib/time'
 import { isAdminEmail } from '@/lib/admins'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { Capacitor } from '@capacitor/core'
-import { registerNativePush } from '@/lib/native-push'
+import { registerNativePush, nativePushGranted } from '@/lib/native-push'
 import PushInit from '@/components/PushInit'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
@@ -229,9 +229,19 @@ export default function DashboardPage() {
   useEffect(() => { calendarDateRef.current = calendarDate }, [calendarDate])
 
   useEffect(() => {
-    if ('Notification' in window) {
-      setNotifPermission(Notification.permission)
-    }
+    (async () => {
+      // NATIVE (iOS/Android): έλεγχος της ΠΡΑΓΜΑΤΙΚΗΣ άδειας FCM, όχι του
+      // web Notification API (που δεν υπάρχει στο native webview). Αλλιώς το
+      // κουμπί «Ενεργοποίηση» ξαναεμφανιζόταν σε κάθε άνοιγμα του app.
+      if (Capacitor.isNativePlatform()) {
+        const granted = await nativePushGranted()
+        setNotifPermission(granted ? 'granted' : 'default')
+        return
+      }
+      if ('Notification' in window) {
+        setNotifPermission(Notification.permission)
+      }
+    })()
   }, [])
 
   // Κλείδωμα body όσο είναι ανοιχτό bottom-sheet — fix για το iOS
