@@ -92,9 +92,10 @@ const HOUR_OPTIONS = Array.from({ length: 16 }, (_, i) => {
   return `${String(hour).padStart(2, '0')}:00`
 })
 
+// Όλες οι μέρες ΚΛΕΙΣΤΕΣ by default — ο ιδιοκτήτης ανοίγει & ορίζει ό,τι θέλει.
 const defaultHours: LocationHour[] = DAYS.map((_, idx) => ({
   day_of_week: idx + 1,
-  is_open: idx < 6,
+  is_open: false,
   open_time: '08:00',
   close_time: '20:00',
 }))
