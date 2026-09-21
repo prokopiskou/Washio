@@ -158,17 +158,22 @@ export default function LandingPage() {
                 Το Washio στην τσέπη σου.
               </h2>
               <p className="text-gray-500 leading-relaxed mb-8">
-                Κλείσε ραντεβού, δες τις κρατήσεις σου και λάβε υπενθυμίσεις — όλα από μία εφαρμογή. Σύντομα διαθέσιμη για iPhone και Android.
+                Κλείσε ραντεβού, δες τις κρατήσεις σου και λάβε υπενθυμίσεις — όλα από μία εφαρμογή. Διαθέσιμη για iPhone — σύντομα και για Android.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
-                {/* App Store — Σύντομα (μη-clickable μέχρι το launch) */}
-                <div className="flex items-center gap-3 border border-gray-200 rounded-2xl px-5 py-3 opacity-60 cursor-default select-none">
+                {/* App Store — live */}
+                <a
+                  href="https://apps.apple.com/app/id6785925766"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 border border-gray-200 rounded-2xl px-5 py-3 hover:border-gray-400 transition-colors"
+                >
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="#0A0A0A"><path d="M17.05 12.04c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.1-2.02-3.77-2.04-1.6-.16-3.13.94-3.94.94-.81 0-2.07-.92-3.41-.89-1.75.03-3.37 1.02-4.27 2.59-1.82 3.16-.47 7.84 1.31 10.41.87 1.26 1.9 2.67 3.25 2.62 1.3-.05 1.8-.84 3.37-.84 1.57 0 2.02.84 3.4.81 1.4-.02 2.29-1.28 3.15-2.55 1-1.46 1.41-2.88 1.43-2.95-.03-.01-2.74-1.05-2.77-4.17zM14.6 4.42c.72-.87 1.2-2.08 1.07-3.29-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.58 3.03-1.45z"/></svg>
                   <div className="text-left leading-tight">
-                    <p className="text-[10px] text-gray-400">Σύντομα στο</p>
+                    <p className="text-[10px] text-gray-400">Κατέβασέ το στο</p>
                     <p className="text-sm font-semibold text-gray-900">App Store</p>
                   </div>
-                </div>
+                </a>
                 {/* Google Play — Σύντομα */}
                 <div className="flex items-center gap-3 border border-gray-200 rounded-2xl px-5 py-3 opacity-60 cursor-default select-none">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#0A0A0A"><path d="M3 2.5l11 9.5-11 9.5z"/></svg>
@@ -201,12 +206,9 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="bg-gray-900 rounded-3xl p-10 md:p-16 text-center">
             <p className="text-xs font-medium tracking-widest text-gray-500 uppercase mb-4">Για πρατήρια</p>
-            <h2 className="text-3xl font-semibold text-white mb-4 leading-tight">
+            <h2 className="text-3xl font-semibold text-white mb-8 leading-tight">
               Αύξησε τις κρατήσεις σου<br />χωρίς κόστος εγκατάστασης.
             </h2>
-            <p className="text-gray-400 mb-8 leading-relaxed max-w-lg mx-auto">
-              Μηδέν κόστος εγκατάστασης. Μηδέν μηνιαία συνδρομή. Πληρώνεις μόνο όταν έρχεται πελάτης — 10% προμήθεια ανά κράτηση.
-            </p>
             <Link href="/apply" className="inline-block bg-white text-gray-900 text-sm font-medium px-8 py-4 rounded-2xl">
               Γίνε συνεργάτης →
             </Link>
