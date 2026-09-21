@@ -357,16 +357,16 @@ function MapPageContent() {
   useEffect(() => {
     track('map_viewed')
     trackEvent('ViewContent', { content_type: 'map' }) // browse signal (Pixel/GA4)
+    // Φόρτωσε τα πλυντήρια ΑΜΕΣΩΣ — χωρίς να περιμένεις το geolocation.
+    loadLocations()
+    // Παράλληλα ζήτα τη θέση· όταν έρθει, ξαναφόρτωσε με ταξινόμηση/κεντράρισμα.
     getCurrentPosition({ maximumAge: 300000 }).then(
       pos => {
         setUserLat(pos.latitude)
         setUserLng(pos.longitude)
         loadLocations(pos.latitude, pos.longitude)
-        // Το κεντράρισμα γίνεται στο effect [mapLoaded, userLat, userLng] παρακάτω,
-        // γιατί εδώ ο χάρτης μπορεί να μην έχει φορτώσει ακόμα.
       }
-    ).catch(() => loadLocations()
-    )
+    ).catch(() => { /* χωρίς θέση — τα πλυντήρια ήδη φορτώθηκαν */ })
   }, [])
 
   // Με το που είναι έτοιμος ο χάρτης ΚΑΙ ξέρουμε τη θέση: κεντράρουμε πάνω στον χρήστη,
