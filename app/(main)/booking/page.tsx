@@ -122,9 +122,10 @@ function MapThumb() {
   )
 }
 
-function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSecret, plate }: {
+function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, clientSecret, plate }: {
   total: number
   email: string
+  phone: string
   service: { name: string; price: number }
   formattedDate: string
   slotTime: string
@@ -175,6 +176,7 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
             billing_details: {
               name: email || 'Washio',
               email: email || undefined,
+              phone: phone || undefined,
               address: { country: 'GR' },
             },
           },
@@ -794,7 +796,7 @@ function BookingPageContent() {
             }
           }}>
             <CheckoutForm
-              total={total} email={email} service={service}
+              total={total} email={email} phone={phone} service={service}
               formattedDate={formattedDate} slotTime={slotTime}
               clientSecret={clientSecret} plate={plate}
             />
