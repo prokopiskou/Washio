@@ -116,8 +116,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Πληρωμή με κάρτα μέσω Stripe; Αλλιώς (μετρητά/εξωτερική) δεν υπάρχει τίποτα να επιστραφεί.
-    const isCardPaid = !!booking.stripe_payment_intent_id && booking.stripe_payment_status === 'paid'
+    // Πληρωμή με κάρτα μέσω Stripe; ROBUST: αρκεί να ΥΠΑΡΧΕΙ payment_intent και
+    // να ΜΗΝ είναι μετρητά/εξωτερική/ήδη-επιστραμμένη. (Το προηγούμενο `=== 'paid'`
+    // ήταν πολύ αυστηρό — αν το status δεν ήταν ακριβώς «paid», μια card κράτηση
+    // θεωρούνταν μετρητά και ΔΕΝ γινόταν refund.)
+    const ps = booking.stripe_payment_status
+    const nonCard = ['pay_at_venue', 'external', 'refunded', 'partially_refunded']
+    const isCardPaid = !!booking.stripe_payment_intent_id && !nonCard.includes(String(ps))
 
     // Ποσό επιστροφής: μόνο admin ορίζει custom/partial. Πελάτης/ιδιοκτήτης = πλήρης.
     const totalAmount = Number(booking.total_amount)

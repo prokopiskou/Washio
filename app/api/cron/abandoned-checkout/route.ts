@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
-import { sendPush } from '@/lib/push'
 
 // Abandoned-checkout recovery: όποιος έφτασε στην πληρωμή (δημιουργήθηκε PaymentIntent)
 // αλλά δεν ολοκλήρωσε κράτηση σε ~90', λαμβάνει ένα email «ολοκλήρωσε την κράτησή σου».
@@ -68,6 +67,8 @@ export async function GET(req: Request) {
           const { data: loc } = await supabase.from('locations').select('slug').eq('id', a.location_id).maybeSingle()
           if (loc?.slug) url = `https://washio.gr/locations/${loc.slug}`
         }
+        // ΜΟΝΟ email (όχι push) — το push «δεν ολοκλήρωσες» είναι σπαμ, ειδικά
+        // όταν υπάρχουν πολλά ημιτελή attempts. Ένα διακριτικό email αρκεί.
         if (a.email) {
           try {
             await resend.emails.send({
@@ -79,12 +80,6 @@ export async function GET(req: Request) {
             sent++
           } catch (e) { console.error('Abandoned email error:', e) }
         }
-        // best-effort push επίσης
-        await sendPush(a.user_id, {
-          title: 'Η κράτησή σου σε περιμένει',
-          body: 'Δεν ολοκληρώθηκε η κράτηση. Κλείσε το πλύσιμό σου σε 30 δευτερόλεπτα.',
-          url: '/map',
-        })
       }
 
       await supabase.from('checkout_attempts').update({ reminded: true }).eq('id', a.id)
