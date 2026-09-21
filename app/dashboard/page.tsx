@@ -248,6 +248,12 @@ export default function DashboardPage() {
   // «πεδία ορατά αλλά δεν πατιούνται» (hit-testing offset με keyboard).
   useBodyScrollLock(showManualForm || showExceptionPicker)
 
+  // «Θυμήσου την τελευταία όψη»: μαρκάρω ότι ο χρήστης είναι στο dashboard,
+  // ώστε την επόμενη φορά που ανοίγει το app να έρθει κατευθείαν εδώ.
+  useEffect(() => {
+    try { localStorage.setItem('washio_mode', 'partner') } catch { /* ignore */ }
+  }, [])
+
   const [notifBusy, setNotifBusy] = useState(false)
 
   const requestNotifications = async () => {
@@ -853,12 +859,22 @@ export default function DashboardPage() {
               <h1 className="text-[22px] font-bold tracking-tight leading-[1.2] text-gray-900">{location.name}</h1>
               <p className="text-[12px] text-gray-500 mt-1">{location.address}, {location.city}</p>
             </div>
-            <div className="w-[38px] h-[38px] rounded-full bg-gray-50 flex items-center justify-center text-gray-900 shrink-0">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+            <button
+              onClick={() => {
+                try { localStorage.setItem('washio_mode', 'customer') } catch { /* ignore */ }
+                router.push('/')
+              }}
+              title="Επιστροφή στην εφαρμογή πελάτη"
+              className="h-[38px] pl-2.5 pr-3 rounded-full bg-gray-900 text-white flex items-center gap-1.5 shrink-0 active:opacity-80"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3 4 7l4 4" />
+                <path d="M4 7h16" />
+                <path d="m16 21 4-4-4-4" />
+                <path d="M20 17H4" />
               </svg>
-            </div>
+              <span className="text-[12px] font-semibold">Εφαρμογή</span>
+            </button>
           </div>
 
           {notifPermission === 'granted' ? (

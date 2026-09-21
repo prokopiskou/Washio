@@ -115,6 +115,16 @@ export default function HomePage() {
 
       const user = sessionData.session.user
 
+      // «Θυμήσου την τελευταία όψη»: αν ο ιδιοκτήτης ήταν τελευταία στο dashboard,
+      // πήγαινέ τον ΚΑΤΕΥΘΕΙΑΝ εκεί (γρήγορη είσοδος, χωρίς να περνά από την εφαρμογή πελάτη).
+      // Το flag τίθεται μόνο μέσα στο dashboard (verified partner), άρα είναι ασφαλές.
+      try {
+        if (Capacitor.isNativePlatform() && localStorage.getItem('washio_mode') === 'partner') {
+          router.replace('/dashboard')
+          return
+        }
+      } catch { /* localStorage μη διαθέσιμο — αγνόησε */ }
+
       // Load all data in parallel
       const today = athensToday()
 
