@@ -54,14 +54,23 @@ const T = {
   },
 }
 
+function safeRedirect(raw: string | null): string {
+  if (!raw) return '/'
+  let path = raw
+  if (/^https?:\/\//i.test(path)) {
+    try { const u = new URL(path); path = u.pathname + u.search } catch { return '/' }
+  }
+  if (!path.startsWith('/') || path.startsWith('//') || path.startsWith('/\\')) return '/'
+  return path
+}
+
 function LoginPageContent() {
   const router = useRouter()
   const t = useT(T)
   const params = useSearchParams()
-  const rawRedirect = params.get('redirect') || '/'
-  const redirectUrl = rawRedirect.startsWith('http')
-    ? new URL(rawRedirect).pathname + new URL(rawRedirect).search
-    : rawRedirect
+  // Μόνο μονοπάτια του ίδιου site: όχι //evil.com, όχι σχήματα, όχι κακά URLs
+  // (πριν: new URL(...) σε κακό param = λευκή οθόνη· '//x' = open redirect).
+  const redirectUrl = safeRedirect(params.get('redirect'))
 
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')

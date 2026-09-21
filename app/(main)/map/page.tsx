@@ -7,7 +7,7 @@ import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, M
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
-import { athensToday, athensMinutesOfDay } from '@/lib/time'
+import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } from '@/lib/availability'
 import { getCurrentPosition } from '@/lib/geo'
 import { isMotoService } from '@/lib/services-catalog'
@@ -117,10 +117,6 @@ function generateSlots(openTime: string, closeTime: string): string[] {
     current += 30
   }
   return slots
-}
-
-function jsDayToSupabase(jsDay: number): number {
-  return jsDay === 0 ? 7 : jsDay
 }
 
 function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -276,9 +272,11 @@ function MapPageContent() {
 
   const loadLocations = useCallback(async (lat?: number, lng?: number) => {
     const supabase = createClient()
-    const dayOfWeek = jsDayToSupabase(new Date(`${getTodayValue()}T12:00:00`).getDay())
     const checkDate = timing === 'later' ? selectedDate : getTodayValue()
     const checkTime = timing === 'later' ? selectedTime : null
+    // Η μέρα της εβδομάδας από την ΕΠΙΛΕΓΜΕΝΗ ημερομηνία — όχι από σήμερα
+    // (πριν: «Αργότερα» για Κυριακή έδειχνε ωράριο της σημερινής μέρας).
+    const dayOfWeek = weekdayMon1FromYmd(checkDate)
 
     const [{ data: locsData }, { data: hoursData }, { data: bookingsData }, { data: exceptionsData }] = await Promise.all([
       supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity').eq('is_active', true),
@@ -492,8 +490,7 @@ function MapPageContent() {
       const checkDate = timing === 'now'
         ? `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
         : selectedDate
-      const dateObj = new Date(checkDate)
-      const dayOfWeek = jsDayToSupabase(dateObj.getDay())
+      const dayOfWeek = weekdayMon1FromYmd(checkDate)
 
       // ΚΟΙΝΗ λογική διαθεσιμότητας (lib/availability) — ίδια με σελίδα
       // πλυντηρίου & server: ωράριο, εξαιρέσεις, capacity, διάρκεια, lead time.

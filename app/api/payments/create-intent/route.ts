@@ -81,10 +81,13 @@ export async function POST(req: NextRequest) {
       availability,
       { customerId, customerSessionClientSecret },
     ] = await Promise.all([
+      // Υπηρεσία ΤΟΥ πλυντηρίου και ενεργή — όχι id από άλλο πλυντήριο.
       admin.from('services')
         .select('id, name, price, price_moto, price_suv')
         .eq('id', serviceId)
-        .single(),
+        .eq('location_id', locationId)
+        .eq('is_active', true)
+        .maybeSingle(),
       requestedAddonIds.length > 0
         ? admin.from('location_addons')
             .select('addon_id, price_override, addons(price)')

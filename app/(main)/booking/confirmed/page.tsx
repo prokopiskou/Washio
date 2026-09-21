@@ -108,14 +108,22 @@ function ConfirmedContent() {
   const refParam = params.get('ref') || ''
   const isCash = params.get('method') === 'cash'
 
+  // 'ok' = πραγματική κράτηση βρέθηκε · 'pending' = περιμένουμε το webhook ·
+  // 'failed' = το Stripe γύρισε redirect_status≠succeeded (π.χ. 3DS απέτυχε).
+  const [payState, setPayState] = useState<'ok' | 'pending' | 'failed'>('pending')
+
   useEffect(() => {
     setShow(true)
-    successHaptic()
-    track('booking_paid')
 
     const fetchAndNotify = async () => {
       const intentId = params.get('payment_intent')
-      let ref = refParam || ('WS-' + Math.random().toString(36).substring(2, 8).toUpperCase())
+      const redirectStatus = params.get('redirect_status')
+
+      // Αποτυχημένη/ακυρωμένη πληρωμή ΔΕΝ είναι επιβεβαίωση.
+      if (redirectStatus && redirectStatus !== 'succeeded') {
+        setPayState('failed')
+        return
+      }
 
       const applyLocation = (loc: any) => {
         if (!loc) return
@@ -123,36 +131,51 @@ function ConfirmedContent() {
         if (loc.address) setLocationAddress(loc.address)
         if (loc.city) setLocationCity(loc.city)
       }
+      const supabase = createClient()
 
+      // Μετρητά: το ref έρχεται από τον server (create-cash) — έγκυρο.
       if (refParam) {
         setBookingRef(refParam)
-        const supabase = createClient()
+        setPayState('ok')
+        successHaptic()
+        track('booking_paid')
         const { data } = await supabase
           .from('bookings')
           .select('booking_ref, locations(name, address, city)')
           .eq('booking_ref', refParam)
-          .single()
-
+          .maybeSingle()
         if (data) applyLocation(data.locations as any)
-      } else if (intentId) {
-        const supabase = createClient()
-        const { data } = await supabase
-          .from('bookings')
-          .select('booking_ref, locations(name, address, city)')
-          .eq('stripe_payment_intent_id', intentId)
-          .single()
-
-        if (data?.booking_ref) {
-          ref = data.booking_ref
-          setBookingRef(data.booking_ref)
-        }
-        if (data) applyLocation(data.locations as any)
+        trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: refParam })
+        return
       }
 
-      if (!bookingRef) setBookingRef(ref)
-      // Purchase — client-side. eventId = booking_ref ώστε να γίνει dedup με το CAPI (webhook).
-      trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: ref })
-      // Email is sent automatically by Stripe webhook
+      // Κάρτα: η κράτηση γράφεται από το webhook λίγο μετά. Ρωτάμε μέχρι ~20''.
+      // ΠΟΤΕ ψεύτικος κωδικός — μόνο ο πραγματικός από τη βάση.
+      if (intentId) {
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const { data } = await supabase
+            .from('bookings')
+            .select('booking_ref, locations(name, address, city)')
+            .eq('stripe_payment_intent_id', intentId)
+            .maybeSingle()
+          if (data?.booking_ref) {
+            setBookingRef(data.booking_ref)
+            applyLocation(data.locations as any)
+            setPayState('ok')
+            successHaptic()
+            track('booking_paid')
+            // eventId = booking_ref → dedup με το server-side CAPI (webhook).
+            trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: data.booking_ref })
+            return
+          }
+          await new Promise(r => setTimeout(r, 2500))
+        }
+        // Δεν ήρθε ακόμα: η πληρωμή πέρασε, το email με τον κωδικό θα φτάσει.
+        // Μένουμε 'pending' (χωρίς ψεύτικο ref).
+        return
+      }
+
+      setPayState('failed')
     }
 
     fetchAndNotify()
@@ -184,17 +207,40 @@ function ConfirmedContent() {
                 transition: 'transform 380ms cubic-bezier(.2,.9,.3,1.15), opacity 380ms ease',
               }}
             >
-              <Check size={28} color="white" strokeWidth={2.6} />
+              {payState === 'failed'
+                ? <span className="text-white text-[26px] font-bold leading-none">!</span>
+                : <Check size={28} color="white" strokeWidth={2.6} />}
             </div>
           </div>
 
-          <h1 className="text-[24px] font-bold tracking-tight text-center text-gray-900 leading-[1.2]">
-            {t.confirmedTitle1}<br />{t.confirmedTitle2}
-          </h1>
-          <p className="text-[14px] text-gray-500 text-center mt-2">
-            {isCash ? t.cashSub : t.emailSub}
-          </p>
+          {payState === 'failed' ? (
+            <>
+              <h1 className="text-[24px] font-bold tracking-tight text-center text-gray-900 leading-[1.2]">
+                Η πληρωμή δεν ολοκληρώθηκε
+              </h1>
+              <p className="text-[14px] text-gray-500 text-center mt-2">
+                Δεν έγινε χρέωση και δεν δημιουργήθηκε κράτηση. Δοκίμασε ξανά.
+              </p>
+              <a href="/map" className="mt-6 block w-full h-12 leading-[48px] text-center rounded-xl bg-gray-900 text-white text-[14px] font-semibold">
+                Πίσω στον χάρτη
+              </a>
+            </>
+          ) : (
+            <>
+              <h1 className="text-[24px] font-bold tracking-tight text-center text-gray-900 leading-[1.2]">
+                {payState === 'pending' && !isCash
+                  ? <>Επιβεβαιώνουμε<br />την πληρωμή σου…</>
+                  : <>{t.confirmedTitle1}<br />{t.confirmedTitle2}</>}
+              </h1>
+              <p className="text-[14px] text-gray-500 text-center mt-2">
+                {payState === 'pending' && !isCash
+                  ? 'Λίγα δευτερόλεπτα. Θα λάβεις και email με τον κωδικό κράτησης.'
+                  : (isCash ? t.cashSub : t.emailSub)}
+              </p>
+            </>
+          )}
 
+          {payState !== 'failed' && (<>
           {/* Apple Wallet–style pass */}
           <div
             className="mt-8 bg-gray-900 text-white rounded-[20px] p-5 relative overflow-hidden"
@@ -305,6 +351,7 @@ function ConfirmedContent() {
 
           {/* Opt-in για reminders επόμενου πλυσίματος */}
           <PushReminderPrompt />
+          </>)}
         </div>
       </div>
     </main>

@@ -21,8 +21,9 @@ export async function checkSlotAvailability(admin: SupabaseClient, args: {
   serviceId: string
   slotDate: string      // 'YYYY-MM-DD'
   slotStartTime: string // 'HH:MM'
+  excludeBookingId?: string // reschedule: μην μετράς την ίδια την κράτηση
 }): Promise<AvailabilityCheckResult> {
-  const { locationId, serviceId, slotDate, slotStartTime } = args
+  const { locationId, serviceId, slotDate, slotStartTime, excludeBookingId } = args
 
   const dayOfWeek = (() => {
     const d = new Date(`${slotDate}T12:00:00`)
@@ -37,7 +38,7 @@ export async function checkSlotAvailability(admin: SupabaseClient, args: {
     { data: exception },
     { data: dayBookings },
   ] = await Promise.all([
-    admin.from('locations').select('id, capacity').eq('id', locationId).maybeSingle(),
+    admin.from('locations').select('id, capacity, is_active').eq('id', locationId).maybeSingle(),
     admin.from('services').select('id, duration_minutes').eq('id', serviceId).maybeSingle(),
     admin.from('location_hours')
       .select('is_closed, open_time, close_time')
@@ -45,13 +46,22 @@ export async function checkSlotAvailability(admin: SupabaseClient, args: {
     admin.from('location_hours_exceptions')
       .select('is_closed, closed_from, closed_to, periods')
       .eq('location_id', locationId).eq('exception_date', slotDate).maybeSingle(),
-    admin.from('bookings')
-      .select('slot_start_time, duration_minutes')
-      .eq('location_id', locationId).eq('slot_date', slotDate)
-      .not('status', 'in', '("cancelled","no_show")'),
+    (() => {
+      let q = admin.from('bookings')
+        .select('slot_start_time, duration_minutes')
+        .eq('location_id', locationId).eq('slot_date', slotDate)
+        .not('status', 'in', '("cancelled","no_show")')
+      if (excludeBookingId) q = q.neq('id', excludeBookingId)
+      return q
+    })(),
   ])
 
   if (!location) return { ok: false, error: 'Άγνωστο πλυντήριο' }
+  // Ανενεργό πλυντήριο δεν δέχεται κρατήσεις (δεν φαίνεται στον χάρτη, αλλά
+  // κάποιος με παλιό link/id δεν πρέπει να μπορεί να κλείσει).
+  if ((location as { is_active?: boolean }).is_active === false) {
+    return { ok: false, error: 'Το πλυντήριο δεν δέχεται κρατήσεις αυτή τη στιγμή.' }
+  }
 
   const capacity = Math.max(1, Number(location.capacity) || 1)
   const durationMinutes = Math.max(30, Number(service?.duration_minutes) || 30)

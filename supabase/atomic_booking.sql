@@ -72,6 +72,55 @@ begin
 end;
 $$;
 
+-- ------------------------------------------------------------
+-- ΑΤΟΜΙΚΗ μεταφορά κράτησης (reschedule): ίδια κλειδαριά + ίδιος έλεγχος
+-- πληρότητας στη ΝΕΑ μέρα/ώρα, εξαιρώντας την ίδια την κράτηση.
+-- ------------------------------------------------------------
+create or replace function public.move_booking_atomic(p_booking_id uuid, p_slot_date date, p_slot_start time)
+returns void
+language plpgsql
+as $$
+declare
+  v_loc  uuid;
+  v_dur  int;
+  v_cap  int;
+  v_end  time := p_slot_start + interval '0';
+  v_step time;
+  v_busy int;
+begin
+  select location_id, greatest(30, coalesce(duration_minutes, 30)) into v_loc, v_dur
+    from public.bookings where id = p_booking_id and status in ('confirmed', 'pending');
+  if v_loc is null then
+    raise exception 'BOOKING_NOT_ACTIVE';
+  end if;
+  v_end := p_slot_start + make_interval(mins => v_dur);
+
+  perform pg_advisory_xact_lock(hashtext(v_loc::text || '|' || p_slot_date::text)::bigint);
+
+  select greatest(1, coalesce(capacity, 1)) into v_cap from public.locations where id = v_loc;
+
+  v_step := p_slot_start;
+  while v_step < v_end loop
+    select count(*) into v_busy
+      from public.bookings b
+     where b.location_id = v_loc
+       and b.slot_date::date = p_slot_date
+       and b.id <> p_booking_id
+       and b.status not in ('cancelled', 'no_show')
+       and b.slot_start_time::time <= v_step
+       and (b.slot_start_time::time + make_interval(mins => greatest(30, coalesce(b.duration_minutes, 30)))) > v_step;
+    if v_busy >= v_cap then
+      raise exception 'SLOT_FULL';
+    end if;
+    v_step := v_step + interval '30 minutes';
+  end loop;
+
+  update public.bookings
+     set slot_date = p_slot_date, slot_start_time = p_slot_start, reminder_sent = false
+   where id = p_booking_id;
+end;
+$$;
+
 -- Idempotency για το Stripe webhook: ένα booking ανά payment_intent, ΑΤΟΜΙΚΑ.
 -- (Το read-then-insert στο webhook μπορούσε να διπλογράψει σε ταυτόχρονα redeliveries.)
 create unique index if not exists bookings_stripe_pi_unique

@@ -6,8 +6,9 @@ import { createClient } from '@/lib/supabase/client'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star, RotateCw } from 'lucide-react'
 import { useT, useLocale } from '@/lib/i18n'
-import { INACTIVE_STATUS_FILTER, offeredTimesForDay, weekdayMon1FromYmd } from '@/lib/slots'
-import { ymdFromLocalDate } from '@/lib/time'
+import { INACTIVE_STATUS_FILTER } from '@/lib/slots'
+import { ymdFromLocalDate, weekdayMon1FromYmd, athensToday, athensMinutesOfDay } from '@/lib/time'
+import { computeSlots, toMinutes, type HoursException, type OccupancyBooking } from '@/lib/availability'
 
 const T = {
   el: {
@@ -120,6 +121,7 @@ type Booking = {
   created_at: string
   location_id: string
   service_id: string
+  duration_minutes?: number | null
   locations: {
     id: string
     slug: string
@@ -240,7 +242,7 @@ export default function BookingDetailPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, car_plate, stripe_payment_intent_id, created_at, location_id, service_id, locations(id, slug, name, address, city), services(name)')
+        .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, car_plate, stripe_payment_intent_id, created_at, location_id, service_id, duration_minutes, locations(id, slug, name, address, city), services(name)')
         .eq('id', bookingId)
         .single()
 
@@ -363,58 +365,38 @@ export default function BookingDetailPage() {
       const supabase = createClient()
       const dayOfWeek = weekdayMon1FromYmd(newDate)
 
-      const { data: exceptionData } = await supabase
-        .from('location_hours_exceptions')
-        .select('periods, is_closed')
-        .eq('location_id', booking.location_id)
-        .eq('exception_date', newDate)
-        .maybeSingle()
+      // ΚΟΙΝΗ λογική διαθεσιμότητας (lib/availability): ωράριο, εξαιρέσεις
+      // (και νέου τύπου closed_from/closed_to), μάνικες, διάρκεια υπηρεσίας.
+      // Πριν: μόνο «ίδια ώρα έναρξης» → αγνοούσε capacity και διάρκεια.
+      const [{ data: hoursData }, { data: exceptionData }, { data: loc }, { data: svc }, { data: bookedData }] = await Promise.all([
+        supabase.from('location_hours').select('open_time, close_time, is_closed')
+          .eq('location_id', booking.location_id).eq('day_of_week', dayOfWeek).maybeSingle(),
+        supabase.from('location_hours_exceptions').select('is_closed, closed_from, closed_to, periods')
+          .eq('location_id', booking.location_id).eq('exception_date', newDate).maybeSingle(),
+        supabase.from('locations').select('capacity').eq('id', booking.location_id).maybeSingle(),
+        supabase.from('services').select('duration_minutes').eq('id', booking.service_id).maybeSingle(),
+        supabase.from('bookings').select('slot_start_time, duration_minutes')
+          .eq('location_id', booking.location_id).eq('slot_date', newDate)
+          .not('status', 'in', INACTIVE_STATUS_FILTER).neq('id', booking.id),
+      ])
 
-      let hoursData: { open_time: string; close_time: string; is_closed?: boolean | null } | null = null
-      if (!exceptionData) {
-        const { data } = await supabase
-          .from('location_hours')
-          .select('open_time, close_time, is_closed')
-          .eq('location_id', booking.location_id)
-          .eq('day_of_week', dayOfWeek)
-          .maybeSingle()
-        hoursData = data
-      }
-
-      const allTimes = offeredTimesForDay(hoursData, exceptionData)
-      if (allTimes.length === 0) {
-        setAvailableSlots([])
-        setSlotsLoading(false)
-        return
-      }
-
-      const { data: bookedData } = await supabase
-        .from('bookings')
-        .select('slot_start_time')
-        .eq('location_id', booking.location_id)
-        .eq('slot_date', newDate)
-        .not('status', 'in', INACTIVE_STATUS_FILTER)
-        .neq('id', booking.id)
-
-      const booked = new Set(
-        (bookedData || [])
-          .map((b: { slot_start_time?: string | null }) => b.slot_start_time?.slice(0, 5))
-          .filter((t): t is string => !!t),
-      )
-
-      const now = new Date()
-      const isToday = newDate === ymdFromLocalDate(now)
-
-      const available = allTimes.filter(t => {
-        if (booked.has(t)) return false
-        if (isToday) {
-          const [h, m] = t.split(':').map(Number)
-          const slotMinutes = (h || 0) * 60 + (m || 0)
-          const nowMinutes = now.getHours() * 60 + now.getMinutes()
-          if (slotMinutes < nowMinutes + 120) return false
-        }
-        return true
+      const isToday = newDate === athensToday()
+      const nowMin = athensMinutesOfDay()
+      const slots = computeSlots({
+        dayHours: (hoursData || null) as { is_closed: boolean; open_time: string; close_time: string } | null,
+        exception: (exceptionData || null) as HoursException | null,
+        bookings: (bookedData || []) as OccupancyBooking[],
+        capacity: Math.max(1, Number(loc?.capacity) || 1),
+        durationMinutes: Math.max(30, Number(svc?.duration_minutes) || Number(booking.duration_minutes) || 30),
+        isToday,
+        nowMinutes: nowMin,
       })
+
+      // Κανόνας πελάτη: αλλαγή μόνο ≥2 ώρες μπροστά.
+      const available = slots
+        .filter(s => s.available)
+        .map(s => s.time)
+        .filter(t => !isToday || toMinutes(t) >= nowMin + 120)
 
       setAvailableSlots(available)
       setSlotsLoading(false)
@@ -426,19 +408,26 @@ export default function BookingDetailPage() {
   const handleConfirmReschedule = async () => {
     if (!booking || !newDate || !newTime) return
     setRescheduling(true)
-
-    const supabase = createClient()
-    await supabase
-      .from('bookings')
-      .update({
-        slot_date: newDate,
-        slot_start_time: newTime + ':00',
+    // Μέσω server: ξαναελέγχει ωράριο/μάνικες/διάρκεια και κάνει τη μεταφορά
+    // ατομικά. Πριν: απευθείας update χωρίς έλεγχο και χωρίς να κοιτά το error.
+    try {
+      const res = await fetch('/api/bookings/reschedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: booking.id, slotDate: newDate, slotStartTime: newTime }),
       })
-      .eq('id', booking.id)
-
-    setRescheduling(false)
-    setShowReschedule(false)
-    setBooking({ ...booking, slot_date: newDate, slot_start_time: newTime + ':00' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(json.error || 'Η αλλαγή δεν έγινε. Δοκίμασε άλλη ώρα.')
+        return
+      }
+      setShowReschedule(false)
+      setBooking({ ...booking, slot_date: newDate, slot_start_time: newTime + ':00' })
+    } catch {
+      alert('Πρόβλημα σύνδεσης. Η αλλαγή ΔΕΝ έγινε.')
+    } finally {
+      setRescheduling(false)
+    }
   }
 
   if (loading) {

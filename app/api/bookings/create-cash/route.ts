@@ -77,11 +77,15 @@ export async function POST(req: NextRequest) {
     }
 
     // 2) Τιμή server-side από τη DB — ποτέ από τον client.
+    // Η υπηρεσία πρέπει να ανήκει ΣΕ ΑΥΤΟ το πλυντήριο και να είναι ενεργή —
+    // αλλιώς κλείνεις στο Α με την (φτηνότερη) τιμή του Β ή με απενεργοποιημένη.
     const { data: service, error: serviceErr } = await admin
       .from('services')
       .select('id, name, price, price_moto, price_suv')
       .eq('id', serviceId)
-      .single()
+      .eq('location_id', locationId)
+      .eq('is_active', true)
+      .maybeSingle()
 
     if (serviceErr || !service) {
       return NextResponse.json({ error: 'Άκυρη υπηρεσία' }, { status: 400 })
