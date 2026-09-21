@@ -154,12 +154,10 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
     setLoading(true)
     setError('')
     try {
-      const { error: submitError } = await elements.submit()
-      if (submitError) {
-        setError(submitError.message || t.verifyError)
-        errorHaptic()
-        return
-      }
+      // ΠΡΟΣΟΧΗ: Το Elements δημιουργείται ΜΕ clientSecret. Σε αυτό το flow
+      // ΔΕΝ καλείται elements.submit() — το mixed pattern (submit + clientSecret)
+      // πετάει IntegrationError → «άγνωστο σφάλμα» και ΚΑΜΙΑ πληρωμή δεν περνάει.
+      // Το confirmPayment κάνει μόνο του validation + επιστρέφει confirmError.
       const { error: confirmError } = await stripe.confirmPayment({
         elements,
         clientSecret,
@@ -171,8 +169,11 @@ function CheckoutForm({ total, email, service, formattedDate, slotTime, clientSe
         setError(confirmError.message || t.paymentFailed)
         errorHaptic()
       }
-    } catch {
-      setError(t.unknownError)
+    } catch (e) {
+      // Δείξε το πραγματικό μήνυμα (βοηθά στο debug WebView) αντί για γενικό.
+      const msg = e instanceof Error ? e.message : ''
+      setError(msg ? `${t.unknownError} (${msg})` : t.unknownError)
+      errorHaptic()
     } finally {
       setLoading(false)
     }
@@ -767,7 +768,9 @@ function BookingPageContent() {
             locale,
             appearance: {
               theme: 'stripe',
-              variables: { colorPrimary: '#0A0A0A', borderRadius: '12px', fontSizeBase: '14px' }
+              // 16px: κάτω από αυτό το iOS Safari/WebView κάνει auto-zoom στο
+              // πεδίο κάρτας (και το user-scalable=no αγνοείται) → κολλάει zoomed.
+              variables: { colorPrimary: '#0A0A0A', borderRadius: '12px', fontSizeBase: '16px' }
             }
           }}>
             <CheckoutForm
