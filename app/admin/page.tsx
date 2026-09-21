@@ -36,6 +36,7 @@ export default function AdminPage() {
   const [applications, setApplications] = useState<any[]>([])
   const [onboardings, setOnboardings] = useState<any[]>([])
   const [activatingId, setActivatingId] = useState<string | null>(null)
+  const [openingId, setOpeningId] = useState<string | null>(null)
   const [addons, setAddons] = useState<any[]>([])
   const [catalogItems, setCatalogItems] = useState<any[]>([])
   const [addingCatalog, setAddingCatalog] = useState(false)
@@ -147,6 +148,25 @@ export default function AdminPage() {
       alert('Πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
     } finally {
       setActivatingId(null)
+    }
+  }
+
+  const openAccess = async (id: string) => {
+    if (openingId) return
+    setOpeningId(id)
+    try {
+      const res = await fetch('/api/admin/open-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ onboardingId: id }),
+      })
+      const json = await res.json()
+      if (!res.ok) { alert(json.error || 'Αποτυχία ανοίγματος πρόσβασης'); return }
+      alert(`Έτοιμο ✅  (${json.email})\n\nΤο πλυντήριο μπαίνει όπως κάθε χρήστης: στο login βάζει το email του → λαμβάνει 8ψήφιο κωδικό στο email → μπαίνει και βλέπει το dashboard (επειδή είναι πλέον owner).\n\nΤο σύστημα δεν στέλνει τίποτα από μόνο του — ο κωδικός OTP φεύγει μόνο όταν το πλυντήριο πατήσει «Αποστολή κωδικού».`)
+    } catch {
+      alert('Πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
+    } finally {
+      setOpeningId(null)
     }
   }
 
@@ -1073,13 +1093,22 @@ export default function AdminPage() {
                             <div><span className="text-gray-400">Τηλ:</span> <span className="font-semibold text-gray-800">{o.phone}</span></div>
                             <div className="col-span-2"><span className="text-gray-400">Email:</span> <span className="font-semibold text-gray-800">{o.email}</span></div>
                           </div>
-                          {!activated && (
+                          {!activated ? (
                             <button
                               onClick={() => activateOnboarding(o.id)}
                               disabled={activatingId === o.id}
                               className="mt-3.5 w-full h-11 rounded-xl bg-gray-900 text-white text-[13px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
                             >
                               {activatingId === o.id ? 'Ενεργοποίηση...' : 'Ενεργοποίηση — Δημιουργία πρατηρίου'}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openAccess(o.id)}
+                              disabled={openingId === o.id}
+                              className="mt-3.5 w-full h-11 rounded-xl text-[13px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-60"
+                              style={{ background: '#EAF2FD', color: '#1A6FD4' }}
+                            >
+                              {openingId === o.id ? 'Άνοιγμα...' : 'Άνοιγμα λογαριασμού (owner)'}
                             </button>
                           )}
                         </div>

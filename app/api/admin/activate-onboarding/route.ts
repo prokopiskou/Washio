@@ -81,9 +81,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Αποτυχία δημιουργίας πρατηρίου', detail: insErr.message }, { status: 500 })
     }
 
-    // Μαρκάρισμα αίτησης ως ενεργοποιημένης (χωρίς email/notification).
+    // Μαρκάρισμα αίτησης ως ενεργοποιημένης + σύνδεση με το location (μέσω notes,
+    // αφού ο πίνακας δεν έχει location_id column). Χωρίς email/notification.
     await supabase.from('partner_onboarding')
-      .update({ status: 'active' })
+      .update({ status: 'active', notes: loc.id })
       .eq('id', onboardingId)
 
     return NextResponse.json({ success: true, locationId: loc.id, geocoded: coords != null })
