@@ -45,7 +45,7 @@ export async function GET(req: Request) {
 
   const { data: reminders } = await supabase
     .from('bookings')
-    .select('id, booking_ref, car_plate, slot_start_time, slot_date, total_amount, reminder_sent, locations(name, address, city), services(name), profiles(email, full_name)')
+    .select('id, user_id, booking_ref, car_plate, slot_start_time, slot_date, total_amount, reminder_sent, locations(name, address, city), services(name), profiles(email, full_name)')
     .eq('status', 'confirmed')
     .eq('reminder_sent', false)
     .eq('slot_date', remFrom.date)
@@ -69,6 +69,18 @@ export async function GET(req: Request) {
       time: booking.slot_start_time?.slice(0, 5),
       plate: booking.car_plate || '',
     })
+
+    // PUSH στον πελάτη ~1 ώρα πριν το ραντεβού.
+    // Το παράθυρο 50–70' εγγυάται ότι last-minute κρατήσεις (π.χ. για σε 30')
+    // ΔΕΝ μπαίνουν εδώ — δεν προλαβαίνουν ποτέ να είναι 50-70' μπροστά.
+    const bUserId = (booking as { user_id?: string }).user_id
+    if (bUserId) {
+      await sendPush(bUserId, {
+        title: '⏰ Το ραντεβού σου σε ~1 ώρα',
+        body: `${location?.name || 'Πλυντήριο'} • ${booking.slot_start_time?.slice(0, 5) || ''}. Σε περιμένουν!`,
+        url: '/profile/bookings',
+      })
+    }
 
     await supabase.from('bookings').update({ reminder_sent: true }).eq('id', booking.id)
   }
