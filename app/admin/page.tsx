@@ -52,6 +52,11 @@ export default function AdminPage() {
   })
 
   const [bookingFilter, setBookingFilter] = useState({ status: '', location: '', date: '' })
+  const [finPeriod, setFinPeriod] = useState<'wtd' | 'mtd' | 'ytd' | 'custom'>('mtd')
+  const [finRange, setFinRange] = useState<{ from: string; to: string }>(() => {
+    const t = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' })
+    return { from: t.slice(0, 8) + '01', to: t }
+  })
   const [selectedUser, setSelectedUser] = useState<any>(null)
   const [userBookings, setUserBookings] = useState<any[]>([])
   const [refundModal, setRefundModal] = useState<{ booking: any } | null>(null)
@@ -1441,14 +1446,55 @@ export default function AdminPage() {
               })()}
 
               {activeTab === 'financials' && (() => {
-                const totalCommissionAll = topLocations.reduce((s, l) => s + l.commission, 0)
-                const totalRevenueAll = topLocations.reduce((s, l) => s + l.revenue, 0)
+                // Εύρος ημερομηνιών βάσει περιόδου (ζώνη Ελλάδας).
+                const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' })
+                const [ty, tm, td] = todayStr.split('-').map(Number)
+                const base = new Date(Date.UTC(ty, tm - 1, td))
+                const fmt = (dt: Date) => dt.toISOString().slice(0, 10)
+                let from = todayStr, to = todayStr
+                if (finPeriod === 'wtd') {
+                  const dow = (base.getUTCDay() + 6) % 7 // Δευτέρα = 0
+                  const f = new Date(base); f.setUTCDate(base.getUTCDate() - dow)
+                  from = fmt(f)
+                } else if (finPeriod === 'mtd') {
+                  from = `${ty}-${String(tm).padStart(2, '0')}-01`
+                } else if (finPeriod === 'ytd') {
+                  from = `${ty}-01-01`
+                } else { // custom
+                  from = finRange.from; to = finRange.to
+                }
+
+                // Κρατήσεις στο εύρος (βάσει ημ/νίας πλυσίματος), εκτός ακυρωμένων.
+                const finBookings = bookings.filter(b => {
+                  if (b.status === 'cancelled') return false
+                  const d = String(b.slot_date || '')
+                  return d >= from && d <= to
+                })
+                const finLocations = locations.map(loc => {
+                  const lb = finBookings.filter(b => b.locations?.name === loc.name)
+                  return {
+                    ...loc,
+                    bookingCount: lb.length,
+                    revenue: lb.reduce((s, b) => s + Number(b.total_amount || 0), 0),
+                    commission: lb.reduce((s, b) => s + Number(b.platform_fee || 0), 0),
+                  }
+                }).filter(l => l.bookingCount > 0).sort((a, b) => b.commission - a.commission)
+
+                const totalCommissionAll = finLocations.reduce((s, l) => s + l.commission, 0)
+                const totalRevenueAll = finLocations.reduce((s, l) => s + l.revenue, 0)
                 const avgCommissionRate = totalRevenueAll > 0
                   ? (totalCommissionAll / totalRevenueAll) * 100
                   : 0
-                const avgPerBooking = bookings.length > 0
-                  ? totalRevenueAll / bookings.filter(b => b.locations?.name).length
+                const avgPerBooking = finBookings.length > 0
+                  ? totalRevenueAll / finBookings.length
                   : 0
+
+                const periods: { key: typeof finPeriod; label: string }[] = [
+                  { key: 'wtd', label: 'WTD' },
+                  { key: 'mtd', label: 'MTD' },
+                  { key: 'ytd', label: 'YTD' },
+                  { key: 'custom', label: 'Διάστημα' },
+                ]
 
                 return (
                   <div className="space-y-3">
@@ -1465,6 +1511,47 @@ export default function AdminPage() {
                         Export CSV
                       </button>
                     </div>
+
+                    {/* Period selector */}
+                    <div className="flex gap-1.5">
+                      {periods.map(p => (
+                        <button
+                          key={p.key}
+                          onClick={() => setFinPeriod(p.key)}
+                          className="flex-1 h-9 rounded-[9px] text-[12px] font-semibold border transition-colors"
+                          style={finPeriod === p.key
+                            ? { background: '#0A0A0A', color: '#fff', borderColor: '#0A0A0A' }
+                            : { background: '#fff', color: '#666', borderColor: '#E5E7EB' }}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {finPeriod === 'custom' && (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={finRange.from}
+                          max={finRange.to}
+                          onChange={e => setFinRange(r => ({ ...r, from: e.target.value }))}
+                          className="flex-1 h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
+                        />
+                        <span className="text-[12px] text-gray-400">έως</span>
+                        <input
+                          type="date"
+                          value={finRange.to}
+                          min={finRange.from}
+                          max={todayStr}
+                          onChange={e => setFinRange(r => ({ ...r, to: e.target.value }))}
+                          className="flex-1 h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
+                        />
+                      </div>
+                    )}
+
+                    <p className="text-[11px] text-gray-400">
+                      {from} → {to} · {finBookings.length} κρατήσεις
+                    </p>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
                       {[
@@ -1517,12 +1604,12 @@ export default function AdminPage() {
                       <div className="flex items-center justify-between px-3.5 pt-3.5 pb-2">
                         <p className="text-[13px] font-semibold tracking-tight text-gray-900">Ανά σημείο</p>
                         <span className="text-[11px] font-bold text-gray-400" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                          {topLocations.length}
+                          {finLocations.length}
                         </span>
                       </div>
 
-                      {topLocations.map((loc, i) => {
-                        const isLast = i === topLocations.length - 1
+                      {finLocations.map((loc, i) => {
+                        const isLast = i === finLocations.length - 1
                         const sharePercent = totalCommissionAll > 0 ? (loc.commission / totalCommissionAll) * 100 : 0
 
                         return (
@@ -1570,8 +1657,8 @@ export default function AdminPage() {
                         )
                       })}
 
-                      {topLocations.length === 0 && (
-                        <p className="text-[13px] text-gray-400 text-center py-8">Δεν υπάρχουν δεδομένα</p>
+                      {finLocations.length === 0 && (
+                        <p className="text-[13px] text-gray-400 text-center py-8">Δεν υπάρχουν δεδομένα σε αυτή την περίοδο</p>
                       )}
                     </div>
                   </div>
