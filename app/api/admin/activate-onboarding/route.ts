@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
-import { geocodeAddress } from '@/lib/geocode'
 
 // ============================================================
 // Ενεργοποίηση αίτησης onboarding → auto-δημιουργία πρατηρίου.
@@ -56,12 +55,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Η αίτηση είναι ήδη ενεργοποιημένη' }, { status: 409 })
     }
 
-    // Συντεταγμένες από τη διεύθυνση (best-effort — ο admin τις διορθώνει αν χρειαστεί).
-    const coords = await geocodeAddress(app.address || '', '')
-
     const slug = slugify(app.business_name || 'partner')
 
-    // Δημιουργία πρατηρίου (skeleton, ΑΝΕΝΕΡΓΟ μέχρι ο admin να συμπληρώσει υπηρεσίες/ωράριο).
+    // Δημιουργία πρατηρίου (skeleton, ΑΝΕΝΕΡΓΟ). ΧΩΡΙΣ auto-geocode — τις
+    // συντεταγμένες τις βάζει ο admin χειροκίνητα (η διεύθυνση φόρμας είναι
+    // «έδρα» και μπορεί να διαφέρει από τη φυσική τοποθεσία του πλυντηρίου).
     const { data: loc, error: insErr } = await supabase.from('locations').insert({
       name: app.business_name,
       address: app.address || '',
@@ -72,8 +70,8 @@ export async function POST(req: NextRequest) {
       commission_rate: 10,
       capacity: 1,
       owner_id: null,
-      lat: coords?.lat ?? null,
-      lng: coords?.lng ?? null,
+      lat: null,
+      lng: null,
     }).select('id').single()
 
     if (insErr) {
@@ -87,7 +85,7 @@ export async function POST(req: NextRequest) {
       .update({ status: 'active', notes: loc.id })
       .eq('id', onboardingId)
 
-    return NextResponse.json({ success: true, locationId: loc.id, geocoded: coords != null })
+    return NextResponse.json({ success: true, locationId: loc.id })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'
     console.error('activate-onboarding error:', message)

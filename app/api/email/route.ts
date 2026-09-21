@@ -64,7 +64,9 @@ function reminderEmail(data: {
   date: string
   time: string
   plate: string
+  until?: string
 }) {
+  const headline = (data.until || 'Σε λίγο').replace(/^./, c => c.toUpperCase())
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
       <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
@@ -74,7 +76,7 @@ function reminderEmail(data: {
       <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
         <div style="text-align: center; margin-bottom: 28px;">
           <div style="font-size: 36px; margin-bottom: 12px;">⏰</div>
-          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Σε 1 ώρα η κράτησή σου!</h2>
+          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">${headline} η κράτησή σου!</h2>
           <p style="color: #999; font-size: 13px; margin: 0;">Μην ξεχαστείς — σε περιμένουμε.</p>
         </div>
         <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
@@ -111,9 +113,11 @@ function followUpEmail(data: {
         </div>
         <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px; text-align: center;">
           <p style="color: #666; font-size: 13px; margin: 0 0 16px;">Πώς βαθμολογείς την εμπειρία σου;</p>
-          <div style="display: flex; justify-content: center; gap: 8px;">
-            ${[1,2,3,4,5].map(n => `<a href="${BASE_URL}/review?ref=${data.bookingRef}&rating=${n}" style="display: inline-block; width: 44px; height: 44px; background: white; border: 1px solid #E5E5E5; border-radius: 10px; text-align: center; line-height: 44px; text-decoration: none; font-size: 20px;">${n}⭐</a>`).join('')}
-          </div>
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin: 0 auto;">
+            <tr>
+              ${[1,2,3,4,5].map(n => `<td style="padding: 0 4px;"><a href="${BASE_URL}/review?ref=${data.bookingRef}&rating=${n}" style="display: block; width: 46px; height: 46px; background: #fff; border: 1px solid #E5E5E5; border-radius: 12px; text-align: center; line-height: 46px; text-decoration: none; font-size: 24px; color: #F5A623;">★</a></td>`).join('')}
+            </tr>
+          </table>
         </div>
         <a href="${BASE_URL}" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px;">Νέα κράτηση →</a>
         <p style="color: #CCC; font-size: 11px; text-align: center; margin: 0;">Washio · ${data.bookingRef}</p>
@@ -323,7 +327,7 @@ export async function POST(req: NextRequest) {
         html = confirmationEmail(body)
         break
       case 'reminder':
-        subject = `⏰ Υπενθύμιση — Σε 1 ώρα η κράτησή σου`
+        subject = `⏰ Υπενθύμιση — ${(body.until as string) || 'σε λίγο'} η κράτησή σου`
         html = reminderEmail(body)
         break
       case 'followup':

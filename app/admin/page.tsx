@@ -139,11 +139,7 @@ export default function AdminPage() {
       // Ενημέρωση τοπικά + refresh.
       setOnboardings(prev => prev.map(o => o.id === id ? { ...o, status: 'active' } : o))
       await fetchData()
-      if (!json.geocoded) {
-        alert('Το πρατήριο δημιουργήθηκε ✅ αλλά ΔΕΝ βρέθηκαν συντεταγμένες από τη διεύθυνση. Βάλε lat/lng χειροκίνητα στα Πρατήρια πριν το ενεργοποιήσεις.')
-      } else {
-        alert('Το πρατήριο δημιουργήθηκε ✅. Συμπλήρωσε υπηρεσίες/ωράριο στα «Πρατήρια» και άνοιξε πρόσβαση όταν είσαι έτοιμος.')
-      }
+      alert('Το πρατήριο δημιουργήθηκε ✅ και εμφανίζεται στα «Πρατήρια» (ανενεργό).\n\nΑπό εκεί βάλε: τοποθεσία στον χάρτη, φωτογραφία, υπηρεσίες + τιμές, ωράριο. Μετά «Άνοιγμα λογαριασμού» και ενεργοποίηση.')
     } catch {
       alert('Πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
     } finally {
@@ -813,13 +809,22 @@ export default function AdminPage() {
                               <p className="text-[14px] font-semibold tracking-tight text-gray-900 truncate">{loc.name}</p>
                               <p className="text-[11px] text-gray-400 mt-0.5 truncate">{loc.city} · {loc.address}</p>
                               {/* Support mode: άνοιγμα του dashboard του σημείου ως admin */}
-                              <button
-                                onClick={() => router.push(`/dashboard?location=${loc.id}`)}
-                                className="inline-flex items-center gap-1 mt-1.5 px-2 py-1 rounded-md text-[11px] font-semibold"
-                                style={{ background: '#F3E8FF', color: '#7C3AED' }}
-                              >
-                                🛠 Άνοιγμα dashboard
-                              </button>
+                              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                                <button
+                                  onClick={() => router.push(`/dashboard?location=${loc.id}`)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold"
+                                  style={{ background: '#F3E8FF', color: '#7C3AED' }}
+                                >
+                                  🛠 Άνοιγμα dashboard
+                                </button>
+                                <button
+                                  onClick={() => router.push(`/admin/locations/${loc.id}/edit`)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold"
+                                  style={{ background: '#EFF3FF', color: '#2952CC' }}
+                                >
+                                  📍 Επεξεργασία
+                                </button>
+                              </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
                               <span

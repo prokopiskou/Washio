@@ -20,6 +20,24 @@ function athensParts(d: Date): { date: string; time: string } {
   return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` }
 }
 
+// Το instant (epoch ms) μιας ώρας που δίνεται σε τοπική ώρα Ελλάδας.
+function athensEpoch(dateStr: string, timeStr: string): number {
+  const naive = new Date(`${dateStr}T${timeStr.slice(0, 5)}:00Z`).getTime()
+  // Offset Αθήνας εκείνη τη στιγμή (χειρίζεται θερινή/χειμερινή ώρα).
+  const local = new Date(naive)
+  const asAthens = new Date(local.toLocaleString('en-US', { timeZone: 'Europe/Athens' }))
+  const asUtc = new Date(local.toLocaleString('en-US', { timeZone: 'UTC' }))
+  const offset = asUtc.getTime() - asAthens.getTime()
+  return naive + offset
+}
+
+// Φυσικό κείμενο για «σε πόση ώρα» (στρογγυλοποίηση στα 5').
+function untilText(minutes: number): string {
+  const m = Math.max(5, Math.round(minutes / 5) * 5)
+  if (m >= 55 && m <= 65) return 'σε ~1 ώρα'
+  return `σε ~${m} λεπτά`
+}
+
 async function sendEmail(payload: Record<string, unknown>) {
   await fetch(`${BASE_URL}/api/email`, {
     method: 'POST',
@@ -58,6 +76,10 @@ export async function GET(req: Request) {
     const profile = booking.profiles as { email?: string; full_name?: string } | null
     if (!profile?.email) continue
 
+    // Πραγματικός χρόνος μέχρι το ραντεβού → ακριβές κείμενο (όχι σταθερό «1 ώρα»).
+    const mins = Math.round((athensEpoch(booking.slot_date, booking.slot_start_time) - now.getTime()) / 60000)
+    const until = untilText(mins)
+
     await sendEmail({
       type: 'reminder',
       to: profile.email,
@@ -68,15 +90,16 @@ export async function GET(req: Request) {
       date: booking.slot_date,
       time: booking.slot_start_time?.slice(0, 5),
       plate: booking.car_plate || '',
+      until,
     })
 
-    // PUSH στον πελάτη ~1 ώρα πριν το ραντεβού.
+    // PUSH στον πελάτη με τον ίδιο πραγματικό χρόνο.
     // Το παράθυρο 50–70' εγγυάται ότι last-minute κρατήσεις (π.χ. για σε 30')
     // ΔΕΝ μπαίνουν εδώ — δεν προλαβαίνουν ποτέ να είναι 50-70' μπροστά.
     const bUserId = (booking as { user_id?: string }).user_id
     if (bUserId) {
       await sendPush(bUserId, {
-        title: '⏰ Το ραντεβού σου σε ~1 ώρα',
+        title: `⏰ Το ραντεβού σου ${until}`,
         body: `${location?.name || 'Πλυντήριο'} • ${booking.slot_start_time?.slice(0, 5) || ''}. Σε περιμένουν!`,
         url: '/profile/bookings',
       })
@@ -91,18 +114,33 @@ export async function GET(req: Request) {
 
   const { data: followups } = await supabase
     .from('bookings')
-    .select('id, booking_ref, slot_start_time, slot_date, followup_sent, locations(name), services(name), profiles(email, full_name)')
+    .select('id, booking_ref, slot_start_time, slot_date, followup_sent, locations(name), services(name), profiles(id, email, full_name)')
     .eq('status', 'confirmed')
     .eq('followup_sent', false)
     .eq('slot_date', folFrom.date)
     .gte('slot_start_time', folFrom.time)
     .lte('slot_start_time', folTo.time)
 
+  // Χρήστες που έχουν ΗΔΗ βαθμολογήσει → δεν τους ξαναζητάμε review.
+  // Defensive: αν η στήλη has_reviewed δεν υπάρχει ακόμα, σύνολο κενό
+  // (στέλνει κανονικά — τίποτα δεν σπάει).
+  const reviewedUsers = new Set<string>()
+  {
+    const { data: rv } = await supabase.from('profiles').select('id').eq('has_reviewed', true)
+    for (const p of rv || []) reviewedUsers.add((p as { id: string }).id)
+  }
+
   for (const booking of followups || []) {
     const location = booking.locations as { name?: string } | null
     const service = booking.services as { name?: string } | null
-    const profile = booking.profiles as { email?: string; full_name?: string } | null
+    const profile = booking.profiles as { id?: string; email?: string; full_name?: string } | null
     if (!profile?.email) continue
+
+    // Έχει ήδη βαθμολογήσει σε προηγούμενο πλύσιμο → κλείσε ως done, χωρίς email.
+    if (profile.id && reviewedUsers.has(profile.id)) {
+      await supabase.from('bookings').update({ followup_sent: true }).eq('id', booking.id)
+      continue
+    }
 
     const firstName = profile.full_name?.split(' ')[0] || ''
 
