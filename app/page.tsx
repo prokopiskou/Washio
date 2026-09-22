@@ -112,7 +112,7 @@ export default function HomePage() {
           try {
             document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
           } catch { /* ignore */ }
-          router.replace('/register?welcome=1')
+          router.replace('/login?welcome=1')
           return
         }
         // Native app: μπες στη ροή της εφαρμογής. Browser επισκέπτης: δείξε το landing.

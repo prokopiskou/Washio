@@ -11,6 +11,8 @@ import { useT } from '@/lib/i18n'
 const T = {
   el: {
     checkEmail: 'Έλεγξε το email σου',
+    welcomeTitle: 'Πάρε το κουπόνι σου −3€',
+    welcomeSub: 'για το πρώτο σου πλύσιμο',
     loginRegister: 'Είσοδος / Εγγραφή',
     sentCode: (email: string) => `Στείλαμε κωδικό στο ${email}`,
     noPassword: 'Χωρίς κωδικό — μόνο το email σου',
@@ -33,6 +35,8 @@ const T = {
   },
   en: {
     checkEmail: 'Check your email',
+    welcomeTitle: 'Get your €3 coupon',
+    welcomeSub: 'for your first wash',
     loginRegister: 'Sign in / Sign up',
     sentCode: (email: string) => `We sent a code to ${email}`,
     noPassword: 'No password — just your email',
@@ -72,6 +76,7 @@ function LoginPageContent() {
   // Μόνο μονοπάτια του ίδιου site: όχι //evil.com, όχι σχήματα, όχι κακά URLs
   // (πριν: new URL(...) σε κακό param = λευκή οθόνη· '//x' = open redirect).
   const redirectUrl = safeRedirect(params.get('redirect'))
+  const isWelcome = params.get('welcome') === '1'
 
   const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
@@ -199,6 +204,16 @@ function LoginPageContent() {
             {sent ? t.sentCode(email) : t.noPassword}
           </p>
         </div>
+
+        {isWelcome && !sent && (
+          <div className="bg-gray-900 rounded-2xl px-5 py-4 mb-5 flex items-center gap-3">
+            <span className="text-2xl">🎁</span>
+            <div>
+              <p className="text-[15px] font-bold text-white leading-tight">{t.welcomeTitle}</p>
+              <p className="text-[12px] text-white/60 mt-0.5">{t.welcomeSub}</p>
+            </div>
+          </div>
+        )}
 
         {!sent ? (
           <div className="flex flex-col gap-2.5">
