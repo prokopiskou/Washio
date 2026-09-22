@@ -103,7 +103,7 @@ function LoginPageContent() {
     setLoading(true)
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: email.trim().toLowerCase(),
       options: {
         shouldCreateUser: true,
         emailRedirectTo: undefined,
@@ -153,7 +153,7 @@ function LoginPageContent() {
     }
 
     const { error } = await supabase.auth.verifyOtp({
-      email,
+      email: email.trim().toLowerCase(),
       token: otp,
       type: 'email',
     })

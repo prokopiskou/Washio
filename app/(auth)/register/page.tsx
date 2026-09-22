@@ -66,7 +66,7 @@ function RegisterPageContent() {
     setError('')
     const supabase = createClient()
     const { error } = await supabase.auth.signUp({
-      email,
+      email: email.trim().toLowerCase(),
       password,
       options: {
         data: { full_name: `${firstName} ${lastName}` }
