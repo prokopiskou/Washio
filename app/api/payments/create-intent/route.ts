@@ -64,9 +64,12 @@ export async function POST(req: NextRequest) {
             payment_element: {
               enabled: true,
               features: {
+                // Ο επιστρέφων πελάτης ΒΛΕΠΕΙ τις αποθηκευμένες κάρτες του (1-tap).
                 payment_method_redisplay: 'enabled',
-                payment_method_save: 'enabled',
-                payment_method_save_usage: 'on_session',
+                // ΚΛΕΙΣΤΟ το interactive save (checkbox + email/τηλέφωνο/όνομα Link) —
+                // δημιουργούσε τριβή. Η κάρτα αποθηκεύεται σιωπηλά μέσω
+                // setup_future_usage στο PaymentIntent παρακάτω.
+                payment_method_save: 'disabled',
                 payment_method_remove: 'enabled',
               },
             },
@@ -159,6 +162,8 @@ export async function POST(req: NextRequest) {
       currency: 'eur',
       payment_method_types: ['card'],
       ...(customerId ? { customer: customerId } : {}),
+      // Αποθήκευση κάρτας ΧΩΡΙΣ checkbox/Link — σιωπηλά, για redisplay στον επιστρέφοντα.
+      ...(customerId ? { setup_future_usage: 'on_session' as const } : {}),
       metadata: {
         bookingRef,
         serviceId: serviceId || '',
