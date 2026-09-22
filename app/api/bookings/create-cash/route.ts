@@ -8,6 +8,7 @@ import { sendPush, getLocationOwnerId } from '@/lib/push'
 import { checkSlotAvailability, shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
+import { sendPurchaseCapi } from '@/lib/meta-capi'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -248,6 +249,20 @@ export async function POST(req: NextRequest) {
     } catch (emailErr: unknown) {
       console.error('Cash email error:', emailErr instanceof Error ? emailErr.message : 'unknown')
     }
+
+    // Meta CAPI Purchase και για ΜΕΤΡΗΤΑ — dedup με το browser Pixel (ίδιο
+    // bookingRef ως event_id). Κλείνει το κενό κάλυψης CAPI (πριν έστελνε μόνο η
+    // κάρτα από το webhook· οι cash κρατήσεις είχαν browser Purchase χωρίς server).
+    await sendPurchaseCapi({
+      eventId: bookingRef,
+      value: amount,
+      email: user.email || null,
+      externalId: user.id,
+      fbp: req.cookies.get('_fbp')?.value || null,
+      fbc: req.cookies.get('_fbc')?.value || null,
+      clientIp: ipFrom(req) || null,
+      clientUserAgent: (req.headers.get('user-agent') || '').slice(0, 350) || null,
+    })
 
     return NextResponse.json({ bookingRef })
   } catch (error: unknown) {
