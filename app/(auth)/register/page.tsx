@@ -13,6 +13,8 @@ const T = {
   el: {
     title: 'Δημιουργία λογαριασμού',
     subtitle: 'Γρήγορη εγγραφή — δωρεάν',
+    welcomeTitle: 'Πάρε το κουπόνι σου −3€',
+    welcomeSub: 'για το πρώτο σου πλύσιμο',
     firstName: 'Όνομα',
     lastName: 'Επώνυμο',
     email: 'Email',
@@ -29,6 +31,8 @@ const T = {
   en: {
     title: 'Create account',
     subtitle: 'Quick sign up — free',
+    welcomeTitle: 'Get your €3 coupon',
+    welcomeSub: 'for your first wash',
     firstName: 'First name',
     lastName: 'Last name',
     email: 'Email',
@@ -48,6 +52,7 @@ function RegisterPageContent() {
   const router = useRouter()
   const t = useT(T)
   const params = useSearchParams()
+  const isWelcome = params.get('welcome') === '1'
   const rawRedirect = params.get('redirect') || '/'
   const redirectUrl = rawRedirect.startsWith('http')
     ? new URL(rawRedirect).pathname + new URL(rawRedirect).search
@@ -108,6 +113,16 @@ function RegisterPageContent() {
         <h1 className="text-xl font-semibold text-gray-900">{t.title}</h1>
         <p className="text-sm text-gray-400 mt-1">{t.subtitle}</p>
       </div>
+
+      {isWelcome && (
+        <div className="bg-gray-900 rounded-2xl px-5 py-4 mb-5 flex items-center gap-3">
+          <span className="text-2xl">🎁</span>
+          <div>
+            <p className="text-[15px] font-bold text-white leading-tight">{t.welcomeTitle}</p>
+            <p className="text-[12px] text-white/60 mt-0.5">{t.welcomeSub}</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <div className="flex gap-2">

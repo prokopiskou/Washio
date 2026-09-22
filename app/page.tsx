@@ -104,6 +104,17 @@ export default function HomePage() {
       const { data: sessionData } = await supabase.auth.getSession()
 
       if (!sessionData.session) {
+        // Referral/ad link (?ref=ΚΩΔΙΚΟΣ): κράτα τον κωδικό και στείλε τον ΚΑΤΕΥΘΕΙΑΝ
+        // στο sign-up με το κίνητρο «πάρε −3€».
+        let ref: string | null = null
+        try { ref = new URLSearchParams(window.location.search).get('ref') } catch { /* ignore */ }
+        if (ref) {
+          try {
+            document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+          } catch { /* ignore */ }
+          router.replace('/register?welcome=1')
+          return
+        }
         // Native app: μπες στη ροή της εφαρμογής. Browser επισκέπτης: δείξε το landing.
         if (Capacitor.isNativePlatform()) {
           router.replace('/welcome')
