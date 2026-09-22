@@ -29,7 +29,13 @@ export async function linkReferral(
     const code = (rawCode || '').trim().toUpperCase()
     if (!code) return
 
-    // Έλεγχος: έχει ήδη πάρει welcome credit; (μία φορά ανά χρήστη, όποια πηγή)
+    // ΙΣΧΥΡΟΣ έλεγχος «πρώτης φοράς»: αν ο χρήστης έχει ΕΣΤΩ ΚΑΙ ΜΙΑ κράτηση, ΔΕΝ
+    // είναι νέος — κανένα welcome/referral (server-side, δεν παρακάμπτεται από τον client).
+    const { count: bookingCount } = await db.from('bookings')
+      .select('id', { count: 'exact', head: true }).eq('user_id', newUserId)
+    if ((bookingCount || 0) > 0) return
+
+    // Έχει ήδη πάρει welcome credit; (μία φορά ανά χρήστη, όποια πηγή)
     const { data: hadWelcome } = await db.from('credit_ledger')
       .select('id').eq('user_id', newUserId).eq('kind', 'welcome').maybeSingle()
 
