@@ -163,6 +163,7 @@ export async function POST(req: NextRequest) {
       eventId: bookingRef,
       value: parseFloat(m.amount),
       email: m.userEmail || null,
+      externalId: m.userId || null,
     })
 
     // Fetch location

@@ -11,12 +11,29 @@ import { track } from '@/lib/analytics'
 // email/password — αλλά οι περισσότεροι εγγράφονται με OTP/OAuth από το login,
 // που δεν έστελνε τίποτα. Χωρίς αυτό, τα Meta ads δεν μπορούν να βελτιστοποιήσουν
 // για sign-ups. Κεντρικό σημείο = πιάνει όλες τις ροές.
+const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID
+
 export function RegistrationTracker() {
   useEffect(() => {
     const supabase = createClient()
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== 'SIGNED_IN' || !session?.user) return
       const u = session.user
+
+      // ADVANCED MATCHING: μόλις ξέρουμε ποιος είναι ο χρήστης, «ταυτοποιούμε»
+      // το pixel με email + user id. Το Meta τα κάνει hash client-side. Έτσι ΟΛΑ
+      // τα επόμενα events (ViewContent, Purchase, CompleteRegistration…) matchάρουν
+      // πολύ καλύτερα — χωρίς αυτό στέλναμε μηδέν στοιχεία χρήστη.
+      try {
+        const fbq = (window as unknown as { fbq?: (...a: unknown[]) => void }).fbq
+        if (fbq && PIXEL_ID && u.email) {
+          fbq('init', PIXEL_ID, {
+            em: u.email.trim().toLowerCase(),
+            external_id: u.id,
+            ...(u.phone ? { ph: String(u.phone).replace(/[^0-9]/g, '') } : {}),
+          })
+        }
+      } catch { /* ignore */ }
 
       // «Νέα εγγραφή» = ο λογαριασμός δημιουργήθηκε μόλις τώρα (εντός 5').
       // Το SIGNED_IN πυροδοτείται και σε κάθε επόμενο login — το φιλτράρουμε.

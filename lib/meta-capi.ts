@@ -17,16 +17,23 @@ export async function sendPurchaseCapi(opts: {
   value: number
   currency?: string
   email?: string | null
+  externalId?: string | null
 }): Promise<void> {
   if (!PIXEL_ID || !TOKEN) return // δεν έχει ρυθμιστεί ακόμα — no-op
   try {
+    // Όσα περισσότερα identifiers στέλνουμε (email + external_id/user id), τόσο
+    // καλύτερο το matching — και μαζί με το browser Pixel event (ίδιο event_id)
+    // το Meta συνδυάζει τα signals (fbp/fbc από τον browser + email/id από εδώ).
+    const user_data: Record<string, string[]> = {}
+    if (opts.email) user_data.em = [sha256(opts.email)!]
+    if (opts.externalId) user_data.external_id = [sha256(opts.externalId)!]
     const body = {
       data: [{
         event_name: 'Purchase',
         event_time: Math.floor(Date.now() / 1000),
         event_id: opts.eventId,
         action_source: 'website',
-        user_data: opts.email ? { em: [sha256(opts.email)] } : {},
+        user_data,
         custom_data: { value: opts.value, currency: opts.currency || 'EUR' },
       }],
     }
