@@ -8,6 +8,7 @@ import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
+import { redeemCredit, grantReferrerRewardIfFirst } from '@/lib/referral'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -157,6 +158,12 @@ export async function POST(req: NextRequest) {
       )
       return NextResponse.json({ error: inserted.message }, { status: 500 })
     }
+
+    // Referral/wallet: αφαίρεσε την πίστωση που εξαργυρώθηκε (μετά την επιτυχία)
+    // και επιβράβευσε τον referrer αν είναι η πρώτη κράτηση του παραπεμπόμενου.
+    const appliedCredit = parseFloat(m.appliedCredit || '0')
+    if (m.userId && appliedCredit > 0) await redeemCredit(supabase, m.userId, appliedCredit, inserted.id)
+    if (m.userId) await grantReferrerRewardIfFirst(supabase, m.userId, inserted.id)
 
     // Meta CAPI Purchase (server-side, dedup με event_id = booking_ref).
     await sendPurchaseCapi({

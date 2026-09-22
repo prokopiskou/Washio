@@ -16,6 +16,14 @@ const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID
 export function RegistrationTracker() {
   useEffect(() => {
     const supabase = createClient()
+
+    // Πιάσε τον κωδικό παραπομπής από το URL (?ref=ΚΩΔΙΚΟΣ) και κράτα τον σε
+    // cookie 30 ημερών — θα διαβαστεί στο sign-up για να συνδεθεί ο νέος χρήστης.
+    try {
+      const ref = new URLSearchParams(window.location.search).get('ref')
+      if (ref) document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+    } catch { /* ignore */ }
+
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== 'SIGNED_IN' || !session?.user) return
       const u = session.user
@@ -60,6 +68,12 @@ export function RegistrationTracker() {
           body: JSON.stringify({ url: window.location.href }),
           keepalive: true,
         }).catch(() => {})
+      } catch { /* ignore */ }
+
+      // Σύνδεση παραπομπής: αν ο νέος ήρθε με κωδικό, δώσε του welcome credit
+      // και «κλείδωσε» τον referrer (το endpoint διαβάζει το cookie ws_ref).
+      try {
+        fetch('/api/referral/link', { method: 'POST', keepalive: true }).catch(() => {})
       } catch { /* ignore */ }
     })
 

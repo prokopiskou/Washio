@@ -158,7 +158,7 @@ export default function LandingPage() {
                 Το Washio στην τσέπη σου.
               </h2>
               <p className="text-gray-500 leading-relaxed mb-8">
-                Κλείσε ραντεβού, δες τις κρατήσεις σου και λάβε υπενθυμίσεις — όλα από μία εφαρμογή. Διαθέσιμη για iPhone — σύντομα και για Android.
+                Κλείσε ραντεβού, δες τις κρατήσεις σου και λάβε υπενθυμίσεις — όλα από μία εφαρμογή. Διαθέσιμη για iPhone και Android.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 {/* App Store — live */}
@@ -174,14 +174,19 @@ export default function LandingPage() {
                     <p className="text-sm font-semibold text-gray-900">App Store</p>
                   </div>
                 </a>
-                {/* Google Play — Σύντομα */}
-                <div className="flex items-center gap-3 border border-gray-200 rounded-2xl px-5 py-3 opacity-60 cursor-default select-none">
+                {/* Google Play — live */}
+                <a
+                  href="https://play.google.com/store/apps/details?id=gr.washio.app"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 border border-gray-200 rounded-2xl px-5 py-3 hover:border-gray-400 transition-colors"
+                >
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#0A0A0A"><path d="M3 2.5l11 9.5-11 9.5z"/></svg>
                   <div className="text-left leading-tight">
-                    <p className="text-[10px] text-gray-400">Σύντομα στο</p>
+                    <p className="text-[10px] text-gray-400">Κατέβασέ το στο</p>
                     <p className="text-sm font-semibold text-gray-900">Google Play</p>
                   </div>
-                </div>
+                </a>
               </div>
               <p className="text-xs text-gray-400 mt-6">
                 Μέχρι τότε, κλείσε κράτηση κατευθείαν από τον <Link href="/map" className="text-gray-900 underline">browser</Link>.

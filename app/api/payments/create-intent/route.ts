@@ -6,6 +6,7 @@ import { alertCritical } from '@/lib/alert'
 import { checkSlotAvailability } from '@/lib/availability-server'
 import { ipFrom } from '@/lib/throttle'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
+import { computeRedeemable } from '@/lib/referral'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -140,10 +141,18 @@ export async function POST(req: NextRequest) {
     const clientIp = ipFrom(req) || ''
     const clientUa = (req.headers.get('user-agent') || '').slice(0, 350)
 
-    // Χρέωση κάρτας = τιμή υπηρεσίας + τέλος υπηρεσίας. Το booking.total_amount
-    // μένει η ΒΑΣΗ (amount) — το fee πάει εξ ολοκλήρου στην πλατφόρμα και ΔΕΝ
-    // επηρεάζει τον διακανονισμό με το πλυντήριο.
-    const chargeAmount = amount + SERVICE_FEE_EUR
+    // Εξαργύρωση πίστωσης wallet (κουπόνια/referral) — ΜΟΝΟ σε κάρτα. Μειώνει τη
+    // χρέωση· ο πλυντηριάς παίρνει πλήρη τιμή (booking.total_amount = base) και το
+    // credit το απορροφά η πλατφόρμα. Αφαιρείται από το wallet στο webhook (μετά
+    // την επιτυχή πληρωμή), όχι εδώ — για να μη χαθεί αν δεν ολοκληρωθεί.
+    let appliedCredit = 0
+    try {
+      const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
+      appliedCredit = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
+    } catch { /* χωρίς credit αν αποτύχει */ }
+
+    // Χρέωση κάρτας = (τιμή − πίστωση) + τέλος υπηρεσίας.
+    const chargeAmount = (amount - appliedCredit) + SERVICE_FEE_EUR
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(chargeAmount * 100),
@@ -163,6 +172,7 @@ export async function POST(req: NextRequest) {
         serviceName: service.name || '', // ΜΟΝΟ από τη βάση — όχι από τον client
         amount: amount.toString(),           // ΒΑΣΗ (booking + settlement)
         serviceFee: SERVICE_FEE_EUR.toString(),
+        appliedCredit: appliedCredit.toString(),
         fbp, fbc, clientIp, clientUa,
       },
     })

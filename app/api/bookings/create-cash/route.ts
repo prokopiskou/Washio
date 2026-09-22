@@ -9,6 +9,7 @@ import { checkSlotAvailability, shouldNotifyOwnerNow } from '@/lib/availability-
 import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
+import { grantReferrerRewardIfFirst } from '@/lib/referral'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -187,6 +188,10 @@ export async function POST(req: NextRequest) {
       )
       return NextResponse.json({ error: inserted.message }, { status: 500 })
     }
+
+    // Referral: αν αυτός που κλείνει είναι παραπεμπόμενος, επιβράβευσε τον referrer
+    // (και σε μετρητά — το reward είναι πίστωση στον referrer, όχι έκπτωση εδώ).
+    if (user.id) await grantReferrerRewardIfFirst(admin, user.id, inserted.id)
 
     // Push στον πρατηριούχο: νέα κράτηση (μετρητά).
     // ΜΟΝΟ αν είναι για σήμερα ΚΑΙ το πλυντήριο είναι ανοιχτό τώρα.
