@@ -12,6 +12,10 @@ export function CapacitorInit() {
         const cap = (window as any).Capacitor
         if (!cap || !cap.isNativePlatform()) return
 
+        // Σημάδεψε το native app ώστε το CSS (--safe-top) να κρατά το 47px
+        // fallback ΜΟΝΟ εδώ — στο web μένει το καθαρό env(safe-area-inset-top).
+        document.documentElement.classList.add('native-app')
+
         const { SplashScreen } = await import('@capacitor/splash-screen')
         const { StatusBar, Style } = await import('@capacitor/status-bar')
 

@@ -97,7 +97,7 @@ export default function RewardsPage() {
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">
       <div className="w-full max-w-md pb-12">
-        <div className="bg-gray-50 pt-[calc(max(env(safe-area-inset-top),47px)+14px)] pb-3 px-5">
+        <div className="bg-gray-50 pt-[calc(var(--safe-top)+14px)] pb-3 px-5">
           <div className="flex items-center gap-3.5 mb-4">
             <button onClick={() => router.push('/profile')} aria-label={t.back}
               className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-900">

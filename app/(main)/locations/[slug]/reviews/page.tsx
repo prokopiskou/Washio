@@ -112,7 +112,7 @@ export default function ReviewsPage() {
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">
       <div className="w-full max-w-md md:max-w-2xl pb-28">
-        <div className="px-5 pt-[calc(max(env(safe-area-inset-top),47px)+16px)] flex flex-col gap-4">
+        <div className="px-5 pt-[calc(var(--safe-top)+16px)] flex flex-col gap-4">
 
           {/* Header */}
           <div className="flex items-center gap-3">

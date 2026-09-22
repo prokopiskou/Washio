@@ -4,6 +4,16 @@
   --background: #ffffff;
   --foreground: #171717;
   color-scheme: light;
+  /* Απόσταση κορυφής: στο WEB μόνο το πραγματικό safe-area (≈0 κάτω από τη μπάρα
+     του browser). Το native app προσθέτει το class .native-app (βλ. παρακάτω)
+     ώστε να κρατά 47px για το Dynamic Island / status bar overlay. */
+  --safe-top: env(safe-area-inset-top);
+}
+
+/* Μόνο μέσα στο Capacitor native app — εκεί το env(safe-area-inset-top)
+   επιστρέφει 0 (overlay webview), οπότε χρειάζεται το σταθερό fallback. */
+html.native-app {
+  --safe-top: max(env(safe-area-inset-top), 47px);
 }
 
 @theme inline {

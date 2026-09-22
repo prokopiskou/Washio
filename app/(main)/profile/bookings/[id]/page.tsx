@@ -473,7 +473,7 @@ export default function BookingDetailPage() {
       <div className="w-full max-w-md pb-24">
 
         {/* Header */}
-        <div className="px-5 pt-[calc(max(env(safe-area-inset-top),47px)+14px)] pb-5 flex items-center gap-3.5">
+        <div className="px-5 pt-[calc(var(--safe-top)+14px)] pb-5 flex items-center gap-3.5">
           <button
             onClick={() => router.back()}
             className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-900"

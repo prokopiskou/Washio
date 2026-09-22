@@ -848,7 +848,7 @@ function MapPageContent() {
       <div className="w-full max-w-md md:max-w-none relative overflow-hidden" style={{ height: '100dvh' }}>
 
         {/* Top controls — search + time chips */}
-        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-[calc(max(env(safe-area-inset-top),47px)+14px)] flex flex-col gap-2.5 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg md:pt-6">
+        <div className="absolute top-0 left-0 right-0 z-10 px-4 pt-[calc(var(--safe-top)+14px)] flex flex-col gap-2.5 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg md:pt-6">
 
           {/* Search row */}
           <div ref={searchContainerRef} className="relative flex gap-2.5">

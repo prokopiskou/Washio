@@ -185,7 +185,7 @@ function LoginPageContent() {
       <div className="w-full max-w-md px-5">
 
         {/* Back — σελίδα χωρίς bottom nav */}
-        <div className="pt-[calc(max(env(safe-area-inset-top),47px)+12px)] -mb-8">
+        <div className="pt-[calc(var(--safe-top)+12px)] -mb-8">
           <button
             onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
             aria-label="Back"
@@ -195,7 +195,7 @@ function LoginPageContent() {
           </button>
         </div>
 
-        <div className="pt-[calc(max(env(safe-area-inset-top),47px)+16px)] pb-8 flex flex-col items-center">
+        <div className="pt-[calc(var(--safe-top)+16px)] pb-8 flex flex-col items-center">
           <img src="/washio_logo.png" alt="Washio" className="h-16 w-auto mb-5" />
           <h1 className="text-lg font-semibold text-gray-900">
             {sent ? t.checkEmail : t.loginRegister}

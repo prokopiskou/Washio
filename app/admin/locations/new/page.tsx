@@ -130,7 +130,7 @@ export default function NewLocationPage() {
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md pb-20">
 
-        <div className="bg-white border-b border-gray-100 px-6 pb-5 pt-[calc(max(env(safe-area-inset-top),47px)+16px)]">
+        <div className="bg-white border-b border-gray-100 px-6 pb-5 pt-[calc(var(--safe-top)+16px)]">
           <div className="flex items-center gap-3">
             <button onClick={() => router.back()} className="text-gray-400">
               <ArrowLeft size={18} />

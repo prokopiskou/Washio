@@ -128,7 +128,7 @@ export default function OnboardingPage() {
   if (submitted) {
     return (
       <main className="min-h-screen bg-white flex flex-col items-center">
-        <div className="w-full max-w-md px-5 py-8 pt-[calc(max(env(safe-area-inset-top),47px)+16px)]">
+        <div className="w-full max-w-md px-5 py-8 pt-[calc(var(--safe-top)+16px)]">
           <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto mb-6" />
           <h1 className="text-lg font-semibold text-gray-900">Τα στοιχεία στάλθηκαν</h1>
           <p className="text-sm text-gray-500 mt-2 leading-relaxed">
@@ -142,7 +142,7 @@ export default function OnboardingPage() {
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md px-5 py-8 pt-[calc(max(env(safe-area-inset-top),47px)+16px)]">
+      <div className="w-full max-w-md px-5 py-8 pt-[calc(var(--safe-top)+16px)]">
         <div className="mb-6">
           <img src="/washio_logo.png" alt="Washio" className="h-10 w-auto mb-4" />
           <h1 className="text-lg font-semibold text-gray-900">Στοιχεία συνεργασίας</h1>
