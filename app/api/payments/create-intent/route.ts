@@ -5,6 +5,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { alertCritical } from '@/lib/alert'
 import { checkSlotAvailability } from '@/lib/availability-server'
 import { ipFrom } from '@/lib/throttle'
+import { SERVICE_FEE_EUR } from '@/lib/pricing'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -139,8 +140,13 @@ export async function POST(req: NextRequest) {
     const clientIp = ipFrom(req) || ''
     const clientUa = (req.headers.get('user-agent') || '').slice(0, 350)
 
+    // Χρέωση κάρτας = τιμή υπηρεσίας + τέλος υπηρεσίας. Το booking.total_amount
+    // μένει η ΒΑΣΗ (amount) — το fee πάει εξ ολοκλήρου στην πλατφόρμα και ΔΕΝ
+    // επηρεάζει τον διακανονισμό με το πλυντήριο.
+    const chargeAmount = amount + SERVICE_FEE_EUR
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100),
+      amount: Math.round(chargeAmount * 100),
       currency: 'eur',
       payment_method_types: ['card'],
       ...(customerId ? { customer: customerId } : {}),
@@ -155,7 +161,8 @@ export async function POST(req: NextRequest) {
         userId: user.id,
         userEmail: user.email || '',
         serviceName: service.name || '', // ΜΟΝΟ από τη βάση — όχι από τον client
-        amount: amount.toString(),
+        amount: amount.toString(),           // ΒΑΣΗ (booking + settlement)
+        serviceFee: SERVICE_FEE_EUR.toString(),
         fbp, fbc, clientIp, clientUa,
       },
     })

@@ -12,6 +12,7 @@ import { track as trackEvent } from '@/lib/analytics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday } from '@/lib/time'
+import { SERVICE_FEE_EUR } from '@/lib/pricing'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -44,7 +45,7 @@ const T = {
     serviceForA: 'Η υπηρεσία είναι για', vehicleWillBeSavedAs: '. Το όχημα που θα προσθέσεις θα καταχωρηθεί ως',
     plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
     backToMyVehicles: '← Επιστροφή στα οχήματά μου',
-    phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonsShort: 'Πρόσθετα', total: 'Σύνολο',
+    phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας',
     freeCancel: 'Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.',
     or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Πληρωμή με μετρητά στο κατάστημα',
     cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
@@ -69,7 +70,7 @@ const T = {
     serviceForA: 'This service is for', vehicleWillBeSavedAs: '. The vehicle you add will be saved as',
     plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
     backToMyVehicles: '← Back to my vehicles',
-    phone: 'Phone', addons: 'Add-on services', addonsShort: 'Add-ons', total: 'Total',
+    phone: 'Phone', addons: 'Add-on services', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee',
     freeCancel: 'Free cancellation up to 2 hours before your appointment.',
     or: 'or', confirming: 'Confirming...', payCash: 'Pay with cash at the store',
     cashHint: 'Book now, pay at the store during your visit.',
@@ -123,8 +124,9 @@ function MapThumb() {
   )
 }
 
-function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef }: {
+function CheckoutForm({ total, baseTotal, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef }: {
   total: number
+  baseTotal: number
   email: string
   phone: string
   service: { name: string; price: number }
@@ -243,6 +245,22 @@ function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, c
         </div>
       )}
 
+      {/* Ανάλυση χρέωσης κάρτας — διαφανές τέλος υπηρεσίας */}
+      <div className="rounded-xl bg-gray-50 px-3.5 py-2.5 mb-3">
+        <div className="flex justify-between items-center text-[12px] text-gray-500">
+          <span>{service.name}</span>
+          <span>€{baseTotal.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between items-center text-[12px] text-gray-500 mt-1">
+          <span>{t.serviceFee}</span>
+          <span>€{SERVICE_FEE_EUR.toFixed(2)}</span>
+        </div>
+        <div className="flex justify-between items-center text-[13px] font-semibold text-gray-900 mt-1.5 pt-1.5 border-t border-gray-200">
+          <span>{t.total}</span>
+          <span>€{total.toFixed(2)}</span>
+        </div>
+      </div>
+
       <button
         onClick={handleSubmit}
         disabled={loading || !stripe}
@@ -254,7 +272,7 @@ function CheckoutForm({ total, email, phone, service, formattedDate, slotTime, c
           <>
             <span>{t.pay}</span>
             <span className="w-px h-4 bg-white/25" />
-            <span>€{total}</span>
+            <span>€{total.toFixed(2)}</span>
           </>
         )}
       </button>
@@ -468,6 +486,9 @@ function BookingPageContent() {
 
   const addonTotal = addons.filter(a => selectedAddons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)
   const total = servicePrice + addonTotal
+  // Χρέωση κάρτας = τιμή + τέλος υπηρεσίας (μόνο κάρτα). Τα μετρητά πληρώνουν την
+  // καθαρή τιμή στο κατάστημα.
+  const cardTotal = total + SERVICE_FEE_EUR
   const canProceed = phone.trim() && email.trim() && service && (
     selectedVehicleId !== 'new' ? true : plate.trim().length > 0
   )
@@ -789,7 +810,7 @@ function BookingPageContent() {
             // DEFERRED: mode/amount/currency ΑΝΤΙ για clientSecret. Το clientSecret
             // δίνεται μόνο στο confirmPayment. (Το hybrid clientSecret+submit έσκαγε.)
             mode: 'payment',
-            amount: Math.round(total * 100),
+            amount: Math.round(cardTotal * 100),
             currency: 'eur',
             paymentMethodTypes: ['card'], // ίδιο με το PaymentIntent (κάρτα + wallets)
             ...(customerSessionClientSecret ? { customerSessionClientSecret } : {}),
@@ -802,7 +823,7 @@ function BookingPageContent() {
             }
           }}>
             <CheckoutForm
-              total={total} email={email} phone={phone} service={service}
+              total={cardTotal} baseTotal={total} email={email} phone={phone} service={service}
               formattedDate={formattedDate} slotTime={slotTime}
               clientSecret={clientSecret} plate={plate} bookingRef={bookingRef}
             />
