@@ -159,6 +159,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: inserted.message }, { status: 500 })
     }
 
+    // Σιωπηλή αποθήκευση κάρτας — ΧΩΡΙΣ κανένα checkbox/email/Link/κείμενο στη φόρμα.
+    // Κάνουμε attach το PaymentMethod στον customer ΜΟΝΟ αφού πληρώσει, ώστε την
+    // επόμενη φορά να εμφανίζεται (redisplay) και να πληρώνει με 1 tap. allow_redisplay
+    // = 'always' για να το δείχνει το Payment Element. Best-effort — δεν μπλοκάρει.
+    if (intent.customer && typeof intent.payment_method === 'string') {
+      try {
+        await stripe.paymentMethods.attach(intent.payment_method, {
+          customer: intent.customer as string,
+        })
+      } catch { /* πιθανόν ήδη attached */ }
+      try {
+        await stripe.paymentMethods.update(intent.payment_method, { allow_redisplay: 'always' })
+      } catch { /* μη-κρίσιμο */ }
+    }
+
     // Referral/wallet: αφαίρεσε την πίστωση που εξαργυρώθηκε (μετά την επιτυχία)
     // και επιβράβευσε τον referrer αν είναι η πρώτη κράτηση του παραπεμπόμενου.
     const appliedCredit = parseFloat(m.appliedCredit || '0')

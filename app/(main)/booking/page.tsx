@@ -824,9 +824,6 @@ function BookingPageContent() {
             currency: 'eur',
             paymentMethodTypes: ['card'], // ίδιο με το PaymentIntent (κάρτα + wallets)
             ...(customerSessionClientSecret ? { customerSessionClientSecret } : {}),
-            // Πρέπει να ταιριάζει με το setup_future_usage του PaymentIntent (σιωπηλή
-            // αποθήκευση κάρτας) — αλλιώς το Stripe.js πετάει integration mismatch.
-            ...(customerSessionClientSecret ? { setupFutureUsage: 'on_session' as const } : {}),
             locale,
             appearance: {
               theme: 'stripe',

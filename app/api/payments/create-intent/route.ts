@@ -165,8 +165,6 @@ export async function POST(req: NextRequest) {
       currency: 'eur',
       payment_method_types: ['card'],
       ...(customerId ? { customer: customerId } : {}),
-      // Αποθήκευση κάρτας ΧΩΡΙΣ checkbox/Link — σιωπηλά, για redisplay στον επιστρέφοντα.
-      ...(customerId ? { setup_future_usage: 'on_session' as const } : {}),
       metadata: {
         bookingRef,
         serviceId: serviceId || '',
