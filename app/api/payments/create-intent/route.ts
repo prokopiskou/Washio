@@ -6,7 +6,7 @@ import { alertCritical } from '@/lib/alert'
 import { checkSlotAvailability } from '@/lib/availability-server'
 import { ipFrom } from '@/lib/throttle'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
-import { computeRedeemable } from '@/lib/referral'
+import { computeRedeemable, isCreditEligible } from '@/lib/referral'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -150,8 +150,11 @@ export async function POST(req: NextRequest) {
     // την επιτυχή πληρωμή), όχι εδώ — για να μη χαθεί αν δεν ολοκληρωθεί.
     let appliedCredit = 0
     try {
-      const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
-      appliedCredit = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
+      // Μόνο σε πλήρες πλύσιμο (Μέσα-Έξω) ≥12€ — αλλιώς κανένα κουπόνι.
+      if (isCreditEligible(amount)) {
+        const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
+        appliedCredit = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
+      }
     } catch { /* χωρίς credit αν αποτύχει */ }
 
     // Χρέωση κάρτας = (τιμή − πίστωση) + τέλος υπηρεσίας.
@@ -200,6 +203,8 @@ export async function POST(req: NextRequest) {
       clientSecret: paymentIntent.client_secret,
       customerSessionClientSecret,
       bookingRef,
+      appliedCredit,                 // πόσο κουπόνι εφαρμόστηκε (για εμφάνιση στο checkout)
+      serviceFee: SERVICE_FEE_EUR,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'

@@ -45,7 +45,7 @@ const T = {
     serviceForA: 'Η υπηρεσία είναι για', vehicleWillBeSavedAs: '. Το όχημα που θα προσθέσεις θα καταχωρηθεί ως',
     plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
     backToMyVehicles: '← Επιστροφή στα οχήματά μου',
-    phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας',
+    phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
     freeCancel: 'Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.',
     or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Πληρωμή με μετρητά στο κατάστημα',
     cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
@@ -70,7 +70,7 @@ const T = {
     serviceForA: 'This service is for', vehicleWillBeSavedAs: '. The vehicle you add will be saved as',
     plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
     backToMyVehicles: '← Back to my vehicles',
-    phone: 'Phone', addons: 'Add-on services', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee',
+    phone: 'Phone', addons: 'Add-on services', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
     freeCancel: 'Free cancellation up to 2 hours before your appointment.',
     or: 'or', confirming: 'Confirming...', payCash: 'Pay with cash at the store',
     cashHint: 'Book now, pay at the store during your visit.',
@@ -124,9 +124,10 @@ function MapThumb() {
   )
 }
 
-function CheckoutForm({ total, baseTotal, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef }: {
+function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef }: {
   total: number
   baseTotal: number
+  appliedCredit: number
   email: string
   phone: string
   service: { name: string; price: number }
@@ -251,6 +252,12 @@ function CheckoutForm({ total, baseTotal, email, phone, service, formattedDate, 
           <span>{service.name}</span>
           <span>€{baseTotal.toFixed(2)}</span>
         </div>
+        {appliedCredit > 0 && (
+          <div className="flex justify-between items-center text-[12px] font-medium text-green-600 mt-1">
+            <span>{t.coupon}</span>
+            <span>−€{appliedCredit.toFixed(2)}</span>
+          </div>
+        )}
         <div className="flex justify-between items-center text-[12px] text-gray-500 mt-1">
           <span>{t.serviceFee}</span>
           <span>€{SERVICE_FEE_EUR.toFixed(2)}</span>
@@ -303,6 +310,7 @@ function BookingPageContent() {
   const [showPayment, setShowPayment] = useState(false)
   const [clientSecret, setClientSecret] = useState('')
   const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | undefined>(undefined)
+  const [appliedCredit, setAppliedCredit] = useState(0)
   const [bookingRef, setBookingRef] = useState('')
   const [cashLoading, setCashLoading] = useState(false)
   const paymentAnchorRef = useRef<HTMLDivElement>(null)
@@ -339,7 +347,7 @@ function BookingPageContent() {
     promise: Promise<{ clientSecret?: string; customerSessionClientSecret?: string; error?: string }>
   } | null>(null)
 
-  type IntentResult = { clientSecret?: string; customerSessionClientSecret?: string; bookingRef?: string; error?: string }
+  type IntentResult = { clientSecret?: string; customerSessionClientSecret?: string; bookingRef?: string; appliedCredit?: number; error?: string }
 
   const fetchIntent = (serviceArg: Service, plateArg: string, addonsArg: string[]): Promise<IntentResult> => {
     const key = JSON.stringify([serviceArg.id, locationId, dateStr, slotTime, plateArg, vehicleType, [...addonsArg].sort()])
@@ -486,9 +494,10 @@ function BookingPageContent() {
 
   const addonTotal = addons.filter(a => selectedAddons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)
   const total = servicePrice + addonTotal
-  // Χρέωση κάρτας = τιμή + τέλος υπηρεσίας (μόνο κάρτα). Τα μετρητά πληρώνουν την
-  // καθαρή τιμή στο κατάστημα.
-  const cardTotal = total + SERVICE_FEE_EUR
+  // Χρέωση κάρτας = (τιμή − κουπόνι) + τέλος υπηρεσίας (μόνο κάρτα). Τα μετρητά
+  // πληρώνουν την καθαρή τιμή στο κατάστημα. Το appliedCredit το γυρίζει το
+  // create-intent (ισχύει μόνο σε Μέσα-Έξω ≥12€) — 0 μέχρι να απαντήσει.
+  const cardTotal = Math.max(0, total - appliedCredit) + SERVICE_FEE_EUR
   const canProceed = phone.trim() && email.trim() && service && (
     selectedVehicleId !== 'new' ? true : plate.trim().length > 0
   )
@@ -527,6 +536,7 @@ function BookingPageContent() {
     }
     setClientSecret(data.clientSecret)
     setCustomerSessionClientSecret(data.customerSessionClientSecret)
+    setAppliedCredit(Number(data.appliedCredit) || 0)
     setBookingRef(data.bookingRef || '')
     setShowPayment(true)
     // Έφτασε στην οθόνη πληρωμής (κάρτα).
@@ -826,7 +836,7 @@ function BookingPageContent() {
             }
           }}>
             <CheckoutForm
-              total={cardTotal} baseTotal={total} email={email} phone={phone} service={service}
+              total={cardTotal} baseTotal={total} appliedCredit={appliedCredit} email={email} phone={phone} service={service}
               formattedDate={formattedDate} slotTime={slotTime}
               clientSecret={clientSecret} plate={plate} bookingRef={bookingRef}
             />

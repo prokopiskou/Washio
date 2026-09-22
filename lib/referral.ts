@@ -11,6 +11,13 @@ export const REFERRER_REWARD = 3
 export const MAX_REFERRALS = 2
 const MIN_CHARGE = 0.5
 
+// Το κουπόνι εξαργυρώνεται ΜΟΝΟ σε πλήρες πλύσιμο (Μέσα-Έξω) από 12€ και πάνω.
+// Σε μικρότερες/μερικές υπηρεσίες (π.χ. μόνο «Μέσα») δεν εφαρμόζεται.
+export const MIN_ELIGIBLE_EUR = 12
+export function isCreditEligible(baseAmount: number): boolean {
+  return (Number(baseAmount) || 0) >= MIN_ELIGIBLE_EUR
+}
+
 // Γενικά codes για διαφημίσεις — δίνουν welcome −3€ ΧΩΡΙΣ referrer (π.χ. στο ad
 // link: washio.gr/?ref=WELCOME). Βάλ' τα ό,τι θες στα creatives.
 const WELCOME_CODES = ['WELCOME', 'WASHIO', 'ADS']
