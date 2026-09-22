@@ -8,6 +8,7 @@ import { Capacitor } from '@capacitor/core'
 import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon, Store } from 'lucide-react'
 import LandingPage from './landing/page'
 import { BottomNav } from '@/components/BottomNav'
+import { GetAppBanner } from '@/components/GetAppBanner'
 import { WashioLoader } from '@/components/WashioLoader'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -429,6 +430,10 @@ export default function HomePage() {
 
         {/* Bottom Nav */}
         <BottomNav />
+
+        {/* Web-only: όποιος έχει κουπόνι (referral/ad) → σπρώξ' τον στο native app.
+            Το κουπόνι είναι στον λογαριασμό, τον περιμένει με το ίδιο login. */}
+        <GetAppBanner />
 
         {/* Prompt αξιολόγησης app store — μετά την 1η ολοκληρωμένη κράτηση */}
         <AppRatingPrompt />
