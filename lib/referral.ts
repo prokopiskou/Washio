@@ -11,6 +11,10 @@ export const REFERRER_REWARD = 3
 export const MAX_REFERRALS = 2
 const MIN_CHARGE = 0.5
 
+// Γενικά codes για διαφημίσεις — δίνουν welcome −3€ ΧΩΡΙΣ referrer (π.χ. στο ad
+// link: washio.gr/?ref=WELCOME). Βάλ' τα ό,τι θες στα creatives.
+const WELCOME_CODES = ['WELCOME', 'WASHIO', 'ADS']
+
 // Πόσο από το wallet εφαρμόζεται σε μια κράτηση αξίας baseAmount.
 export function computeRedeemable(balance: number, baseAmount: number): number {
   const cap = Math.max(0, baseAmount - MIN_CHARGE)
@@ -24,6 +28,20 @@ export async function linkReferral(
   try {
     const code = (rawCode || '').trim().toUpperCase()
     if (!code) return
+
+    // Έλεγχος: έχει ήδη πάρει welcome credit; (μία φορά ανά χρήστη, όποια πηγή)
+    const { data: hadWelcome } = await db.from('credit_ledger')
+      .select('id').eq('user_id', newUserId).eq('kind', 'welcome').maybeSingle()
+
+    // Γενικός κωδικός διαφήμισης → welcome −3€ χωρίς referrer.
+    if (WELCOME_CODES.includes(code)) {
+      if (!hadWelcome) {
+        await db.rpc('apply_credit', {
+          p_user: newUserId, p_delta: WELCOME_DISCOUNT, p_kind: 'welcome', p_note: 'Καλωσόρισμα',
+        })
+      }
+      return
+    }
 
     // Ο νέος δεν πρέπει να έχει ήδη referrer.
     const { data: me } = await db.from('profiles').select('referred_by, referral_code').eq('id', newUserId).maybeSingle()
@@ -40,9 +58,11 @@ export async function linkReferral(
     if (refErr) return // ήδη υπάρχει → μη διπλο-πιστώσεις
 
     await db.from('profiles').update({ referred_by: referrer.id }).eq('id', newUserId)
-    await db.rpc('apply_credit', {
-      p_user: newUserId, p_delta: WELCOME_DISCOUNT, p_kind: 'welcome', p_note: 'Καλωσόρισμα',
-    })
+    if (!hadWelcome) {
+      await db.rpc('apply_credit', {
+        p_user: newUserId, p_delta: WELCOME_DISCOUNT, p_kind: 'welcome', p_note: 'Καλωσόρισμα',
+      })
+    }
   } catch { /* best-effort */ }
 }
 

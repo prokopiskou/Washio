@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, successHaptic, errorHaptic } from '@/lib/haptics'
-import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Store } from 'lucide-react'
+import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Store, Gift } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -14,6 +14,7 @@ const T = {
     loading: 'Φόρτωση...', welcome: 'Καλωσήρθες',
     favorites: 'Αγαπημένα', all: 'Όλα →', noFavorites: 'Δεν υπάρχουν αγαπημένα ακόμα.',
     bookings: 'Κρατήσεις', allF: 'Όλες →', noBookings: 'Δεν υπάρχουν κρατήσεις ακόμα.',
+    rewardsMenu: 'Κουπόνια & Παραπομπές', rewardsSub: 'Κάλεσε φίλους, κερδίστε και οι δύο',
     profileDetails: 'Στοιχεία προφίλ', name: 'Όνομα', phone: 'Τηλέφωνο',
     saved: 'Αποθηκεύτηκε', saving: 'Αποθήκευση...', save: 'Αποθήκευση',
     myVehicle: 'Το όχημά μου', noVehicles: 'Δεν υπάρχουν αποθηκευμένα οχήματα.',
@@ -29,6 +30,7 @@ const T = {
     loading: 'Loading...', welcome: 'Welcome',
     favorites: 'Favorites', all: 'All →', noFavorites: 'No favorites yet.',
     bookings: 'Bookings', allF: 'All →', noBookings: 'No bookings yet.',
+    rewardsMenu: 'Coupons & Referrals', rewardsSub: 'Invite friends, both win',
     profileDetails: 'Profile details', name: 'Name', phone: 'Phone',
     saved: 'Saved', saving: 'Saving...', save: 'Save',
     myVehicle: 'My vehicle', noVehicles: 'No saved vehicles.',
@@ -283,6 +285,22 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+
+          {/* Κουπόνια & Παραπομπές */}
+          <button
+            onClick={() => { lightTap(); router.push('/profile/rewards') }}
+            className="w-full bg-gray-900 rounded-2xl px-[18px] py-[16px] flex items-center gap-3 text-left"
+            style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+          >
+            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+              <Gift size={18} className="text-white" strokeWidth={1.8} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[15px] font-semibold text-white">{t.rewardsMenu}</p>
+              <p className="text-[12px] text-white/60 mt-0.5">{t.rewardsSub}</p>
+            </div>
+            <ChevronRight size={18} className="text-white/50" />
+          </button>
 
           {/* Profile details */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
