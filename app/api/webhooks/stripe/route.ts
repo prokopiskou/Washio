@@ -164,6 +164,10 @@ export async function POST(req: NextRequest) {
       value: parseFloat(m.amount),
       email: m.userEmail || null,
       externalId: m.userId || null,
+      fbp: m.fbp || null,
+      fbc: m.fbc || null,
+      clientIp: m.clientIp || null,
+      clientUserAgent: m.clientUa || null,
     })
 
     // Fetch location

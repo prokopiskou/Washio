@@ -50,8 +50,17 @@ export function RegistrationTracker() {
 
       const method =
         (u.app_metadata as { provider?: string } | undefined)?.provider || 'otp'
-      // eventId = σταθερό ανά χρήστη → μελλοντικό dedup με server-side CAPI.
+      // Client Pixel — eventId σταθερό ανά χρήστη.
       track('CompleteRegistration', { method }, { eventId: 'reg_' + u.id })
+      // Server-side CAPI backup (iOS ATT / ad-blockers) — ΙΔΙΟ eventId → dedup.
+      try {
+        fetch('/api/capi/registration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: window.location.href }),
+          keepalive: true,
+        }).catch(() => {})
+      } catch { /* ignore */ }
     })
 
     return () => {

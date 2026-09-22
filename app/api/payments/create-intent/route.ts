@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { alertCritical } from '@/lib/alert'
 import { checkSlotAvailability } from '@/lib/availability-server'
+import { ipFrom } from '@/lib/throttle'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -130,6 +131,14 @@ export async function POST(req: NextRequest) {
     // να τον δείχνει ΑΜΕΣΩΣ (ποτέ «-----»).
     const bookingRef = 'WS-' + Math.random().toString(16).slice(2, 10).toUpperCase()
 
+    // Meta signals από τον browser του checkout — μπαίνουν στο PI metadata ώστε
+    // το webhook (Purchase CAPI) να τα προωθήσει· χωρίς αυτά το server-side event
+    // δεν έχει fbp/fbc/IP και το match quality πέφτει.
+    const fbp = req.cookies.get('_fbp')?.value || ''
+    const fbc = req.cookies.get('_fbc')?.value || ''
+    const clientIp = ipFrom(req) || ''
+    const clientUa = (req.headers.get('user-agent') || '').slice(0, 350)
+
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100),
       currency: 'eur',
@@ -147,6 +156,7 @@ export async function POST(req: NextRequest) {
         userEmail: user.email || '',
         serviceName: service.name || '', // ΜΟΝΟ από τη βάση — όχι από τον client
         amount: amount.toString(),
+        fbp, fbc, clientIp, clientUa,
       },
     })
 
