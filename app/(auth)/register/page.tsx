@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { signInWithProvider } from '@/lib/native-auth'
-import { track as trackEvent } from '@/lib/analytics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT } from '@/lib/i18n'
 
@@ -77,7 +76,8 @@ function RegisterPageContent() {
       setError(error.message)
       setLoading(false)
     } else {
-      trackEvent('CompleteRegistration', { source: redirectUrl.includes('booking') ? 'checkout' : 'home' })
+      // Το CompleteRegistration το στέλνει πλέον κεντρικά ο RegistrationTracker
+      // (πιάνει ΚΑΙ OTP/Google/Apple) — εδώ θα ήταν διπλό.
       router.push(redirectUrl)
     }
   }
