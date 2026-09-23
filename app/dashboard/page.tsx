@@ -381,7 +381,7 @@ export default function DashboardPage() {
       const isSupport = isAdminEmail(user.email) && !!supportLocationId
       setSupportMode(isSupport)
 
-      const { data: ownerLocation, error: locationError } = isSupport
+      const locationLoad = isSupport
         ? await supabase
             .from('locations')
             .select('*')
@@ -393,7 +393,21 @@ export default function DashboardPage() {
             .eq('owner_id', user.id)
             .maybeSingle()
 
-      if (locationError) console.error('Dashboard location load error')
+      if (locationLoad.error) console.error('Dashboard location load error')
+      let ownerLocation = locationLoad.data
+
+      // Fallback με EMAIL: αν δεν βρέθηκε πρατήριο με owner_id, δοκίμασε να το
+      // δέσεις μέσω του email onboarding (self-heal), και ξαναφόρτωσε.
+      if (!isSupport && !ownerLocation?.id) {
+        try {
+          const res = await fetch('/api/dashboard/claim', { method: 'POST' })
+          const j = await res.json()
+          if (j?.locationId) {
+            const re = await supabase.from('locations').select('*').eq('id', j.locationId).maybeSingle()
+            if (re.data) ownerLocation = re.data
+          }
+        } catch { /* best-effort */ }
+      }
 
       setLocation(ownerLocation)
 
