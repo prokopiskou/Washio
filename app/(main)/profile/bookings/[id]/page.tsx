@@ -49,6 +49,7 @@ const T = {
     finalConfirm: 'Τελική επιβεβαίωση',
     finalConfirmSub1: 'Πάτα ', finalConfirmSub2: ' για να ολοκληρωθεί η ακύρωση.',
     refundNote1: '• Η επιστροφή χρημάτων θα γίνει εντός ', refundDays: '5-7 εργάσιμων ημερών',
+    cashCancelNote: '• Δεν υπάρχει χρέωση — η κράτηση απλώς ακυρώνεται',
     refundNote2: '• Θα λάβεις email επιβεβαίωσης',
     refundNote3: '• Η ενέργεια είναι μη αναστρέψιμη',
     keepIt: 'Όχι, κράτα την', yesCancel: 'Ναι, ακύρωσε', cancelling: 'Ακύρωση...',
@@ -97,6 +98,7 @@ const T = {
     finalConfirm: 'Final confirmation',
     finalConfirmSub1: 'Press ', finalConfirmSub2: ' to complete the cancellation.',
     refundNote1: '• The refund will be issued within ', refundDays: '5-7 business days',
+    cashCancelNote: '• No charge was made — the booking is simply cancelled',
     refundNote2: '• You will receive a confirmation email',
     refundNote3: '• This action is irreversible',
     keepIt: 'No, keep it', yesCancel: 'Yes, cancel', cancelling: 'Cancelling...',
@@ -900,7 +902,12 @@ export default function BookingDetailPage() {
                 </div>
 
                 <div className="bg-gray-50 rounded-xl p-4 mb-5 text-xs text-gray-600 leading-relaxed">
-                  <p>{t.refundNote1}<strong>{t.refundDays}</strong></p>
+                  {/* Μετρητά (χωρίς stripe intent) → ΚΑΜΙΑ αναφορά σε επιστροφή χρημάτων. */}
+                  {booking.stripe_payment_intent_id ? (
+                    <p>{t.refundNote1}<strong>{t.refundDays}</strong></p>
+                  ) : (
+                    <p>{t.cashCancelNote}</p>
+                  )}
                   <p className="mt-1">{t.refundNote2}</p>
                   <p className="mt-1">{t.refundNote3}</p>
                 </div>

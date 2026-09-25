@@ -43,6 +43,7 @@ type BookableService = {
   price_moto?: number | null
   price_suv?: number | null
   duration_minutes: number
+  display_duration_minutes?: number | null
   is_active: boolean
 }
 
@@ -436,7 +437,7 @@ export default function DashboardPage() {
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
         loadBookings(),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
-        supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, is_active, sort_order').eq('location_id', locationId).order('sort_order', { ascending: true }),
+        supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_active, sort_order').eq('location_id', locationId).order('sort_order', { ascending: true }),
         supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
         supabase.from('location_hours').select('id, day_of_week, is_closed, open_time, close_time').eq('location_id', locationId).order('day_of_week', { ascending: true }),
         supabase.from('staff').select('id, full_name, role, phone').eq('location_id', locationId).order('created_at', { ascending: false }),
@@ -467,6 +468,7 @@ export default function DashboardPage() {
         price_moto: s.price_moto != null ? Number(s.price_moto) : null,
         price_suv: s.price_suv != null ? Number(s.price_suv) : null,
         duration_minutes: Math.max(30, Number(s.duration_minutes) || 30),
+        display_duration_minutes: s.display_duration_minutes != null ? Number(s.display_duration_minutes) : null,
         is_active: s.is_active !== false,
       })))
 
@@ -1763,6 +1765,7 @@ export default function DashboardPage() {
                       price: existing?.price ?? 0,
                       price_moto: existing?.price_moto ?? null,
                       price_suv: existing?.price_suv ?? null,
+                      display_duration_minutes: existing?.display_duration_minutes ?? null,
                       is_active: existing?.is_active ?? false,
                     }
                   })
@@ -1774,6 +1777,7 @@ export default function DashboardPage() {
                       duration_minutes: s.duration_minutes,
                       vehicles: ['ΙΧ', 'SUV', 'Μοτοσικλέτα'] as CatalogService['vehicles'],
                       price: s.price, price_moto: s.price_moto ?? null, price_suv: s.price_suv ?? null,
+                      display_duration_minutes: s.display_duration_minutes ?? null,
                       is_active: s.is_active,
                     }))
 
@@ -1842,6 +1846,29 @@ export default function DashboardPage() {
                                 </div>
                               ))}
                             </div>
+                            {/* Ενημερωτική διάρκεια πλυσίματος — φαίνεται στον πελάτη στο checkout.
+                                ΔΕΝ επηρεάζει τα slots. */}
+                            <div className="mt-2 flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+                              <p className="text-[12px] font-medium text-gray-600">Διάρκεια πλυσίματος</p>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={5}
+                                  defaultValue={bs.display_duration_minutes && bs.display_duration_minutes > 0 ? bs.display_duration_minutes : ''}
+                                  placeholder="—"
+                                  onBlur={e => {
+                                    const raw = e.target.value.trim()
+                                    if (!bs.id) return
+                                    const val = raw === '' ? null : Math.max(0, parseInt(raw) || 0) || null
+                                    updateBaseService(bs.id, { display_duration_minutes: val } as Partial<BookableService>)
+                                  }}
+                                  className="w-14 bg-transparent text-right text-[15px] font-bold tracking-tight text-gray-900 focus:outline-none"
+                                  style={{ fontVariantNumeric: 'tabular-nums' }}
+                                />
+                                <span className="text-[13px] font-semibold text-gray-500">λεπτά</span>
+                              </div>
+                            </div>
                             {missingPrice && (
                               <p className="text-[11px] font-medium text-orange-600 mt-2">
                                 ⚠ Βάλε τιμή για να εμφανιστεί η υπηρεσία στους πελάτες.
@@ -1897,11 +1924,11 @@ export default function DashboardPage() {
                     </div>
 
                     {service.is_active && (
-                      <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-2.5">
-                        {/* IX price */}
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        {/* Πρόσθετες υπηρεσίες: ΜΙΑ τιμή (χωρίς ΙΧ/SUV/μοτό). */}
                         <div className="bg-gray-50 rounded-xl p-3">
                           <p className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
-                            ΙΧ
+                            Τιμή
                           </p>
                           <div className="flex items-center gap-1.5">
                             <span className="text-[16px] font-semibold text-gray-500">€</span>
@@ -1913,30 +1940,6 @@ export default function DashboardPage() {
                                 const val = parseFloat(e.target.value)
                                 if (isNaN(val)) return
                                 await updatePriceOverride(service, val)
-                              }}
-                              className="w-full bg-transparent text-[20px] font-bold tracking-tight text-gray-900 focus:outline-none"
-                              style={{ fontVariantNumeric: 'tabular-nums' }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Motorcycle price */}
-                        <div className="bg-gray-50 rounded-xl p-3">
-                          <p className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
-                            Μοτοσικλέτα
-                          </p>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[16px] font-semibold text-gray-500">€</span>
-                            <input
-                              type="number"
-                              defaultValue={service.price_moto ?? ''}
-                              placeholder="0"
-                              onBlur={async e => {
-                                const val = parseFloat(e.target.value)
-                                if (isNaN(val)) return
-                                const supabase = createClient()
-                                await supabase.from('services').update({ price_moto: val }).eq('id', service.id)
-                                setServices(prev => prev.map(s => s.id === service.id ? { ...s, price_moto: val } : s))
                               }}
                               className="w-full bg-transparent text-[20px] font-bold tracking-tight text-gray-900 focus:outline-none"
                               style={{ fontVariantNumeric: 'tabular-nums' }}

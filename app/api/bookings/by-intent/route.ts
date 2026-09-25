@@ -24,16 +24,16 @@ export async function GET(req: NextRequest) {
   }
   const { data } = await admin
     .from('bookings')
-    .select('booking_ref, locations(name, address, city)')
+    .select('booking_ref, locations(name, address, city, extra_instructions)')
     .eq('stripe_payment_intent_id', pi)
     .maybeSingle()
 
   if (!data?.booking_ref) {
     return NextResponse.json({ pending: true })
   }
-  const loc = (data.locations as { name?: string; address?: string; city?: string } | null) || null
+  const loc = (data.locations as { name?: string; address?: string; city?: string; extra_instructions?: string } | null) || null
   return NextResponse.json({
     ref: data.booking_ref,
-    location: loc ? { name: loc.name, address: loc.address, city: loc.city } : null,
+    location: loc ? { name: loc.name, address: loc.address, city: loc.city, extra_instructions: loc.extra_instructions } : null,
   })
 }

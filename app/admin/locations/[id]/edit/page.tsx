@@ -35,6 +35,7 @@ export default function EditLocationPage() {
     lat: '',
     lng: '',
     capacity: '1',
+    extra_instructions: '',
   })
   const [photos, setPhotos] = useState<string[]>([])
 
@@ -46,7 +47,7 @@ export default function EditLocationPage() {
     const load = async () => {
       const supabase = createClient()
       const { data } = await supabase.from('locations')
-        .select('name, address, city, postal_code, lat, lng, capacity, photos')
+        .select('name, address, city, postal_code, lat, lng, capacity, photos, extra_instructions')
         .eq('id', locationId).single()
       if (data) {
         setForm({
@@ -57,6 +58,7 @@ export default function EditLocationPage() {
           lat: data.lat != null ? String(data.lat) : '',
           lng: data.lng != null ? String(data.lng) : '',
           capacity: data.capacity != null ? String(data.capacity) : '1',
+          extra_instructions: (data as { extra_instructions?: string }).extra_instructions || '',
         })
         setPhotos(Array.isArray(data.photos) ? data.photos : [])
       }
@@ -142,6 +144,7 @@ export default function EditLocationPage() {
       lng: parseFloat(form.lng),
       capacity: Math.max(1, parseInt(form.capacity) || 1),
       photos,
+      extra_instructions: form.extra_instructions.trim() || null,
     }).eq('id', locationId)
     setLoading(false)
     if (dbErr) { setError(dbErr.message); return }
@@ -216,6 +219,19 @@ export default function EditLocationPage() {
               <input value={form.lng} onChange={e => handleChange('lng', e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400" />
             </div>
+          </div>
+
+          {/* Επιπλέον χρήσιμες οδηγίες — εμφανίζονται στον πελάτη μετά την κράτηση + στο email */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">Επιπλέον χρήσιμες οδηγίες</label>
+            <textarea
+              value={form.extra_instructions}
+              onChange={e => handleChange('extra_instructions', e.target.value)}
+              rows={4}
+              placeholder="π.χ. πώς να φτάσει, πού να παρκάρει, σε ποια είσοδο να πάει…"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 resize-none"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">Εμφανίζονται στον πελάτη μόλις κλείσει την κράτηση και στο email επιβεβαίωσης.</p>
           </div>
 
           {/* Φωτογραφίες */}

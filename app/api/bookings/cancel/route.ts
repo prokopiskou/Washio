@@ -29,7 +29,7 @@ function cancellationEmailHtml(data: {
   isCash?: boolean
 }) {
   const refundBox = data.isCash
-    ? `<p style="color: #555; font-size: 12px; margin: 0; line-height: 1.6;">Η κράτηση ήταν με πληρωμή στο πλυντήριο — δεν υπάρχει χρέωση ή επιστροφή.</p>`
+    ? `<p style="color: #555; font-size: 12px; margin: 0; line-height: 1.6;">Η κράτηση ήταν με πληρωμή στο πλυντήριο — δεν υπάρχει καμία χρέωση.</p>`
     : `<p style="color: #E53E3E; font-size: 12px; margin: 0; line-height: 1.6;">
             💳 ${data.isPartial ? 'Μερική επιστροφή' : 'Πλήρης επιστροφή'} <strong>€${data.refundAmount}</strong> εντός <strong>5-7 εργάσιμων ημερών</strong>.
           </p>`

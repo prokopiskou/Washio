@@ -96,6 +96,7 @@ type Service = {
   price: number
   price_moto?: number
   duration_minutes: number
+  display_duration_minutes?: number | null
 }
 
 type Location = {
@@ -424,7 +425,7 @@ function BookingPageContent() {
 
       if (serviceId) {
         const { data: serviceData } = await supabase
-          .from('services').select('id, name, price, price_moto, price_suv, duration_minutes')
+          .from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes')
           .eq('id', serviceId).single()
         if (serviceData) {
           setService(serviceData)
@@ -651,7 +652,10 @@ function BookingPageContent() {
                   <Sparkles size={14} className="text-gray-500" />
                   <span className="text-[13px] text-gray-500">{service.name} · {vehicleType}</span>
                 </div>
-                <span className="text-[13px] font-medium text-gray-900">{service.duration_minutes}′</span>
+                {/* Ενημερωτική διάρκεια που δήλωσε ο πλυντηριάς· fallback στη διάρκεια slot. */}
+                <span className="text-[13px] font-medium text-gray-900">
+                  ~{service.display_duration_minutes && service.display_duration_minutes > 0 ? service.display_duration_minutes : service.duration_minutes}′
+                </span>
               </div>
             </div>
           </div>

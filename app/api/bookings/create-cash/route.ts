@@ -26,8 +26,14 @@ const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιου�
 
 function cashEmailHtml(data: {
   bookingRef: string; locationName: string; service: string
-  date: string; time: string; plate: string; total: string
+  date: string; time: string; plate: string; total: string; extraInstructions?: string
 }) {
+  const instructionsBlock = data.extraInstructions
+    ? `<div style="background: #F0F7FF; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
+          <p style="color: #1A6FD4; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px;">Χρήσιμες οδηγίες</p>
+          <p style="color: #333; font-size: 13px; margin: 0; line-height: 1.6; white-space: pre-line;">${data.extraInstructions}</p>
+        </div>`
+    : ''
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
       <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
@@ -56,6 +62,7 @@ function cashEmailHtml(data: {
             Κράτα τον κωδικό <strong>${data.bookingRef}</strong> για οποιαδήποτε αλλαγή.
           </p>
         </div>
+        ${instructionsBlock}
         <a href="${BASE_URL}" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500;">Δες τις κρατήσεις σου →</a>
       </div>
     </div>
@@ -224,7 +231,7 @@ export async function POST(req: NextRequest) {
     // 5) Επιβεβαιωτικό email (best-effort).
     try {
       const { data: locationData } = await admin
-        .from('locations').select('name').eq('id', locationId).single()
+        .from('locations').select('name, extra_instructions').eq('id', locationId).single()
 
       let userEmail = user.email || null
       if (!userEmail) {
@@ -248,6 +255,7 @@ export async function POST(req: NextRequest) {
             time: (slotStartTime as string)?.slice(0, 5) || '',
             plate: carPlate || '',
             total: amount.toFixed(0),
+            extraInstructions: (locationData as { extra_instructions?: string })?.extra_instructions || '',
           }),
         })
       }

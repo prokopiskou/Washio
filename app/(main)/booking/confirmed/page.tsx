@@ -16,6 +16,7 @@ const T = {
     confirmedTitle1: 'Η κράτησή σου', confirmedTitle2: 'επιβεβαιώθηκε',
     cashSub: 'Πληρωμή με μετρητά στο κατάστημα', emailSub: 'Στείλαμε email επιβεβαίωσης',
     passCaption: 'Επιβεβαίωση Κράτησης', refLabel: 'Κωδικός',
+    usefulInstructions: 'Χρήσιμες οδηγίες',
     washroom: 'Πλυντήριο', dateLabel: 'Ημ/νία', timeLabel: 'Ώρα',
     serviceLabel: 'Υπηρεσία', plateLabel: 'Πινακίδα',
     cashTotal: 'Μετρητά', total: 'Σύνολο',
@@ -27,6 +28,7 @@ const T = {
     confirmedTitle1: 'Your booking is', confirmedTitle2: 'confirmed',
     cashSub: 'Pay with cash at the store', emailSub: 'We sent a confirmation email',
     passCaption: 'Booking Confirmation', refLabel: 'Code',
+    usefulInstructions: 'Useful instructions',
     washroom: 'Car wash', dateLabel: 'Date', timeLabel: 'Time',
     serviceLabel: 'Service', plateLabel: 'Plate',
     cashTotal: 'Cash', total: 'Total',
@@ -98,6 +100,7 @@ function ConfirmedContent() {
   const [locationName, setLocationName] = useState('Washio')
   const [locationAddress, setLocationAddress] = useState('')
   const [locationCity, setLocationCity] = useState('')
+  const [locationInstructions, setLocationInstructions] = useState('')
   const [show, setShow] = useState(false)
 
   // Pull all booking details from query params
@@ -131,6 +134,7 @@ function ConfirmedContent() {
         if (loc.name) setLocationName(loc.name)
         if (loc.address) setLocationAddress(loc.address)
         if (loc.city) setLocationCity(loc.city)
+        if (loc.extra_instructions) setLocationInstructions(loc.extra_instructions)
       }
       const supabase = createClient()
 
@@ -149,7 +153,7 @@ function ConfirmedContent() {
             if (r.ok) { const j = await r.json(); if (j.location) applyLocation(j.location) }
           } else {
             const { data } = await supabase
-              .from('bookings').select('locations(name, address, city)')
+              .from('bookings').select('locations(name, address, city, extra_instructions)')
               .eq('booking_ref', refParam).maybeSingle()
             if (data) applyLocation(data.locations as any)
           }
@@ -342,6 +346,18 @@ function ConfirmedContent() {
               </p>
             </div>
           </div>
+
+          {/* Επιπλέον χρήσιμες οδηγίες πλυντηρίου (αν έχει ορίσει το admin) */}
+          {locationInstructions && (
+            <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3.5">
+              <p className="text-[11px] font-semibold tracking-[1.2px] uppercase text-blue-900/60 mb-1.5">
+                {t.usefulInstructions}
+              </p>
+              <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">
+                {locationInstructions}
+              </p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex flex-col gap-2.5 mt-6">

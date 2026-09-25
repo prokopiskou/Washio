@@ -31,6 +31,7 @@ const T = {
     resendCode: 'Αποστολή νέου κωδικού',
     wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
     somethingWrong: 'Κάτι πήγε στραβά. Δοκίμασε ξανά.',
+    networkSlow: 'Η σύνδεση αργεί. Έλεγξε το ίντερνετ και δοκίμασε ξανά.',
     loading: 'Φόρτωση...',
   },
   en: {
@@ -55,6 +56,7 @@ const T = {
     resendCode: 'Send new code',
     wrongCode: 'Wrong code. Please try again.',
     somethingWrong: 'Something went wrong. Please try again.',
+    networkSlow: 'Connection is slow. Check your internet and try again.',
     loading: 'Loading...',
   },
 }
@@ -97,6 +99,15 @@ function LoginPageContent() {
     checkSession()
   }, [])
 
+  // Ασφάλεια: κανένα auth request δεν κολλάει το loading για πάντα. Αν αργήσει
+  // πάνω από 20s (π.χ. στιγμιαίο πρόβλημα δικτύου/WebView), κόβεται με σφάλμα
+  // αντί για ατέρμονο spinner.
+  const withTimeout = <T,>(p: Promise<T>, ms = 20000): Promise<T> =>
+    Promise.race([
+      p,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+    ])
+
   const handleSendOtp = async () => {
     if (!email) return
     setError('')
@@ -106,19 +117,20 @@ function LoginPageContent() {
       return
     }
     setLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: undefined,
-      }
-    })
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-    } else {
+    try {
+      const supabase = createClient()
+      const { error } = await withTimeout(supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: undefined,
+        }
+      }))
+      if (error) { setError(error.message); return }
       setSent(true)
+    } catch {
+      setError(t.networkSlow)
+    } finally {
       setLoading(false)
     }
   }
@@ -127,46 +139,35 @@ function LoginPageContent() {
     if (!otp || otp.length < 8) return
     setLoading(true)
     setError('')
-    const supabase = createClient()
+    try {
+      const supabase = createClient()
 
-    // Demo bypass: ανταλλαγή σταθερού κωδικού με έγκυρο session token.
-    if (isDemo) {
-      try {
-        const res = await fetch('/api/auth/demo', {
+      // Demo bypass: ανταλλαγή σταθερού κωδικού με έγκυρο session token.
+      if (isDemo) {
+        const res = await withTimeout(fetch('/api/auth/demo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code: otp }),
-        })
+        }))
         const data = await res.json()
-        if (!res.ok || !data.tokenHash) {
-          setError(t.wrongCode)
-          setLoading(false)
-          return
-        }
-        const { error } = await supabase.auth.verifyOtp({ token_hash: data.tokenHash, type: 'email' })
-        if (error) {
-          setError(t.wrongCode)
-          setLoading(false)
-        } else {
-          router.push(redirectUrl)
-        }
-      } catch {
-        setError(t.somethingWrong)
-        setLoading(false)
+        if (!res.ok || !data.tokenHash) { setError(t.wrongCode); return }
+        const { error } = await withTimeout(supabase.auth.verifyOtp({ token_hash: data.tokenHash, type: 'email' }))
+        if (error) { setError(t.wrongCode); return }
+        router.push(redirectUrl)
+        return
       }
-      return
-    }
 
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: otp,
-      type: 'email',
-    })
-    if (error) {
-      setError(t.wrongCode)
-      setLoading(false)
-    } else {
+      const { error } = await withTimeout(supabase.auth.verifyOtp({
+        email: email.trim().toLowerCase(),
+        token: otp,
+        type: 'email',
+      }))
+      if (error) { setError(t.wrongCode); return }
       router.push(redirectUrl)
+    } catch {
+      setError(t.networkSlow)
+    } finally {
+      setLoading(false)
     }
   }
 
