@@ -53,7 +53,7 @@ export default function AdminPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
 
-  const [bookingFilter, setBookingFilter] = useState({ status: '', location: '', date: '' })
+  const [bookingFilter, setBookingFilter] = useState({ status: '', location: '', date: '', source: '' })
   const [finPeriod, setFinPeriod] = useState<'wtd' | 'mtd' | 'ytd' | 'custom'>('mtd')
   const [finRange, setFinRange] = useState<{ from: string; to: string }>(() => {
     const t = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' })
@@ -127,8 +127,11 @@ export default function AdminPage() {
 
   useEffect(() => { if (authorized) fetchData() }, [authorized])
 
-  const totalRevenue = bookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
-  const totalCommission = bookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
+  // Τα έσοδα μετράνε ΜΟΝΟ τις κρατήσεις της πλατφόρμας — οι χειροκίνητες
+  // (source='manual', εκτός πλατφόρμας) δεν προσμετρώνται στα δικά μας έσοδα.
+  const platformBookings = bookings.filter(b => b.source !== 'manual')
+  const totalRevenue = platformBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
+  const totalCommission = platformBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
   const completedBookings = bookings.filter(b => b.status === 'completed').length
   const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length
   const cancelledBookings = bookings.filter(b => b.status === 'cancelled').length
@@ -162,7 +165,7 @@ export default function AdminPage() {
     d.setMonth(d.getMonth() - (5 - i))
     const month = d.getMonth()
     const year = d.getFullYear()
-    const monthBookings = bookings.filter(b => {
+    const monthBookings = platformBookings.filter(b => {
       const bd = new Date(b.created_at)
       return bd.getMonth() === month && bd.getFullYear() === year
     })
@@ -176,14 +179,16 @@ export default function AdminPage() {
   const topLocations = locations.map(loc => ({
     ...loc,
     bookingCount: bookings.filter(b => b.locations?.name === loc.name).length,
-    revenue: bookings.filter(b => b.locations?.name === loc.name).reduce((sum, b) => sum + Number(b.total_amount || 0), 0),
-    commission: bookings.filter(b => b.locations?.name === loc.name).reduce((sum, b) => sum + Number(b.platform_fee || 0), 0),
+    revenue: platformBookings.filter(b => b.locations?.name === loc.name).reduce((sum, b) => sum + Number(b.total_amount || 0), 0),
+    commission: platformBookings.filter(b => b.locations?.name === loc.name).reduce((sum, b) => sum + Number(b.platform_fee || 0), 0),
   })).sort((a, b) => b.bookingCount - a.bookingCount)
 
   const filteredBookings = bookings.filter(b => {
     if (bookingFilter.status && b.status !== bookingFilter.status) return false
     if (bookingFilter.location && b.locations?.name !== bookingFilter.location) return false
     if (bookingFilter.date && b.slot_date !== bookingFilter.date) return false
+    if (bookingFilter.source === 'platform' && b.source === 'manual') return false
+    if (bookingFilter.source === 'manual' && b.source !== 'manual') return false
     return true
   })
 
@@ -696,6 +701,16 @@ export default function AdminPage() {
                           className="h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
                         />
 
+                        <select
+                          value={bookingFilter.source}
+                          onChange={e => setBookingFilter(f => ({ ...f, source: e.target.value }))}
+                          className="h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
+                        >
+                          <option value="">Όλες οι κρατήσεις</option>
+                          <option value="platform">Από την πλατφόρμα</option>
+                          <option value="manual">Εκτός πλατφόρμας</option>
+                        </select>
+
                         <button
                           onClick={exportCSV}
                           className="ml-auto h-9 px-3 rounded-[9px] bg-gray-900 text-white inline-flex items-center gap-1.5 text-[12px] font-semibold"
@@ -750,6 +765,11 @@ export default function AdminPage() {
                                     <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
                                     {pill.label}
                                   </span>
+                                  {b.source === 'manual' && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-tight shrink-0 bg-gray-100 text-gray-500">
+                                      Εκτός πλατφόρμας
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-[14px] font-semibold tracking-tight text-gray-900 truncate">
                                   {getUserDisplay(b.profiles)}
