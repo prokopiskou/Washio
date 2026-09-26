@@ -53,7 +53,7 @@ export default function AdminPage() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   })
 
-  const [bookingFilter, setBookingFilter] = useState({ status: '', location: '', date: '', source: '' })
+  const [bookingFilter, setBookingFilter] = useState({ status: '', location: '', dateFrom: '', dateTo: '', source: '' })
   const [finPeriod, setFinPeriod] = useState<'wtd' | 'mtd' | 'ytd' | 'custom'>('mtd')
   const [finRange, setFinRange] = useState<{ from: string; to: string }>(() => {
     const t = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' })
@@ -186,7 +186,8 @@ export default function AdminPage() {
   const filteredBookings = bookings.filter(b => {
     if (bookingFilter.status && b.status !== bookingFilter.status) return false
     if (bookingFilter.location && b.locations?.name !== bookingFilter.location) return false
-    if (bookingFilter.date && b.slot_date !== bookingFilter.date) return false
+    if (bookingFilter.dateFrom && (b.slot_date || '') < bookingFilter.dateFrom) return false
+    if (bookingFilter.dateTo && (b.slot_date || '') > bookingFilter.dateTo) return false
     if (bookingFilter.source === 'platform' && b.source === 'manual') return false
     if (bookingFilter.source === 'manual' && b.source !== 'manual') return false
     return true
@@ -694,12 +695,25 @@ export default function AdminPage() {
                           {locations.map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
                         </select>
 
-                        <input
-                          type="date"
-                          value={bookingFilter.date}
-                          onChange={e => setBookingFilter(f => ({ ...f, date: e.target.value }))}
-                          className="h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
-                        />
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="date"
+                            value={bookingFilter.dateFrom}
+                            max={bookingFilter.dateTo || undefined}
+                            onChange={e => setBookingFilter(f => ({ ...f, dateFrom: e.target.value }))}
+                            className="h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
+                            aria-label="Από"
+                          />
+                          <span className="text-[12px] text-gray-400">→</span>
+                          <input
+                            type="date"
+                            value={bookingFilter.dateTo}
+                            min={bookingFilter.dateFrom || undefined}
+                            onChange={e => setBookingFilter(f => ({ ...f, dateTo: e.target.value }))}
+                            className="h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
+                            aria-label="Έως"
+                          />
+                        </div>
 
                         <select
                           value={bookingFilter.source}
@@ -719,9 +733,9 @@ export default function AdminPage() {
                           Export CSV
                         </button>
 
-                        {(bookingFilter.status || bookingFilter.location || bookingFilter.date || bookingFilter.source) && (
+                        {(bookingFilter.status || bookingFilter.location || bookingFilter.dateFrom || bookingFilter.dateTo || bookingFilter.source) && (
                           <button
-                            onClick={() => setBookingFilter({ status: '', location: '', date: '', source: '' })}
+                            onClick={() => setBookingFilter({ status: '', location: '', dateFrom: '', dateTo: '', source: '' })}
                             className="text-[11px] font-medium text-red-500"
                           >
                             Καθαρισμός
