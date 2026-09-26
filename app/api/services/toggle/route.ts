@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     ] = await Promise.all([
       admin.from('locations').select('id, owner_id').eq('id', locationId).maybeSingle(),
       admin.from('service_catalog')
-        .select('name, duration_minutes')
+        .select('name, duration_minutes, is_range')
         .eq('name', String(name))
         .eq('is_active', true)
         .maybeSingle(),
@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
         duration_minutes: entry.duration_minutes,
         price: 0, // Ο ιδιοκτήτης ορίζει τιμή — μέχρι τότε δεν εμφανίζεται στους πελάτες.
         is_active: active,
+        is_range: (catRow as { is_range?: boolean } | null)?.is_range ?? false,
       }, { onConflict: 'location_id,name' })
       .select('id, name, price, price_moto, price_suv, duration_minutes, is_active')
       .single()

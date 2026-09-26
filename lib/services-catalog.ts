@@ -10,6 +10,8 @@ export type CatalogService = {
   duration_minutes: number
   /** Σε ποιους τύπους οχήματος απευθύνεται (για εμφάνιση στο app). */
   vehicles: ('ΙΧ' | 'SUV' | 'Μοτοσικλέτα')[]
+  /** Υπηρεσία ΕΥΡΟΥΣ (min–max, μετρητά, εκτίμηση επιτόπου) — π.χ. βιολογικός. */
+  is_range?: boolean
 }
 
 export const CORE_SERVICES: CatalogService[] = [
@@ -17,7 +19,7 @@ export const CORE_SERVICES: CatalogService[] = [
   { name: 'Έξω', duration_minutes: 30, vehicles: ['ΙΧ', 'SUV'] },
   { name: 'Μέσα & Έξω', duration_minutes: 30, vehicles: ['ΙΧ', 'SUV'] },
   { name: 'Πλύσιμο Μοτο', duration_minutes: 30, vehicles: ['Μοτοσικλέτα'] },
-  { name: 'Βιολογικός καθαρισμός', duration_minutes: 90, vehicles: ['ΙΧ', 'SUV'] },
+  { name: 'Βιολογικός καθαρισμός', duration_minutes: 90, vehicles: ['ΙΧ', 'SUV'], is_range: true },
 ]
 
 export function catalogEntry(name: string): CatalogService | undefined {

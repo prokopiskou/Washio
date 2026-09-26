@@ -27,7 +27,13 @@ const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιου�
 function cashEmailHtml(data: {
   bookingRef: string; locationName: string; service: string
   date: string; time: string; plate: string; total: string; extraInstructions?: string
+  isRange?: boolean; rangeText?: string
 }) {
+  // Υπηρεσία εύρους (βιολογικός): ο πελάτης βλέπει εύρος, όχι σταθερό ποσό —
+  // η τελική τιμή λέγεται επιτόπου μετά την εκτίμηση.
+  const payableRow = data.isRange
+    ? `<tr><td style="color: #0A0A0A; font-weight: 600; padding: 8px 0 0;">Εκτιμώμενο εύρος</td><td style="color: #0A0A0A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.rangeText}</td></tr>`
+    : `<tr><td style="color: #0A0A0A; font-weight: 600; padding: 8px 0 0;">Πληρωτέο (μετρητά)</td><td style="color: #0A0A0A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td></tr>`
   const instructionsBlock = data.extraInstructions
     ? `<div style="background: #F0F7FF; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
           <p style="color: #1A6FD4; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px;">Χρήσιμες οδηγίες</p>
@@ -53,12 +59,12 @@ function cashEmailHtml(data: {
             <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ημερομηνία</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.date}</td></tr>
             <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ώρα</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.time}</td></tr>
             <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Πινακίδα</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.plate}</td></tr>
-            <tr><td style="color: #0A0A0A; font-weight: 600; padding: 8px 0 0;">Πληρωτέο (μετρητά)</td><td style="color: #0A0A0A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td></tr>
+            ${payableRow}
           </table>
         </div>
         <div style="background: #FFF7ED; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
           <p style="color: #B45309; font-size: 12px; margin: 0; line-height: 1.6;">
-            💵 Η πληρωμή γίνεται με <strong>μετρητά στο κατάστημα</strong>.<br/>
+            💵 Η πληρωμή γίνεται με <strong>μετρητά στο κατάστημα</strong>.${data.isRange ? '<br/>Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.' : ''}<br/>
             Κράτα τον κωδικό <strong>${data.bookingRef}</strong> για οποιαδήποτε αλλαγή.
           </p>
         </div>
@@ -97,7 +103,7 @@ export async function POST(req: NextRequest) {
     // αλλιώς κλείνεις στο Α με την (φτηνότερη) τιμή του Β ή με απενεργοποιημένη.
     const { data: service, error: serviceErr } = await admin
       .from('services')
-      .select('id, name, price, price_moto, price_suv')
+      .select('id, name, price, price_moto, price_suv, is_range, price_min, price_max, price_min_suv, price_max_suv')
       .eq('id', serviceId)
       .eq('location_id', locationId)
       .eq('is_active', true)
@@ -110,22 +116,44 @@ export async function POST(req: NextRequest) {
     // Τιμή ανά τύπο οχήματος — ΠΑΝΤΑ server-side από τη DB.
     const isMoto = vehicleType === 'Μοτοσικλέτα'
     const isSuv = vehicleType === 'SUV'
-    let amount = isMoto && service.price_moto != null ? Number(service.price_moto)
-      : isSuv && service.price_suv != null ? Number(service.price_suv)
-      : Number(service.price)
+    const svc = service as {
+      name: string; price: number; price_moto: number | null; price_suv: number | null
+      is_range?: boolean; price_min?: number | null; price_max?: number | null
+      price_min_suv?: number | null; price_max_suv?: number | null
+    }
 
-    const requestedAddonIds: string[] = Array.isArray(addonIds) ? addonIds : []
-    if (requestedAddonIds.length > 0) {
-      const { data: locAddons } = await admin
-        .from('location_addons')
-        .select('addon_id, price_override, addons(price)')
-        .eq('location_id', locationId)
-        .in('addon_id', requestedAddonIds)
+    // Υπηρεσία ΕΥΡΟΥΣ (βιολογικός): μετρητά μόνο, εκτίμηση επιτόπου. Το total_amount
+    // = μεσοσταθμικό εύρους → η προμήθεια (payout: rate × total_amount) βγαίνει σταθερή.
+    // Καμία πρόσθετη υπηρεσία εδώ — η τελική τιμή ορίζεται στο κατάστημα.
+    const isRange = svc.is_range === true
+    let amount: number
+    let rangeText: string | undefined
+    if (isRange) {
+      const rmin = Number(isSuv ? svc.price_min_suv : svc.price_min) || 0
+      const rmax = Number(isSuv ? svc.price_max_suv : svc.price_max) || 0
+      if (!(rmin > 0 && rmax > 0 && rmax >= rmin)) {
+        return NextResponse.json({ error: 'Μη έγκυρο εύρος τιμής' }, { status: 400 })
+      }
+      amount = (rmin + rmax) / 2
+      rangeText = `${rmin.toFixed(0)}–${rmax.toFixed(0)}`
+    } else {
+      amount = isMoto && svc.price_moto != null ? Number(svc.price_moto)
+        : isSuv && svc.price_suv != null ? Number(svc.price_suv)
+        : Number(svc.price)
 
-      for (const a of locAddons || []) {
-        const priceOverride = (a as { price_override: number | null }).price_override
-        const basePrice = (a as { addons?: { price?: number } }).addons?.price
-        amount += Number(priceOverride ?? basePrice ?? 0)
+      const requestedAddonIds: string[] = Array.isArray(addonIds) ? addonIds : []
+      if (requestedAddonIds.length > 0) {
+        const { data: locAddons } = await admin
+          .from('location_addons')
+          .select('addon_id, price_override, addons(price)')
+          .eq('location_id', locationId)
+          .in('addon_id', requestedAddonIds)
+
+        for (const a of locAddons || []) {
+          const priceOverride = (a as { price_override: number | null }).price_override
+          const basePrice = (a as { addons?: { price?: number } }).addons?.price
+          amount += Number(priceOverride ?? basePrice ?? 0)
+        }
       }
     }
 
@@ -209,7 +237,7 @@ export async function POST(req: NextRequest) {
         const dPush = new Date(slotDate)
         await sendPush(ownerId, {
           title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
-          body: `Εισπράττεις εσύ €${amount.toFixed(2)} στο κατάστημα • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
+          body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις εσύ €${amount.toFixed(2)} στο κατάστημα`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
           url: '/dashboard',
         })
       }
@@ -255,6 +283,8 @@ export async function POST(req: NextRequest) {
             time: (slotStartTime as string)?.slice(0, 5) || '',
             plate: carPlate || '',
             total: amount.toFixed(0),
+            isRange,
+            rangeText,
             extraInstructions: (locationData as { extra_instructions?: string })?.extra_instructions || '',
           }),
         })

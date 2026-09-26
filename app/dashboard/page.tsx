@@ -45,6 +45,12 @@ type BookableService = {
   duration_minutes: number
   display_duration_minutes?: number | null
   is_active: boolean
+  // Υπηρεσίες εύρους (βιολογικός): min–max ανά όχημα.
+  is_range?: boolean
+  price_min?: number | null
+  price_max?: number | null
+  price_min_suv?: number | null
+  price_max_suv?: number | null
 }
 
 type DashboardService = {
@@ -437,7 +443,7 @@ export default function DashboardPage() {
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
         loadBookings(),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
-        supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_active, sort_order').eq('location_id', locationId).order('sort_order', { ascending: true }),
+        supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_active, is_range, price_min, price_max, price_min_suv, price_max_suv, sort_order').eq('location_id', locationId).order('sort_order', { ascending: true }),
         supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
         supabase.from('location_hours').select('id, day_of_week, is_closed, open_time, close_time').eq('location_id', locationId).order('day_of_week', { ascending: true }),
         supabase.from('staff').select('id, full_name, role, phone').eq('location_id', locationId).order('created_at', { ascending: false }),
@@ -469,6 +475,11 @@ export default function DashboardPage() {
         price_suv: s.price_suv != null ? Number(s.price_suv) : null,
         duration_minutes: Math.max(30, Number(s.duration_minutes) || 30),
         display_duration_minutes: s.display_duration_minutes != null ? Number(s.display_duration_minutes) : null,
+        is_range: s.is_range === true,
+        price_min: s.price_min != null ? Number(s.price_min) : null,
+        price_max: s.price_max != null ? Number(s.price_max) : null,
+        price_min_suv: s.price_min_suv != null ? Number(s.price_min_suv) : null,
+        price_max_suv: s.price_max_suv != null ? Number(s.price_max_suv) : null,
         is_active: s.is_active !== false,
       })))
 
@@ -495,7 +506,7 @@ export default function DashboardPage() {
       // Κεντρικός κατάλογος βασικών υπηρεσιών (admin-managed).
       const { data: catalogData } = await supabase
         .from('service_catalog')
-        .select('name, duration_minutes, vehicles')
+        .select('name, duration_minutes, vehicles, is_range')
         .eq('is_active', true)
         .order('sort_order', { ascending: true })
       if (catalogData && catalogData.length > 0) {
@@ -503,6 +514,7 @@ export default function DashboardPage() {
           name: c.name,
           duration_minutes: Math.max(30, Number(c.duration_minutes) || 30),
           vehicles: (Array.isArray(c.vehicles) ? c.vehicles : ['ΙΧ', 'SUV']) as CatalogService['vehicles'],
+          is_range: c.is_range === true,
         })))
       }
 
@@ -1767,6 +1779,11 @@ export default function DashboardPage() {
                       price_suv: existing?.price_suv ?? null,
                       display_duration_minutes: existing?.display_duration_minutes ?? null,
                       is_active: existing?.is_active ?? false,
+                      is_range: existing?.is_range ?? c.is_range ?? false,
+                      price_min: existing?.price_min ?? null,
+                      price_max: existing?.price_max ?? null,
+                      price_min_suv: existing?.price_min_suv ?? null,
+                      price_max_suv: existing?.price_max_suv ?? null,
                     }
                   })
                   // Τυχόν custom υπηρεσίες του σημείου εκτός καταλόγου — εμφανίζονται κι αυτές.
@@ -1779,12 +1796,21 @@ export default function DashboardPage() {
                       price: s.price, price_moto: s.price_moto ?? null, price_suv: s.price_suv ?? null,
                       display_duration_minutes: s.display_duration_minutes ?? null,
                       is_active: s.is_active,
+                      is_range: s.is_range ?? false,
+                      price_min: s.price_min ?? null,
+                      price_max: s.price_max ?? null,
+                      price_min_suv: s.price_min_suv ?? null,
+                      price_max_suv: s.price_max_suv ?? null,
                     }))
 
                   return [...catalogView, ...extras].map(bs => {
                     const forMoto = bs.vehicles.includes('Μοτοσικλέτα')
                     const forCar = bs.vehicles.includes('ΙΧ')
-                    const missingPrice = bs.is_active && !(Number(bs.price) > 0) && !(Number(bs.price_moto) > 0)
+                    const missingPrice = bs.is_active && (
+                      bs.is_range
+                        ? !((Number(bs.price_min) > 0 && Number(bs.price_max) > 0) || (Number(bs.price_min_suv) > 0 && Number(bs.price_max_suv) > 0))
+                        : !(Number(bs.price) > 0) && !(Number(bs.price_moto) > 0)
+                    )
                     return (
                       <div
                         key={bs.key}
@@ -1819,6 +1845,55 @@ export default function DashboardPage() {
 
                         {bs.is_active && bs.id && (
                           <>
+                            {bs.is_range ? (
+                              /* Υπηρεσία ΕΥΡΟΥΣ (βιολογικός): min–max ανά όχημα, μετρητά, εκτίμηση επιτόπου. */
+                              <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+                                <p className="text-[11px] text-gray-500 leading-snug">
+                                  Ο πελάτης πληρώνει <strong>μετρητά</strong>· η τελική τιμή λέγεται επιτόπου μετά την εκτίμηση. Όρισε εύρος (από–έως) ανά όχημα.
+                                </p>
+                                {([
+                                  ['ΙΧ', 'price_min', 'price_max', bs.price_min, bs.price_max] as const,
+                                  ['SUV', 'price_min_suv', 'price_max_suv', bs.price_min_suv, bs.price_max_suv] as const,
+                                ]).map(([label, minField, maxField, minVal, maxVal]) => (
+                                  <div key={label} className="bg-gray-50 rounded-xl p-2.5">
+                                    <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-500 mb-1.5">{label}</p>
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-1 flex-1">
+                                        <span className="text-[12px] text-gray-400 shrink-0">από €</span>
+                                        <input
+                                          type="number"
+                                          defaultValue={minVal && Number(minVal) > 0 ? Number(minVal) : ''}
+                                          placeholder="—"
+                                          onBlur={e => {
+                                            const v = parseFloat(e.target.value)
+                                            if (isNaN(v) || v <= 0 || !bs.id) return
+                                            updateBaseService(bs.id, { [minField]: v } as Partial<BookableService>)
+                                          }}
+                                          className="w-full bg-transparent text-[16px] font-bold tracking-tight text-gray-900 focus:outline-none"
+                                          style={{ fontVariantNumeric: 'tabular-nums' }}
+                                        />
+                                      </div>
+                                      <span className="text-gray-300">–</span>
+                                      <div className="flex items-center gap-1 flex-1">
+                                        <span className="text-[12px] text-gray-400 shrink-0">έως €</span>
+                                        <input
+                                          type="number"
+                                          defaultValue={maxVal && Number(maxVal) > 0 ? Number(maxVal) : ''}
+                                          placeholder="—"
+                                          onBlur={e => {
+                                            const v = parseFloat(e.target.value)
+                                            if (isNaN(v) || v <= 0 || !bs.id) return
+                                            updateBaseService(bs.id, { [maxField]: v } as Partial<BookableService>)
+                                          }}
+                                          className="w-full bg-transparent text-[16px] font-bold tracking-tight text-gray-900 focus:outline-none"
+                                          style={{ fontVariantNumeric: 'tabular-nums' }}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
                             <div className={`mt-4 pt-4 border-t border-gray-100 grid gap-2 ${forCar && forMoto ? 'grid-cols-3' : forCar ? 'grid-cols-2' : 'grid-cols-1'}`}>
                               {([
                                 ...(forCar ? [['ΙΧ', 'price', bs.price] as const, ['SUV', 'price_suv', bs.price_suv] as const] : []),
@@ -1846,6 +1921,7 @@ export default function DashboardPage() {
                                 </div>
                               ))}
                             </div>
+                            )}
                             {/* Ενημερωτική διάρκεια πλυσίματος — φαίνεται στον πελάτη στο checkout.
                                 ΔΕΝ επηρεάζει τα slots. */}
                             <div className="mt-2 flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">

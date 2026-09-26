@@ -50,6 +50,8 @@ const T = {
     or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Πληρωμή με μετρητά στο κατάστημα',
     cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
     fillPlatePhone: 'Συμπλήρωσε πινακίδα και τηλέφωνο',
+    estimateRange: 'Εκτιμώμενο εύρος', estimateNote: 'Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.',
+    bookCash: 'Κράτηση — πληρωμή με μετρητά', cashOnlyHint: 'Πληρώνεις μετρητά στο κατάστημα μετά την εκτίμηση.',
   },
   en: {
     paymentSystemNotReady: 'The payment system is not ready. Please try again.',
@@ -75,6 +77,8 @@ const T = {
     or: 'or', confirming: 'Confirming...', payCash: 'Pay with cash at the store',
     cashHint: 'Book now, pay at the store during your visit.',
     fillPlatePhone: 'Fill in plate and phone',
+    estimateRange: 'Estimated range', estimateNote: 'The final price is set after the on-site estimate.',
+    bookCash: 'Book — pay with cash', cashOnlyHint: 'You pay cash at the store after the estimate.',
   },
 }
 
@@ -97,6 +101,12 @@ type Service = {
   price_moto?: number
   duration_minutes: number
   display_duration_minutes?: number | null
+  // Υπηρεσία εύρους (βιολογικός): min–max ανά όχημα, μετρητά.
+  is_range?: boolean
+  price_min?: number | null
+  price_max?: number | null
+  price_min_suv?: number | null
+  price_max_suv?: number | null
 }
 
 type Location = {
@@ -425,16 +435,23 @@ function BookingPageContent() {
 
       if (serviceId) {
         const { data: serviceData } = await supabase
-          .from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes')
+          .from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv')
           .eq('id', serviceId).single()
         if (serviceData) {
           setService(serviceData)
-          const price = vehicleType === 'Μοτοσικλέτα' && serviceData.price_moto
-            ? serviceData.price_moto
-            : vehicleType === 'SUV' && serviceData.price_suv
-            ? serviceData.price_suv
-            : serviceData.price
-          setServicePrice(price)
+          if (serviceData.is_range) {
+            // Υπηρεσία εύρους: το servicePrice = μέσος όρος εύρους (βάση προμήθειας).
+            const min = vehicleType === 'SUV' ? serviceData.price_min_suv : serviceData.price_min
+            const max = vehicleType === 'SUV' ? serviceData.price_max_suv : serviceData.price_max
+            setServicePrice(((Number(min) || 0) + (Number(max) || 0)) / 2)
+          } else {
+            const price = vehicleType === 'Μοτοσικλέτα' && serviceData.price_moto
+              ? serviceData.price_moto
+              : vehicleType === 'SUV' && serviceData.price_suv
+              ? serviceData.price_suv
+              : serviceData.price
+            setServicePrice(price)
+          }
         }
       }
 
@@ -495,6 +512,11 @@ function BookingPageContent() {
 
   const addonTotal = addons.filter(a => selectedAddons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)
   const total = servicePrice + addonTotal
+  // Υπηρεσία εύρους (βιολογικός): μετρητά μόνο, εκτίμηση επιτόπου. Ο πελάτης βλέπει
+  // εύρος (min–max) — η τελική τιμή λέγεται στο κατάστημα. Καμία χρέωση κάρτας.
+  const isRange = service?.is_range === true
+  const rangeMin = service ? Number(vehicleType === 'SUV' ? service.price_min_suv : service.price_min) || 0 : 0
+  const rangeMax = service ? Number(vehicleType === 'SUV' ? service.price_max_suv : service.price_max) || 0 : 0
   // Χρέωση κάρτας = (τιμή − κουπόνι) + τέλος υπηρεσίας (μόνο κάρτα). Τα μετρητά
   // πληρώνουν την καθαρή τιμή στο κατάστημα. Το appliedCredit το γυρίζει το
   // create-intent (ισχύει μόνο σε Μέσα-Έξω ≥12€) — 0 μέχρι να απαντήσει.
@@ -574,6 +596,7 @@ function BookingPageContent() {
       const q = new URLSearchParams({
         email, date: formattedDate, time: slotTime, service: service.name,
         plate, total: total.toString(), ref: data.bookingRef, method: 'cash',
+        ...(isRange ? { range: `${rangeMin.toFixed(0)}–${rangeMax.toFixed(0)}` } : {}),
       })
       router.push(`/booking/confirmed?${q.toString()}`)
     } catch {
@@ -761,8 +784,8 @@ function BookingPageContent() {
             />
           </div>
 
-          {/* Addons */}
-          {addons.length > 0 && (
+          {/* Addons — όχι σε υπηρεσία εύρους (τιμή επιτόπου). */}
+          {!isRange && addons.length > 0 && (
             <div>
               <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
                 {t.addons}
@@ -794,20 +817,34 @@ function BookingPageContent() {
             className="bg-white rounded-2xl border border-gray-100 px-4"
             style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
           >
-            <div className="flex justify-between items-center py-3 border-b border-gray-100">
-              <span className="text-[13px] text-gray-500">{service.name}</span>
-              <span className="text-[14px] font-medium text-gray-900">€{servicePrice.toFixed(2)}</span>
-            </div>
-            {selectedAddons.length > 0 && (
-              <div className="flex justify-between items-center py-3 border-b border-gray-100">
-                <span className="text-[13px] text-gray-500">{t.addonsShort}</span>
-                <span className="text-[14px] font-medium text-gray-900">€{addonTotal.toFixed(2)}</span>
-              </div>
+            {isRange ? (
+              <>
+                <div className="flex justify-between items-center py-3.5">
+                  <span className="text-[15px] font-semibold text-gray-900">{t.estimateRange}</span>
+                  <span className="text-[20px] font-bold tracking-tight text-gray-900">
+                    €{rangeMin.toFixed(0)}–€{rangeMax.toFixed(0)}
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400 pb-3 leading-snug">{t.estimateNote}</p>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                  <span className="text-[13px] text-gray-500">{service.name}</span>
+                  <span className="text-[14px] font-medium text-gray-900">€{servicePrice.toFixed(2)}</span>
+                </div>
+                {selectedAddons.length > 0 && (
+                  <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                    <span className="text-[13px] text-gray-500">{t.addonsShort}</span>
+                    <span className="text-[14px] font-medium text-gray-900">€{addonTotal.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center py-3.5">
+                  <span className="text-[15px] font-semibold text-gray-900">{t.total}</span>
+                  <span className="text-[20px] font-bold tracking-tight text-gray-900">€{total.toFixed(2)}</span>
+                </div>
+              </>
             )}
-            <div className="flex justify-between items-center py-3.5">
-              <span className="text-[15px] font-semibold text-gray-900">{t.total}</span>
-              <span className="text-[20px] font-bold tracking-tight text-gray-900">€{total.toFixed(2)}</span>
-            </div>
           </div>
 
           <p className="text-[11px] text-gray-400 text-center">
@@ -874,6 +911,14 @@ function BookingPageContent() {
               <div className="w-full h-14 bg-gray-100 text-gray-400 text-[14px] font-medium rounded-xl flex items-center justify-center">
                 {t.fillPlatePhone}
               </div>
+            ) : isRange ? (
+              <button
+                onClick={handleCashBooking}
+                disabled={cashLoading}
+                className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {cashLoading ? t.confirming : t.bookCash}
+              </button>
             ) : (
               <button
                 onClick={handleProceedToPayment}
@@ -885,10 +930,16 @@ function BookingPageContent() {
               </button>
             )}
             <div className="flex items-center justify-center gap-1.5 mt-3">
-              <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
-              <p className="text-[11px] font-medium text-gray-400">
-                {t.securePayment}
-              </p>
+              {isRange ? (
+                <p className="text-[11px] font-medium text-gray-400 text-center">{t.cashOnlyHint}</p>
+              ) : (
+                <>
+                  <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
+                  <p className="text-[11px] font-medium text-gray-400">
+                    {t.securePayment}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}

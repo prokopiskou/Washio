@@ -242,10 +242,16 @@ export default function AdminPage() {
 
     const existingPayout = payouts.find(p => p.location_id === loc.id && p.month === payoutMonth)
 
+    // Ποσοστό ακυρώσεων: κόκκινη σημαία σε πλυντήριο που ακυρώνει πολλά (π.χ.
+    // δηλώνει ακύρωση σε μετρητά για να μη μετρήσει προμήθεια). Flag ≥30% με ≥4 δείγμα.
+    const relevantCount = completed + noShow + cancelled
+    const cancelRate = relevantCount > 0 ? Math.round((cancelled / relevantCount) * 100) : 0
+    const highCancel = relevantCount >= 4 && cancelRate >= 30
+
     return {
       ...loc,
       monthBookings: completed + noShow + cancelled,
-      completed, noShow, cancelled,
+      completed, noShow, cancelled, cancelRate, highCancel,
       onlineKept: +onlineKept.toFixed(2),
       cashGross: +cashGross.toFixed(2),
       refunded: +refunded.toFixed(2),
@@ -1820,6 +1826,16 @@ export default function AdminPage() {
                             Ολοκληρωμένα {loc.completed} · No-show {loc.noShow} · Ακυρώσεις {loc.cancelled}
                             {loc.refunded > 0 ? ` · Επιστροφές €${loc.refunded.toFixed(0)}` : ''}
                           </p>
+
+                          {/* Κόκκινη σημαία: υψηλό ποσοστό ακυρώσεων (πιθανή υποδήλωση) */}
+                          {loc.highCancel && (
+                            <div className="mt-2 flex items-center gap-2 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                              <span className="text-[13px]">🚩</span>
+                              <p className="text-[11px] font-medium text-red-600 leading-snug">
+                                Υψηλό ποσοστό ακυρώσεων ({loc.cancelRate}%) — έλεγξε μήπως δηλώνει ακυρώσεις για να αποφύγει την προμήθεια.
+                              </p>
+                            </div>
+                          )}
 
                           {/* Καθαρός διακανονισμός */}
                           <div

@@ -109,6 +109,7 @@ function ConfirmedContent() {
   const time = params.get('time') || ''
   const plate = params.get('plate') || ''
   const total = params.get('total') || ''
+  const range = params.get('range') || ''
   const refParam = params.get('ref') || ''
   const isCash = params.get('method') === 'cash'
 
@@ -199,7 +200,8 @@ function ConfirmedContent() {
     fetchAndNotify()
   }, [])
 
-  const totalFormatted = total ? `€${parseFloat(total).toFixed(2)}` : '—'
+  // Υπηρεσία εύρους (βιολογικός): δείχνουμε εύρος, όχι σταθερό ποσό.
+  const totalFormatted = range ? `€${range}` : total ? `€${parseFloat(total).toFixed(2)}` : '—'
 
   const mapsUrl = locationAddress
     ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
