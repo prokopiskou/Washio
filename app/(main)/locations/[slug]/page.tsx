@@ -73,6 +73,13 @@ type Service = {
   price_moto?: number
   price_suv?: number
   duration_minutes: number
+  is_range?: boolean
+  price_min?: number | null
+  price_max?: number | null
+  price_min_suv?: number | null
+  price_max_suv?: number | null
+  is_active?: boolean
+  sort_order?: number | null
 }
 
 type Slot = {
@@ -135,59 +142,53 @@ export default function LocationPage() {
       const uid = sessionData.session?.user?.id || null
       setUserId(uid)
 
-      const { data: locationData } = await supabase
-        .from('locations')
-        .select('id, name, address, city, photos, capacity')
-        .eq('slug', slug)
-        .single()
+      // ΕΝΑ round-trip για πλυντήριο + υπηρεσίες + ωράριο + βαθμολογίες, και
+      // παράλληλα το αγαπημένο (πριν: 3 διαδοχικά round-trips).
+      const [{ data: locationData }, favRes] = await Promise.all([
+        supabase
+          .from('locations')
+          .select(`id, name, address, city, photos, capacity,
+            services(id, name, description, price, price_moto, price_suv, duration_minutes, is_active, sort_order, is_range, price_min, price_max, price_min_suv, price_max_suv),
+            location_hours(day_of_week, is_closed, open_time, close_time),
+            reviews(rating)`)
+          .eq('slug', slug)
+          .single(),
+        uid
+          ? supabase
+              .from('favorites')
+              .select('id, locations!inner(slug)')
+              .eq('user_id', uid)
+              .eq('locations.slug', slug)
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ])
 
       if (!locationData) {
         router.push('/')
         return
       }
 
-      setLocation(locationData)
+      const loc = locationData as any
+      setLocation({ id: loc.id, name: loc.name, address: loc.address, city: loc.city, photos: loc.photos, capacity: loc.capacity })
 
-      const [servicesRes, hoursRes, reviewsRes] = await Promise.all([
-        supabase
-          .from('services')
-          .select('id, name, description, price, price_moto, price_suv, duration_minutes')
-          .eq('location_id', locationData.id)
-          .eq('is_active', true)
-          .order('sort_order', { ascending: true }),
-        supabase
-          .from('location_hours')
-          .select('day_of_week, is_closed, open_time, close_time')
-          .eq('location_id', locationData.id),
-        supabase
-          .from('reviews')
-          .select('id, rating, comment, created_at')
-          .eq('location_id', locationData.id)
-          .order('created_at', { ascending: false }),
-      ])
+      const svc = ((loc.services || []) as Service[])
+        .filter(s => s.is_active !== false)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+      setServices(svc)
+      setLocationHours(loc.location_hours || [])
 
-      setServices(servicesRes.data || [])
-      setLocationHours(hoursRes.data || [])
-
-      const reviews = (reviewsRes.data as { rating: number }[]) || []
+      const reviews = (loc.reviews as { rating: number }[]) || []
       if (reviews.length > 0) {
         const sum = reviews.reduce((acc, r) => acc + r.rating, 0)
         setReviewAvg(Math.round((sum / reviews.length) * 10) / 10)
         setReviewCount(reviews.length)
       }
 
-      if (uid) {
-        const { data: favData } = await supabase
-          .from('favorites')
-          .select('id')
-          .eq('user_id', uid)
-          .eq('location_id', locationData.id)
-          .single()
-
-        if (favData) {
-          setIsFavorite(true)
-          setFavoriteId(favData.id)
-        }
+      const favData = (favRes as { data: { id: string } | null }).data
+      if (favData) {
+        setIsFavorite(true)
+        setFavoriteId(favData.id)
       }
 
       setLoading(false)
@@ -273,13 +274,29 @@ export default function LocationPage() {
   const dates = getDatesForMonth(viewYear, viewMonth)
 
   // Τιμή ανά τύπο οχήματος: ΙΧ = βασική, SUV = price_suv, Μοτο = price_moto.
-  const priceFor = (s: Service) =>
-    vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto
-    : vehicleType === 'SUV' && s.price_suv ? s.price_suv
-    : s.price
+  // Υπηρεσία εύρους (βιολογικός): min–max ανά ΙΧ/SUV, όχι μοτο.
+  const rangeFor = (s: Service): [number, number] => [
+    Number(vehicleType === 'SUV' ? s.price_min_suv : s.price_min) || 0,
+    Number(vehicleType === 'SUV' ? s.price_max_suv : s.price_max) || 0,
+  ]
+  const priceFor = (s: Service) => {
+    if (s.is_range) { const [a, b] = rangeFor(s); return (a + b) / 2 }
+    return vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto
+      : vehicleType === 'SUV' && s.price_suv ? s.price_suv
+      : s.price
+  }
+  const priceLabel = (s: Service) => {
+    if (s.is_range) { const [a, b] = rangeFor(s); return `€${a}–${b}` }
+    return `€${priceFor(s)}`
+  }
 
   const visibleServices = services.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
+    if (s.is_range) {
+      if (vehicleType === 'Μοτοσικλέτα') return false
+      const [a, b] = rangeFor(s)
+      return a > 0 && b > 0
+    }
     if (!(Number(priceFor(s)) > 0)) return false
     if (vehicleType === 'ΙΧ' || vehicleType === 'SUV') return !isMotoService(s.name)
     if (vehicleType === 'Μοτοσικλέτα') return isMotoService(s.name)
@@ -434,7 +451,7 @@ export default function LocationPage() {
           <div className="flex flex-col gap-2.5">
             {visibleServices.map(s => {
               const selected = selectedServiceId === s.id
-              const price = priceFor(s)
+              const price = priceLabel(s)
               return (
                 <button
                   key={s.id}
@@ -464,7 +481,7 @@ export default function LocationPage() {
                     )}
                   </div>
                   <p className={`text-[17px] font-semibold tracking-tight ${selected ? 'text-white' : 'text-gray-900'}`}>
-                    €{price}
+                    {price}
                   </p>
                 </button>
               )
@@ -583,7 +600,7 @@ export default function LocationPage() {
             >
               <span>{t.book}</span>
               <span className="w-px h-4 bg-white/25" />
-              <span>€{selectedServicePrice}</span>
+              <span>{service ? priceLabel(service) : `€${selectedServicePrice}`}</span>
             </button>
           ) : (
             <div className="w-full h-14 rounded-xl bg-gray-100 text-gray-400 text-[14px] font-medium flex items-center justify-center">

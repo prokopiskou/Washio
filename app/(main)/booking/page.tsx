@@ -433,10 +433,30 @@ function BookingPageContent() {
       // Άφιξη στο booking = πρόθεση κράτησης (book intent).
       trackEvent('AddToCart', { content_type: 'wash', content_ids: [locationId || serviceId] })
 
-      if (serviceId) {
-        const { data: serviceData } = await supabase
-          .from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv')
-          .eq('id', serviceId).single()
+      // ΟΛΑ τα queries ΠΑΡΑΛΛΗΛΑ (πριν: 5 διαδοχικά round-trips).
+      const none = Promise.resolve({ data: null as any })
+      const [
+        { data: serviceData },
+        { data: locationData },
+        { data: addonsData },
+        { data: profileData },
+        { data: vehiclesData },
+      ] = await Promise.all([
+        serviceId
+          ? supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv')
+              .eq('id', serviceId).single()
+          : none,
+        locationId
+          ? supabase.from('locations').select('id, name, address, city').eq('id', locationId).single()
+          : none,
+        locationId
+          ? supabase.from('location_addons').select('addon_id, price_override, addons(name, price, sort_order)').eq('location_id', locationId)
+          : none,
+        supabase.from('profiles').select('phone').eq('id', user.id).single(),
+        supabase.from('vehicles').select('id, plate, type').eq('user_id', user.id).order('created_at', { ascending: false }),
+      ])
+
+      {
         if (serviceData) {
           setService(serviceData)
           if (serviceData.is_range) {
@@ -456,14 +476,7 @@ function BookingPageContent() {
       }
 
       if (locationId) {
-        const { data: locationData } = await supabase
-          .from('locations').select('id, name, address, city').eq('id', locationId).single()
         if (locationData) setLocation(locationData)
-
-        const { data: addonsData } = await supabase
-          .from('location_addons')
-          .select('addon_id, price_override, addons(name, price, sort_order)')
-          .eq('location_id', locationId)
 
         setAddons((addonsData || []).map((a: any) => ({
           id: a.addon_id,
@@ -474,14 +487,8 @@ function BookingPageContent() {
 
       if (user.email) setEmail(user.email)
 
-      const { data: profileData } = await supabase
-        .from('profiles').select('phone').eq('id', user.id).single()
       if (profileData?.phone) setPhone(profileData.phone)
       else if (user.user_metadata?.phone) setPhone(user.user_metadata.phone as string)
-
-      const { data: vehiclesData } = await supabase
-        .from('vehicles').select('id, plate, type')
-        .eq('user_id', user.id).order('created_at', { ascending: false })
 
       const vList = (vehiclesData as Vehicle[]) || []
       const filteredVehicles = vList.filter(v => {

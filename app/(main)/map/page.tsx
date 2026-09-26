@@ -93,6 +93,11 @@ type Service = {
   price_moto?: number
   price_suv?: number
   duration_minutes?: number
+  is_range?: boolean
+  price_min?: number | null
+  price_max?: number | null
+  price_min_suv?: number | null
+  price_max_suv?: number | null
 }
 
 type Slot = {
@@ -249,13 +254,29 @@ function MapPageContent() {
   const activeDate = timing === 'now' ? getTodayValue() : selectedDate
 
   // Τιμή ανά τύπο οχήματος: ΙΧ = βασική, SUV = price_suv, Μοτο = price_moto.
-  const priceFor = (s: Service) =>
-    vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto
-    : vehicleType === 'SUV' && s.price_suv ? s.price_suv
-    : s.price
+  // Υπηρεσία εύρους (βιολογικός): min–max ανά ΙΧ/SUV, όχι μοτο.
+  const rangeFor = (s: Service): [number, number] => [
+    Number(vehicleType === 'SUV' ? s.price_min_suv : s.price_min) || 0,
+    Number(vehicleType === 'SUV' ? s.price_max_suv : s.price_max) || 0,
+  ]
+  const priceFor = (s: Service) => {
+    if (s.is_range) { const [a, b] = rangeFor(s); return (a + b) / 2 }
+    return vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto
+      : vehicleType === 'SUV' && s.price_suv ? s.price_suv
+      : s.price
+  }
+  const priceLabel = (s: Service) => {
+    if (s.is_range) { const [a, b] = rangeFor(s); return `€${a}–${b}` }
+    return `€${priceFor(s)}`
+  }
 
   const visibleServices = locationServices.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
+    if (s.is_range) {
+      if (vehicleType === 'Μοτοσικλέτα') return false
+      const [a, b] = rangeFor(s)
+      return a > 0 && b > 0
+    }
     if (!(Number(priceFor(s)) > 0)) return false
     if (vehicleType === 'ΙΧ' || vehicleType === 'SUV') return !isMotoService(s.name)
     if (vehicleType === 'Μοτοσικλέτα') return isMotoService(s.name)
@@ -470,7 +491,7 @@ function MapPageContent() {
     }
     const loadServices = async () => {
       const supabase = createClient()
-      const { data } = await supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes')
+      const { data } = await supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv')
         .eq('location_id', selectedLocation.id).eq('is_active', true).order('sort_order', { ascending: true })
       setLocationServices((data as Service[]) || [])
     }
@@ -798,9 +819,11 @@ function MapPageContent() {
 
   // email/id χρήστη — για prefill + σύνδεση της waitlist εγγραφής.
   useEffect(() => {
-    createClient().auth.getUser().then(({ data }) => {
-      if (data.user?.email) { setUserEmail(data.user.email); setAvailEmail(prev => prev || data.user!.email || '') }
-      if (data.user?.id) setUserId(data.user.id)
+    // getSession = τοπικό (χωρίς network), αντί για getUser που χτυπά τον auth server.
+    createClient().auth.getSession().then(({ data }) => {
+      const u = data.session?.user
+      if (u?.email) { setUserEmail(u.email); setAvailEmail(prev => prev || u.email || '') }
+      if (u?.id) setUserId(u.id)
     }).catch(() => {})
   }, [])
 
@@ -1060,7 +1083,7 @@ function MapPageContent() {
               {/* Services */}
               <div className="flex gap-2 mb-3">
                 {visibleServices.map(s => {
-                  const price = priceFor(s)
+                  const price = priceLabel(s)
                   const isSelected = selectedService === s.id
                   return (
                     <button key={s.id} onClick={() => setSelectedService(s.id)}
@@ -1068,7 +1091,7 @@ function MapPageContent() {
                         isSelected ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-200'
                       }`}>
                       <p className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>{s.name}</p>
-                      <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-gray-500'}`}>€{price}</p>
+                      <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-gray-500'}`}>{price}</p>
                     </button>
                   )
                 })}
@@ -1105,7 +1128,7 @@ function MapPageContent() {
                     className="flex-1 bg-gray-900 text-white text-sm font-semibold py-3.5 rounded-xl flex items-center justify-center gap-1.5">
                     <span>{t.book}</span>
                     <span className="w-px h-4 bg-white/25" />
-                    <span>€{selectedServicePrice}</span>
+                    <span>{service ? priceLabel(service) : `€${selectedServicePrice}`}</span>
                   </button>
                 ) : (
                   <div className="flex-1 bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-xl flex items-center justify-center">

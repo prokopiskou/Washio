@@ -26,10 +26,9 @@ export function CapacitorInit() {
         // Style.Light = σκούρο κείμενο (ώρα/μπαταρία) για τα ανοιχτόχρωμα φόντα.
         await StatusBar.setStyle({ style: Style.Light })
 
-        // Hide splash after content is ready
-        setTimeout(async () => {
-          await SplashScreen.hide({ fadeOutDuration: 500 })
-        }, 1200)
+        // Το περιεχόμενο είναι ήδη ζωγραφισμένο (το effect τρέχει μετά το hydration)
+        // → κρύψε το splash ΑΜΕΣΑ. Πριν: σταθερό 1200ms + 500ms fade σε κάθε άνοιγμα.
+        SplashScreen.hide({ fadeOutDuration: 200 }).catch(() => {})
 
         // Handle OAuth deep-link callback from the in-app browser.
         const { App } = await import('@capacitor/app')

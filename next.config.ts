@@ -1,6 +1,11 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Client router cache: επιστροφή σε οθόνη που είδες πρόσφατα = άμεση
+  // (χωρίς νέο fetch του route payload από το Vercel).
+  experimental: {
+    staleTimes: { dynamic: 30, static: 180 },
+  },
   // Καθαρά vanity links για social bios — κρατούν UTM tracking πίσω.
   async redirects() {
     return [

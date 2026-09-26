@@ -8,6 +8,7 @@ import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle
 import { BottomNav } from '@/components/BottomNav'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
+import { readPageCache, writePageCache, clearPageCache } from '@/lib/page-cache'
 
 const T = {
   el: {
@@ -118,23 +119,6 @@ export default function ProfilePage() {
     const { data } = await supabase.from('vehicles').select('id, plate, type, is_primary').eq('user_id', id).order('is_primary', { ascending: false }).order('created_at', { ascending: false })
     setVehicles((data as Vehicle[]) || [])
   }
-  const loadBookings = async (id: string) => {
-    const supabase = createClient()
-    const { data } = await supabase.from('bookings')
-      .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, locations(name), services(name)')
-      .eq('user_id', id).order('created_at', { ascending: false }).limit(3)
-    setBookings((data as unknown as Booking[]) || [])
-  }
-  const loadFavorites = async (id: string) => {
-    const supabase = createClient()
-    const { data } = await supabase.from('favorites').select('id, location_id, locations(id, name, slug)').eq('user_id', id).limit(3)
-    setFavorites((data as unknown as Favorite[]) || [])
-  }
-  const loadPartnerStatus = async (id: string) => {
-    const supabase = createClient()
-    const { data } = await supabase.from('locations').select('id').eq('owner_id', id).limit(1).maybeSingle()
-    setIsPartner(!!data?.id)
-  }
 
   useEffect(() => {
     const loadUser = async () => {
@@ -148,7 +132,34 @@ export default function ProfilePage() {
       setUserId(user?.id || '')
       setFullName((user?.user_metadata?.full_name as string) || '')
       setPhone((user?.user_metadata?.phone as string) || '')
-      await Promise.all([loadVehicles(user.id), loadBookings(user.id), loadFavorites(user.id), loadPartnerStatus(user.id)])
+
+      // Stale-while-revalidate: δείξε ΑΜΕΣΑ τα τελευταία δεδομένα, ανανέωσε από πίσω.
+      type ProfileCache = { vehicles: Vehicle[]; bookings: Booking[]; favorites: Favorite[]; partner: boolean }
+      const cached = readPageCache<ProfileCache>('profile', user.id)
+      if (cached) {
+        setVehicles(cached.vehicles || []); setBookings(cached.bookings || [])
+        setFavorites(cached.favorites || []); setIsPartner(!!cached.partner)
+        setAuthLoading(false)
+      }
+
+      const [v, b, f, p] = await Promise.all([
+        supabase.from('vehicles').select('id, plate, type, is_primary').eq('user_id', user.id)
+          .order('is_primary', { ascending: false }).order('created_at', { ascending: false }),
+        supabase.from('bookings')
+          .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, locations(name), services(name)')
+          .eq('user_id', user.id).order('created_at', { ascending: false }).limit(3),
+        supabase.from('favorites').select('id, location_id, locations(id, name, slug)').eq('user_id', user.id).limit(3),
+        supabase.from('locations').select('id').eq('owner_id', user.id).limit(1).maybeSingle(),
+      ])
+      const fresh: ProfileCache = {
+        vehicles: (v.data as Vehicle[]) || [],
+        bookings: (b.data as unknown as Booking[]) || [],
+        favorites: (f.data as unknown as Favorite[]) || [],
+        partner: !!p.data?.id,
+      }
+      setVehicles(fresh.vehicles); setBookings(fresh.bookings)
+      setFavorites(fresh.favorites); setIsPartner(fresh.partner)
+      writePageCache('profile', user.id, fresh)
       setAuthLoading(false)
     }
     loadUser()
@@ -201,6 +212,7 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     const supabase = createClient()
     try { localStorage.removeItem('washio_mode') } catch { /* ignore */ }
+    clearPageCache()
     await supabase.auth.signOut()
     router.push('/login')
   }
@@ -216,7 +228,8 @@ export default function ProfilePage() {
         return
       }
       const supabase = createClient()
-      await supabase.auth.signOut()
+      clearPageCache()
+    await supabase.auth.signOut()
       router.push('/welcome')
     } catch { alert(t.deleteFailed) }
   }
@@ -227,7 +240,7 @@ export default function ProfilePage() {
         <div className="px-5 pt-[calc(var(--safe-top)+8px)] flex flex-col gap-3.5">
 
           <div className="flex justify-center -mb-6">
-            <img src="/washio-logo.png" alt="Washio" className="h-32 w-auto" />
+            <img src="/washio-logo.webp" fetchPriority="high" decoding="async" alt="Washio" className="h-32 w-auto" />
           </div>
 
           <div className="flex items-center gap-3.5 px-1 py-2">

@@ -6,13 +6,16 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Capacitor } from '@capacitor/core'
 import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon, Store } from 'lucide-react'
-import LandingPage from './landing/page'
+import dynamic from 'next/dynamic'
+// Landing μόνο για αποσυνδεδεμένους web επισκέπτες — όχι στο bundle των χρηστών.
+const LandingPage = dynamic(() => import('./landing/page'))
 import { BottomNav } from '@/components/BottomNav'
 import { GetAppBanner } from '@/components/GetAppBanner'
 import { WashioLoader } from '@/components/WashioLoader'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday } from '@/lib/time'
+import { readPageCache, writePageCache } from '@/lib/page-cache'
 
 const T = {
   el: {
@@ -138,6 +141,22 @@ export default function HomePage() {
         }
       } catch { /* localStorage μη διαθέσιμο — αγνόησε */ }
 
+      // Stale-while-revalidate: δείξε ΑΜΕΣΑ τα τελευταία δεδομένα, ανανέωσε από πίσω.
+      type HomeCache = { upcoming: Booking | null; last: Booking | null; favs: Favorite[]; locs: Location[]; partner: boolean }
+      const applyHome = (c: HomeCache) => {
+        setUpcomingBooking(c.upcoming)
+        setLastBooking(c.last)
+        setFavorites(c.favs || [])
+        setRecentLocations(c.locs || [])
+        setActiveLocationsCount(c.locs?.length || 0)
+        setIsPartner(c.partner)
+      }
+      const cached = readPageCache<HomeCache>('home', user.id)
+      if (cached) { applyHome(cached); setAuthChecking(false) }
+
+      // Προφόρτωσε τις πιο πιθανές επόμενες οθόνες (κώδικας έτοιμος πριν το tap).
+      router.prefetch('/map'); router.prefetch('/profile'); router.prefetch('/profile/bookings')
+
       // Load all data in parallel
       const today = athensToday()
 
@@ -189,12 +208,15 @@ export default function HomePage() {
           .maybeSingle(),
       ])
 
-      setUpcomingBooking(upcoming as unknown as Booking)
-      setLastBooking(last as unknown as Booking)
-      setFavorites((favs as unknown as Favorite[]) || [])
-      setRecentLocations((locs as Location[]) || [])
-      setActiveLocationsCount(locs?.length || 0)
-      setIsPartner(!!(ownedLocation as { id?: string } | null)?.id)
+      const fresh: HomeCache = {
+        upcoming: (upcoming as unknown as Booking) || null,
+        last: (last as unknown as Booking) || null,
+        favs: (favs as unknown as Favorite[]) || [],
+        locs: (locs as Location[]) || [],
+        partner: !!(ownedLocation as { id?: string } | null)?.id,
+      }
+      applyHome(fresh)
+      writePageCache('home', user.id, fresh)
 
       setAuthChecking(false)
     }
@@ -222,7 +244,7 @@ export default function HomePage() {
 
           {/* Header — centered logo */}
           <div className="flex justify-center items-center -mb-8">
-            <img src="/washio-logo.png" alt="Washio" className="h-48 md:h-40 w-auto" />
+            <img src="/washio-logo.webp" fetchPriority="high" decoding="async" alt="Washio" className="h-48 md:h-40 w-auto" />
           </div>
 
           {/* Partner banner — εμφανίζεται μόνο σε ιδιοκτήτες πλυντηρίων */}

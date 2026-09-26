@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Check, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -241,9 +242,9 @@ function ConfirmedContent() {
               <p className="text-[14px] text-gray-500 text-center mt-2">
                 Δεν έγινε χρέωση και δεν δημιουργήθηκε κράτηση. Δοκίμασε ξανά.
               </p>
-              <a href="/map" className="mt-6 block w-full h-12 leading-[48px] text-center rounded-xl bg-gray-900 text-white text-[14px] font-semibold">
+              <Link href="/map" className="mt-6 block w-full h-12 leading-[48px] text-center rounded-xl bg-gray-900 text-white text-[14px] font-semibold">
                 Πίσω στον χάρτη
-              </a>
+              </Link>
             </>
           ) : (
             <>

@@ -908,6 +908,9 @@ export default function DashboardPage() {
   const cancelBooking = async (id: string) => {
     // Πάντα μέσω API: κάνει το Stripe refund (αν ήταν κάρτα), ενημερώνει
     // τον πελάτη με email και ανοίγει το slot. Ποτέ απευθείας update.
+    const b = bookings.find(x => x.id === id)
+    const who = [(b as any)?.car_plate, (b as any)?.slot_start_time?.slice(0, 5)].filter(Boolean).join(' · ')
+    if (!confirm(`Ακύρωση κράτησης${who ? ` (${who})` : ''};\n\nΟ πελάτης θα ενημερωθεί με email και η ώρα θα ελευθερωθεί. Δεν αναιρείται.`)) return
     try {
       const res = await fetch('/api/bookings/cancel', {
         method: 'POST',

@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import { Home, MapPin, User } from 'lucide-react'
 import { useT } from '@/lib/i18n'
 
@@ -18,7 +19,13 @@ const ITEMS = [
 
 export function BottomNav() {
   const pathname = usePathname()
+  const router = useRouter()
   const t = useT(T)
+  // Προφόρτωση των tabs + κρατήσεων: ο κώδικας κάθε οθόνης είναι ήδη στη
+  // συσκευή πριν το tap (τα Link στο fixed nav δεν «φαίνονται» πάντα στο WebView).
+  useEffect(() => {
+    for (const href of ['/', '/map', '/profile', '/profile/bookings']) router.prefetch(href)
+  }, [router])
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href)
 
