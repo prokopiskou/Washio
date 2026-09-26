@@ -719,9 +719,9 @@ export default function AdminPage() {
                           Export CSV
                         </button>
 
-                        {(bookingFilter.status || bookingFilter.location || bookingFilter.date) && (
+                        {(bookingFilter.status || bookingFilter.location || bookingFilter.date || bookingFilter.source) && (
                           <button
-                            onClick={() => setBookingFilter({ status: '', location: '', date: '' })}
+                            onClick={() => setBookingFilter({ status: '', location: '', date: '', source: '' })}
                             className="text-[11px] font-medium text-red-500"
                           >
                             Καθαρισμός
