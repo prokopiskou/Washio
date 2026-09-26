@@ -269,7 +269,7 @@ function LoginPageContent() {
             </button>
 
             {showGoogleWeb ? (
-              <GoogleWebButton redirectUrl={redirectUrl} />
+              <GoogleWebButton redirectUrl={redirectUrl} label={t.continueGoogle} />
             ) : (
               <button
                 onClick={handleGoogleLogin}
