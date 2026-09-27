@@ -1070,7 +1070,7 @@ function MapPageContent() {
 
               {/* Γραμμή 2: τύπος οχήματος · φωτογραφία (ίδια γραμμή, ίδιο ύψος) */}
               <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex gap-2 min-w-0">
+                <div className="flex gap-2 shrink-0">
                   {(['ΙΧ', 'SUV', 'Μοτοσικλέτα'] as const).map(type => (
                     <button key={type} onClick={() => setVehicleType(type)}
                       className={`h-9 px-3.5 rounded-full text-[13px] font-semibold border whitespace-nowrap transition-all ${
@@ -1086,7 +1086,7 @@ function MapPageContent() {
                 {selectedLocation.photos && selectedLocation.photos.length > 0 && (
                   <button
                     onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
-                    className="relative w-[76px] h-9 shrink-0 rounded-xl overflow-hidden border border-gray-100 active:opacity-80"
+                    className="relative flex-1 min-w-[110px] max-w-[170px] h-[76px] rounded-2xl overflow-hidden border border-gray-100 active:opacity-80"
                     style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
                     aria-label={selectedLocation.name}
                   >
@@ -1094,7 +1094,7 @@ function MapPageContent() {
                     <img src={selectedLocation.photos[0]} alt={selectedLocation.name} decoding="async"
                       className="w-full h-full object-cover" />
                     {selectedLocation.photos.length > 1 && (
-                      <span className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/55 text-[9px] font-semibold text-white leading-[14px]">
+                      <span className="absolute bottom-1.5 right-1.5 px-1.5 rounded-md bg-black/55 text-[10px] font-semibold text-white leading-[16px]">
                         +{selectedLocation.photos.length - 1}
                       </span>
                     )}
