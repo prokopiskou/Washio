@@ -1042,63 +1042,64 @@ function MapPageContent() {
                  style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06)' }}>
               <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
 
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-[16px] font-semibold tracking-tight text-gray-900">{selectedLocation.name}</p>
+              {/* Γραμμή 1: όνομα/απόσταση · κριτικές + κλείσιμο */}
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <p className="text-[16px] font-semibold tracking-tight text-gray-900 truncate">{selectedLocation.name}</p>
                   {selectedLocation.distance !== undefined && (
-                    <p className="text-xs text-gray-500 mt-0.5">{formatDistance(selectedLocation.distance, locale)} · {selectedLocation.city}</p>
+                    <p className="text-xs text-gray-500 mt-0.5 truncate">{formatDistance(selectedLocation.distance, locale)} · {selectedLocation.city}</p>
                   )}
                 </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <div className="flex items-center gap-2">
-                    {selectedRating && (
-                      <button
-                        onClick={() => router.push(`/locations/${selectedLocation.slug}/reviews`)}
-                        className="flex items-center gap-1 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1"
-                      >
-                        <Star size={13} className="text-amber-400 fill-amber-400" />
-                        <span className="text-[13px] font-semibold text-gray-900">
-                          {selectedRating.count === 0 ? t.newRating : `${selectedRating.avg.toFixed(1)} (${selectedRating.count})`}
-                        </span>
-                      </button>
-                    )}
-                    <button onClick={() => setSelectedLocation(null)} className="text-gray-400 -mt-1 -mr-1 p-1">
-                      <X size={18} />
-                    </button>
-                  </div>
-                  {/* Διακριτική φωτογραφία κάτω από τις κριτικές — tap → σελίδα πλυντηρίου (όλες οι φωτό). */}
-                  {selectedLocation.photos && selectedLocation.photos.length > 0 && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {selectedRating && (
                     <button
-                      onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
-                      className="relative w-[92px] h-[46px] rounded-xl overflow-hidden border border-gray-100 active:opacity-80"
-                      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
-                      aria-label={selectedLocation.name}
+                      onClick={() => router.push(`/locations/${selectedLocation.slug}/reviews`)}
+                      className="flex items-center gap-1 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={selectedLocation.photos[0]} alt={selectedLocation.name} decoding="async"
-                        className="w-full h-full object-cover" />
-                      {selectedLocation.photos.length > 1 && (
-                        <span className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/55 text-[9px] font-semibold text-white">
-                          +{selectedLocation.photos.length - 1}
-                        </span>
-                      )}
+                      <Star size={13} className="text-amber-400 fill-amber-400" />
+                      <span className="text-[13px] font-semibold text-gray-900">
+                        {selectedRating.count === 0 ? t.newRating : `${selectedRating.avg.toFixed(1)} (${selectedRating.count})`}
+                      </span>
                     </button>
                   )}
+                  <button onClick={() => setSelectedLocation(null)} className="text-gray-400 -mt-1 -mr-1 p-1">
+                    <X size={18} />
+                  </button>
                 </div>
               </div>
 
-              {/* Vehicle type segmented */}
-              <div className="flex gap-2 mb-3">
-                {(['ΙΧ', 'SUV', 'Μοτοσικλέτα'] as const).map(type => (
-                  <button key={type} onClick={() => setVehicleType(type)}
-                    className={`px-4 py-2 rounded-full text-[13px] font-semibold border transition-all ${
-                      vehicleType === type
-                        ? 'bg-gray-900 text-white border-gray-900'
-                        : 'bg-white text-gray-700 border-gray-200'
-                    }`}>
-                    {type === 'ΙΧ' ? 'ΙΧ' : type === 'SUV' ? 'SUV' : t.moto}
+              {/* Γραμμή 2: τύπος οχήματος · φωτογραφία (ίδια γραμμή, ίδιο ύψος) */}
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <div className="flex gap-2 min-w-0">
+                  {(['ΙΧ', 'SUV', 'Μοτοσικλέτα'] as const).map(type => (
+                    <button key={type} onClick={() => setVehicleType(type)}
+                      className={`h-9 px-3.5 rounded-full text-[13px] font-semibold border whitespace-nowrap transition-all ${
+                        vehicleType === type
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : 'bg-white text-gray-700 border-gray-200'
+                      }`}>
+                      {type === 'ΙΧ' ? 'ΙΧ' : type === 'SUV' ? 'SUV' : t.moto}
+                    </button>
+                  ))}
+                </div>
+                {/* Διακριτική φωτογραφία — tap → σελίδα πλυντηρίου (όλες οι φωτό). */}
+                {selectedLocation.photos && selectedLocation.photos.length > 0 && (
+                  <button
+                    onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
+                    className="relative w-[76px] h-9 shrink-0 rounded-xl overflow-hidden border border-gray-100 active:opacity-80"
+                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+                    aria-label={selectedLocation.name}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={selectedLocation.photos[0]} alt={selectedLocation.name} decoding="async"
+                      className="w-full h-full object-cover" />
+                    {selectedLocation.photos.length > 1 && (
+                      <span className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/55 text-[9px] font-semibold text-white leading-[14px]">
+                        +{selectedLocation.photos.length - 1}
+                      </span>
+                    )}
                   </button>
-                ))}
+                )}
               </div>
 
               {/* Services */}
