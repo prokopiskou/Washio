@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { extractCityLabel } from '@/lib/geo'
 import { ArrowLeft, MapPin, X, Upload } from 'lucide-react'
 import { WashioLoader } from '@/components/WashioLoader'
+import { compressImage } from '@/lib/image-compress'
 
 declare global {
   interface Window {
@@ -115,9 +116,16 @@ export default function EditLocationPage() {
     const supabase = createClient()
     const added: string[] = []
     for (const file of Array.from(files)) {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
+      // Συμπίεση στη συσκευή → JPEG ≤1600px (γρήγορη φόρτωση σε χάρτη/σελίδα/αρχική).
+      const blob = await compressImage(file)
+      const isJpeg = blob.type === 'image/jpeg'
+      const ext = isJpeg ? 'jpg' : (file.name.split('.').pop() || 'jpg').toLowerCase()
       const path = `photos/${locationId}/${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`
-      const { error: upErr } = await supabase.storage.from('location-docs').upload(path, file, { upsert: true })
+      const { error: upErr } = await supabase.storage.from('location-docs').upload(path, blob, {
+        upsert: true,
+        contentType: blob.type || file.type || 'image/jpeg',
+        cacheControl: '31536000', // μοναδικό όνομα αρχείου → ασφαλές long cache
+      })
       if (upErr) { setError('Αποτυχία ανεβάσματος: ' + upErr.message); continue }
       const { data: urlData } = supabase.storage.from('location-docs').getPublicUrl(path)
       if (urlData?.publicUrl) added.push(urlData.publicUrl)
@@ -127,6 +135,8 @@ export default function EditLocationPage() {
   }
 
   const removePhoto = (url: string) => setPhotos(prev => prev.filter(p => p !== url))
+  // Κάνε αυτή τη φωτογραφία εξώφυλλο (1η θέση).
+  const makeCover = (url: string) => setPhotos(prev => [url, ...prev.filter(p => p !== url)])
 
   const handleSave = async () => {
     if (!form.name || !form.lat || !form.lng) {
@@ -238,7 +248,7 @@ export default function EditLocationPage() {
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">Φωτογραφίες</label>
             <div className="grid grid-cols-3 gap-2">
-              {photos.map(url => (
+              {photos.map((url, i) => (
                 <div key={url} className="relative aspect-square rounded-xl overflow-hidden border border-gray-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={url} alt="" className="w-full h-full object-cover" />
@@ -246,6 +256,14 @@ export default function EditLocationPage() {
                     className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center">
                     <X size={13} />
                   </button>
+                  {i === 0 ? (
+                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-white text-[9px] font-semibold text-gray-900">Εξώφυλλο</span>
+                  ) : (
+                    <button onClick={() => makeCover(url)}
+                      className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-black/60 text-[9px] font-semibold text-white">
+                      Κάνε εξώφυλλο
+                    </button>
+                  )}
                 </div>
               ))}
               <label className="aspect-square rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 cursor-pointer text-[11px] font-medium gap-1">
@@ -255,7 +273,10 @@ export default function EditLocationPage() {
                   onChange={e => { if (e.target.files?.length) uploadPhotos(e.target.files) }} />
               </label>
             </div>
-            <p className="text-[11px] text-gray-300 mt-1.5">Η πρώτη φωτογραφία είναι το εξώφυλλο στον χάρτη/σελίδα.</p>
+            <p className="text-[11px] text-gray-400 mt-1.5 leading-snug">
+              Οποιοδήποτε μέγεθος — μικραίνει αυτόματα. Προτίμησε <b>οριζόντια</b> λήψη (πρόσοψη/μάνικες):
+              εμφανίζεται σε φαρδύ πλαίσιο και οι κάθετες κόβονται πάνω-κάτω. Η 1η είναι το εξώφυλλο.
+            </p>
           </div>
 
           {error && <p className="text-xs text-red-500 text-center">{error}</p>}

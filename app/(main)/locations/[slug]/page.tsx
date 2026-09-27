@@ -118,6 +118,7 @@ export default function LocationPage() {
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
   const [isFavorite, setIsFavorite] = useState(false)
+  const [photoIdx, setPhotoIdx] = useState(0)
   const [userId, setUserId] = useState<string | null>(null)
   const [favoriteId, setFavoriteId] = useState<string | null>(null)
   const [locationHours, setLocationHours] = useState<any[]>([])
@@ -338,21 +339,32 @@ export default function LocationPage() {
       <div className="w-full max-w-md md:max-w-4xl pb-32 relative">
 
         {/* Hero photo strip with floating nav buttons */}
-        <div
-          className="h-[160px] relative overflow-hidden"
-          style={{
-            background: 'repeating-linear-gradient(135deg, #FAFAFA 0 16px, #F7F7F7 16px 32px)',
-          }}
-        >
+        <div className="h-[200px] relative overflow-hidden bg-gray-900">
           {location.photos && location.photos.length > 0 ? (
-            <img
-              src={location.photos[0]}
-              alt={location.name}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
+            // Swipe carousel (scroll-snap) — όλες οι φωτογραφίες, όχι μόνο η 1η.
+            <div
+              className="absolute inset-0 flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+              onScroll={e => {
+                const el = e.currentTarget
+                const i = Math.round(el.scrollLeft / Math.max(1, el.clientWidth))
+                if (i !== photoIdx) setPhotoIdx(i)
+              }}
+            >
+              {location.photos.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={src}
+                  src={src}
+                  alt={location.name}
+                  loading={i === 0 ? 'eager' : 'lazy'}
+                  decoding="async"
+                  className="w-full h-full object-cover shrink-0 snap-center"
+                />
+              ))}
+            </div>
           ) : (
-            <div className="absolute top-3.5 left-3.5 font-mono text-[10px] text-gray-400 tracking-wider">
-              // photo
+            <div className="absolute inset-0 flex items-center justify-center">
+              <span className="text-white/90 text-[44px] font-semibold tracking-tight">{location.name?.charAt(0)}</span>
             </div>
           )}
 
@@ -378,11 +390,11 @@ export default function LocationPage() {
 
           {/* Photo dots */}
           {location.photos && location.photos.length > 1 && (
-            <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex gap-1.5">
+            <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex gap-1.5 pointer-events-none">
               {location.photos.map((_, i) => (
                 <span
                   key={i}
-                  className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-white' : 'bg-white opacity-60'}`}
+                  className={`w-1.5 h-1.5 rounded-full transition-opacity ${i === photoIdx ? 'bg-white' : 'bg-white opacity-50'}`}
                 />
               ))}
             </div>
