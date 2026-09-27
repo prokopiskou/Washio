@@ -84,6 +84,7 @@ type Location = {
   bookingCount?: number
   hasAvailability?: boolean
   nextSlot?: string | null
+  photos?: string[] | null
 }
 
 type Service = {
@@ -302,7 +303,7 @@ function MapPageContent() {
     const dayOfWeek = weekdayMon1FromYmd(checkDate)
 
     const [{ data: locsData }, { data: hoursData }, { data: bookingsData }, { data: exceptionsData }] = await Promise.all([
-      supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity').eq('is_active', true),
+      supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos').eq('is_active', true),
       supabase.from('location_hours').select('location_id, open_time, close_time, is_closed').eq('day_of_week', dayOfWeek),
       supabase.from('bookings').select('location_id, slot_start_time, duration_minutes').eq('slot_date', checkDate).not('status', 'in', '("cancelled","no_show")'),
       supabase.from('location_hours_exceptions').select('location_id, is_closed, closed_from, closed_to, periods').eq('exception_date', checkDate),
@@ -1048,21 +1049,41 @@ function MapPageContent() {
                     <p className="text-xs text-gray-500 mt-0.5">{formatDistance(selectedLocation.distance, locale)} · {selectedLocation.city}</p>
                   )}
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {selectedRating && (
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <div className="flex items-center gap-2">
+                    {selectedRating && (
+                      <button
+                        onClick={() => router.push(`/locations/${selectedLocation.slug}/reviews`)}
+                        className="flex items-center gap-1 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1"
+                      >
+                        <Star size={13} className="text-amber-400 fill-amber-400" />
+                        <span className="text-[13px] font-semibold text-gray-900">
+                          {selectedRating.count === 0 ? t.newRating : `${selectedRating.avg.toFixed(1)} (${selectedRating.count})`}
+                        </span>
+                      </button>
+                    )}
+                    <button onClick={() => setSelectedLocation(null)} className="text-gray-400 -mt-1 -mr-1 p-1">
+                      <X size={18} />
+                    </button>
+                  </div>
+                  {/* Διακριτική φωτογραφία κάτω από τις κριτικές — tap → σελίδα πλυντηρίου (όλες οι φωτό). */}
+                  {selectedLocation.photos && selectedLocation.photos.length > 0 && (
                     <button
-                      onClick={() => router.push(`/locations/${selectedLocation.slug}/reviews`)}
-                      className="flex items-center gap-1 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1"
+                      onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
+                      className="relative w-[92px] h-[46px] rounded-xl overflow-hidden border border-gray-100 active:opacity-80"
+                      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+                      aria-label={selectedLocation.name}
                     >
-                      <Star size={13} className="text-amber-400 fill-amber-400" />
-                      <span className="text-[13px] font-semibold text-gray-900">
-                        {selectedRating.count === 0 ? t.newRating : `${selectedRating.avg.toFixed(1)} (${selectedRating.count})`}
-                      </span>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={selectedLocation.photos[0]} alt={selectedLocation.name} decoding="async"
+                        className="w-full h-full object-cover" />
+                      {selectedLocation.photos.length > 1 && (
+                        <span className="absolute bottom-0.5 right-0.5 px-1 rounded bg-black/55 text-[9px] font-semibold text-white">
+                          +{selectedLocation.photos.length - 1}
+                        </span>
+                      )}
                     </button>
                   )}
-                  <button onClick={() => setSelectedLocation(null)} className="text-gray-400 -mt-1 -mr-1 p-1">
-                    <X size={18} />
-                  </button>
                 </div>
               </div>
 
