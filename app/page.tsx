@@ -14,7 +14,7 @@ import { GetAppBanner } from '@/components/GetAppBanner'
 import { WashioLoader } from '@/components/WashioLoader'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
-import { athensToday } from '@/lib/time'
+import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 
 const T = {
@@ -34,8 +34,9 @@ const T = {
     noneYet: 'Κανένα ακόμα',
     seeAll: 'Δες όλα →',
     nextBooking: 'Επόμενη κράτηση',
-    recent: 'Πρόσφατα',
-    all: 'Όλα →',
+    recent: 'Πλυντήρια',
+    all: 'Χάρτης →',
+    open: 'Ανοιχτό', closed: 'Κλειστό',
     partnerBannerTitle: 'Η επιχείρησή σου είναι live',
     partnerBannerSub: 'Δες κρατήσεις, τιμές και ωράριο',
     partnerBannerCta: 'Άνοιξε το dashboard',
@@ -56,8 +57,9 @@ const T = {
     noneYet: 'None yet',
     seeAll: 'See all →',
     nextBooking: 'Next booking',
-    recent: 'Recent',
-    all: 'All →',
+    recent: 'Car washes',
+    all: 'Map →',
+    open: 'Open', closed: 'Closed',
     partnerBannerTitle: 'Your business is live',
     partnerBannerSub: 'See bookings, prices and hours',
     partnerBannerCta: 'Open dashboard',
@@ -74,6 +76,8 @@ type Location = {
   name: string
   city: string
   slug: string
+  photos?: string[] | null
+  open?: boolean
 }
 
 type Booking = {
@@ -142,13 +146,13 @@ export default function HomePage() {
       } catch { /* localStorage μη διαθέσιμο — αγνόησε */ }
 
       // Stale-while-revalidate: δείξε ΑΜΕΣΑ τα τελευταία δεδομένα, ανανέωσε από πίσω.
-      type HomeCache = { upcoming: Booking | null; last: Booking | null; favs: Favorite[]; locs: Location[]; partner: boolean }
+      type HomeCache = { upcoming: Booking | null; last: Booking | null; favs: Favorite[]; locs: Location[]; openCount?: number; partner: boolean }
       const applyHome = (c: HomeCache) => {
         setUpcomingBooking(c.upcoming)
         setLastBooking(c.last)
         setFavorites(c.favs || [])
         setRecentLocations(c.locs || [])
-        setActiveLocationsCount(c.locs?.length || 0)
+        setActiveLocationsCount(c.openCount ?? 0)
         setIsPartner(c.partner)
       }
       const cached = readPageCache<HomeCache>('home', user.id)
@@ -159,6 +163,15 @@ export default function HomePage() {
 
       // Load all data in parallel
       const today = athensToday()
+
+      // Ξεκινά ΠΑΡΑΛΛΗΛΑ με τα παρακάτω (ίδιο round-trip): ωράριο/εξαιρέσεις σήμερα + ιστορικό σημείων.
+      const extraP = Promise.all([
+        supabase.from('location_hours').select('location_id, open_time, close_time, is_closed')
+          .eq('day_of_week', weekdayMon1FromYmd(today)),
+        supabase.from('location_hours_exceptions').select('location_id, is_closed').eq('exception_date', today),
+        supabase.from('bookings').select('location_id').eq('user_id', user.id)
+          .order('created_at', { ascending: false }).limit(20),
+      ])
 
       const [
         { data: upcoming },
@@ -193,12 +206,11 @@ export default function HomePage() {
           .select('id, locations(id, name, slug)')
           .eq('user_id', user.id)
           .limit(5),
-        // Active locations count
+        // ΟΛΑ τα ενεργά σημεία — ίδια πηγή με τον χάρτη (is_active).
         supabase
           .from('locations')
-          .select('id, name, city, slug', { count: 'exact' })
-          .eq('is_active', true)
-          .limit(3),
+          .select('id, name, city, slug, photos')
+          .eq('is_active', true),
         // Partner check — έχει ο χρήστης δικό του πλυντήριο;
         supabase
           .from('locations')
@@ -208,11 +220,31 @@ export default function HomePage() {
           .maybeSingle(),
       ])
 
+      // Ωράριο σήμερα + εξαιρέσεις → πραγματικό «ανοιχτά τώρα» (όχι πλήθος λίστας).
+      const [{ data: hoursToday }, { data: excToday }, { data: myBookings }] = await extraP
+      const nowMin = athensMinutesOfDay()
+      const toMin = (s: string | null) => { if (!s) return -1; const [h, m] = s.split(':').map(Number); return h * 60 + (m || 0) }
+      const closedExc = new Set((excToday || []).filter((e: any) => e.is_closed).map((e: any) => e.location_id))
+      const openIds = new Set((hoursToday || [])
+        .filter((h: any) => !h.is_closed && !closedExc.has(h.location_id)
+          && toMin(h.open_time) <= nowMin && nowMin < toMin(h.close_time))
+        .map((h: any) => h.location_id))
+
+      // Σειρά: πρώτα όσα έχει ήδη κλείσει ο χρήστης (πιο πρόσφατα πρώτα), μετά τα ανοιχτά, μετά τα υπόλοιπα.
+      const myOrder = new Map<string, number>()
+      ;(myBookings || []).forEach((b: any, i: number) => { if (!myOrder.has(b.location_id)) myOrder.set(b.location_id, i) })
+      const allLocs = ((locs as Location[]) || []).map(l => ({ ...l, open: openIds.has(l.id) })).sort((a, b) => {
+        const ma = myOrder.get(a.id) ?? 999, mb = myOrder.get(b.id) ?? 999
+        if (ma !== mb) return ma - mb
+        return Number(openIds.has(b.id)) - Number(openIds.has(a.id))
+      })
+
       const fresh: HomeCache = {
         upcoming: (upcoming as unknown as Booking) || null,
         last: (last as unknown as Booking) || null,
         favs: (favs as unknown as Favorite[]) || [],
-        locs: (locs as Location[]) || [],
+        locs: allLocs,
+        openCount: allLocs.filter(l => openIds.has(l.id)).length,
         partner: !!(ownedLocation as { id?: string } | null)?.id,
       }
       applyHome(fresh)
@@ -429,19 +461,25 @@ export default function HomePage() {
                     href={`/locations/${loc.slug}`}
                     className="flex-shrink-0 w-40 bg-white rounded-xl border border-gray-100 p-2.5 flex flex-col gap-2"
                   >
-                    <div
-                      className="h-16 rounded-lg relative"
-                      style={{
-                        background: 'repeating-linear-gradient(135deg, #F7F7F7 0 10px, #FAFAFA 10px 20px)',
-                      }}
-                    >
-                      <div className="absolute top-1.5 left-2 font-mono text-[8px] text-gray-400">
-                        {'// photo'}
-                      </div>
+                    <div className="h-20 rounded-lg relative overflow-hidden bg-gray-900">
+                      {loc.photos && loc.photos.length > 0 ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={loc.photos[0]} alt={loc.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-white text-[22px] font-semibold">{loc.name?.charAt(0) || '·'}</span>
+                        </div>
+                      )}
+                      <span className={`absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${loc.open ? 'bg-white/90 text-gray-900' : 'bg-black/50 text-white/80'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${loc.open ? 'bg-green-500' : 'bg-gray-400'}`} />
+                        {loc.open ? t.open : t.closed}
+                      </span>
                     </div>
                     <div>
                       <p className="text-xs font-semibold text-gray-900 truncate">{loc.name}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5">{loc.city}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1 truncate">
+                        <MapPin size={10} className="shrink-0" />{loc.city}
+                      </p>
                     </div>
                   </Link>
                 ))}

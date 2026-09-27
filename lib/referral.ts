@@ -22,9 +22,13 @@ export function isCreditEligible(baseAmount: number): boolean {
 // link: washio.gr/?ref=WELCOME). Βάλ' τα ό,τι θες στα creatives.
 const WELCOME_CODES = ['WELCOME', 'WASHIO', 'ADS']
 
+// ΕΝΑ κουπόνι ανά πλύσιμο: όσα κι αν έχει μαζέψει (π.χ. 6€), σε κάθε κράτηση
+// εφαρμόζεται το πολύ ένα κουπόνι (3€). Τα υπόλοιπα μένουν για τα επόμενα πλυσίματα.
+export const MAX_CREDIT_PER_BOOKING = 3
+
 // Πόσο από το wallet εφαρμόζεται σε μια κράτηση αξίας baseAmount.
 export function computeRedeemable(balance: number, baseAmount: number): number {
-  const cap = Math.max(0, baseAmount - MIN_CHARGE)
+  const cap = Math.max(0, Math.min(baseAmount - MIN_CHARGE, MAX_CREDIT_PER_BOOKING))
   return Math.max(0, Math.min(Number(balance) || 0, cap))
 }
 
