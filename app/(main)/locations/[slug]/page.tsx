@@ -326,7 +326,7 @@ export default function LocationPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-white flex items-center justify-center">
+      <main className="min-h-screen bg-washio-bg flex items-center justify-center">
         <WashioLoader />
       </main>
     )
@@ -335,11 +335,11 @@ export default function LocationPage() {
   if (!location) return null
 
   return (
-    <main className="min-h-screen bg-white flex flex-col items-center">
-      <div className="w-full max-w-md md:max-w-4xl pb-32 relative">
+    <main className="min-h-screen bg-washio-bg flex flex-col items-center">
+      <div className="w-full max-w-md md:max-w-4xl pb-36 relative">
 
         {/* Hero photo strip with floating nav buttons */}
-        <div className="h-[200px] relative overflow-hidden bg-gray-900">
+        <div className="h-[250px] relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #16233A 0%, #0E4A63 100%)' }}>
           {location.photos && location.photos.length > 0 ? (
             // Swipe carousel (scroll-snap) — όλες οι φωτογραφίες, όχι μόνο η 1η.
             <div
@@ -368,29 +368,33 @@ export default function LocationPage() {
             </div>
           )}
 
+          {/* Απαλό navy fade κάτω — «δένει» τη φωτογραφία με την κάρτα περιεχομένου */}
+          <div className="absolute inset-x-0 bottom-0 h-24 pointer-events-none"
+            style={{ background: 'linear-gradient(180deg, rgba(16,24,42,0) 0%, rgba(16,24,42,0.45) 100%)' }} />
+
           {/* Nav buttons floating over hero */}
           <div className="absolute top-[calc(var(--safe-top)+14px)] left-4 right-4 flex justify-between">
             <button
               onClick={() => router.back()}
-              className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-gray-900"
-              style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+              className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center text-washio-navy"
+              style={{ boxShadow: '0 4px 14px rgba(16,24,42,0.18)' }}
             >
               <ChevronLeft size={20} />
             </button>
             {userId && (
               <button
                 onClick={toggleFavorite}
-                className="w-10 h-10 rounded-full bg-white flex items-center justify-center"
-                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+                className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center"
+                style={{ boxShadow: '0 4px 14px rgba(16,24,42,0.18)' }}
               >
-                <Heart size={18} className={isFavorite ? 'text-red-500 fill-red-500' : 'text-gray-900'} />
+                <Heart size={18} className={isFavorite ? 'text-washio-cyan fill-washio-cyan' : 'text-washio-navy'} />
               </button>
             )}
           </div>
 
           {/* Photo dots */}
           {location.photos && location.photos.length > 1 && (
-            <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex gap-1.5 pointer-events-none">
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex gap-1.5 pointer-events-none">
               {location.photos.map((_, i) => (
                 <span
                   key={i}
@@ -402,7 +406,7 @@ export default function LocationPage() {
         </div>
 
         {/* Content */}
-        <div className="px-5 pt-5 md:flex md:gap-8 md:items-start">
+        <div className="relative -mt-7 bg-washio-bg rounded-t-[28px] px-5 pt-6 md:flex md:gap-8 md:items-start">
 
           {/* LEFT (desktop): τι (όχημα + υπηρεσίες) */}
           <div className="md:flex-1 md:min-w-0">
@@ -410,30 +414,31 @@ export default function LocationPage() {
           {/* Heading */}
           <div className="flex justify-between items-start gap-3">
             <div className="flex-1">
-              <h1 className="text-[24px] font-semibold tracking-tight leading-[1.15] text-gray-900">{location.name}</h1>
+              <h1 className="text-[25px] font-bold tracking-tight leading-[1.15] text-washio-navy">{location.name}</h1>
               <div className="flex items-center gap-1.5 mt-2">
-                <MapPin size={13} className="text-gray-500" strokeWidth={1.6} />
+                <MapPin size={14} className="text-washio-cyan-dark shrink-0" strokeWidth={2} />
                 <p className="text-[13px] text-gray-500">{location.address}, {location.city}</p>
               </div>
             </div>
             <button
               onClick={() => { lightTap(); router.push('/locations/' + slug + '/reviews') }}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-gray-50 rounded-lg shrink-0"
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-washio-border rounded-full shrink-0"
+              style={{ boxShadow: '0 2px 8px rgba(16,24,42,0.05)' }}
             >
-              <Star size={12} className="fill-gray-900 text-gray-900" strokeWidth={1} />
+              <Star size={13} className="fill-washio-cyan-dark text-washio-cyan-dark" strokeWidth={1} />
               {reviewAvg !== null ? (
-                <span className="text-[12px] font-semibold text-gray-900">
+                <span className="text-[12px] font-semibold text-washio-navy">
                   {reviewAvg.toFixed(1)}
                   <span className="text-gray-400 font-medium"> ({reviewCount})</span>
                 </span>
               ) : (
-                <span className="text-[12px] font-semibold text-gray-900">{t.newBadge}</span>
+                <span className="text-[12px] font-semibold text-washio-navy">{t.newBadge}</span>
               )}
             </button>
           </div>
 
           {/* Vehicle type */}
-          <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mt-7 mb-2.5">
+          <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-7 mb-2.5">
             {t.vehicle}
           </p>
           <div className="flex gap-2">
@@ -445,8 +450,8 @@ export default function LocationPage() {
                   onClick={() => { setVehicleType(type); lightTap() }}
                   className={`px-3.5 py-2.5 rounded-full text-[13px] font-semibold border flex items-center gap-1.5 transition-all ${
                     active
-                      ? 'bg-gray-900 text-white border-gray-900'
-                      : 'bg-white text-gray-900 border-gray-200'
+                      ? 'bg-washio-cyan text-white border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
+                      : 'bg-white text-washio-navy border-washio-border'
                   }`}
                 >
                   {type === 'Μοτοσικλέτα' ? <Bike size={15} /> : <Car size={15} />}
@@ -457,7 +462,7 @@ export default function LocationPage() {
           </div>
 
           {/* Services */}
-          <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mt-6 mb-2.5">
+          <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-6 mb-2.5">
             {t.service}
           </p>
           <div className="flex flex-col gap-2.5">
@@ -468,22 +473,24 @@ export default function LocationPage() {
                 <button
                   key={s.id}
                   onClick={() => { setSelectedServiceId(s.id); lightTap() }}
-                  className={`flex items-center gap-3.5 p-[18px] rounded-2xl border transition-all text-left ${
+                  className={`flex items-center gap-3.5 p-[18px] rounded-[20px] border transition-all text-left ${
                     selected
-                      ? 'bg-gray-900 border-gray-900 text-white'
-                      : 'bg-white border-gray-100 text-gray-900'
+                      ? 'border-washio-navy text-white'
+                      : 'bg-white border-washio-border text-washio-navy'
                   }`}
-                  style={!selected ? { boxShadow: '0 1px 3px rgba(0,0,0,0.03)' } : undefined}
+                  style={selected
+                    ? { background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 10px 24px rgba(16,24,42,0.22)' }
+                    : { boxShadow: '0 4px 14px rgba(16,24,42,0.05)' }}
                 >
                   <div
                     className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-                      selected ? 'bg-white' : 'border-[1.5px] border-gray-200'
+                      selected ? 'bg-washio-cyan' : 'border-[1.5px] border-washio-border'
                     }`}
                   >
-                    {selected && <Check size={14} className="text-gray-900" strokeWidth={2.4} />}
+                    {selected && <Check size={14} className="text-white" strokeWidth={2.6} />}
                   </div>
                   <div className="flex-1">
-                    <p className={`text-[15px] font-semibold tracking-tight ${selected ? 'text-white' : 'text-gray-900'}`}>
+                    <p className={`text-[15px] font-semibold tracking-tight ${selected ? 'text-white' : 'text-washio-navy'}`}>
                       {s.name}
                     </p>
                     {s.description && (
@@ -492,7 +499,7 @@ export default function LocationPage() {
                       </p>
                     )}
                   </div>
-                  <p className={`text-[17px] font-semibold tracking-tight ${selected ? 'text-white' : 'text-gray-900'}`}>
+                  <p className={`text-[17px] font-bold tracking-tight ${selected ? 'text-washio-cyan' : 'text-washio-navy'}`}>
                     {price}
                   </p>
                 </button>
@@ -506,7 +513,7 @@ export default function LocationPage() {
 
           {/* Date picker */}
           <div className="flex items-center justify-between mt-7 mb-2.5">
-            <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase">
+            <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase">
               {t.date}
             </p>
             <div className="flex items-center gap-1">
@@ -517,7 +524,7 @@ export default function LocationPage() {
               >
                 <ChevronLeft size={14} />
               </button>
-              <span className="text-[12px] font-semibold text-gray-700 min-w-[90px] text-center">
+              <span className="text-[12px] font-semibold text-washio-navy min-w-[90px] text-center">
                 {MONTHS_L[locale][viewMonth]}
               </span>
               <button onClick={nextMonth} className="p-1.5 rounded-lg text-gray-500">
@@ -535,11 +542,12 @@ export default function LocationPage() {
                   onClick={() => { setSelectedDate(d); setSelectedSlot(null); lightTap() }}
                   className={`shrink-0 w-14 h-[72px] rounded-[14px] border flex flex-col items-center justify-center gap-1 transition-all ${
                     selected
-                      ? 'bg-gray-900 border-gray-900 text-white'
+                      ? 'border-washio-cyan text-white'
                       : isSunday
-                      ? 'bg-gray-50 border-gray-100 text-gray-400'
-                      : 'bg-white border-gray-100 text-gray-900'
+                      ? 'bg-gray-100 border-washio-border text-gray-400'
+                      : 'bg-white border-washio-border text-washio-navy'
                   }`}
+                  style={selected ? { background: 'linear-gradient(160deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 6px 16px rgba(25,168,199,0.35)' } : undefined}
                 >
                   <span
                     className={`text-[11px] font-medium uppercase tracking-wider ${
@@ -548,7 +556,7 @@ export default function LocationPage() {
                   >
                     {DAYS_JS_L[locale][d.getDay()]}
                   </span>
-                  <span className={`text-[20px] font-semibold tracking-tight ${selected ? 'text-white' : isSunday ? 'text-gray-400' : 'text-gray-900'}`}>
+                  <span className={`text-[20px] font-semibold tracking-tight ${selected ? 'text-white' : isSunday ? 'text-gray-400' : 'text-washio-navy'}`}>
                     {d.getDate()}
                   </span>
                 </button>
@@ -557,7 +565,7 @@ export default function LocationPage() {
           </div>
 
           {/* Time slots */}
-          <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mt-6 mb-2.5">
+          <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-6 mb-2.5">
             {t.time} · {selectedDate.getDate()} {MONTHS_SHORT_L[locale][selectedDate.getMonth()]}
           </p>
           {slotsLoading ? (
@@ -572,7 +580,7 @@ export default function LocationPage() {
                   return (
                     <div
                       key={slot.id}
-                      className="h-11 rounded-xl border border-gray-100 bg-gray-50 flex items-center justify-center text-[14px] font-semibold text-gray-300"
+                      className="h-11 rounded-xl border border-washio-border bg-gray-100 flex items-center justify-center text-[14px] font-semibold text-gray-300"
                       style={{ textDecoration: 'line-through' }}
                     >
                       {slot.time}
@@ -585,8 +593,8 @@ export default function LocationPage() {
                     onClick={() => { setSelectedSlot(slot.id); lightTap() }}
                     className={`h-11 rounded-xl border text-[14px] font-semibold transition-all ${
                       selected
-                        ? 'bg-gray-900 border-gray-900 text-white'
-                        : 'bg-white border-gray-200 text-gray-900'
+                        ? 'bg-washio-cyan border-washio-cyan text-white shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
+                        : 'bg-white border-washio-border text-washio-navy'
                     }`}
                   >
                     {slot.time}
@@ -602,20 +610,21 @@ export default function LocationPage() {
         <div
           className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 pt-3.5 pb-10"
           style={{
-            background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 28%)',
+            background: 'linear-gradient(180deg, rgba(247,250,252,0) 0%, #F7FAFC 28%)',
           }}
         >
           {canBook ? (
             <button
               onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`)}
-              className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
+              className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
+              style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.38)' }}
             >
               <span>{t.book}</span>
               <span className="w-px h-4 bg-white/25" />
               <span>{service ? priceLabel(service) : `€${selectedServicePrice}`}</span>
             </button>
           ) : (
-            <div className="w-full h-14 rounded-xl bg-gray-100 text-gray-400 text-[14px] font-medium flex items-center justify-center">
+            <div className="w-full h-14 rounded-2xl bg-white border border-washio-border text-gray-400 text-[14px] font-medium flex items-center justify-center">
               {t.selectPrompt}
             </div>
           )}
