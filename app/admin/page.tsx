@@ -604,7 +604,7 @@ export default function AdminPage() {
                         <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#999' }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 10, fill: '#999' }} axisLine={false} tickLine={false} />
                         <Tooltip formatter={(value) => `€${value}`} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                        <Bar dataKey="revenue" fill="#0A0A0A" radius={[2, 2, 0, 0]} name="Έσοδα" />
+                        <Bar dataKey="revenue" fill="#10182A" radius={[2, 2, 0, 0]} name="Έσοδα" />
                         <Bar dataKey="commission" fill="#D1D5DB" radius={[2, 2, 0, 0]} name="Προμήθεια" />
                       </BarChart>
                     </ResponsiveContainer>
@@ -1579,7 +1579,7 @@ export default function AdminPage() {
                           onClick={() => setFinPeriod(p.key)}
                           className="flex-1 h-9 rounded-[9px] text-[12px] font-semibold border transition-colors"
                           style={finPeriod === p.key
-                            ? { background: '#0A0A0A', color: '#fff', borderColor: '#0A0A0A' }
+                            ? { background: '#10182A', color: '#fff', borderColor: '#10182A' }
                             : { background: '#fff', color: '#666', borderColor: '#E5E7EB' }}
                         >
                           {p.label}
@@ -1652,7 +1652,7 @@ export default function AdminPage() {
                           <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#999' }} axisLine={false} tickLine={false} />
                           <YAxis tick={{ fontSize: 10, fill: '#999' }} axisLine={false} tickLine={false} tickFormatter={(v) => `€${v}`} />
                           <Tooltip formatter={(value) => `€${value}`} cursor={{ fill: 'rgba(0,0,0,0.02)' }} />
-                          <Bar dataKey="revenue" fill="#0A0A0A" radius={[2, 2, 0, 0]} name="Έσοδα σημείων" />
+                          <Bar dataKey="revenue" fill="#10182A" radius={[2, 2, 0, 0]} name="Έσοδα σημείων" />
                           <Bar dataKey="commission" fill="#9CA3AF" radius={[2, 2, 0, 0]} name="Προμήθεια Washio" />
                         </BarChart>
                       </ResponsiveContainer>

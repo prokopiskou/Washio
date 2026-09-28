@@ -17,15 +17,15 @@ const MAX_AGE_H = 24      // μην ενοχλείς attempts παλαιότερ
 function emailHtml(service: string, url: string): string {
   return `
   <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
-    <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
+    <div style="background: #10182A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
       <h1 style="color: white; font-size: 22px; font-weight: 600; margin: 0;">washio</h1>
     </div>
     <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
-      <h2 style="font-size: 20px; font-weight: 700; color: #0A0A0A; margin: 0 0 14px;">Δεν ολοκλήρωσες την κράτησή σου.</h2>
+      <h2 style="font-size: 20px; font-weight: 700; color: #10182A; margin: 0 0 14px;">Δεν ολοκλήρωσες την κράτησή σου.</h2>
       <p style="color: #444; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
         Ξεκίνησες κράτηση για <strong>${service || 'πλύσιμο'}</strong> αλλά δεν ολοκληρώθηκε. Το πλύσιμό σου σε περιμένει — κλείσε το σε 30 δευτερόλεπτα.
       </p>
-      <a href="${url}" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none; font-size: 15px; font-weight: 600; margin-bottom: 24px;">Ολοκλήρωσε την κράτηση</a>
+      <a href="${url}" style="display: block; background: #10182A; color: white; text-align: center; padding: 15px; border-radius: 12px; text-decoration: none; font-size: 15px; font-weight: 600; margin-bottom: 24px;">Ολοκλήρωσε την κράτηση</a>
       <p style="color: #999; font-size: 12px; margin: 0;">— Η ομάδα του Washio</p>
     </div>
   </div>`

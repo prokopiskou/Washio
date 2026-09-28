@@ -66,7 +66,7 @@ function QRPlaceholder({ size = 80 }: { size?: number }) {
         <div
           key={i}
           style={{
-            background: c ? '#0A0A0A' : 'transparent',
+            background: c ? '#10182A' : 'transparent',
             borderRadius: 1,
           }}
         />

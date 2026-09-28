@@ -436,10 +436,10 @@ function MapPageContent() {
         map,
         center,
         radius: 3000,
-        strokeColor: '#0A0A0A',
+        strokeColor: '#10182A',
         strokeOpacity: 0.12,
         strokeWeight: 1,
-        fillColor: '#0A0A0A',
+        fillColor: '#10182A',
         fillOpacity: 0.04,
       })
     } else {
@@ -659,13 +659,13 @@ function MapPageContent() {
       </filter>
     </defs>
     <g filter="url(#shadow-${loc.id})">
-      <rect x="1" y="0" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
+      <rect x="1" y="0" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#10182A' : '#FFFFFF'}"/>
     </g>
-    <text x="${cx}" y="15" text-anchor="middle" text-rendering="geometricPrecision" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}">${esc(label)}</text>
+    <text x="${cx}" y="15" text-anchor="middle" text-rendering="geometricPrecision" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#10182A'}">${esc(label)}</text>
     <g filter="url(#shadow-${loc.id})" transform="translate(${cx - 22}, 28)">
-      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
-      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}"/>
-      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
+      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#10182A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#10182A'}"/>
+      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#10182A' : '#FFFFFF'}"/>
     </g>
   </svg>
 `
@@ -679,9 +679,9 @@ function MapPageContent() {
       </filter>
     </defs>
     <g filter="url(#shadow-${loc.id})">
-      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
-      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#0A0A0A'}"/>
-      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#0A0A0A' : '#FFFFFF'}"/>
+      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#10182A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#10182A'}"/>
+      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#10182A' : '#FFFFFF'}"/>
     </g>
   </svg>
 `

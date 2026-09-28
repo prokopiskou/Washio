@@ -32,8 +32,8 @@ function cashEmailHtml(data: {
   // Υπηρεσία εύρους (βιολογικός): ο πελάτης βλέπει εύρος, όχι σταθερό ποσό —
   // η τελική τιμή λέγεται επιτόπου μετά την εκτίμηση.
   const payableRow = data.isRange
-    ? `<tr><td style="color: #0A0A0A; font-weight: 600; padding: 8px 0 0;">Εκτιμώμενο εύρος</td><td style="color: #0A0A0A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.rangeText}</td></tr>`
-    : `<tr><td style="color: #0A0A0A; font-weight: 600; padding: 8px 0 0;">Πληρωτέο (μετρητά)</td><td style="color: #0A0A0A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td></tr>`
+    ? `<tr><td style="color: #10182A; font-weight: 600; padding: 8px 0 0;">Εκτιμώμενο εύρος</td><td style="color: #10182A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.rangeText}</td></tr>`
+    : `<tr><td style="color: #10182A; font-weight: 600; padding: 8px 0 0;">Πληρωτέο (μετρητά)</td><td style="color: #10182A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td></tr>`
   const instructionsBlock = data.extraInstructions
     ? `<div style="background: #F0F7FF; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
           <p style="color: #1A6FD4; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px;">Χρήσιμες οδηγίες</p>
@@ -42,23 +42,23 @@ function cashEmailHtml(data: {
     : ''
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
-      <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
+      <div style="background: #10182A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
         <h1 style="color: white; font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">washio</h1>
         <p style="color: #666; font-size: 12px; margin: 6px 0 0;">Πλύσιμο αυτοκινήτου με ένα tap</p>
       </div>
       <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
         <div style="text-align: center; margin-bottom: 28px;">
-          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Η κράτησή σου επιβεβαιώθηκε!</h2>
+          <h2 style="font-size: 18px; font-weight: 600; color: #10182A; margin: 0 0 6px;">Η κράτησή σου επιβεβαιώθηκε!</h2>
           <p style="color: #999; font-size: 13px; margin: 0;">Πληρωμή με μετρητά στο κατάστημα.</p>
         </div>
         <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 20px;">
           <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Κωδικός κράτησης</td><td style="color: #0A0A0A; font-weight: 600; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF; font-family: monospace;">${data.bookingRef}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Σταθμός</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationName}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Υπηρεσία</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.service}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ημερομηνία</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.date}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ώρα</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.time}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Πινακίδα</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.plate}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Κωδικός κράτησης</td><td style="color: #10182A; font-weight: 600; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF; font-family: monospace;">${data.bookingRef}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Σταθμός</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationName}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Υπηρεσία</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.service}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ημερομηνία</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.date}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ώρα</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.time}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Πινακίδα</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.plate}</td></tr>
             ${payableRow}
           </table>
         </div>
@@ -69,7 +69,7 @@ function cashEmailHtml(data: {
           </p>
         </div>
         ${instructionsBlock}
-        <a href="${BASE_URL}" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500;">Δες τις κρατήσεις σου →</a>
+        <a href="${BASE_URL}" style="display: block; background: #10182A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500;">Δες τις κρατήσεις σου →</a>
       </div>
     </div>
   `

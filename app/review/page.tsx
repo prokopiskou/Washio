@@ -64,7 +64,7 @@ function ReviewInner() {
   return (
     <main className="min-h-screen bg-gray-50 flex items-center justify-center px-5 py-10">
       <div className="w-full max-w-[400px]">
-        <div className="rounded-t-2xl bg-[#0A0A0A] py-7 text-center">
+        <div className="rounded-t-2xl bg-[#10182A] py-7 text-center">
           <h1 className="text-white text-[22px] font-semibold tracking-tight">washio</h1>
         </div>
 

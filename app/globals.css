@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F7FAFC;
+  --foreground: #10182A;
   color-scheme: light;
   /* Απόσταση κορυφής: στο WEB μόνο το πραγματικό safe-area (≈0 κάτω από τη μπάρα
      του browser). Το native app προσθέτει το class .native-app (βλ. παρακάτω)
@@ -21,6 +21,51 @@ html.native-app {
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/* ============================================================
+   WASHIO PALETTE — ένα σημείο αλήθειας για όλη την εφαρμογή.
+   Οι κλίμακες gray/blue/green του Tailwind αντιστοιχίζονται στα
+   brand χρώματα, άρα ΟΛΕΣ οι οθόνες (app, dashboard, admin)
+   παίρνουν αυτόματα το navy/cyan look χωρίς αλλαγή σε κάθε αρχείο.
+   ============================================================ */
+@theme {
+  --color-washio-navy: #10182A;
+  --color-washio-navy-2: #16233A;
+  --color-washio-cyan: #19A8C7;
+  --color-washio-cyan-dark: #078EAD;
+  --color-washio-cyan-light: #EAF8FB;
+  --color-washio-bg: #F7FAFC;
+  --color-washio-border: #E8EEF2;
+  --color-washio-success: #16C76B;
+  --color-washio-success-bg: #EAF9F1;
+
+  /* gray → navy-tinted ουδέτερα */
+  --color-gray-50: #F7FAFC;
+  --color-gray-100: #EEF3F6;
+  --color-gray-200: #E8EEF2;
+  --color-gray-300: #CBD3DB;
+  --color-gray-400: #9AA3AF;
+  --color-gray-500: #6F7785;
+  --color-gray-600: #566071;
+  --color-gray-700: #3A4556;
+  --color-gray-800: #16233A;
+  --color-gray-900: #10182A;
+
+  /* blue → cyan (links, accents) */
+  --color-blue-50: #EAF8FB;
+  --color-blue-100: #D2F0F6;
+  --color-blue-400: #4CC0D8;
+  --color-blue-500: #19A8C7;
+  --color-blue-600: #078EAD;
+  --color-blue-900: #0B4F5F;
+
+  /* green → success */
+  --color-green-50: #EAF9F1;
+  --color-green-400: #3DD68A;
+  --color-green-500: #16C76B;
+  --color-green-600: #0FA557;
+  --color-green-700: #0B8446;
 }
 
 html, body {
@@ -122,7 +167,7 @@ button:active, a:active, [role="button"]:active {
   width: 10px;
   height: 10px;
   border-radius: 9999px;
-  background: #0A0A0A;
+  background: #19A8C7;
   display: inline-block;
   animation: washio-dot-bounce 1.3s ease-in-out infinite;
 }

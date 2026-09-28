@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Capacitor } from '@capacitor/core'
-import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, MapPin, Home as HomeIcon, Store } from 'lucide-react'
+import { ArrowRight, Star, RotateCw, Calendar, ChevronRight, Store, Clock, Heart, Car } from 'lucide-react'
 import dynamic from 'next/dynamic'
 // Landing μόνο για αποσυνδεδεμένους web επισκέπτες — όχι στο bundle των χρηστών.
 const LandingPage = dynamic(() => import('./landing/page'))
@@ -36,7 +36,7 @@ const T = {
     nextBooking: 'Επόμενη κράτηση',
     recent: 'Πλυντήρια',
     all: 'Χάρτης →',
-    open: 'Ανοιχτό', closed: 'Κλειστό',
+    open: 'Ανοιχτό', closed: 'Κλειστό', from: 'Από', newPlace: 'Νέο',
     partnerBannerTitle: 'Η επιχείρησή σου είναι live',
     partnerBannerSub: 'Δες κρατήσεις, τιμές και ωράριο',
     partnerBannerCta: 'Άνοιξε το dashboard',
@@ -59,7 +59,7 @@ const T = {
     nextBooking: 'Next booking',
     recent: 'Car washes',
     all: 'Map →',
-    open: 'Open', closed: 'Closed',
+    open: 'Open', closed: 'Closed', from: 'From', newPlace: 'New',
     partnerBannerTitle: 'Your business is live',
     partnerBannerSub: 'See bookings, prices and hours',
     partnerBannerCta: 'Open dashboard',
@@ -78,6 +78,15 @@ type Location = {
   slug: string
   photos?: string[] | null
   open?: boolean
+  rating?: number | null
+  reviewCount?: number
+  minPrice?: number | null
+  duration?: number | null
+}
+
+type LocRow = Location & {
+  services?: { price: number | null; is_active: boolean | null; is_range?: boolean | null; price_min?: number | null; duration_minutes?: number | null; display_duration_minutes?: number | null }[]
+  reviews?: { rating: number }[]
 }
 
 type Booking = {
@@ -209,7 +218,7 @@ export default function HomePage() {
         // ΟΛΑ τα ενεργά σημεία — ίδια πηγή με τον χάρτη (is_active).
         supabase
           .from('locations')
-          .select('id, name, city, slug, photos')
+          .select('id, name, city, slug, photos, services(price, is_active, is_range, price_min, duration_minutes, display_duration_minutes), reviews(rating)')
           .eq('is_active', true),
         // Partner check — έχει ο χρήστης δικό του πλυντήριο;
         supabase
@@ -233,7 +242,24 @@ export default function HomePage() {
       // Σειρά: πρώτα όσα έχει ήδη κλείσει ο χρήστης (πιο πρόσφατα πρώτα), μετά τα ανοιχτά, μετά τα υπόλοιπα.
       const myOrder = new Map<string, number>()
       ;(myBookings || []).forEach((b: any, i: number) => { if (!myOrder.has(b.location_id)) myOrder.set(b.location_id, i) })
-      const allLocs = ((locs as Location[]) || []).map(l => ({ ...l, open: openIds.has(l.id) })).sort((a, b) => {
+      // Κάρτα σημείου: βαθμολογία, «Από €», διάρκεια — από τα ίδια δεδομένα του πλυντηρίου.
+      const summarize = (l: LocRow): Location => {
+        const svc = (l.services || []).filter(s => s.is_active !== false)
+        const prices = svc
+          .map(s => s.is_range ? Number(s.price_min) : Number(s.price))
+          .filter(p => p > 0)
+        const cheapest = svc.find(s => (s.is_range ? Number(s.price_min) : Number(s.price)) === Math.min(...prices))
+        const r = (l.reviews || []).map(x => Number(x.rating)).filter(x => x > 0)
+        return {
+          id: l.id, name: l.name, city: l.city, slug: l.slug, photos: l.photos,
+          open: openIds.has(l.id),
+          rating: r.length ? Math.round((r.reduce((a, b) => a + b, 0) / r.length) * 10) / 10 : null,
+          reviewCount: r.length,
+          minPrice: prices.length ? Math.min(...prices) : null,
+          duration: cheapest ? (cheapest.display_duration_minutes || cheapest.duration_minutes || null) : null,
+        }
+      }
+      const allLocs = ((locs as unknown as LocRow[]) || []).map(summarize).sort((a, b) => {
         const ma = myOrder.get(a.id) ?? 999, mb = myOrder.get(b.id) ?? 999
         if (ma !== mb) return ma - mb
         return Number(openIds.has(b.id)) - Number(openIds.has(a.id))
@@ -268,10 +294,37 @@ export default function HomePage() {
   }
 
   const upcomingDate = upcomingBooking ? new Date(upcomingBooking.slot_date) : null
+  const favIds = new Set(favorites.map(f => f.locations?.id).filter(Boolean) as string[])
+
+  // Καρδιά σε κάρτα σημείου: προσθήκη/αφαίρεση από αγαπημένα (optimistic).
+  const toggleFav = async (e: React.MouseEvent, loc: Location) => {
+    e.preventDefault(); e.stopPropagation()
+    const supabase = createClient()
+    const { data: s } = await supabase.auth.getSession()
+    const uid = s.session?.user?.id
+    if (!uid) return
+    const existing = favorites.find(f => f.locations?.id === loc.id)
+    if (existing) {
+      setFavorites(prev => prev.filter(f => f.id !== existing.id))
+      await supabase.from('favorites').delete().eq('id', existing.id)
+    } else {
+      const tempId = 'tmp-' + loc.id
+      setFavorites(prev => [...prev, { id: tempId, locations: { id: loc.id, name: loc.name, slug: loc.slug } }])
+      const { data } = await supabase.from('favorites').insert({ user_id: uid, location_id: loc.id }).select('id').single()
+      if (data?.id) setFavorites(prev => prev.map(f => f.id === tempId ? { ...f, id: data.id } : f))
+    }
+  }
+
+  const cardShadow = { boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col items-center">
-      <div className="w-full max-w-md md:max-w-2xl pb-24">
+    <main className="min-h-screen flex flex-col items-center relative overflow-hidden"
+      style={{ background: 'linear-gradient(180deg, #EAF8FB 0%, #F7FAFC 320px)' }}>
+      {/* Διακριτικό cyan «κύμα» φόντου πάνω αριστερά */}
+      <div className="pointer-events-none absolute -top-24 -left-28 w-[360px] h-[360px] rounded-full"
+        style={{ background: 'radial-gradient(circle, rgba(25,168,199,0.10) 0%, rgba(25,168,199,0) 70%)' }} />
+
+      <div className="relative w-full max-w-md md:max-w-2xl pb-32">
         <div className="px-5 pt-[calc(var(--safe-top)+8px)] pb-6 flex flex-col gap-5">
 
           {/* Header — centered logo */}
@@ -279,140 +332,130 @@ export default function HomePage() {
             <img src="/washio-logo.webp" fetchPriority="high" decoding="async" alt="Washio" className="h-48 md:h-40 w-auto" />
           </div>
 
-          {/* Partner banner — εμφανίζεται μόνο σε ιδιοκτήτες πλυντηρίων */}
+          {/* Partner banner — μόνο σε ιδιοκτήτες πλυντηρίων */}
           {isPartner && (
             <button
               onClick={() => router.push('/dashboard')}
-              className="w-full bg-gray-900 rounded-2xl px-4 py-3.5 flex items-center gap-3 text-left"
-              style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+              className="w-full rounded-[22px] px-4 py-4 flex items-center gap-3.5 text-left active:scale-[0.99] transition-transform"
+              style={{ background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 8px 22px rgba(16,24,42,0.18)' }}
             >
-              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
-                <Store size={18} className="text-white" strokeWidth={1.8} />
+              <div className="w-12 h-12 rounded-full bg-washio-cyan flex items-center justify-center shrink-0">
+                <Store size={20} className="text-white" strokeWidth={1.9} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-white leading-tight truncate">
-                  {t.partnerBannerTitle}
-                </p>
-                <p className="text-[11px] text-white/70 mt-0.5 truncate">
-                  {t.partnerBannerCta} →
-                </p>
+                <p className="text-[15px] font-semibold text-white leading-tight truncate">{t.partnerBannerTitle}</p>
+                <p className="text-[12px] text-white/65 mt-1 truncate">{t.partnerBannerCta} →</p>
               </div>
-              <ChevronRight size={18} className="text-white/70 shrink-0" />
+              <ChevronRight size={20} className="text-white/70 shrink-0" />
             </button>
           )}
 
-          <h1 className="text-[26px] font-bold tracking-tight leading-[1.15] text-gray-900 text-center">
-            {t.heading}
-          </h1>
+          <div>
+            <h1 className="text-[27px] font-bold tracking-tight leading-[1.15] text-washio-navy">
+              {t.heading}
+            </h1>
+            <span className="block mt-2 w-10 h-[3px] rounded-full bg-washio-cyan" />
+          </div>
 
           {/* Hero CTA */}
           <button
             onClick={() => router.push('/map')}
-            className="relative overflow-hidden bg-gray-900 rounded-[22px] px-6 py-6 shadow-lg text-left"
-            style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.10)' }}
+            className="relative overflow-hidden rounded-[26px] px-5 py-6 text-left active:scale-[0.99] transition-transform"
+            style={{ background: 'linear-gradient(120deg, #10182A 0%, #16233A 55%, #0E4A63 100%)', boxShadow: '0 14px 30px rgba(16,24,42,0.22)' }}
           >
-            {/* Decorative droplet */}
-            <div
-              className="absolute -right-6 -bottom-8 w-36 h-36 bg-white/[0.04] -rotate-[30deg]"
-              style={{ borderRadius: '50% 50% 50% 0' }}
-            />
-            <div className="flex items-center gap-3.5 relative">
+            {/* Δεξί «wet» panel: cyan καμπύλη + σταγόνες */}
+            <div className="absolute -right-16 -top-10 w-[230px] h-[260px] rounded-full"
+              style={{ background: 'radial-gradient(circle at 35% 45%, rgba(25,168,199,0.55) 0%, rgba(25,168,199,0.18) 45%, rgba(25,168,199,0) 70%)' }} />
+            <div className="absolute right-6 top-5 w-2 h-2 rounded-full bg-white/30" />
+            <div className="absolute right-16 top-10 w-1.5 h-1.5 rounded-full bg-white/25" />
+            <div className="absolute right-10 bottom-7 w-2.5 h-2.5 rounded-full bg-white/20" />
+            <div className="absolute right-24 bottom-12 w-1 h-1 rounded-full bg-white/30" />
+
+            <div className="relative flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-white/55">
-                  {t.readyIn30}
-                </p>
-                <p className="text-[22px] font-bold tracking-tight leading-[1.15] text-white mt-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-washio-cyan/90 text-white text-[11px] font-bold tracking-[1.2px] uppercase">
+                  <Clock size={13} strokeWidth={2.2} /> {t.readyIn30}
+                </span>
+                <p className="text-[26px] font-bold tracking-tight leading-[1.12] text-white mt-3.5">
                   {t.findNearby1}<br />{t.findNearby2}
                 </p>
                 {activeLocationsCount > 0 && (
-                  <div className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-full bg-white/10">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    <span className="text-[11px] font-semibold text-white/85">
-                      {t.openNow(activeLocationsCount)}
-                    </span>
+                  <div className="inline-flex items-center gap-2 mt-4 px-3 py-1.5 rounded-full bg-white/10">
+                    <span className="w-2 h-2 rounded-full bg-washio-success" />
+                    <span className="text-[12px] font-semibold text-white/90">{t.openNow(activeLocationsCount)}</span>
                   </div>
                 )}
               </div>
-              <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-                <ArrowRight size={20} className="text-gray-900" strokeWidth={2} />
+              <div className="w-[62px] h-[62px] rounded-full bg-washio-cyan flex items-center justify-center shrink-0"
+                style={{ boxShadow: '0 8px 22px rgba(25,168,199,0.45)' }}>
+                <ArrowRight size={26} className="text-white" strokeWidth={2.2} />
               </div>
             </div>
           </button>
 
           {/* Quick actions */}
-          <div className="grid grid-cols-2 gap-2.5">
-            {/* Repeat */}
+          <div className="grid grid-cols-2 gap-3">
             {lastBooking && lastBooking.locations ? (
               <button
                 onClick={() => router.push(`/locations/${lastBooking.locations?.slug}`)}
-                className="bg-white rounded-2xl border border-gray-100 p-3.5 flex flex-col gap-2 text-left"
-                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                className="relative overflow-hidden bg-white rounded-[20px] border border-washio-border p-4 flex flex-col gap-2 text-left"
+                style={{ ...cardShadow, background: 'linear-gradient(145deg, #FFFFFF 55%, #EAF8FB 100%)' }}
               >
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center">
-                    <RotateCw size={14} className="text-gray-900" strokeWidth={1.8} />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-washio-cyan-light flex items-center justify-center">
+                    <RotateCw size={16} className="text-washio-cyan-dark" strokeWidth={2} />
                   </div>
-                  <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">
-                    {t.repeat}
-                  </p>
+                  <p className="text-[11px] font-bold tracking-[1.3px] uppercase text-gray-500">{t.repeat}</p>
                 </div>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5 truncate">
-                  {lastBooking.locations.name}
-                </p>
-                <p className="text-xs font-medium text-blue-600">{t.bookAgain}</p>
+                <p className="text-[15px] font-semibold text-washio-navy mt-1 truncate">{lastBooking.locations.name}</p>
+                <p className="text-[13px] font-semibold text-washio-cyan-dark">{t.bookAgain}</p>
               </button>
             ) : (
               <button
                 onClick={() => router.push('/map')}
-                className="bg-white rounded-2xl border border-gray-100 p-3.5 flex flex-col gap-2 text-left"
-                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                className="relative overflow-hidden bg-white rounded-[20px] border border-washio-border p-4 flex flex-col gap-2 text-left"
+                style={{ ...cardShadow, background: 'linear-gradient(145deg, #FFFFFF 55%, #EAF8FB 100%)' }}
               >
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center">
-                    <Calendar size={14} className="text-gray-900" strokeWidth={1.8} />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-full bg-washio-cyan-light flex items-center justify-center">
+                    <Calendar size={16} className="text-washio-cyan-dark" strokeWidth={2} />
                   </div>
-                  <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">
-                    {t.firstBooking}
-                  </p>
+                  <p className="text-[11px] font-bold tracking-[1.3px] uppercase text-gray-500">{t.firstBooking}</p>
                 </div>
-                <p className="text-sm font-semibold text-gray-900 mt-0.5">{t.startNow}</p>
-                <p className="text-xs font-medium text-blue-600">{t.findWash}</p>
+                <p className="text-[15px] font-semibold text-washio-navy mt-1">{t.startNow}</p>
+                <p className="text-[13px] font-semibold text-washio-cyan-dark">{t.findWash}</p>
               </button>
             )}
 
-            {/* Favorites */}
             <Link
               href="/profile/favorites"
-              className="bg-white rounded-2xl border border-gray-100 p-3.5 flex flex-col gap-2"
-              style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+              className="relative overflow-hidden rounded-[20px] border border-washio-border p-4 flex flex-col gap-2"
+              style={{ ...cardShadow, background: 'linear-gradient(145deg, #FFFFFF 55%, #EAF8FB 100%)' }}
             >
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center">
-                  <Star size={14} className="text-gray-900 fill-gray-900" strokeWidth={1} />
+              <Heart size={40} className="absolute -right-1 top-3 text-washio-cyan/15 fill-washio-cyan/15" strokeWidth={0} />
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-washio-cyan-light flex items-center justify-center">
+                  <Star size={16} className="text-washio-cyan-dark fill-washio-cyan-dark" strokeWidth={1} />
                 </div>
-                <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">
-                  {t.favorites}
-                </p>
+                <p className="text-[11px] font-bold tracking-[1.3px] uppercase text-gray-500">{t.favorites}</p>
               </div>
               {favorites.length > 0 ? (
-                <div className="flex items-center mt-0.5">
+                <div className="flex items-center mt-1">
                   {favorites.slice(0, 3).map((fav, i) => (
                     <div
                       key={fav.id}
-                      className="w-7 h-7 rounded-full bg-gray-900 border-2 border-white flex items-center justify-center text-white text-[11px] font-semibold"
+                      className="w-7 h-7 rounded-full bg-washio-navy border-2 border-white flex items-center justify-center text-white text-[11px] font-semibold"
                       style={{ marginLeft: i ? -8 : 0 }}
                     >
                       {fav.locations?.name?.charAt(0) || '?'}
                     </div>
                   ))}
-                  {favorites.length > 3 && (
-                    <span className="text-xs text-gray-500 ml-2">+{favorites.length - 3}</span>
-                  )}
+                  {favorites.length > 3 && <span className="text-xs text-gray-500 ml-2">+{favorites.length - 3}</span>}
                 </div>
               ) : (
-                <p className="text-sm font-semibold text-gray-900 mt-0.5">{t.noneYet}</p>
+                <p className="text-[15px] font-semibold text-washio-navy mt-1">{t.noneYet}</p>
               )}
-              <p className="text-xs font-medium text-blue-600">{t.seeAll}</p>
+              <p className="text-[13px] font-semibold text-washio-cyan-dark">{t.seeAll}</p>
             </Link>
           </div>
 
@@ -420,66 +463,91 @@ export default function HomePage() {
           {upcomingBooking && upcomingDate && (
             <Link
               href={`/profile/bookings/${upcomingBooking.id}`}
-              className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex items-center gap-3.5"
+              className="bg-white rounded-[20px] p-4 border border-washio-border flex items-center gap-4"
+              style={cardShadow}
             >
-              <div className="w-11 h-11 rounded-[11px] bg-white border border-gray-200 flex flex-col items-center justify-center">
-                <span className="text-[9px] font-semibold tracking-wider uppercase text-gray-400">
+              <div className="w-14 h-14 rounded-2xl bg-white border border-washio-border flex flex-col items-center justify-center shrink-0"
+                style={{ boxShadow: '0 2px 8px rgba(16,24,42,0.06)' }}>
+                <span className="text-[10px] font-bold tracking-wider uppercase text-washio-navy/70">
                   {MONTHS_SHORT[locale][upcomingDate.getMonth()]}
                 </span>
-                <span className="text-[15px] font-bold text-gray-900 tabular-nums leading-none mt-0.5">
+                <span className="text-[20px] font-bold text-washio-navy tabular-nums leading-none mt-0.5">
                   {upcomingDate.getDate()}
                 </span>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">
-                  {t.nextBooking}
-                </p>
-                <p className="text-sm font-semibold text-gray-900 mt-1 truncate">
+                <p className="text-[11px] font-bold tracking-[1.3px] uppercase text-gray-500">{t.nextBooking}</p>
+                <p className="text-[15px] font-semibold text-washio-navy mt-1 truncate">
                   {upcomingBooking.locations?.name} · {upcomingBooking.slot_start_time?.slice(0, 5)}
                 </p>
-                <p className="text-[11px] font-medium text-gray-400 mt-0.5 font-mono tracking-wider">
+                <p className="text-[12px] font-medium text-washio-cyan mt-0.5 font-mono tracking-wider">
                   {upcomingBooking.booking_ref}
                 </p>
               </div>
-              <ChevronRight size={16} className="text-gray-400" />
+              <ChevronRight size={18} className="text-washio-cyan-dark shrink-0" />
             </Link>
           )}
 
-          {/* Recent locations */}
+          {/* Πλυντήρια — πραγματικά σημεία (ίδια με τον χάρτη) */}
           {recentLocations.length > 0 && (
             <div>
-              <div className="flex justify-between items-baseline mb-2.5">
-                <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
-                  {t.recent}
-                </p>
-                <Link href="/map" className="text-xs font-medium text-blue-600">{t.all}</Link>
+              <div className="flex justify-between items-baseline mb-3">
+                <p className="text-[13px] font-bold tracking-[1.6px] uppercase text-washio-navy">{t.recent}</p>
+                <Link href="/map" className="text-[14px] font-semibold text-washio-cyan-dark">{t.all}</Link>
               </div>
-              <div className="flex gap-2.5 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
+              <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-2 snap-x">
                 {recentLocations.map(loc => (
                   <Link
                     key={loc.id}
                     href={`/locations/${loc.slug}`}
-                    className="flex-shrink-0 w-40 bg-white rounded-xl border border-gray-100 p-2.5 flex flex-col gap-2"
+                    className="snap-start flex-shrink-0 w-[168px] bg-white rounded-[18px] border border-washio-border overflow-hidden flex flex-col"
+                    style={cardShadow}
                   >
-                    <div className="h-20 rounded-lg relative overflow-hidden bg-gray-900">
+                    <div className="h-[92px] relative bg-washio-navy">
                       {loc.photos && loc.photos.length > 0 ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={loc.photos[0]} alt={loc.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-white text-[22px] font-semibold">{loc.name?.charAt(0) || '·'}</span>
+                        <div className="w-full h-full flex items-center justify-center"
+                          style={{ background: 'linear-gradient(135deg, #16233A 0%, #0E4A63 100%)' }}>
+                          <span className="text-white text-[26px] font-semibold">{loc.name?.charAt(0) || '·'}</span>
                         </div>
                       )}
-                      <span className={`absolute top-1.5 left-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${loc.open ? 'bg-white/90 text-gray-900' : 'bg-black/50 text-white/80'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${loc.open ? 'bg-green-500' : 'bg-gray-400'}`} />
+                      <span className={`absolute top-2 left-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${loc.open ? 'bg-white/95 text-washio-navy' : 'bg-black/55 text-white/85'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${loc.open ? 'bg-washio-success' : 'bg-gray-400'}`} />
                         {loc.open ? t.open : t.closed}
                       </span>
+                      <button
+                        onClick={e => toggleFav(e, loc)}
+                        className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full bg-black/25 backdrop-blur-sm flex items-center justify-center"
+                        aria-label="favorite"
+                      >
+                        <Heart size={15} className={favIds.has(loc.id) ? 'text-white fill-white' : 'text-white'} strokeWidth={2} />
+                      </button>
                     </div>
-                    <div>
-                      <p className="text-xs font-semibold text-gray-900 truncate">{loc.name}</p>
-                      <p className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-1 truncate">
-                        <MapPin size={10} className="shrink-0" />{loc.city}
+                    <div className="p-3 flex flex-col gap-1.5">
+                      <p className="text-[14px] font-semibold text-washio-navy truncate">{loc.name}</p>
+                      <p className="text-[12px] text-gray-500 flex items-center gap-1">
+                        <Star size={12} className="text-washio-cyan-dark fill-washio-cyan-dark" strokeWidth={1} />
+                        {loc.rating ? (
+                          <><span className="font-semibold text-washio-navy">{loc.rating.toFixed(1)}</span> ({loc.reviewCount})</>
+                        ) : (
+                          <span>{t.newPlace}</span>
+                        )}
                       </p>
+                      <div className="flex items-center justify-between gap-1 mt-0.5">
+                        <div className="flex items-center gap-2 text-[11px] text-gray-500 min-w-0">
+                          {loc.minPrice != null && (
+                            <span className="flex items-center gap-1 whitespace-nowrap"><Car size={12} />{t.from} €{loc.minPrice}</span>
+                          )}
+                          {loc.duration != null && (
+                            <span className="flex items-center gap-1 whitespace-nowrap"><Clock size={12} />{loc.duration}′</span>
+                          )}
+                        </div>
+                        <span className="w-7 h-7 rounded-full bg-washio-cyan flex items-center justify-center shrink-0">
+                          <ArrowRight size={14} className="text-white" strokeWidth={2.4} />
+                        </span>
+                      </div>
                     </div>
                   </Link>
                 ))}
@@ -491,8 +559,7 @@ export default function HomePage() {
         {/* Bottom Nav */}
         <BottomNav />
 
-        {/* Web-only: όποιος έχει κουπόνι (referral/ad) → σπρώξ' τον στο native app.
-            Το κουπόνι είναι στον λογαριασμό, τον περιμένει με το ίδιο login. */}
+        {/* Web-only: όποιος έχει κουπόνι (referral/ad) → σπρώξ' τον στο native app. */}
         <GetAppBanner />
 
         {/* Prompt αξιολόγησης app store — μετά την 1η ολοκληρωμένη κράτηση */}

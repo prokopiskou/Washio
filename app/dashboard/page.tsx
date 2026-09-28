@@ -1440,9 +1440,9 @@ export default function DashboardPage() {
                         onClick={() => setCalendarDate(thisDate)}
                         className="aspect-square flex flex-col items-center justify-center gap-1 rounded-[10px] transition-all"
                         style={{
-                          background: isSelected ? '#0A0A0A' : 'transparent',
-                          border: isToday && !isSelected ? '1.5px solid #0A0A0A' : '1.5px solid transparent',
-                          color: isSelected ? '#fff' : '#0A0A0A',
+                          background: isSelected ? '#10182A' : 'transparent',
+                          border: isToday && !isSelected ? '1.5px solid #10182A' : '1.5px solid transparent',
+                          color: isSelected ? '#fff' : '#10182A',
                         }}
                       >
                         <span
@@ -1461,7 +1461,7 @@ export default function DashboardPage() {
                                 key={i}
                                 className="w-[3px] h-[3px] rounded-full"
                                 style={{
-                                  background: isSelected ? '#fff' : (count > 4 ? '#0A0A0A' : '#999'),
+                                  background: isSelected ? '#fff' : (count > 4 ? '#10182A' : '#999'),
                                 }}
                               />
                             ))}

@@ -129,7 +129,7 @@ function MapThumb() {
         <rect x="28" y="6" width="18" height="10" fill="#F4F5F6" stroke="#E4E6E8"/>
         <rect x="6" y="28" width="14" height="6" fill="#F4F5F6" stroke="#E4E6E8"/>
         <rect x="6" y="40" width="40" height="10" fill="#DEE6EC"/>
-        <circle cx="26" cy="28" r="4" fill="#0A0A0A"/>
+        <circle cx="26" cy="28" r="4" fill="#10182A"/>
       </svg>
     </div>
   )
@@ -877,7 +877,7 @@ function BookingPageContent() {
               theme: 'stripe',
               // 16px: κάτω από αυτό το iOS Safari/WebView κάνει auto-zoom στο
               // πεδίο κάρτας (και το user-scalable=no αγνοείται) → κολλάει zoomed.
-              variables: { colorPrimary: '#0A0A0A', borderRadius: '12px', fontSizeBase: '16px' }
+              variables: { colorPrimary: '#10182A', borderRadius: '12px', fontSizeBase: '16px' }
             }
           }}>
             <CheckoutForm

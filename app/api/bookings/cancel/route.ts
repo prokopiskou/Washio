@@ -35,27 +35,27 @@ function cancellationEmailHtml(data: {
           </p>`
   return `
     <div style="font-family: -apple-system, sans-serif; max-width: 480px; margin: 0 auto; background: #fff;">
-      <div style="background: #0A0A0A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
+      <div style="background: #10182A; padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
         <h1 style="color: white; font-size: 22px; font-weight: 600; margin: 0;">washio</h1>
       </div>
       <div style="padding: 32px; border: 1px solid #F0F0F0; border-top: none; border-radius: 0 0 16px 16px;">
         <div style="text-align: center; margin-bottom: 28px;">
           <div style="font-size: 36px; margin-bottom: 12px;">❌</div>
-          <h2 style="font-size: 18px; font-weight: 600; color: #0A0A0A; margin: 0 0 6px;">Η κράτηση ακυρώθηκε</h2>
+          <h2 style="font-size: 18px; font-weight: 600; color: #10182A; margin: 0 0 6px;">Η κράτηση ακυρώθηκε</h2>
           <p style="color: #999; font-size: 13px; margin: 0;">Κωδικός: <strong>${data.bookingRef}</strong></p>
         </div>
         <div style="background: #F7F7F7; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
           <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Σταθμός</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationName}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Υπηρεσία</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.service}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ημερομηνία</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.date}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0;">Ώρα</td><td style="color: #0A0A0A; font-weight: 500; text-align: right; padding: 6px 0;">${data.time}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Σταθμός</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationName}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Υπηρεσία</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.service}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ημερομηνία</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.date}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0;">Ώρα</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0;">${data.time}</td></tr>
           </table>
         </div>
         <div style="background: ${data.isCash ? '#F7F7F7' : '#FFF5F5'}; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
           ${refundBox}
         </div>
-        <a href="https://washio.gr" style="display: block; background: #0A0A0A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px;">Νέα κράτηση →</a>
+        <a href="https://washio.gr" style="display: block; background: #10182A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 24px;">Νέα κράτηση →</a>
         <p style="color: #CCC; font-size: 11px; text-align: center; margin: 0;">Washio · support@washio.gr</p>
       </div>
     </div>
@@ -233,7 +233,7 @@ export async function POST(req: NextRequest) {
               from: 'Washio <noreply@washio.gr>',
               to: w.email,
               subject: 'Άνοιξε ώρα κοντά σου!',
-              html: `<div style="font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;"><div style="background:#0A0A0A;padding:32px;text-align:center;border-radius:16px 16px 0 0;"><h1 style="color:#fff;font-size:22px;font-weight:600;margin:0;">washio</h1></div><div style="padding:32px;border:1px solid #F0F0F0;border-top:none;border-radius:0 0 16px 16px;"><h2 style="font-size:20px;font-weight:700;color:#0A0A0A;margin:0 0 14px;">Άνοιξε ώρα κοντά σου.</h2><p style="color:#444;font-size:14px;line-height:1.6;margin:0 0 24px;">Ελευθερώθηκε ώρα σε πλυντήριο κοντά σου. Κλείσ' την τώρα πριν την πάρει άλλος.</p><a href="https://washio.gr/map" style="display:block;background:#0A0A0A;color:#fff;text-align:center;padding:15px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:600;margin-bottom:24px;">Κλείσε πλύσιμο</a><p style="color:#999;font-size:12px;margin:0;">— Η ομάδα του Washio</p></div></div>`,
+              html: `<div style="font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;"><div style="background:#10182A;padding:32px;text-align:center;border-radius:16px 16px 0 0;"><h1 style="color:#fff;font-size:22px;font-weight:600;margin:0;">washio</h1></div><div style="padding:32px;border:1px solid #F0F0F0;border-top:none;border-radius:0 0 16px 16px;"><h2 style="font-size:20px;font-weight:700;color:#10182A;margin:0 0 14px;">Άνοιξε ώρα κοντά σου.</h2><p style="color:#444;font-size:14px;line-height:1.6;margin:0 0 24px;">Ελευθερώθηκε ώρα σε πλυντήριο κοντά σου. Κλείσ' την τώρα πριν την πάρει άλλος.</p><a href="https://washio.gr/map" style="display:block;background:#10182A;color:#fff;text-align:center;padding:15px;border-radius:12px;text-decoration:none;font-size:15px;font-weight:600;margin-bottom:24px;">Κλείσε πλύσιμο</a><p style="color:#999;font-size:12px;margin:0;">— Η ομάδα του Washio</p></div></div>`,
             })
           }
           await supabase.from('waitlist').update({ notified: true }).eq('id', w.id)

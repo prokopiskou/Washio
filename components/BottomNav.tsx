@@ -11,12 +11,6 @@ const T = {
   en: { home: 'Home', find: 'Find', profile: 'Profile' },
 }
 
-const ITEMS = [
-  { href: '/', key: 'home' as const, Icon: Home },
-  { href: '/map', key: 'find' as const, Icon: MapPin },
-  { href: '/profile', key: 'profile' as const, Icon: User },
-]
-
 export function BottomNav() {
   const pathname = usePathname()
   const router = useRouter()
@@ -26,36 +20,45 @@ export function BottomNav() {
   useEffect(() => {
     for (const href of ['/', '/map', '/profile', '/profile/bookings']) router.prefetch(href)
   }, [router])
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname.startsWith(href)
+
+  const homeActive = pathname === '/'
+  const findActive = pathname.startsWith('/map')
+  const profileActive = pathname.startsWith('/profile')
+
+  const side = (active: boolean) =>
+    `pointer-events-auto flex flex-1 flex-col items-center justify-center gap-1 py-2 select-none transition-colors ${active ? 'text-washio-navy' : 'text-gray-400 active:text-gray-600'}`
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 border-t border-gray-100 bg-white/85 backdrop-blur-xl pointer-events-none"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 pointer-events-none"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
-      <div className="flex justify-around items-center gap-1 px-3 h-[72px]">
-        {ITEMS.map(({ href, key, Icon }) => {
-          const active = isActive(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`group pointer-events-auto flex flex-1 flex-col items-center gap-1.5 rounded-2xl py-2 select-none transition-colors duration-200 ${active ? 'bg-gray-900/[0.05]' : 'active:bg-gray-900/[0.03]'}`}
+      <div
+        className="relative mx-0 bg-white/95 backdrop-blur-xl border-t border-washio-border rounded-t-[26px] pointer-events-auto"
+        style={{ boxShadow: '0 -6px 24px rgba(16,24,42,0.06)' }}
+      >
+        <div className="flex items-end justify-around h-[72px] px-4">
+          <Link href="/" className={side(homeActive)}>
+            <Home size={24} strokeWidth={homeActive ? 2.2 : 1.8} />
+            <span className={`text-[11px] tracking-tight ${homeActive ? 'font-semibold' : 'font-medium'}`}>{t.home}</span>
+          </Link>
+
+          {/* Κεντρικό CTA — πάντα ανασηκωμένο cyan κουμπί */}
+          <Link href="/map" className="pointer-events-auto flex flex-1 flex-col items-center gap-1 pb-2 select-none">
+            <span
+              className={`-mt-7 w-[62px] h-[62px] rounded-full flex items-center justify-center text-white ring-[5px] ring-white transition-transform active:scale-95 ${findActive ? 'bg-washio-cyan-dark' : 'bg-washio-cyan'}`}
+              style={{ boxShadow: '0 8px 20px rgba(25,168,199,0.35)' }}
             >
-              <Icon
-                size={24}
-                strokeWidth={active ? 2.2 : 1.8}
-                className={`transition-colors duration-200 ${active ? 'text-gray-900' : 'text-gray-400 group-active:text-gray-600'}`}
-              />
-              <span
-                className={`text-[11px] tracking-tight transition-colors duration-200 ${active ? 'font-semibold text-gray-900' : 'font-medium text-gray-400'}`}
-              >
-                {t[key]}
-              </span>
-            </Link>
-          )
-        })}
+              <MapPin size={26} strokeWidth={2} />
+            </span>
+            <span className="text-[11px] font-semibold tracking-tight text-washio-cyan-dark">{t.find}</span>
+          </Link>
+
+          <Link href="/profile" className={side(profileActive)}>
+            <User size={24} strokeWidth={profileActive ? 2.2 : 1.8} />
+            <span className={`text-[11px] tracking-tight ${profileActive ? 'font-semibold' : 'font-medium'}`}>{t.profile}</span>
+          </Link>
+        </div>
       </div>
     </nav>
   )
