@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       .select(`
         id, booking_ref, slot_date, slot_start_time, total_amount,
         stripe_payment_intent_id, user_id, location_id, service_id,
-        status, refund_amount, stripe_payment_status,
+        status, refund_amount, stripe_payment_status, source,
         locations(name, owner_id),
         services(name)
       `)
@@ -101,6 +101,12 @@ export async function POST(req: NextRequest) {
     const isOwner = !!locOwnerId && locOwnerId === user.id
     if (!admin && !isCustomer && !isOwner) {
       return NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 })
+    }
+
+    // Κράτηση ΕΚΤΟΣ πλατφόρμας (manual, την πέρασε το πλυντήριο): δεν περνάει από
+    // εμάς — κανένα refund/ακύρωση από Washio. Μόνο ο ιδιοκτήτης τη διαχειρίζεται.
+    if ((booking as { source?: string | null }).source === 'manual' && !isOwner) {
+      return NextResponse.json({ error: 'Κράτηση εκτός πλατφόρμας — τη διαχειρίζεται μόνο το πλυντήριο.' }, { status: 403 })
     }
 
     // Μόνο ενεργές κρατήσεις ακυρώνονται — όχι ολοκληρωμένες / no-show / ήδη ακυρωμένες.

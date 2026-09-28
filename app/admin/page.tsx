@@ -808,7 +808,8 @@ export default function AdminPage() {
                                 </p>
 
                                 <div className="flex flex-col gap-1 mt-1">
-                                  {b.status !== 'cancelled' && (
+                                  {/* Εκτός πλατφόρμας (manual): δεν περνάει από εμάς — ούτε refund ούτε ακύρωση από admin. */}
+                                  {b.status !== 'cancelled' && b.source !== 'manual' && (
                                     <button
                                       onClick={() => handleCancelBooking(b)}
                                       className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
