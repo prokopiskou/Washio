@@ -361,15 +361,21 @@ export default function HomePage() {
           <button
             onClick={() => router.push('/map')}
             className="relative overflow-hidden rounded-[26px] px-5 py-6 text-left active:scale-[0.99] transition-transform"
-            style={{ background: 'linear-gradient(120deg, #10182A 0%, #16233A 55%, #0E4A63 100%)', boxShadow: '0 14px 30px rgba(16,24,42,0.22)' }}
+            style={{ background: '#09162B', boxShadow: '0 14px 30px rgba(16,24,42,0.22)' }}
           >
-            {/* Δεξί «wet» panel: cyan καμπύλη + σταγόνες */}
-            <div className="absolute -right-16 -top-10 w-[230px] h-[260px] rounded-full"
-              style={{ background: 'radial-gradient(circle at 35% 45%, rgba(25,168,199,0.55) 0%, rgba(25,168,199,0.18) 45%, rgba(25,168,199,0) 70%)' }} />
-            <div className="absolute right-6 top-5 w-2 h-2 rounded-full bg-white/30" />
-            <div className="absolute right-16 top-10 w-1.5 h-1.5 rounded-full bg-white/25" />
-            <div className="absolute right-10 bottom-7 w-2.5 h-2.5 rounded-full bg-white/20" />
-            <div className="absolute right-24 bottom-12 w-1 h-1 rounded-full bg-white/30" />
+            {/* Φωτογραφία (WebP 60KB) — το αυτοκίνητο πάντα δεξιά, το navy αριστερά
+                σμίγει με το φόντο. Overlay από αριστερά για αναγνωσιμότητα κειμένου. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/hero-car.webp"
+              alt=""
+              aria-hidden
+              fetchPriority="high"
+              decoding="async"
+              className="absolute inset-y-0 right-0 h-full w-auto max-w-none object-cover pointer-events-none select-none"
+            />
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ background: 'linear-gradient(90deg, #09162B 0%, rgba(9,22,43,0.92) 38%, rgba(9,22,43,0.35) 62%, rgba(9,22,43,0) 80%)' }} />
 
             <div className="relative flex items-center gap-3">
               <div className="flex-1 min-w-0">
