@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect } from 'react'
+import { Suspense, useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -82,6 +82,11 @@ function LoginPageContent() {
   const isWelcome = params.get('welcome') === '1'
 
   const [email, setEmail] = useState('')
+  // Paste/autofill στο iOS WebView δεν πυροδοτεί πάντα onChange → διαβάζουμε και
+  // απευθείας από το input. Καθαρίζουμε κενά/αόρατους χαρακτήρες από το copy-paste.
+  const emailRef = useRef<HTMLInputElement>(null)
+  const cleanEmail = (v: string) => v.replace(/[\s\u200B-\u200D\uFEFF\u00A0]/g, '')
+  const syncEmail = () => { const v = emailRef.current?.value; if (v != null) setEmail(cleanEmail(v)) }
   const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -116,10 +121,14 @@ function LoginPageContent() {
     ])
 
   const handleSendOtp = async () => {
-    if (!email) return
+    // Πάντα η ΤΡΕΧΟΥΣΑ τιμή του πεδίου (όχι μόνο το state που μπορεί να «έχασε» το paste).
+    const current = cleanEmail(emailRef.current?.value ?? email)
+    if (current !== email) setEmail(current)
+    if (!current) return
+    const email_ = current
     setError('')
     // Demo: δεν στέλνουμε πραγματικό email — προχωράμε κατευθείαν στην οθόνη κωδικού.
-    if (isDemo) {
+    if (email_.toLowerCase() === DEMO_EMAIL) {
       setSent(true)
       return
     }
@@ -127,7 +136,7 @@ function LoginPageContent() {
     try {
       const supabase = createClient()
       const { error } = await withTimeout(supabase.auth.signInWithOtp({
-        email: email.trim().toLowerCase(),
+        email: email_.toLowerCase(),
         options: {
           shouldCreateUser: true,
           emailRedirectTo: undefined,
@@ -226,9 +235,18 @@ function LoginPageContent() {
         {!sent ? (
           <div className="flex flex-col gap-2.5">
             <input
+              ref={emailRef}
               type="email"
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={e => setEmail(cleanEmail(e.target.value))}
+              onInput={syncEmail}
+              onPaste={() => setTimeout(syncEmail, 0)}
+              onBlur={syncEmail}
               placeholder={t.emailPlaceholder}
               className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
               onKeyDown={e => e.key === 'Enter' && handleSendOtp()}
@@ -239,7 +257,7 @@ function LoginPageContent() {
 
             <button
               onClick={handleSendOtp}
-              disabled={loading || !email}
+              disabled={loading}
               className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
             >
               {loading ? t.sending : t.sendCode}
