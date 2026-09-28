@@ -29,6 +29,7 @@ const T = {
     verifying: 'Επαλήθευση...',
     login: 'Είσοδος',
     changeEmail: 'Αλλαγή email',
+    haveCode: 'Έχω ήδη κωδικό →', codeOnWay: 'Ο κωδικός έρχεται στο email σου — βάλ\' τον εδώ μόλις φτάσει.',
     resendCode: 'Αποστολή νέου κωδικού',
     wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
     somethingWrong: 'Κάτι πήγε στραβά. Δοκίμασε ξανά.',
@@ -54,6 +55,7 @@ const T = {
     verifying: 'Verifying...',
     login: 'Sign in',
     changeEmail: 'Change email',
+    haveCode: 'I already have a code →', codeOnWay: 'Your code is on its way — enter it here as soon as it arrives.',
     resendCode: 'Send new code',
     wrongCode: 'Wrong code. Please try again.',
     somethingWrong: 'Something went wrong. Please try again.',
@@ -91,6 +93,7 @@ function LoginPageContent() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   // Google web sign-in (GIS + signInWithIdToken) → όχι supabase στην οθόνη Google.
   // Μόνο σε browser (όχι native) και μόνο αν έχει οριστεί το client id (feature-flag).
   const [showGoogleWeb, setShowGoogleWeb] = useState(false)
@@ -133,20 +136,36 @@ function LoginPageContent() {
       return
     }
     setLoading(true)
+    // Ο server στέλνει το email ΠΡΙΝ απαντήσει — αν η απάντηση αργεί (SMTP/δίκτυο),
+    // ο κωδικός έχει ήδη φύγει. Άρα: αν σε ~3.5s δεν έχουμε απάντηση, πάμε ΑΜΕΣΩΣ
+    // στο πεδίο κωδικού (πριν: ο χρήστης έπαιρνε τον κωδικό αλλά έμενε στο spinner).
+    let settled = false
+    const supabase = createClient()
+    const req = supabase.auth.signInWithOtp({
+      email: email_.toLowerCase(),
+      options: { shouldCreateUser: true, emailRedirectTo: undefined },
+    })
+    const early = setTimeout(() => {
+      if (settled) return
+      setSent(true); setLoading(false); setInfo(t.codeOnWay)
+    }, 3500)
     try {
-      const supabase = createClient()
-      const { error } = await withTimeout(supabase.auth.signInWithOtp({
-        email: email_.toLowerCase(),
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: undefined,
-        }
-      }))
-      if (error) { setError(error.message); return }
-      setSent(true)
+      const { error } = await withTimeout(req, 30000)
+      settled = true
+      if (error) {
+        // Όριο αποστολών (μόλις στάλθηκε κωδικός) → μείνε στο πεδίο κωδικού.
+        const rate = (error as { status?: number }).status === 429 || /security purposes|rate limit/i.test(error.message)
+        if (rate) { setSent(true); setInfo(t.codeOnWay); return }
+        // Πραγματικό σφάλμα (π.χ. λάθος email) → γύρνα πίσω με μήνυμα.
+        setSent(false); setInfo(''); setError(error.message); return
+      }
+      setSent(true); setError('')
     } catch {
-      setError(t.networkSlow)
+      settled = true
+      // Timeout: μείνε στο πεδίο κωδικού — το email πιθανότατα έχει ήδη φτάσει.
+      setSent(true); setInfo(t.codeOnWay)
     } finally {
+      clearTimeout(early)
       setLoading(false)
     }
   }
@@ -264,6 +283,13 @@ function LoginPageContent() {
             </button>
 
             <button
+              onClick={() => { syncEmail(); const v = cleanEmail(emailRef.current?.value ?? email); if (v) { setEmail(v); setError(''); setSent(true) } }}
+              className="w-full text-xs font-semibold text-washio-cyan-dark text-center py-1"
+            >
+              {t.haveCode}
+            </button>
+
+            <button
               onClick={() => router.push('/')}
               className="w-full text-xs text-gray-400 text-center py-2"
             >
@@ -326,6 +352,7 @@ function LoginPageContent() {
               autoFocus
             />
 
+            {info && !error && <p className="text-xs text-gray-500 text-center leading-snug">{info}</p>}
             {error && <p className="text-xs text-red-500 text-center">{error}</p>}
 
             <button
@@ -337,7 +364,7 @@ function LoginPageContent() {
             </button>
 
             <button
-              onClick={() => { setSent(false); setOtp(''); setError('') }}
+              onClick={() => { setSent(false); setOtp(''); setError(''); setInfo('') }}
               className="text-xs text-gray-400 text-center mt-2"
             >
               {t.changeEmail}
