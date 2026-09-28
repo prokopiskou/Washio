@@ -357,7 +357,6 @@ export default function HomePage() {
             <h1 className="text-[27px] font-bold tracking-tight leading-[1.15] text-washio-navy">
               {t.heading}
             </h1>
-            <span className="block mt-2 w-10 h-[3px] rounded-full bg-washio-cyan" />
           </div>
 
           {/* Hero CTA */}
@@ -441,7 +440,7 @@ export default function HomePage() {
               className="relative overflow-hidden rounded-[20px] border border-washio-border p-4 flex flex-col gap-2"
               style={{ ...cardShadow, background: 'linear-gradient(145deg, #FFFFFF 55%, #EAF8FB 100%)' }}
             >
-              <Heart size={40} className="absolute -right-1 top-3 text-washio-cyan/15 fill-washio-cyan/15" strokeWidth={0} />
+              <Heart size={30} className="absolute right-3.5 top-3.5 text-washio-cyan/20 fill-washio-cyan/20 pointer-events-none" strokeWidth={0} />
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-full bg-washio-cyan-light flex items-center justify-center">
                   <Star size={16} className="text-washio-cyan-dark fill-washio-cyan-dark" strokeWidth={1} />
