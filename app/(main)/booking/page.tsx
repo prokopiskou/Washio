@@ -214,10 +214,10 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
 
   return (
     <div className="px-5">
-      <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+      <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
         {t.payment}
       </p>
-      <div className="bg-white border border-gray-200 rounded-xl p-3.5 mb-4">
+      <div className="bg-white border border-washio-border rounded-[18px] p-3.5 mb-4" style={{ boxShadow: '0 6px 20px rgba(16,24,42,0.06)' }}>
         <PaymentElement options={{
           layout: 'tabs',
           wallets: { applePay: 'auto', googlePay: 'auto' },
@@ -258,7 +258,7 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
       )}
 
       {/* Ανάλυση χρέωσης κάρτας — διαφανές τέλος υπηρεσίας */}
-      <div className="rounded-xl bg-gray-50 px-3.5 py-2.5 mb-3">
+      <div className="rounded-[14px] bg-washio-cyan-light/60 border border-washio-border px-3.5 py-2.5 mb-3">
         <div className="flex justify-between items-center text-[12px] text-gray-500">
           <span>{service.name}</span>
           <span>€{baseTotal.toFixed(2)}</span>
@@ -273,7 +273,7 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
           <span>{t.serviceFee}</span>
           <span>€{SERVICE_FEE_EUR.toFixed(2)}</span>
         </div>
-        <div className="flex justify-between items-center text-[13px] font-semibold text-gray-900 mt-1.5 pt-1.5 border-t border-gray-200">
+        <div className="flex justify-between items-center text-[13px] font-bold text-washio-navy mt-1.5 pt-1.5 border-t border-washio-border">
           <span>{t.total}</span>
           <span>€{total.toFixed(2)}</span>
         </div>
@@ -282,7 +282,7 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
       <button
         onClick={handleSubmit}
         disabled={loading || !stripe}
-        className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 disabled:opacity-40"
+        className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.99] transition-transform" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.35)' }}
       >
         {loading ? (
           t.processing
@@ -637,18 +637,18 @@ function BookingPageContent() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col items-center">
-      <div className="w-full max-w-md md:max-w-4xl pb-32 bg-gray-50">
+    <main className="min-h-screen flex flex-col items-center" style={{ background: 'linear-gradient(180deg, #EAF8FB 0%, #F7FAFC 260px)' }}>
+      <div className="w-full max-w-md md:max-w-4xl pb-32">
 
         {/* Header */}
-        <div className="px-5 pt-[calc(var(--safe-top)+14px)] pb-4 flex items-center gap-3.5 bg-gray-50">
+        <div className="px-5 pt-[calc(var(--safe-top)+14px)] pb-4 flex items-center gap-3.5">
           <button
             onClick={() => router.back()}
-            className="w-10 h-10 rounded-full bg-white border border-gray-100 flex items-center justify-center text-gray-900"
+            className="w-10 h-10 rounded-full bg-white border border-washio-border flex items-center justify-center text-washio-navy" style={{ boxShadow: '0 2px 8px rgba(16,24,42,0.06)' }}
           >
             <ChevronLeft size={18} />
           </button>
-          <h1 className="text-[18px] font-semibold tracking-tight text-gray-900">{t.confirm}</h1>
+          <h1 className="text-[19px] font-bold tracking-tight text-washio-navy">{t.confirm}</h1>
         </div>
 
         <div className="px-5 pb-5 md:flex md:gap-6 md:items-start">
@@ -657,36 +657,36 @@ function BookingPageContent() {
           <div className="mb-5 md:mb-0 md:w-[340px] md:shrink-0 md:sticky md:top-6">
           {/* Summary card */}
           <div
-            className="bg-white rounded-2xl p-4 border border-gray-100"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+            className="bg-white rounded-[20px] p-4 border border-washio-border"
+            style={{ boxShadow: '0 6px 20px rgba(16,24,42,0.06)' }}
           >
             <div className="flex gap-3.5 items-start">
               <MapThumb />
               <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-semibold tracking-tight text-gray-900">{location?.name}</p>
+                <p className="text-[16px] font-bold tracking-tight text-washio-navy">{location?.name}</p>
                 {location?.address && (
                   <p className="text-xs text-gray-500 mt-0.5">{location.address}{location.city ? `, ${location.city}` : ''}</p>
                 )}
               </div>
             </div>
 
-            <div className="h-px bg-gray-100 my-3.5" />
+            <div className="h-px bg-washio-border my-3.5" />
 
             <div className="flex flex-col gap-2.5">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Calendar size={14} className="text-gray-500" />
+                  <Calendar size={14} className="text-washio-cyan-dark" />
                   <span className="text-[13px] text-gray-500">{fullFormattedDate}</span>
                 </div>
-                <span className="text-[13px] font-medium text-gray-900">{slotTime}</span>
+                <span className="text-[13px] font-semibold text-washio-navy">{slotTime}</span>
               </div>
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <Sparkles size={14} className="text-gray-500" />
+                  <Sparkles size={14} className="text-washio-cyan-dark" />
                   <span className="text-[13px] text-gray-500">{service.name} · {vehicleType}</span>
                 </div>
                 {/* Ενημερωτική διάρκεια που δήλωσε ο πλυντηριάς· fallback στη διάρκεια slot. */}
-                <span className="text-[13px] font-medium text-gray-900">
+                <span className="text-[13px] font-semibold text-washio-navy">
                   ~{service.display_duration_minutes && service.display_duration_minutes > 0 ? service.display_duration_minutes : service.duration_minutes}′
                 </span>
               </div>
@@ -720,19 +720,19 @@ function BookingPageContent() {
 
           {/* Vehicle */}
           <div>
-            <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+            <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
               {t.plate}
             </p>
 
             {vehicles.length > 0 && selectedVehicleId !== 'new' ? (
-              <div className="bg-white rounded-xl h-[52px] border border-gray-200 px-4 flex items-center justify-between">
+              <div className="bg-white rounded-[14px] h-[52px] border border-washio-border px-4 flex items-center justify-between">
                 <span className="text-[15px] font-semibold text-gray-900 font-mono tracking-wider">
                   {plate}
                 </span>
                 <select
                   value={selectedVehicleId}
                   onChange={e => handleVehicleChange(e.target.value)}
-                  className="text-[12px] font-medium text-blue-600 bg-transparent focus:outline-none"
+                  className="text-[12px] font-semibold text-washio-cyan-dark bg-transparent focus:outline-none"
                 >
                   {vehicles.map(v => (
                     <option key={v.id} value={v.id}>{v.plate} · {v.type}</option>
@@ -743,7 +743,7 @@ function BookingPageContent() {
             ) : (
               <div className="space-y-2.5">
                 {/* Locked vehicle type info */}
-                <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                <div className="bg-washio-cyan-light border border-washio-cyan/25 rounded-[14px] px-4 py-3">
                   <p className="text-[12px] text-blue-900 leading-snug">
                     {t.serviceForA} <strong>{vehicleType}</strong>{t.vehicleWillBeSavedAs} {vehicleType}.
                   </p>
@@ -754,7 +754,7 @@ function BookingPageContent() {
                   value={plate}
                   onChange={e => setPlate(e.target.value.toUpperCase())}
                   placeholder={vehicleType === 'Μοτοσικλέτα' ? t.plateExampleMoto : t.plateExampleCar}
-                  className="w-full bg-white border border-gray-200 rounded-xl h-[52px] px-4 text-[15px] font-mono tracking-wider text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+                  className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] font-mono tracking-wider text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
                 />
 
                 {vehicles.length > 0 && (
@@ -771,18 +771,18 @@ function BookingPageContent() {
 
           {/* Email */}
           <div>
-            <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+            <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
               Email
             </p>
-            <div className="bg-white rounded-xl h-[52px] border border-gray-200 px-4 flex items-center gap-2.5">
-              <Mail size={16} className="text-gray-500" />
+            <div className="bg-white rounded-[14px] h-[52px] border border-washio-border px-4 flex items-center gap-2.5">
+              <Mail size={16} className="text-washio-cyan-dark" />
               <span className="text-[15px] text-gray-900">{email}</span>
             </div>
           </div>
 
           {/* Phone */}
           <div>
-            <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+            <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
               {t.phone}
             </p>
             <input
@@ -790,14 +790,14 @@ function BookingPageContent() {
               value={phone}
               onChange={e => setPhone(e.target.value)}
               placeholder="69x xxx xxxx"
-              className="w-full bg-white border border-gray-200 rounded-xl h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
+              className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
             />
           </div>
 
           {/* Addons — όχι σε υπηρεσία εύρους (τιμή επιτόπου). */}
           {!isRange && addons.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-gray-400 tracking-[1.8px] uppercase mb-2">
+              <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
                 {t.addons}
               </p>
               <div className="flex flex-col gap-2">
@@ -807,12 +807,12 @@ function BookingPageContent() {
                     <button
                       key={addon.id}
                       onClick={() => toggleAddon(addon.id)}
-                      className={`flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all text-left ${
-                        selected ? 'border-gray-900 bg-gray-900' : 'border-gray-200 bg-white'
+                      className={`flex items-center justify-between px-4 py-3.5 rounded-[14px] border transition-all text-left ${
+                        selected ? 'border-washio-cyan bg-washio-cyan-light' : 'border-washio-border bg-white'
                       }`}
                     >
-                      <span className={`text-[14px] font-medium ${selected ? 'text-white' : 'text-gray-900'}`}>{addon.name}</span>
-                      <span className={`text-[14px] font-semibold ${selected ? 'text-white' : 'text-gray-900'}`}>
+                      <span className={`text-[14px] font-medium ${selected ? 'text-washio-navy font-semibold' : 'text-washio-navy'}`}>{addon.name}</span>
+                      <span className={`text-[14px] font-bold ${selected ? 'text-washio-cyan-dark' : 'text-washio-navy'}`}>
                         {selected ? '−' : '+'} €{addon.price}
                       </span>
                     </button>
@@ -824,14 +824,14 @@ function BookingPageContent() {
 
           {/* Total breakdown */}
           <div
-            className="bg-white rounded-2xl border border-gray-100 px-4"
-            style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+            className="bg-white rounded-[20px] border border-washio-border px-4"
+            style={{ boxShadow: '0 6px 20px rgba(16,24,42,0.06)' }}
           >
             {isRange ? (
               <>
                 <div className="flex justify-between items-center py-3.5">
-                  <span className="text-[15px] font-semibold text-gray-900">{t.estimateRange}</span>
-                  <span className="text-[20px] font-bold tracking-tight text-gray-900">
+                  <span className="text-[15px] font-bold text-washio-navy">{t.estimateRange}</span>
+                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">
                     €{rangeMin.toFixed(0)}–€{rangeMax.toFixed(0)}
                   </span>
                 </div>
@@ -839,19 +839,19 @@ function BookingPageContent() {
               </>
             ) : (
               <>
-                <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                <div className="flex justify-between items-center py-3 border-b border-washio-border">
                   <span className="text-[13px] text-gray-500">{service.name}</span>
                   <span className="text-[14px] font-medium text-gray-900">€{servicePrice.toFixed(2)}</span>
                 </div>
                 {selectedAddons.length > 0 && (
-                  <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                  <div className="flex justify-between items-center py-3 border-b border-washio-border">
                     <span className="text-[13px] text-gray-500">{t.addonsShort}</span>
                     <span className="text-[14px] font-medium text-gray-900">€{addonTotal.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center py-3.5">
-                  <span className="text-[15px] font-semibold text-gray-900">{t.total}</span>
-                  <span className="text-[20px] font-bold tracking-tight text-gray-900">€{total.toFixed(2)}</span>
+                  <span className="text-[15px] font-bold text-washio-navy">{t.total}</span>
+                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">€{total.toFixed(2)}</span>
                 </div>
               </>
             )}
@@ -880,7 +880,7 @@ function BookingPageContent() {
               theme: 'stripe',
               // 16px: κάτω από αυτό το iOS Safari/WebView κάνει auto-zoom στο
               // πεδίο κάρτας (και το user-scalable=no αγνοείται) → κολλάει zoomed.
-              variables: { colorPrimary: '#10182A', borderRadius: '12px', fontSizeBase: '16px' }
+              variables: { colorPrimary: '#078EAD', colorText: '#10182A', borderRadius: '12px', fontSizeBase: '16px' }
             }
           }}>
             <CheckoutForm
@@ -913,7 +913,7 @@ function BookingPageContent() {
           <div
             className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md px-5 pt-3.5 pb-8"
             style={{
-              background: 'linear-gradient(180deg, rgba(249,250,251,0) 0%, #F9FAFB 28%)',
+              background: 'linear-gradient(180deg, rgba(247,250,252,0) 0%, #F7FAFC 28%)',
               paddingBottom: 'calc(env(safe-area-inset-bottom) + 28px)',
             }}
           >
@@ -925,14 +925,14 @@ function BookingPageContent() {
               <button
                 onClick={handleCashBooking}
                 disabled={cashLoading}
-                className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] transition-transform" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.35)' }}
               >
                 {cashLoading ? t.confirming : t.bookCash}
               </button>
             ) : (
               <button
                 onClick={handleProceedToPayment}
-                className="w-full h-14 rounded-xl bg-gray-900 text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
+                className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.99] transition-transform" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.35)' }}
               >
                 <span>{t.pay}</span>
                 <span className="w-px h-4 bg-white/25" />
