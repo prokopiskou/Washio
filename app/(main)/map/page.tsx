@@ -436,11 +436,11 @@ function MapPageContent() {
         map,
         center,
         radius: 3000,
-        strokeColor: '#10182A',
-        strokeOpacity: 0.12,
+        strokeColor: '#19A8C7',
+        strokeOpacity: 0.25,
         strokeWeight: 1,
-        fillColor: '#10182A',
-        fillOpacity: 0.04,
+        fillColor: '#19A8C7',
+        fillOpacity: 0.06,
       })
     } else {
       userCircleRef.current.setCenter(center)
@@ -659,13 +659,13 @@ function MapPageContent() {
       </filter>
     </defs>
     <g filter="url(#shadow-${loc.id})">
-      <rect x="1" y="0" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#10182A' : '#FFFFFF'}"/>
+      <rect x="1" y="0" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}"/>
     </g>
     <text x="${cx}" y="15" text-anchor="middle" text-rendering="geometricPrecision" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#10182A'}">${esc(label)}</text>
     <g filter="url(#shadow-${loc.id})" transform="translate(${cx - 22}, 28)">
-      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#10182A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
-      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#10182A'}"/>
-      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#10182A' : '#FFFFFF'}"/>
+      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#19A8C7'}"/>
+      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}"/>
     </g>
   </svg>
 `
@@ -679,9 +679,9 @@ function MapPageContent() {
       </filter>
     </defs>
     <g filter="url(#shadow-${loc.id})">
-      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#10182A' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
-      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#10182A'}"/>
-      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#10182A' : '#FFFFFF'}"/>
+      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#19A8C7'}"/>
+      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}"/>
     </g>
   </svg>
 `
@@ -958,11 +958,13 @@ function MapPageContent() {
 
           {/* Collapsed peek — list of locations */}
           {!selectedLocation && filteredLocations.length > 0 && (
-            <div className="bg-white rounded-t-2xl pt-3"
-                 style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06), 0 -1px 0 rgba(0,0,0,0.04)' }}>
+            <div className="rounded-t-[26px] pt-2.5 border-t border-washio-border"
+                 style={{ background: 'linear-gradient(180deg, #EAF8FB 0%, #FFFFFF 70px)', boxShadow: '0 -10px 30px rgba(16,24,42,0.10)' }}>
+              <div className="w-10 h-1 rounded-full bg-washio-cyan/30 mx-auto mb-2.5" />
               {/* Header */}
-              <div className="flex justify-between items-baseline px-5 pb-2">
-                <p className="text-[14px] font-semibold tracking-tight text-gray-900">
+              <div className="flex justify-between items-center px-5 pb-2.5">
+                <p className="flex items-center gap-2 text-[14px] font-bold tracking-tight text-washio-navy">
+                  <span className="w-2 h-2 rounded-full bg-washio-success" />
                   {filteredLocations.length} {filteredLocations.length === 1 ? t.washroomOne : t.washroomMany} {t.near}
                 </p>
               </div>
@@ -973,22 +975,32 @@ function MapPageContent() {
                   <button
                     key={loc.id}
                     onClick={() => selectLocation(loc)}
-                    className="shrink-0 w-[220px] bg-white rounded-xl p-3 border border-gray-100 flex flex-col gap-1 text-left"
-                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                    className="shrink-0 w-[236px] bg-white rounded-[18px] p-2.5 border border-washio-border flex items-center gap-2.5 text-left active:scale-[0.98] transition-transform"
+                    style={{ boxShadow: '0 4px 14px rgba(16,24,42,0.06)' }}
                   >
-                    <div className="flex justify-between items-start gap-2">
-                      <p className="text-[13px] font-semibold tracking-tight text-gray-900 leading-tight truncate">{loc.name}</p>
-                      {timing === 'now' && loc.nextSlot && (
-                        <p className="text-[13px] font-semibold text-green-600 shrink-0">{loc.nextSlot}</p>
+                    <div className="w-12 h-12 rounded-[12px] overflow-hidden shrink-0 bg-washio-navy flex items-center justify-center">
+                      {loc.photos && loc.photos.length > 0 ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={loc.photos[0]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white text-[16px] font-semibold">{loc.name?.charAt(0)}</span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] text-gray-500">{loc.city}</span>
-                      {loc.distance !== undefined && (
-                        <>
-                          <span className="w-[3px] h-[3px] rounded-full bg-gray-300" />
-                          <span className="text-[11px] text-gray-500">{formatDistance(loc.distance, locale)}</span>
-                        </>
+                    <div className="flex-1 min-w-0 flex flex-col gap-1">
+                      <p className="text-[13px] font-semibold tracking-tight text-washio-navy leading-tight truncate">{loc.name}</p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[11px] text-gray-500 truncate">{loc.city}</span>
+                        {loc.distance !== undefined && (
+                          <>
+                            <span className="w-[3px] h-[3px] rounded-full bg-gray-300 shrink-0" />
+                            <span className="text-[11px] text-gray-500 shrink-0">{formatDistance(loc.distance, locale)}</span>
+                          </>
+                        )}
+                      </div>
+                      {timing === 'now' && loc.nextSlot && (
+                        <span className="self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-washio-success-bg text-[11px] font-semibold text-green-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-washio-success" />{loc.nextSlot}
+                        </span>
                       )}
                     </div>
                   </button>
@@ -1037,14 +1049,14 @@ function MapPageContent() {
 
           {/* Selected location — booking flow */}
           {selectedLocation && (
-            <div className="bg-white rounded-t-2xl px-5 pt-3 pb-5"
-                 style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06)' }}>
-              <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
+            <div className="rounded-t-[26px] px-5 pt-2.5 pb-5 border-t border-washio-border"
+                 style={{ background: 'linear-gradient(180deg, #EAF8FB 0%, #FFFFFF 90px)', boxShadow: '0 -10px 30px rgba(16,24,42,0.12)' }}>
+              <div className="w-10 h-1 bg-washio-cyan/30 rounded-full mx-auto mb-3.5" />
 
               {/* Γραμμή 1: όνομα/απόσταση · κριτικές + κλείσιμο */}
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="min-w-0">
-                  <p className="text-[16px] font-semibold tracking-tight text-gray-900 truncate">{selectedLocation.name}</p>
+                  <p className="text-[17px] font-bold tracking-tight text-washio-navy truncate">{selectedLocation.name}</p>
                   {selectedLocation.distance !== undefined && (
                     <p className="text-xs text-gray-500 mt-0.5 truncate">{formatDistance(selectedLocation.distance, locale)} · {selectedLocation.city}</p>
                   )}
@@ -1053,16 +1065,17 @@ function MapPageContent() {
                   {selectedRating && (
                     <button
                       onClick={() => router.push(`/locations/${selectedLocation.slug}/reviews`)}
-                      className="flex items-center gap-1 bg-gray-50 border border-gray-100 rounded-full px-2.5 py-1"
+                      className="flex items-center gap-1 bg-white border border-washio-border rounded-full px-2.5 py-1"
+                      style={{ boxShadow: '0 2px 8px rgba(16,24,42,0.05)' }}
                     >
-                      <Star size={13} className="text-amber-400 fill-amber-400" />
-                      <span className="text-[13px] font-semibold text-gray-900">
+                      <Star size={13} className="text-washio-cyan-dark fill-washio-cyan-dark" />
+                      <span className="text-[13px] font-semibold text-washio-navy">
                         {selectedRating.count === 0 ? t.newRating : `${selectedRating.avg.toFixed(1)} (${selectedRating.count})`}
                       </span>
                     </button>
                   )}
-                  <button onClick={() => setSelectedLocation(null)} className="text-gray-400 -mt-1 -mr-1 p-1">
-                    <X size={18} />
+                  <button onClick={() => setSelectedLocation(null)} className="w-8 h-8 rounded-full bg-white border border-washio-border text-gray-500 flex items-center justify-center">
+                    <X size={16} />
                   </button>
                 </div>
               </div>
@@ -1074,8 +1087,8 @@ function MapPageContent() {
                     <button key={type} onClick={() => setVehicleType(type)}
                       className={`h-9 px-3.5 rounded-full text-[13px] font-semibold border whitespace-nowrap transition-all ${
                         vehicleType === type
-                          ? 'bg-gray-900 text-white border-gray-900'
-                          : 'bg-white text-gray-700 border-gray-200'
+                          ? 'bg-washio-cyan text-white border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
+                          : 'bg-white text-washio-navy border-washio-border'
                       }`}>
                       {type === 'ΙΧ' ? 'ΙΧ' : type === 'SUV' ? 'SUV' : t.moto}
                     </button>
@@ -1085,8 +1098,8 @@ function MapPageContent() {
                 {selectedLocation.photos && selectedLocation.photos.length > 0 && (
                   <button
                     onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
-                    className="relative flex-1 min-w-[110px] max-w-[170px] h-[76px] rounded-2xl overflow-hidden border border-gray-100 active:opacity-80"
-                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+                    className="relative flex-1 min-w-[110px] max-w-[170px] h-[76px] rounded-2xl overflow-hidden border-2 border-white active:opacity-80"
+                    style={{ boxShadow: '0 6px 16px rgba(16,24,42,0.12)' }}
                     aria-label={selectedLocation.name}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1108,11 +1121,12 @@ function MapPageContent() {
                   const isSelected = selectedService === s.id
                   return (
                     <button key={s.id} onClick={() => setSelectedService(s.id)}
-                      className={`flex-1 py-2.5 rounded-xl border text-center transition-all ${
-                        isSelected ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-200'
-                      }`}>
-                      <p className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-gray-900'}`}>{s.name}</p>
-                      <p className={`text-xs mt-0.5 ${isSelected ? 'text-white/70' : 'text-gray-500'}`}>{price}</p>
+                      className={`flex-1 py-2.5 rounded-[14px] border text-center transition-all ${
+                        isSelected ? 'border-washio-navy' : 'bg-white border-washio-border'
+                      }`}
+                      style={isSelected ? { background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 6px 16px rgba(16,24,42,0.20)' } : undefined}>
+                      <p className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-washio-navy'}`}>{s.name}</p>
+                      <p className={`text-xs mt-0.5 font-semibold ${isSelected ? 'text-washio-cyan' : 'text-gray-500'}`}>{price}</p>
                     </button>
                   )
                 })}
@@ -1130,8 +1144,8 @@ function MapPageContent() {
                         <button key={slot.time} onClick={() => setSelectedSlot(slot.time)}
                           className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
                             isSelected
-                              ? 'bg-gray-900 border-gray-900 text-white'
-                              : 'bg-white border-gray-200 text-gray-900'
+                              ? 'bg-washio-cyan border-washio-cyan text-white shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
+                              : 'bg-white border-washio-border text-washio-navy'
                           }`}>
                           {slot.time}
                         </button>
@@ -1146,19 +1160,20 @@ function MapPageContent() {
                 {canBook ? (
                   <button
                     onClick={handleBookingAttempt}
-                    className="flex-1 bg-gray-900 text-white text-sm font-semibold py-3.5 rounded-xl flex items-center justify-center gap-1.5">
+                    className="flex-1 text-white text-sm font-semibold py-3.5 rounded-[14px] flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
+                    style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 8px 20px rgba(25,168,199,0.35)' }}>
                     <span>{t.book}</span>
                     <span className="w-px h-4 bg-white/25" />
                     <span>{service ? priceLabel(service) : `€${selectedServicePrice}`}</span>
                   </button>
                 ) : (
-                  <div className="flex-1 bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-xl flex items-center justify-center">
+                  <div className="flex-1 bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-[14px] flex items-center justify-center">
                     {t.pickService}
                   </div>
                 )}
                 <button
                   onClick={() => router.push(`/locations/${selectedLocation.slug}`)}
-                  className="border border-gray-200 text-gray-600 text-xs px-3 py-3.5 rounded-xl font-medium">
+                  className="bg-white border border-washio-cyan/40 text-washio-cyan-dark text-xs px-3 py-3.5 rounded-[14px] font-semibold">
                   {t.otherDay}
                 </button>
               </div>
@@ -1167,7 +1182,7 @@ function MapPageContent() {
         </div>
 
         {/* Bottom Nav */}
-        <BottomNav />
+        <BottomNav flat />
       </div>
 
       {/* «Ειδοποίησέ με» capture — κενό κάλυψης */}

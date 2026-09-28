@@ -76,8 +76,8 @@ function StatusPill({ status }: { status: string }) {
     en: { confirmed: 'Upcoming', completed: 'Done', cancelled: 'Cancelled', pending: 'Pending' },
   })
   const config = {
-    confirmed: { bg: 'bg-blue-50', fg: 'text-blue-600', dot: 'bg-blue-600', label: L.confirmed },
-    completed: { bg: 'bg-green-50', fg: 'text-green-700', dot: 'bg-green-700', label: L.completed },
+    confirmed: { bg: 'bg-washio-cyan-light', fg: 'text-washio-cyan-dark', dot: 'bg-washio-cyan', label: L.confirmed },
+    completed: { bg: 'bg-washio-success-bg', fg: 'text-green-700', dot: 'bg-washio-success', label: L.completed },
     cancelled: { bg: 'bg-red-50', fg: 'text-red-600', dot: 'bg-red-600', label: L.cancelled },
     pending: { bg: 'bg-gray-50', fg: 'text-gray-600', dot: 'bg-gray-600', label: L.pending },
   }[status] || { bg: 'bg-gray-50', fg: 'text-gray-600', dot: 'bg-gray-600', label: status }
@@ -235,8 +235,8 @@ export default function ProfilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col items-center">
-      <div className="w-full max-w-md md:max-w-2xl pb-28">
+    <main className="min-h-screen flex flex-col items-center" style={{ background: 'linear-gradient(180deg, #EAF8FB 0%, #F7FAFC 300px)' }}>
+      <div className="w-full max-w-md md:max-w-2xl pb-32">
         <div className="px-5 pt-[calc(var(--safe-top)+8px)] flex flex-col gap-3.5">
 
           <div className="flex justify-center -mb-6">
@@ -244,20 +244,20 @@ export default function ProfilePage() {
           </div>
 
           <div className="flex items-center gap-3.5 px-1 py-2">
-            <div className="w-16 h-16 rounded-full bg-gray-900 text-white flex items-center justify-center text-[24px] font-semibold tracking-tight">
+            <div className="w-16 h-16 rounded-full text-white flex items-center justify-center text-[24px] font-semibold tracking-tight ring-4 ring-white" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 8px 20px rgba(25,168,199,0.30)' }}>
               {userInitial}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[18px] font-semibold tracking-tight text-gray-900 truncate">{fullName || t.welcome}</p>
+              <p className="text-[19px] font-bold tracking-tight text-washio-navy truncate">{fullName || t.welcome}</p>
               <p className="text-[13px] text-gray-500 mt-0.5 truncate">{userEmail}</p>
             </div>
           </div>
 
           {/* Favorites */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
             <div className="flex items-center justify-between px-[18px] pt-4 pb-2.5">
-              <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">{t.favorites}</p>
-              <button onClick={() => router.push('/profile/favorites')} className="text-[13px] font-medium text-blue-600">{t.all}</button>
+              <p className="text-[11px] font-bold tracking-[1.4px] uppercase text-washio-navy/70">{t.favorites}</p>
+              <button onClick={() => router.push('/profile/favorites')} className="text-[13px] font-semibold text-washio-cyan-dark">{t.all}</button>
             </div>
             <div className="px-2 pb-2">
               {favorites.length === 0 ? (
@@ -265,10 +265,10 @@ export default function ProfilePage() {
               ) : (
                 favorites.map((fav, i) => (
                   <button key={fav.id} onClick={() => router.push(`/locations/${fav.locations?.slug}`)}
-                    className={`w-full flex items-center gap-3 px-2.5 py-2.5 ${i < favorites.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                    <div className="w-9 h-9 rounded-[10px] bg-gray-50 flex items-center justify-center text-gray-900"><MapPin size={16} strokeWidth={1.6} /></div>
+                    className={`w-full flex items-center gap-3 px-2.5 py-2.5 ${i < favorites.length - 1 ? 'border-b border-washio-border' : ''}`}>
+                    <div className="w-9 h-9 rounded-full bg-washio-cyan-light flex items-center justify-center text-washio-cyan-dark"><MapPin size={16} strokeWidth={1.9} /></div>
                     <p className="flex-1 text-[14px] font-semibold text-gray-900 text-left truncate">{fav.locations?.name}</p>
-                    <ChevronRight size={14} className="text-gray-300" />
+                    <ChevronRight size={14} className="text-washio-cyan-dark" />
                   </button>
                 ))
               )}
@@ -276,10 +276,10 @@ export default function ProfilePage() {
           </div>
 
           {/* Bookings */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
             <div className="flex items-center justify-between px-[18px] pt-4 pb-2.5">
-              <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">{t.bookings}</p>
-              <button onClick={() => router.push('/profile/bookings')} className="text-[13px] font-medium text-blue-600">{t.allF}</button>
+              <p className="text-[11px] font-bold tracking-[1.4px] uppercase text-washio-navy/70">{t.bookings}</p>
+              <button onClick={() => router.push('/profile/bookings')} className="text-[13px] font-semibold text-washio-cyan-dark">{t.allF}</button>
             </div>
             <div className="px-2 pb-2">
               {bookings.length === 0 ? (
@@ -287,7 +287,7 @@ export default function ProfilePage() {
               ) : (
                 bookings.map((b, i) => (
                   <button key={b.id} onClick={() => router.push(`/profile/bookings/${b.id}`)}
-                    className={`w-full flex items-center justify-between px-2.5 py-3 text-left ${i < bookings.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                    className={`w-full flex items-center justify-between px-2.5 py-3 text-left ${i < bookings.length - 1 ? 'border-b border-washio-border' : ''}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-[14px] font-semibold text-gray-900 truncate">{(b.locations as any)?.name}</p>
                       <p className="text-[12px] text-gray-500 mt-0.5 truncate">{formatDate(b.slot_date, locale)} · {b.slot_start_time?.slice(0, 5)}</p>
@@ -302,24 +302,24 @@ export default function ProfilePage() {
           {/* Κουπόνια & Παραπομπές */}
           <button
             onClick={() => { lightTap(); router.push('/profile/rewards') }}
-            className="w-full bg-gray-900 rounded-2xl px-[18px] py-[16px] flex items-center gap-3 text-left"
-            style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+            className="w-full rounded-[22px] px-[18px] py-[16px] flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+            style={{ background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 8px 22px rgba(16,24,42,0.18)' }}
           >
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-full bg-washio-cyan flex items-center justify-center shrink-0">
               <Gift size={18} className="text-white" strokeWidth={1.8} />
             </div>
             <div className="flex-1">
               <p className="text-[15px] font-semibold text-white">{t.rewardsMenu}</p>
-              <p className="text-[12px] text-white/60 mt-0.5">{t.rewardsSub}</p>
+              <p className="text-[12px] text-white/65 mt-0.5">{t.rewardsSub}</p>
             </div>
             <ChevronRight size={18} className="text-white/50" />
           </button>
 
           {/* Profile details */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
             <button onClick={() => { setShowProfileEdit(v => !v); lightTap() }} className="w-full flex items-center px-[18px] py-[18px]">
-              <p className="flex-1 text-[15px] font-medium text-gray-900 text-left">{t.profileDetails}</p>
-              {showProfileEdit ? <ChevronUp size={18} className="text-gray-900" /> : <ChevronDown size={18} className="text-gray-400" />}
+              <p className="flex-1 text-[15px] font-semibold text-washio-navy text-left">{t.profileDetails}</p>
+              {showProfileEdit ? <ChevronUp size={18} className="text-washio-cyan-dark" /> : <ChevronDown size={18} className="text-gray-400" />}
             </button>
             {showProfileEdit && (
               <div className="px-[18px] pb-4 pt-1 flex flex-col gap-2">
@@ -336,10 +336,10 @@ export default function ProfilePage() {
           </div>
 
           {/* Vehicle */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
             <button onClick={() => { setShowCarEdit(v => !v); lightTap() }} className="w-full flex items-center px-[18px] py-[18px]">
-              <p className="flex-1 text-[15px] font-medium text-gray-900 text-left">{t.myVehicle}</p>
-              {showCarEdit ? <ChevronUp size={18} className="text-gray-900" /> : <ChevronDown size={18} className="text-gray-400" />}
+              <p className="flex-1 text-[15px] font-semibold text-washio-navy text-left">{t.myVehicle}</p>
+              {showCarEdit ? <ChevronUp size={18} className="text-washio-cyan-dark" /> : <ChevronDown size={18} className="text-gray-400" />}
             </button>
             {showCarEdit && (
               <div className="px-[18px] pb-4 pt-1 flex flex-col gap-2">
@@ -347,13 +347,13 @@ export default function ProfilePage() {
                   <p className="text-xs text-gray-400">{t.noVehicles}</p>
                 ) : (
                   vehicles.map((vehicle) => (
-                    <div key={vehicle.id} className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-gray-50">
-                      <span className="font-mono text-[14px] font-semibold tracking-wider text-gray-900">{vehicle.plate}</span>
+                    <div key={vehicle.id} className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-washio-cyan-light/60 border border-washio-border">
+                      <span className="font-mono text-[14px] font-semibold tracking-wider text-washio-navy">{vehicle.plate}</span>
                       <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] font-semibold text-gray-500">{vehicle.type}</span>
                       <button
                         onClick={() => { if (!vehicle.is_primary) handleSetPrimary(vehicle.id) }}
                         disabled={vehicle.is_primary}
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider transition-colors ${vehicle.is_primary ? 'bg-gray-900 text-white' : 'bg-white border border-gray-300 text-gray-500'}`}>
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wider transition-colors ${vehicle.is_primary ? 'bg-washio-cyan text-white' : 'bg-white border border-washio-border text-gray-500'}`}>
                         {t.main}
                       </button>
                       <div className="flex-1" />
@@ -380,7 +380,7 @@ export default function ProfilePage() {
                   </div>
                 ) : (
                   <button onClick={() => { setShowVehicleForm(true); lightTap() }}
-                    className="h-11 rounded-xl border border-dashed border-gray-300 text-[13px] font-semibold text-gray-500 flex items-center justify-center gap-1.5">
+                    className="h-11 rounded-xl border border-dashed border-washio-cyan/50 text-[13px] font-semibold text-washio-cyan-dark flex items-center justify-center gap-1.5">
                     <Plus size={16} /> {t.addVehicle}
                   </button>
                 )}
@@ -389,18 +389,18 @@ export default function ProfilePage() {
           </div>
 
           {/* Language */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
             <div className="px-[18px] pt-4 pb-2.5">
-              <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">{t.language}</p>
+              <p className="text-[11px] font-bold tracking-[1.4px] uppercase text-washio-navy/70">{t.language}</p>
             </div>
             <div className="px-[18px] pb-4">
               <div className="flex gap-2">
                 <button onClick={() => { setLocale('el'); lightTap() }}
-                  className={`flex-1 h-11 rounded-xl text-[14px] font-semibold border transition-colors ${locale === 'el' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'}`}>
+                  className={`flex-1 h-11 rounded-xl text-[14px] font-semibold border transition-colors ${locale === 'el' ? 'bg-washio-cyan text-white border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)]' : 'bg-white text-gray-600 border-washio-border'}`}>
                   Ελληνικά
                 </button>
                 <button onClick={() => { setLocale('en'); lightTap() }}
-                  className={`flex-1 h-11 rounded-xl text-[14px] font-semibold border transition-colors ${locale === 'en' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'}`}>
+                  className={`flex-1 h-11 rounded-xl text-[14px] font-semibold border transition-colors ${locale === 'en' ? 'bg-washio-cyan text-white border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)]' : 'bg-white text-gray-600 border-washio-border'}`}>
                   English
                 </button>
               </div>
@@ -409,34 +409,34 @@ export default function ProfilePage() {
 
           {/* Partner hub — visible only for car-wash owners */}
           {isPartner && (
-            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+            <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
               <button
                 onClick={() => { lightTap(); router.push('/dashboard') }}
                 className="w-full flex items-center gap-3 px-[18px] py-[18px]"
               >
-                <div className="w-9 h-9 rounded-full bg-gray-900 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-full bg-washio-cyan flex items-center justify-center shrink-0">
                   <Store size={16} className="text-white" strokeWidth={1.8} />
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-[15px] font-semibold text-gray-900 leading-tight">{t.partnerHub}</p>
                   <p className="text-[12px] text-gray-500 mt-0.5">{t.partnerHubSub}</p>
                 </div>
-                <ChevronRight size={16} className="text-gray-300" />
+                <ChevronRight size={16} className="text-washio-cyan-dark" />
               </button>
             </div>
           )}
 
           {/* Support */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
             <button onClick={() => window.location.href = 'mailto:support@washio.gr'} className="w-full flex items-center gap-3 px-[18px] py-[18px]">
-              <MessageCircle size={18} className="text-gray-500" strokeWidth={1.6} />
-              <p className="flex-1 text-[15px] font-medium text-gray-900 text-left">{t.support}</p>
-              <ChevronRight size={16} className="text-gray-300" />
+              <MessageCircle size={18} className="text-washio-cyan-dark" strokeWidth={1.8} />
+              <p className="flex-1 text-[15px] font-semibold text-washio-navy text-left">{t.support}</p>
+              <ChevronRight size={16} className="text-washio-cyan-dark" />
             </button>
           </div>
 
           {/* Logout */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+          <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
             <button onClick={() => { lightTap(); handleLogout() }} className="w-full flex items-center gap-3 px-[18px] py-[18px] text-red-500">
               <LogOut size={18} strokeWidth={1.6} />
               <p className="flex-1 text-[15px] font-medium text-left">{t.logout}</p>
