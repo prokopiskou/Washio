@@ -423,11 +423,12 @@ export default function AdminPage() {
   }
 
   const handleAddAddon = async () => {
-    if (!newAddon.name || !newAddon.price) return
+    if (!newAddon.name.trim()) return
     const supabase = createClient()
+    // Χωρίς τιμή από τη Washio — την τιμή τη βάζει κάθε πλυντήριο στο dashboard του.
     await supabase.from('addons').insert({
-      name: newAddon.name,
-      price: parseFloat(newAddon.price),
+      name: newAddon.name.trim(),
+      price: 0,
       sort_order: addons.length + 1,
       is_active: true,
     })
@@ -2077,22 +2078,9 @@ export default function AdminPage() {
                             />
                           </div>
 
-                          <div>
-                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">
-                              Τιμή (€)
-                            </p>
-                            <div className="flex items-center bg-white border border-gray-200 rounded-[9px] h-10 px-3">
-                              <span className="text-[14px] font-semibold text-gray-400 mr-1.5">€</span>
-                              <input
-                                value={newAddon.price}
-                                onChange={e => setNewAddon(n => ({ ...n, price: e.target.value }))}
-                                placeholder="0"
-                                type="number"
-                                className="flex-1 bg-transparent text-[14px] font-bold tracking-tight text-gray-900 placeholder-gray-300 focus:outline-none"
-                                style={{ fontVariantNumeric: 'tabular-nums' }}
-                              />
-                            </div>
-                          </div>
+                          <p className="text-[11px] text-gray-400 leading-snug">
+                            Χωρίς τιμή — κάθε πλυντήριο ορίζει τη δική του τιμή όταν την ενεργοποιεί.
+                          </p>
 
                           <div className="flex gap-2">
                             <button
@@ -2103,7 +2091,7 @@ export default function AdminPage() {
                             </button>
                             <button
                               onClick={handleAddAddon}
-                              disabled={!newAddon.name || !newAddon.price}
+                              disabled={!newAddon.name.trim()}
                               className="flex-1 h-11 rounded-xl bg-gray-900 text-white text-[13px] font-semibold disabled:opacity-40"
                             >
                               Αποθήκευση
@@ -2135,11 +2123,7 @@ export default function AdminPage() {
                               <p className={`text-[13px] font-semibold tracking-tight truncate ${addon.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
                                 {addon.name}
                               </p>
-                              {addon.price !== undefined && addon.price !== null && (
-                                <p className="text-[11px] text-gray-400 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                  €{Number(addon.price).toFixed(2)}
-                                </p>
-                              )}
+                              <p className="text-[11px] text-gray-400 mt-0.5">Τιμή: ορίζει το πλυντήριο</p>
                             </div>
 
                             <button

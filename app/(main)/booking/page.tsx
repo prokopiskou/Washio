@@ -482,7 +482,10 @@ function BookingPageContent() {
           id: a.addon_id,
           name: a.addons?.name || '',
           price: a.price_override ?? a.addons?.price ?? 0,
-        })).sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)))
+        }))
+        // Χωρίς τιμή από το πλυντήριο → δεν εμφανίζεται (ποτέ πρόσθετο €0 στο checkout).
+        .filter((a: any) => Number(a.price) > 0)
+        .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)))
       }
 
       if (user.email) setEmail(user.email)

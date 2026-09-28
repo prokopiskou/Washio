@@ -2024,6 +2024,11 @@ export default function DashboardPage() {
                               style={{ fontVariantNumeric: 'tabular-nums' }}
                             />
                           </div>
+                          {!(Number(service.price_override) > 0) && (
+                            <p className="text-[11px] text-amber-600 mt-1.5 leading-snug">
+                              Βάλε τιμή — χωρίς τιμή δεν εμφανίζεται στους πελάτες.
+                            </p>
+                          )}
                         </div>
                       </div>
                     )}
