@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
+import { openDirections, directionsWebUrl } from '@/lib/open-directions'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Check, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -101,6 +102,7 @@ function ConfirmedContent() {
   const [locationName, setLocationName] = useState('Washio')
   const [locationAddress, setLocationAddress] = useState('')
   const [locationCity, setLocationCity] = useState('')
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [locationInstructions, setLocationInstructions] = useState('')
   const [show, setShow] = useState(false)
 
@@ -136,6 +138,7 @@ function ConfirmedContent() {
         if (loc.name) setLocationName(loc.name)
         if (loc.address) setLocationAddress(loc.address)
         if (loc.city) setLocationCity(loc.city)
+        if (loc.lat != null && loc.lng != null) setLocationCoords({ lat: Number(loc.lat), lng: Number(loc.lng) })
         if (loc.extra_instructions) setLocationInstructions(loc.extra_instructions)
       }
       const supabase = createClient()
@@ -155,7 +158,7 @@ function ConfirmedContent() {
             if (r.ok) { const j = await r.json(); if (j.location) applyLocation(j.location) }
           } else {
             const { data } = await supabase
-              .from('bookings').select('locations(name, address, city, extra_instructions)')
+              .from('bookings').select('locations(name, address, city, lat, lng, extra_instructions)')
               .eq('booking_ref', refParam).maybeSingle()
             if (data) applyLocation(data.locations as any)
           }
@@ -204,11 +207,8 @@ function ConfirmedContent() {
   // Υπηρεσία εύρους (βιολογικός): δείχνουμε εύρος, όχι σταθερό ποσό.
   const totalFormatted = range ? `€${range}` : total ? `€${parseFloat(total).toFixed(2)}` : '—'
 
-  const mapsUrl = locationAddress
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-        `${locationAddress}, ${locationCity}`
-      )}`
-    : ''
+  const dirTarget = { ...locationCoords, name: locationName, address: locationAddress, city: locationCity }
+  const mapsUrl = locationAddress ? directionsWebUrl(dirTarget) : ''
 
   return (
     <main className="min-h-screen bg-white flex flex-col items-center">
@@ -374,8 +374,7 @@ function ConfirmedContent() {
             {mapsUrl && (
               <a
                 href={mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={e => { e.preventDefault(); openDirections(dirTarget) }}
                 className="w-full rounded-xl bg-white border border-gray-200 text-gray-900 text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2"
                 style={{ height: 52 }}
               >

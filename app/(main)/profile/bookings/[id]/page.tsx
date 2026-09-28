@@ -7,6 +7,7 @@ import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star, RotateCw } from 'lucide-react'
 import { useT, useLocale } from '@/lib/i18n'
 import { WashioLoader } from '@/components/WashioLoader'
+import { openDirections, directionsWebUrl } from '@/lib/open-directions'
 import { INACTIVE_STATUS_FILTER } from '@/lib/slots'
 import { ymdFromLocalDate, weekdayMon1FromYmd, athensToday, athensMinutesOfDay } from '@/lib/time'
 import { computeSlots, toMinutes, type HoursException, type OccupancyBooking } from '@/lib/availability'
@@ -131,6 +132,8 @@ type Booking = {
     name: string
     address: string
     city: string
+    lat?: number | null
+    lng?: number | null
   } | null
   services: {
     name: string
@@ -245,7 +248,7 @@ export default function BookingDetailPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, car_plate, stripe_payment_intent_id, created_at, location_id, service_id, duration_minutes, locations(id, slug, name, address, city), services(name)')
+        .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, car_plate, stripe_payment_intent_id, created_at, location_id, service_id, duration_minutes, locations(id, slug, name, address, city, lat, lng), services(name)')
         .eq('id', bookingId)
         .single()
 
@@ -460,9 +463,7 @@ export default function BookingDetailPage() {
     timeZone: 'Europe/Athens',
   })
 
-  const mapsUrl = booking.locations
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${booking.locations.address}, ${booking.locations.city}`)}`
-    : '#'
+  const mapsUrl = booking.locations ? directionsWebUrl(booking.locations) : '#'
 
   const effStatus = effectiveStatus(booking.status, booking.slot_date, booking.slot_start_time)
   const isActiveBooking = effStatus !== 'cancelled' && effStatus !== 'completed'
@@ -512,8 +513,7 @@ export default function BookingDetailPage() {
           {booking.locations && (
             <a
               href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              onClick={e => { e.preventDefault(); if (booking.locations) openDirections(booking.locations) }}
               className="block bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3.5 mb-3.5"
               style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
             >

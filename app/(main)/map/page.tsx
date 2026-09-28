@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Home as HomeIcon, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { openDirections, directionsWebUrl } from '@/lib/open-directions'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
@@ -863,9 +864,7 @@ function MapPageContent() {
     ? `${new Date(selectedDate).toLocaleDateString(LOCALE_MAP[locale], { day: 'numeric', month: 'short' })} · ${selectedTime}`
     : null
 
-  const mapsUrl = selectedLocation
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedLocation.address}, ${selectedLocation.city}`)}`
-    : '#'
+  const mapsUrl = selectedLocation ? directionsWebUrl(selectedLocation) : '#'
 
   return (
     <main className="fixed inset-0 bg-white flex flex-col items-center overflow-hidden overscroll-none">
@@ -1235,8 +1234,7 @@ function MapPageContent() {
 
             <a
               href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              onClick={e => { e.preventDefault(); if (selectedLocation) openDirections(selectedLocation) }}
               className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-3 mb-4 active:bg-gray-100 transition-colors"
             >
               <MapPin size={14} className="text-gray-400 shrink-0" />
