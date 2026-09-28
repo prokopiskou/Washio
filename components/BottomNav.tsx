@@ -33,11 +33,10 @@ export function BottomNav({ flat = false }: { flat?: boolean } = {}) {
   return (
     <nav
       className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 pointer-events-none"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div
         className={`relative mx-0 bg-white/95 backdrop-blur-xl pointer-events-auto ${flat ? 'border-t border-washio-border/60' : 'border-t border-washio-border rounded-t-[26px]'}`}
-        style={flat ? undefined : { boxShadow: '0 -6px 24px rgba(16,24,42,0.06)' }}
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)', ...(flat ? {} : { boxShadow: '0 -6px 24px rgba(16,24,42,0.06)' }) }}
       >
         <div className="flex items-end justify-around h-[72px] px-4">
           <Link href="/" className={side(homeActive)}>
