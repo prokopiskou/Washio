@@ -318,11 +318,14 @@ export default function HomePage() {
   const cardShadow = { boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }
 
   return (
-    <main className="min-h-screen flex flex-col items-center relative overflow-hidden"
+    <main className="min-h-screen flex flex-col items-center relative"
       style={{ background: 'linear-gradient(180deg, #EAF8FB 0%, #F7FAFC 320px)' }}>
-      {/* Διακριτικό cyan «κύμα» φόντου πάνω αριστερά */}
-      <div className="pointer-events-none absolute -top-24 -left-28 w-[360px] h-[360px] rounded-full"
-        style={{ background: 'radial-gradient(circle, rgba(25,168,199,0.10) 0%, rgba(25,168,199,0) 70%)' }} />
+      {/* Διακριτικό cyan «κύμα» φόντου πάνω αριστερά. Το clipping γίνεται σε ΔΙΚΟ
+          του wrapper — ΟΧΙ overflow-hidden στο <main> (έκοβε το scroll στο iOS WebView). */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] overflow-hidden" aria-hidden>
+        <div className="absolute -top-24 -left-28 w-[360px] h-[360px] rounded-full"
+          style={{ background: 'radial-gradient(circle, rgba(25,168,199,0.10) 0%, rgba(25,168,199,0) 70%)' }} />
+      </div>
 
       <div className="relative w-full max-w-md md:max-w-2xl pb-32">
         <div className="px-5 pt-[calc(var(--safe-top)+8px)] pb-6 flex flex-col gap-5">
