@@ -68,19 +68,25 @@ html.native-app {
   --color-green-700: #0B8446;
 }
 
+/* Scroll: ΜΟΝΟ το viewport κάνει scroll (κανονική συμπεριφορά browser).
+   Πριν: html/body height:100% + body overflow-y:auto → το body γινόταν «εσωτερικό»
+   scroll container και σε desktop η ροδέλα δεν κυλούσε καθόλου τη σελίδα
+   (και σε iOS WebView κολλούσε το scroll κατά περίπτωση).
+   overflow-x: clip κόβει οριζόντια υπερχείλιση ΧΩΡΙΣ να φτιάχνει scroll container
+   (το overflow-x:hidden θα έκανε το overflow-y αυτόματα auto → ίδιο πρόβλημα). */
 html, body {
-  height: 100%;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-y: contain;
   -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  overscroll-behavior-y: contain;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 * {
