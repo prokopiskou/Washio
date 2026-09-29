@@ -17,7 +17,7 @@ const T = {
     welcome: 'Καλωσόρισμα', referral_reward: 'Επιβράβευση παραπομπής', redeem: 'Εξαργύρωση',
     referTitle: 'Φέρε φίλους, κερδίστε και οι δύο',
     referSub: (a: number, b: number, n: number) =>
-      `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση. Εσύ παίρνεις +${b}€ για την επόμενή σου — έως ${n} φορές.`,
+      `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση — κι εσύ −${b}€ στην επόμενη δική σου, μόλις κάνει την κράτηση. Έως ${n} φίλοι.`,
     yourCode: 'Ο κωδικός σου', yourLink: 'Ο σύνδεσμός σου',
     copy: 'Αντιγραφή', copied: 'Αντιγράφηκε!', share: 'Κοινοποίηση',
     used: (x: number, n: number) => `${x} από ${n} παραπομπές ολοκληρώθηκαν`,
@@ -32,7 +32,7 @@ const T = {
     welcome: 'Welcome', referral_reward: 'Referral reward', redeem: 'Redeemed',
     referTitle: 'Invite friends, both win',
     referSub: (a: number, b: number, n: number) =>
-      `Each friend gets −€${a} on their first booking. You get +€${b} for your next — up to ${n} times.`,
+      `Each friend gets −€${a} on their first booking — and you get −€${b} on your next one once they book. Up to ${n} friends.`,
     yourCode: 'Your code', yourLink: 'Your link',
     copy: 'Copy', copied: 'Copied!', share: 'Share',
     used: (x: number, n: number) => `${x} of ${n} referrals completed`,
