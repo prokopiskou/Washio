@@ -214,6 +214,11 @@ function MapPageContent() {
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([])
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   const [locationServices, setLocationServices] = useState<Service[]>([])
+  // Προφορτωμένα δεδομένα ανά πλυντήριο (από το ίδιο query με τον χάρτη) →
+  // στο tap σε σημείο υπηρεσίες/βαθμολογία/ώρες εμφανίζονται ΑΜΕΣΑ, χωρίς νέο round-trip.
+  const servicesByLocRef = useRef<Record<string, Service[]>>({})
+  const ratingByLocRef = useRef<Record<string, { avg: number; count: number }>>({})
+  const availCacheRef = useRef<{ date: string; hours: Record<string, any>; exceptions: Record<string, any>; bookings: Record<string, OccupancyBooking[]>; capacity: Record<string, number> } | null>(null)
   const [selectedRating, setSelectedRating] = useState<{ avg: number; count: number } | null>(null)
   const [selectedService, setSelectedService] = useState<string | null>(null)
   const [slots, setSlots] = useState<Slot[]>([])
@@ -304,7 +309,7 @@ function MapPageContent() {
     const dayOfWeek = weekdayMon1FromYmd(checkDate)
 
     const [{ data: locsData }, { data: hoursData }, { data: bookingsData }, { data: exceptionsData }] = await Promise.all([
-      supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos').eq('is_active', true),
+      supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos, services(id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv, is_active, sort_order), reviews(rating)').eq('is_active', true),
       supabase.from('location_hours').select('location_id, open_time, close_time, is_closed').eq('day_of_week', dayOfWeek),
       supabase.from('bookings').select('location_id, slot_start_time, duration_minutes').eq('slot_date', checkDate).not('status', 'in', '("cancelled","no_show")'),
       supabase.from('location_hours_exceptions').select('location_id, is_closed, closed_from, closed_to, periods').eq('exception_date', checkDate),
@@ -324,6 +329,17 @@ function MapPageContent() {
 
     const isCheckToday = checkDate === getTodayValue()
     const nowMinutes = athensMinutesOfDay()
+
+    const capMap: Record<string, number> = {}
+    ;(locsData || []).forEach((loc: any) => {
+      capMap[loc.id] = Math.max(1, Number(loc.capacity) || 1)
+      servicesByLocRef.current[loc.id] = ((loc.services || []) as any[])
+        .filter(sv => sv.is_active !== false)
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) as Service[]
+      const r = ((loc.reviews || []) as { rating: number }[]).map(x => Number(x.rating)).filter(x => x > 0)
+      ratingByLocRef.current[loc.id] = r.length ? { avg: r.reduce((a, b) => a + b, 0) / r.length, count: r.length } : { avg: 0, count: 0 }
+    })
+    availCacheRef.current = { date: checkDate, hours: hoursMap, exceptions: exceptionsMap, bookings: bookingsMap, capacity: capMap }
 
     let locs: Location[] = (locsData || []).map((loc: any) => {
       // ΚΟΙΝΗ λογική διαθεσιμότητας — ίδια με σελίδα πλυντηρίου & server.
@@ -491,6 +507,12 @@ function MapPageContent() {
       setSelectedRating(null)
       return
     }
+    // Άμεσα από την cache του χάρτη· το fetch μόνο ως ανανέωση/fallback.
+    const cachedSvc = servicesByLocRef.current[selectedLocation.id]
+    const cachedRating = ratingByLocRef.current[selectedLocation.id]
+    setLocationServices(cachedSvc || [])
+    setSelectedRating(cachedRating || null)
+    if (cachedSvc && cachedRating) return
     const loadServices = async () => {
       const supabase = createClient()
       const { data } = await supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv')
@@ -517,6 +539,35 @@ function MapPageContent() {
         : selectedDate
       const dayOfWeek = weekdayMon1FromYmd(checkDate)
 
+      const serviceDurationQuick = Math.max(
+        30,
+        locationServices.find(s => s.id === selectedService)?.duration_minutes || 30
+      )
+      const applySlots = (computedSlots: ReturnType<typeof computeSlots>) => {
+        setSlots(computedSlots)
+        if (timing === 'later' && selectedTime) {
+          const isAvailable = computedSlots.find(s => s.time === selectedTime && s.available)
+          if (isAvailable) setSelectedSlot(selectedTime)
+        } else if (timing === 'now') {
+          const next = computedSlots.find(s => s.available)
+          if (next) setSelectedSlot(next.time)
+        }
+      }
+      // 1) ΑΜΕΣΑ από τα δεδομένα που ήδη φόρτωσε ο χάρτης (ίδια μέρα).
+      const cache = availCacheRef.current
+      if (cache && cache.date === checkDate) {
+        applySlots(computeSlots({
+          dayHours: cache.hours[selectedLocation.id] || null,
+          exception: cache.exceptions[selectedLocation.id] as HoursException,
+          bookings: cache.bookings[selectedLocation.id] || [],
+          capacity: cache.capacity[selectedLocation.id] || 1,
+          durationMinutes: serviceDurationQuick,
+          isToday: checkDate === getTodayValue(),
+          nowMinutes: athensMinutesOfDay(),
+        }))
+      }
+
+      // 2) Φρέσκια επιβεβαίωση από τη βάση (π.χ. μόλις κλείστηκε κάποια ώρα).
       // ΚΟΙΝΗ λογική διαθεσιμότητας (lib/availability) — ίδια με σελίδα
       // πλυντηρίου & server: ωράριο, εξαιρέσεις, capacity, διάρκεια, lead time.
       const [{ data: exceptionData }, { data: hoursData }, { data: bookedData }, { data: capRow }] = await Promise.all([
@@ -550,15 +601,7 @@ function MapPageContent() {
         nowMinutes: athensMinutesOfDay(),
       })
 
-      setSlots(computedSlots)
-
-      if (timing === 'later' && selectedTime) {
-        const isAvailable = computedSlots.find(s => s.time === selectedTime && s.available)
-        if (isAvailable) setSelectedSlot(selectedTime)
-      } else if (timing === 'now') {
-        const next = computedSlots.find(s => s.available)
-        if (next) setSelectedSlot(next.time)
-      }
+      applySlots(computedSlots)
     }
     loadSlots()
   }, [selectedLocation, timing, selectedDate, selectedTime, selectedService, locationServices])
