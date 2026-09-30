@@ -13,7 +13,7 @@ import { useT } from '@/lib/i18n'
 //  - iOS: App Store Connect → App Analytics → Sources → Campaigns (ct=web_get_app_button).
 //    Χρειάζεται το provider token (pt) του λογαριασμού για να καταγράφεται.
 //  - Android: Play Console → Statistics → User acquisition (utm_source / utm_campaign).
-const APPLE_PT = ''
+const APPLE_PT = '129101712'
 const APP_STORE = `https://apps.apple.com/app/apple-store/id6785925766?${APPLE_PT ? `pt=${APPLE_PT}&` : ''}ct=web_get_app_button&mt=8`
 const PLAY_STORE = 'https://play.google.com/store/apps/details?id=gr.washio.app&referrer=' +
   encodeURIComponent('utm_source=washio_web&utm_medium=get_app_button&utm_campaign=web_to_app')
