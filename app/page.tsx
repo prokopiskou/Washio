@@ -10,7 +10,7 @@ import dynamic from 'next/dynamic'
 // Landing μόνο για αποσυνδεδεμένους web επισκέπτες — όχι στο bundle των χρηστών.
 const LandingPage = dynamic(() => import('./landing/page'))
 import { BottomNav } from '@/components/BottomNav'
-import { GetAppBanner } from '@/components/GetAppBanner'
+import { CouponActiveBanner } from '@/components/CouponActiveBanner'
 import { WashioLoader } from '@/components/WashioLoader'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -568,7 +568,7 @@ export default function HomePage() {
         <BottomNav />
 
         {/* Web-only: όποιος έχει κουπόνι (referral/ad) → σπρώξ' τον στο native app. */}
-        <GetAppBanner />
+        <CouponActiveBanner />
 
         {/* Prompt αξιολόγησης app store — μετά την 1η ολοκληρωμένη κράτηση */}
         <AppRatingPrompt />

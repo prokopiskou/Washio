@@ -6,6 +6,7 @@ import { RegistrationTracker } from "@/components/RegistrationTracker";
 import { Analytics } from "@vercel/analytics/next";
 import { AnalyticsScripts } from "@/components/AnalyticsScripts";
 import { LanguageProvider } from "@/lib/i18n";
+import { GetAppButton } from "@/components/GetAppButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,6 +21,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Washio",
   description: "Κράτηση πλυσίματος αυτοκινήτου",
+  // iOS Safari Smart App Banner (μπάρα «Άνοιγμα / Λήψη» πάνω από τη σελίδα)
+  itunes: { appId: "6785925766" },
 };
 
 export default function RootLayout({
@@ -46,6 +49,7 @@ export default function RootLayout({
           <CapacitorInit />
           <RegistrationTracker />
           {children}
+          <GetAppButton />
           <Analytics />
           <AnalyticsScripts />
         </LanguageProvider>
