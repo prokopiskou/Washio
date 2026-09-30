@@ -29,7 +29,7 @@ const T = {
     verifying: 'Επαλήθευση...',
     login: 'Είσοδος',
     changeEmail: 'Αλλαγή email',
-    haveCode: 'Έχω ήδη κωδικό →', codeOnWay: 'Ο κωδικός έρχεται στο email σου — βάλ\' τον εδώ μόλις φτάσει.',
+    codeOnWay: 'Ο κωδικός έρχεται στο email σου — βάλ\' τον εδώ μόλις φτάσει.',
     resendCode: 'Αποστολή νέου κωδικού',
     wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
     somethingWrong: 'Κάτι πήγε στραβά. Δοκίμασε ξανά.',
@@ -55,7 +55,7 @@ const T = {
     verifying: 'Verifying...',
     login: 'Sign in',
     changeEmail: 'Change email',
-    haveCode: 'I already have a code →', codeOnWay: 'Your code is on its way — enter it here as soon as it arrives.',
+    codeOnWay: 'Your code is on its way — enter it here as soon as it arrives.',
     resendCode: 'Send new code',
     wrongCode: 'Wrong code. Please try again.',
     somethingWrong: 'Something went wrong. Please try again.',
@@ -280,13 +280,6 @@ function LoginPageContent() {
               className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
             >
               {loading ? t.sending : t.sendCode}
-            </button>
-
-            <button
-              onClick={() => { syncEmail(); const v = cleanEmail(emailRef.current?.value ?? email); if (v) { setEmail(v); setError(''); setSent(true) } }}
-              className="w-full text-xs font-semibold text-washio-cyan-dark text-center py-1"
-            >
-              {t.haveCode}
             </button>
 
             <button
