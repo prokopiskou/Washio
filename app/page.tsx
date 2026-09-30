@@ -114,11 +114,20 @@ export default function HomePage() {
   const [lastBooking, setLastBooking] = useState<Booking | null>(null)
   const [activeLocationsCount, setActiveLocationsCount] = useState(0)
   const [isPartner, setIsPartner] = useState(false)
+  // Αν ο server (Supabase) δεν απαντά, ΜΗΝ μένεις για πάντα στο loader:
+  // μετά από 10″ δείξε μήνυμα + «Δοκίμασε ξανά».
+  const [connFailed, setConnFailed] = useState(false)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
+    let settled = false
+    const watchdog = setTimeout(() => { if (!settled) setConnFailed(true) }, 10000)
     const init = async () => {
       const supabase = createClient()
       const { data: sessionData } = await supabase.auth.getSession()
+      settled = true
+      clearTimeout(watchdog)
+      setConnFailed(false)
 
       if (!sessionData.session) {
         // Referral/ad link (?ref=ΚΩΔΙΚΟΣ): κράτα τον κωδικό και στείλε τον ΚΑΤΕΥΘΕΙΑΝ
@@ -278,11 +287,31 @@ export default function HomePage() {
 
       setAuthChecking(false)
     }
-    init()
-  }, [router])
+    init().catch(() => { settled = true; clearTimeout(watchdog); setConnFailed(true) })
+    return () => { settled = true; clearTimeout(watchdog) }
+  }, [router, retryKey])
 
   if (showLanding) {
     return <LandingPage />
+  }
+
+  if (authChecking && connFailed) {
+    return (
+      <main className="min-h-screen bg-gray-50 flex items-center justify-center px-8">
+        <div className="text-center max-w-xs">
+          <p className="text-[17px] font-bold text-washio-navy">{locale === 'en' ? 'Connection is slow' : 'Η σύνδεση αργεί'}</p>
+          <p className="text-[13px] text-gray-500 mt-1.5 leading-snug">
+            {locale === 'en' ? 'We can’t reach our servers right now. Please try again in a moment.' : 'Δεν μπορούμε να συνδεθούμε αυτή τη στιγμή. Δοκίμασε ξανά σε λίγο.'}
+          </p>
+          <button
+            onClick={() => { setConnFailed(false); setRetryKey(k => k + 1) }}
+            className="mt-5 bg-washio-cyan text-white text-[14px] font-semibold px-6 py-3 rounded-2xl active:scale-95 transition-transform"
+          >
+            {locale === 'en' ? 'Try again' : 'Δοκίμασε ξανά'}
+          </button>
+        </div>
+      </main>
+    )
   }
 
   if (authChecking) {
