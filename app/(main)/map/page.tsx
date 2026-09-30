@@ -101,6 +101,13 @@ type Location = {
   photos?: string[] | null
 }
 
+type NextCache = {
+  hours: { day_of_week: number; open_time: string; close_time: string; is_closed: boolean }[]
+  excs: ({ exception_date: string } & Record<string, unknown>)[]
+  bks: { slot_date: string; slot_start_time: string; duration_minutes: number }[]
+  capacity: number
+}
+
 // YYYY-MM-DD + n μέρες (ημερολογιακά, χωρίς ζώνη ώρας).
 function addDaysYmd(ymd: string, n: number): string {
   const [y, m, d] = ymd.split('-').map(Number)
@@ -246,6 +253,7 @@ function MapPageContent() {
   // = η πρώτη μέρα με ελεύθερη ώρα (π.χ. αύριο), ώστε ο χρήστης να κλείσει αμέσως.
   const [sheetDate, setSheetDate] = useState<string | null>(null)
   const [findingNext, setFindingNext] = useState(false)
+  const nextCacheRef = useRef<Record<string, NextCache>>({})
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [suggestions, setSuggestions] = useState<any[]>([])
@@ -574,14 +582,50 @@ function MapPageContent() {
     // ΜΗ ΔΙΑΘΕΣΙΜΟ (γκρι): βρες την ΠΡΩΤΗ μέρα με ελεύθερη ώρα (έως 14 μέρες)
     // και δείξε κατευθείαν τις ώρες εκείνης της μέρας.
     if (!selectedLocation.hasAvailability) {
-      const findNext = async () => {
+      const from = activeDate
+      const to = addDaysYmd(from, 13)
+      const locId = selectedLocation.id
+      const key = `${locId}|${from}`
+      const dur = Math.max(30, locationServices.find(s => s.id === selectedService)?.duration_minutes || 30)
+      // Υπολογισμός πρώτης ελεύθερης μέρας από ήδη φορτωμένα δεδομένα (συγχρονα, χωρίς αναμονή).
+      const compute = (data: NextCache) => {
+        const today = getTodayValue()
+        for (let i = 0; i < 14; i++) {
+          const d = addDaysYmd(from, i)
+          const dow = weekdayMon1FromYmd(d)
+          const computed = computeSlots({
+            dayHours: data.hours.find(h => h.day_of_week === dow) || null,
+            exception: data.excs.find(e => e.exception_date === d) as HoursException,
+            bookings: data.bks.filter(b => b.slot_date === d) as OccupancyBooking[],
+            capacity: data.capacity,
+            durationMinutes: dur,
+            isToday: d === today,
+            nowMinutes: athensMinutesOfDay(),
+          })
+          const first = computed.find(s => s.available)
+          if (first) {
+            setSlots(computed)
+            setSheetDate(d)
+            // Κράτα την ώρα που είχε διαλέξει ο χρήστης αν ισχύει ακόμα.
+            setSelectedSlot(prev => (prev && computed.some(s => s.time === prev && s.available)) ? prev : first.time)
+            setFindingNext(false)
+            return
+          }
+        }
+        setSlots([])
+        setSheetDate(null)
+        setFindingNext(false)
+      }
+      const cachedNext = nextCacheRef.current[key]
+      if (cachedNext) {
+        compute(cachedNext) // αλλαγή υπηρεσίας = άμεσος επανυπολογισμός, χωρίς «δεν υπάρχουν διαθέσιμες»
+      } else {
         setFindingNext(true)
         setSlots([])
         setSelectedSlot(null)
+      }
+      const fetchNext = async () => {
         const supabase = createClient()
-        const from = activeDate
-        const to = addDaysYmd(from, 13)
-        const locId = selectedLocation.id
         const [{ data: hoursAll }, { data: excs }, { data: bks }, { data: capRow }] = await Promise.all([
           supabase.from('location_hours').select('day_of_week, open_time, close_time, is_closed').eq('location_id', locId),
           supabase.from('location_hours_exceptions').select('exception_date, periods, is_closed, closed_from, closed_to')
@@ -592,33 +636,16 @@ function MapPageContent() {
           supabase.from('locations').select('capacity').eq('id', locId).maybeSingle(),
         ])
         if (cancelled) return
-        const dur = Math.max(30, locationServices.find(s => s.id === selectedService)?.duration_minutes || 30)
-        const today = getTodayValue()
-        for (let i = 0; i < 14; i++) {
-          const d = addDaysYmd(from, i)
-          const dow = weekdayMon1FromYmd(d)
-          const computed = computeSlots({
-            dayHours: ((hoursAll || []) as any[]).find(h => h.day_of_week === dow) || null,
-            exception: ((excs || []) as any[]).find(e => e.exception_date === d) as HoursException,
-            bookings: ((bks || []) as any[]).filter(b => b.slot_date === d) as OccupancyBooking[],
-            capacity: Math.max(1, Number(capRow?.capacity) || 1),
-            durationMinutes: dur,
-            isToday: d === today,
-            nowMinutes: athensMinutesOfDay(),
-          })
-          const first = computed.find(s => s.available)
-          if (first) {
-            setSlots(computed)
-            setSheetDate(d)
-            setSelectedSlot(first.time)
-            setFindingNext(false)
-            return
-          }
+        const data = {
+          hours: (hoursAll || []) as NextCache['hours'],
+          excs: (excs || []) as NextCache['excs'],
+          bks: (bks || []) as NextCache['bks'],
+          capacity: Math.max(1, Number(capRow?.capacity) || 1),
         }
-        setSheetDate(null)
-        setFindingNext(false)
+        nextCacheRef.current[key] = data
+        compute(data)
       }
-      findNext()
+      fetchNext()
       return () => { cancelled = true }
     }
     setSheetDate(activeDate)
@@ -626,10 +653,7 @@ function MapPageContent() {
 
     const loadSlots = async () => {
       const supabase = createClient()
-      const today = new Date()
-      const checkDate = timing === 'now'
-        ? `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-        : selectedDate
+      const checkDate = timing === 'now' ? getTodayValue() : selectedDate
       const dayOfWeek = weekdayMon1FromYmd(checkDate)
 
       const serviceDurationQuick = Math.max(
@@ -1296,7 +1320,9 @@ function MapPageContent() {
               {selectedService && (
                 <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-1">
                   {visibleSlots.length === 0 ? (
-                    <p className="text-xs text-gray-500">{t.noTimes}</p>
+                    findingNext
+                      ? <div className="flex gap-2">{[0, 1, 2, 3].map(i => <span key={i} className="w-14 h-8 rounded-xl bg-gray-100 animate-pulse" />)}</div>
+                      : <p className="text-xs text-gray-500">{t.noTimes}</p>
                   ) : (
                     visibleSlots.map(slot => {
                       const isSelected = selectedSlot === slot.time
