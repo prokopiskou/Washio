@@ -41,6 +41,12 @@ const T = {
     waitClose: 'Όχι τώρα',
     availSub: 'Άσε το email σου και σε ειδοποιούμε μόλις ανοίξει ώρα κοντά σου.',
     availThanks: 'Τέλεια! Θα σε ειδοποιήσουμε μόλις ανοίξει ώρα.',
+    availNow: 'διαθέσιμα τώρα', availNowOne: 'διαθέσιμο τώρα', availAt: 'διαθέσιμα στις',
+    closedCount: 'κλειστά', allClosedNow: 'Κλειστά τώρα · κλείσε για αργότερα',
+    closedNow: 'Κλειστό τώρα', notAvailAt: 'Μη διαθέσιμο στις', closedChip: 'Κλειστό',
+    firstFree: 'Πρώτη ελεύθερη', today: 'Σήμερα', tomorrow: 'Αύριο',
+    timesFor: 'Ώρες για', noFree14: 'Δεν υπάρχουν ελεύθερες ώρες τις επόμενες 2 εβδομάδες.',
+    finding: 'Βρίσκουμε την πρώτη ελεύθερη ώρα…',
   },
   en: {
     searchPlaceholder: 'Search area', now: 'Now', schedule: 'Schedule',
@@ -64,6 +70,12 @@ const T = {
     waitClose: 'Not now',
     availSub: "Leave your email and we'll notify you the moment a slot opens near you.",
     availThanks: "Great! We'll let you know as soon as a slot opens.",
+    availNow: 'available now', availNowOne: 'available now', availAt: 'available at',
+    closedCount: 'closed', allClosedNow: 'Closed right now · book for later',
+    closedNow: 'Closed now', notAvailAt: 'Not available at', closedChip: 'Closed',
+    firstFree: 'First free', today: 'Today', tomorrow: 'Tomorrow',
+    timesFor: 'Times for', noFree14: 'No free times in the next 2 weeks.',
+    finding: 'Finding the first free time…',
   },
 }
 
@@ -85,7 +97,15 @@ type Location = {
   bookingCount?: number
   hasAvailability?: boolean
   nextSlot?: string | null
+  laterSlot?: string | null // «Τώρα» μη διαθέσιμο, αλλά έχει ώρα αργότερα σήμερα
   photos?: string[] | null
+}
+
+// YYYY-MM-DD + n μέρες (ημερολογιακά, χωρίς ζώνη ώρας).
+function addDaysYmd(ymd: string, n: number): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const dt = new Date(Date.UTC(y, m - 1, d + n))
+  return dt.toISOString().slice(0, 10)
 }
 
 type Service = {
@@ -222,6 +242,10 @@ function MapPageContent() {
   const [selectedRating, setSelectedRating] = useState<{ avg: number; count: number } | null>(null)
   const [selectedService, setSelectedService] = useState<string | null>(null)
   const [slots, setSlots] = useState<Slot[]>([])
+  // Η μέρα στην οποία αναφέρονται οι ώρες του sheet. Για μη διαθέσιμο πλυντήριο
+  // = η πρώτη μέρα με ελεύθερη ώρα (π.χ. αύριο), ώστε ο χρήστης να κλείσει αμέσως.
+  const [sheetDate, setSheetDate] = useState<string | null>(null)
+  const [findingNext, setFindingNext] = useState(false)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [suggestions, setSuggestions] = useState<any[]>([])
@@ -364,12 +388,15 @@ function MapPageContent() {
         nextSlot = slotsForLoc.find(s => s.available && toMinutes(s.time) <= maxMinutes)?.time || null
         hasAvailability = nextSlot !== null
       }
+      // Μη διαθέσιμο τώρα αλλά με ελεύθερη ώρα αργότερα την ίδια μέρα (π.χ. γεμάτο τώρα, ελεύθερο 21:30).
+      const laterSlot = !hasAvailability ? (slotsForLoc.find(s => s.available)?.time || null) : null
 
       return {
         ...loc,
         distance: lat && lng ? getDistance(lat, lng, loc.lat, loc.lng) : undefined,
         hasAvailability,
         nextSlot,
+        laterSlot,
         bookingCount: (bookingsMap[loc.id]?.length || 0),
       }
     })
@@ -381,7 +408,9 @@ function MapPageContent() {
     }
 
     setAllLocations(locs)
+    // ΟΛΑ τα πλυντήρια φαίνονται πάντα: πρώτα τα διαθέσιμα (μπλε), μετά τα μη διαθέσιμα (γκρι).
     const available = locs.filter(l => l.hasAvailability)
+    const unavailable = locs.filter(l => !l.hasAvailability)
 
     if (timing === 'now') {
       available.sort((a, b) => {
@@ -390,7 +419,7 @@ function MapPageContent() {
       })
     }
 
-    setFilteredLocations(available)
+    setFilteredLocations([...available, ...unavailable])
   }, [timing, selectedDate, selectedTime])
 
   useEffect(() => {
@@ -502,6 +531,15 @@ function MapPageContent() {
     }
   }, [timing, selectedDate, selectedTime])
 
+  // Αν αλλάξει η διαθεσιμότητα (π.χ. Τώρα → Προγραμματισμός) ενώ είναι ανοιχτό ένα πλυντήριο,
+  // ενημέρωσε το επιλεγμένο ώστε το sheet να δείχνει σωστά μπλε/γκρι κατάσταση.
+  useEffect(() => {
+    if (!selectedLocation) return
+    const fresh = filteredLocations.find(l => l.id === selectedLocation.id)
+    if (fresh && fresh.hasAvailability !== selectedLocation.hasAvailability) setSelectedLocation(fresh)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredLocations])
+
   useEffect(() => {
     if (!selectedLocation) {
       setSelectedRating(null)
@@ -531,6 +569,61 @@ function MapPageContent() {
 
   useEffect(() => {
     if (!selectedLocation) return
+    let cancelled = false
+
+    // ΜΗ ΔΙΑΘΕΣΙΜΟ (γκρι): βρες την ΠΡΩΤΗ μέρα με ελεύθερη ώρα (έως 14 μέρες)
+    // και δείξε κατευθείαν τις ώρες εκείνης της μέρας.
+    if (!selectedLocation.hasAvailability) {
+      const findNext = async () => {
+        setFindingNext(true)
+        setSlots([])
+        setSelectedSlot(null)
+        const supabase = createClient()
+        const from = activeDate
+        const to = addDaysYmd(from, 13)
+        const locId = selectedLocation.id
+        const [{ data: hoursAll }, { data: excs }, { data: bks }, { data: capRow }] = await Promise.all([
+          supabase.from('location_hours').select('day_of_week, open_time, close_time, is_closed').eq('location_id', locId),
+          supabase.from('location_hours_exceptions').select('exception_date, periods, is_closed, closed_from, closed_to')
+            .eq('location_id', locId).gte('exception_date', from).lte('exception_date', to),
+          supabase.from('bookings').select('slot_date, slot_start_time, duration_minutes')
+            .eq('location_id', locId).gte('slot_date', from).lte('slot_date', to)
+            .not('status', 'in', '("cancelled","no_show")'),
+          supabase.from('locations').select('capacity').eq('id', locId).maybeSingle(),
+        ])
+        if (cancelled) return
+        const dur = Math.max(30, locationServices.find(s => s.id === selectedService)?.duration_minutes || 30)
+        const today = getTodayValue()
+        for (let i = 0; i < 14; i++) {
+          const d = addDaysYmd(from, i)
+          const dow = weekdayMon1FromYmd(d)
+          const computed = computeSlots({
+            dayHours: ((hoursAll || []) as any[]).find(h => h.day_of_week === dow) || null,
+            exception: ((excs || []) as any[]).find(e => e.exception_date === d) as HoursException,
+            bookings: ((bks || []) as any[]).filter(b => b.slot_date === d) as OccupancyBooking[],
+            capacity: Math.max(1, Number(capRow?.capacity) || 1),
+            durationMinutes: dur,
+            isToday: d === today,
+            nowMinutes: athensMinutesOfDay(),
+          })
+          const first = computed.find(s => s.available)
+          if (first) {
+            setSlots(computed)
+            setSheetDate(d)
+            setSelectedSlot(first.time)
+            setFindingNext(false)
+            return
+          }
+        }
+        setSheetDate(null)
+        setFindingNext(false)
+      }
+      findNext()
+      return () => { cancelled = true }
+    }
+    setSheetDate(activeDate)
+    setFindingNext(false)
+
     const loadSlots = async () => {
       const supabase = createClient()
       const today = new Date()
@@ -601,9 +694,10 @@ function MapPageContent() {
         nowMinutes: athensMinutesOfDay(),
       })
 
-      applySlots(computedSlots)
+      if (!cancelled) applySlots(computedSlots)
     }
     loadSlots()
+    return () => { cancelled = true }
   }, [selectedLocation, timing, selectedDate, selectedTime, selectedService, locationServices])
 
   const selectLocation = (loc: Location) => {
@@ -629,12 +723,24 @@ function MapPageContent() {
     return available
   })()
 
+  // «Σήμερα» / «Αύριο» / «Πέμ 2 Οκτ»
+  const dayLabel = (ymd: string) => {
+    const today = getTodayValue()
+    if (ymd === today) return t.today
+    if (ymd === addDaysYmd(today, 1)) return t.tomorrow
+    const [y, m, d] = ymd.split('-').map(Number)
+    return new Date(Date.UTC(y, m - 1, d, 12)).toLocaleDateString(LOCALE_MAP[locale], { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+  }
+  const availableCount = filteredLocations.filter(l => l.hasAvailability).length
+  const unavailableCount = filteredLocations.length - availableCount
+
   const handleBookingAttempt = () => {
     if (!canBook || !selectedLocation) return
 
-    const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${activeDate}&vehicleType=${encodeURIComponent(vehicleType)}`
+    const bookDate = sheetDate || activeDate
+    const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${bookDate}&vehicleType=${encodeURIComponent(vehicleType)}`
 
-    if (timing === 'now' && activeDate === getTodayValue()) {
+    if (timing === 'now' && bookDate === getTodayValue()) {
       const minutes = getMinutesUntilSlot(selectedSlot!)
       if (minutes <= TIGHT_SLOT_THRESHOLD) {
         setMinutesUntilSlot(minutes)
@@ -685,6 +791,12 @@ function MapPageContent() {
       const label = rawName.length > 20 ? rawName.slice(0, 19) + '…' : rawName
       // Το όνομα εμφανίζεται μόνο όταν έχει γίνει αρκετό zoom (καθαρό, χωρίς μπούχτισμα).
       const showLabel = showLabels
+      // Διαθέσιμο τώρα = μπλε έξω/άσπρο μέσα · Μη διαθέσιμο (εκτός ωραρίου/γεμάτο) = γκρι έξω/άσπρο μέσα.
+      // Επιλεγμένο = navy, για να ξεχωρίζει από τα μπλε.
+      const avail = !!loc.hasAvailability
+      const pinFill = isSelected ? '#10182A' : avail ? '#19A8C7' : '#B4BCC7'
+      const pillFill = isSelected ? '#10182A' : '#FFFFFF'
+      const pillText = isSelected ? '#FFFFFF' : avail ? '#10182A' : '#8A93A0'
 
       let svgString: string
       let W: number, H: number, aX: number, aY: number
@@ -702,13 +814,13 @@ function MapPageContent() {
       </filter>
     </defs>
     <g filter="url(#shadow-${loc.id})">
-      <rect x="1" y="0" width="${W - 2}" height="22" rx="11" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}"/>
+      <rect x="1" y="0" width="${W - 2}" height="22" rx="11" fill="${pillFill}"/>
     </g>
-    <text x="${cx}" y="15" text-anchor="middle" text-rendering="geometricPrecision" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${isSelected ? '#FFFFFF' : '#10182A'}">${esc(label)}</text>
+    <text x="${cx}" y="15" text-anchor="middle" text-rendering="geometricPrecision" font-family="-apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif" font-size="11" font-weight="600" fill="${pillText}">${esc(label)}</text>
     <g filter="url(#shadow-${loc.id})" transform="translate(${cx - 22}, 28)">
-      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
-      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#19A8C7'}"/>
-      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}"/>
+      <path d="M16 32 L22 42 L28 32 Z" fill="${pinFill}"/>
+      <circle cx="22" cy="18" r="16" fill="${pinFill}" stroke="#FFFFFF" stroke-width="2"/>
+      <circle cx="22" cy="18" r="5.5" fill="#FFFFFF"/>
     </g>
   </svg>
 `
@@ -722,9 +834,9 @@ function MapPageContent() {
       </filter>
     </defs>
     <g filter="url(#shadow-${loc.id})">
-      <circle cx="22" cy="18" r="16" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
-      <circle cx="22" cy="18" r="5" fill="${isSelected ? '#FFFFFF' : '#19A8C7'}"/>
-      <path d="M16 32 L22 42 L28 32 Z" fill="${isSelected ? '#19A8C7' : '#FFFFFF'}"/>
+      <path d="M16 32 L22 42 L28 32 Z" fill="${pinFill}"/>
+      <circle cx="22" cy="18" r="16" fill="${pinFill}" stroke="#FFFFFF" stroke-width="2"/>
+      <circle cx="22" cy="18" r="5.5" fill="#FFFFFF"/>
     </g>
   </svg>
 `
@@ -735,7 +847,7 @@ function MapPageContent() {
         map: mapInstanceRef.current,
         optimized: false, // καθαρό (crisp) render σε retina — αλλιώς τα ονόματα βγαίνουν θολά
         // Μπροστινές (πιο νότιες) πινέζες πάνω-πάνω ώστε να είναι πάντα πατήσιμες όταν στοιβάζονται.
-        zIndex: isSelected ? 1000000 : Math.round(100000 - loc.lat * 100),
+        zIndex: isSelected ? 1000000 : (loc.hasAvailability ? 200000 : 0) + Math.round(100000 - loc.lat * 100),
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
           scaledSize: new window.google.maps.Size(W, H),
@@ -1006,10 +1118,22 @@ function MapPageContent() {
               <div className="w-10 h-1 rounded-full bg-washio-cyan/30 mx-auto mb-2.5" />
               {/* Header */}
               <div className="flex justify-between items-center px-5 pb-2.5">
-                <p className="flex items-center gap-2 text-[14px] font-bold tracking-tight text-washio-navy">
-                  <span className="w-2 h-2 rounded-full bg-washio-success" />
-                  {filteredLocations.length} {filteredLocations.length === 1 ? t.washroomOne : t.washroomMany} {t.near}
-                </p>
+                {availableCount > 0 ? (
+                  <p className="flex items-center gap-2 text-[14px] font-bold tracking-tight text-washio-navy">
+                    <span className="w-2 h-2 rounded-full bg-washio-success" />
+                    {timing === 'later' && selectedTime
+                      ? `${availableCount} ${t.availAt} ${selectedTime}`
+                      : `${availableCount} ${availableCount === 1 ? t.availNowOne : t.availNow}`}
+                    {unavailableCount > 0 && (
+                      <span className="font-medium text-gray-400">· {unavailableCount} {t.closedCount}</span>
+                    )}
+                  </p>
+                ) : (
+                  <p className="flex items-center gap-2 text-[14px] font-bold tracking-tight text-washio-navy">
+                    <span className="w-2 h-2 rounded-full bg-gray-300" />
+                    {t.allClosedNow}
+                  </p>
+                )}
               </div>
 
               {/* Horizontal compact cards */}
@@ -1024,7 +1148,7 @@ function MapPageContent() {
                     <div className="w-12 h-12 rounded-[12px] overflow-hidden shrink-0 bg-washio-navy flex items-center justify-center">
                       {loc.photos && loc.photos.length > 0 ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={loc.photos[0]} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                        <img src={loc.photos[0]} alt="" loading="lazy" decoding="async" className={`w-full h-full object-cover ${loc.hasAvailability ? '' : 'grayscale opacity-70'}`} />
                       ) : (
                         <span className="text-white text-[16px] font-semibold">{loc.name?.charAt(0)}</span>
                       )}
@@ -1040,52 +1164,21 @@ function MapPageContent() {
                           </>
                         )}
                       </div>
-                      {timing === 'now' && loc.nextSlot && (
-                        <span className="self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-washio-success-bg text-[11px] font-semibold text-green-700">
-                          <span className="w-1.5 h-1.5 rounded-full bg-washio-success" />{loc.nextSlot}
+                      {loc.hasAvailability ? (
+                        timing === 'now' && loc.nextSlot && (
+                          <span className="self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-washio-success-bg text-[11px] font-semibold text-green-700">
+                            <span className="w-1.5 h-1.5 rounded-full bg-washio-success" />{loc.nextSlot}
+                          </span>
+                        )
+                      ) : (
+                        <span className="self-start inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[11px] font-semibold text-gray-500">
+                          <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
+                          {loc.laterSlot ? `${t.today} ${loc.laterSlot}` : t.closedChip}
                         </span>
                       )}
                     </div>
                   </button>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* No availability */}
-          {!selectedLocation && filteredLocations.length === 0 && allLocations.length > 0 && (
-            <div className="bg-white rounded-t-2xl p-4"
-                 style={{ boxShadow: '0 -8px 24px rgba(0,0,0,0.06)' }}>
-              <div className="flex justify-center pb-3">
-                <div className="w-9 h-1 rounded-full bg-gray-200" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-gray-700 mb-1">{t.noSpots}</p>
-                {availDone ? (
-                  <p className="text-xs text-gray-500 py-3">{t.availThanks}</p>
-                ) : (
-                  <>
-                    <p className="text-xs text-gray-400 mb-3">{t.availSub}</p>
-                    <input
-                      type="email"
-                      inputMode="email"
-                      value={availEmail}
-                      onChange={e => setAvailEmail(e.target.value)}
-                      placeholder={t.waitEmail}
-                      className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-center focus:outline-none focus:border-gray-400 mb-2"
-                    />
-                    <button
-                      onClick={handleAvailNotify}
-                      disabled={availSubmitting || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(availEmail.trim())}
-                      className="w-full bg-gray-900 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-40"
-                    >
-                      {availSubmitting ? t.waitSubmitting : t.waitSubmit}
-                    </button>
-                    <button onClick={() => setShowSchedule(true)} className="text-xs font-medium text-gray-500 mt-3">
-                      {t.tryScheduleLater}
-                    </button>
-                  </>
-                )}
               </div>
             </div>
           )}
@@ -1157,6 +1250,27 @@ function MapPageContent() {
                 )}
               </div>
 
+              {/* Μη διαθέσιμο τώρα → καθαρό μήνυμα + πρώτη ελεύθερη μέρα/ώρα */}
+              {!selectedLocation.hasAvailability && (
+                <div className="flex items-center gap-2.5 mb-3 px-3 py-2.5 rounded-[14px] bg-gray-50 border border-washio-border">
+                  <span className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
+                    <Clock size={14} className="text-gray-500" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-washio-navy leading-tight">
+                      {timing === 'later' && selectedTime ? `${t.notAvailAt} ${selectedTime}` : t.closedNow}
+                    </p>
+                    <p className="text-[12px] text-gray-500 leading-snug mt-0.5">
+                      {findingNext
+                        ? t.finding
+                        : sheetDate && slots.some(s => s.available)
+                          ? <>{t.firstFree}: <span className="font-semibold text-washio-cyan-dark">{dayLabel(sheetDate)} {slots.find(s => s.available)?.time}</span></>
+                          : t.noFree14}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Services */}
               <div className="flex gap-2 mb-3">
                 {visibleServices.map(s => {
@@ -1176,6 +1290,9 @@ function MapPageContent() {
               </div>
 
               {/* Time slots */}
+              {selectedService && sheetDate && sheetDate !== getTodayValue() && visibleSlots.length > 0 && (
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">{t.timesFor} {dayLabel(sheetDate)}</p>
+              )}
               {selectedService && (
                 <div className="flex gap-2 mb-4 overflow-x-auto scrollbar-hide pb-1">
                   {visibleSlots.length === 0 ? (
