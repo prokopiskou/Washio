@@ -9,8 +9,14 @@ import { useT } from '@/lib/i18n'
 // Μόνιμο κουμπί «Λήψη εφαρμογής» πάνω δεξιά — ΜΟΝΟ στο web, ΜΟΝΟ για συνδεδεμένους.
 // Δεν διακόπτει τη ροή (δεν είναι popup). Εμφανίζεται μόνο σε οθόνες όπου η πάνω
 // δεξιά γωνία είναι ελεύθερη (όχι χάρτης / σελίδα πλυντηρίου / checkout).
-const APP_STORE = 'https://apps.apple.com/app/id6785925766'
-const PLAY_STORE = 'https://play.google.com/store/apps/details?id=gr.washio.app'
+// Tracking εγκαταστάσεων από αυτό το κουμπί:
+//  - iOS: App Store Connect → App Analytics → Sources → Campaigns (ct=web_get_app_button).
+//    Χρειάζεται το provider token (pt) του λογαριασμού για να καταγράφεται.
+//  - Android: Play Console → Statistics → User acquisition (utm_source / utm_campaign).
+const APPLE_PT = ''
+const APP_STORE = `https://apps.apple.com/app/apple-store/id6785925766?${APPLE_PT ? `pt=${APPLE_PT}&` : ''}ct=web_get_app_button&mt=8`
+const PLAY_STORE = 'https://play.google.com/store/apps/details?id=gr.washio.app&referrer=' +
+  encodeURIComponent('utm_source=washio_web&utm_medium=get_app_button&utm_campaign=web_to_app')
 
 const T = {
   el: { label: 'Λήψη εφαρμογής' },
