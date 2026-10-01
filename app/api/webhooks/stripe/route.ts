@@ -9,6 +9,7 @@ import { shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { redeemCredit, grantReferrerRewardIfFirst } from '@/lib/referral'
+import { couponWaivesCommission } from '@/lib/commission'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -115,6 +116,15 @@ export async function POST(req: NextRequest) {
       .from('services').select('duration_minutes').eq('id', m.serviceId).maybeSingle()
     const bookingDuration = Math.max(30, Number(svcRow?.duration_minutes) || 30)
 
+    // Προμήθεια: ποσοστό του πλυντηρίου (locations.commission_rate). ΜΗΔΕΝ όταν ο πελάτης
+    // χρησιμοποίησε κουπόνι 3€ σε πλυντήριο με αυτή τη συμφωνία (lib/commission).
+    const { data: locRow } = await supabase
+      .from('locations').select('commission_rate').eq('id', m.locationId).maybeSingle()
+    const commissionRate = Number(locRow?.commission_rate ?? 10) / 100
+    const platformFee = couponWaivesCommission(m.locationId, parseFloat(m.appliedCredit || '0'))
+      ? 0
+      : +(parseFloat(m.amount) * commissionRate).toFixed(2)
+
     // ΑΤΟΜΙΚΟ insert (κλειδαριά + έλεγχος πληρότητας στη βάση). Αν το slot
     // γέμισε όσο ο πελάτης πλήρωνε (π.χ. μετρητά από άλλον), ΔΕΝ γράφουμε
     // διπλή κράτηση: επιστρέφουμε αυτόματα τα χρήματα και ειδοποιούμε.
@@ -130,7 +140,7 @@ export async function POST(req: NextRequest) {
       slot_start_time: m.slotStartTime,
       car_plate: m.carPlate || null,
       total_amount: parseFloat(m.amount),
-      platform_fee: parseFloat(m.amount) * 0.10,
+      platform_fee: platformFee,
       stripe_payment_intent_id: intent.id,
       stripe_payment_status: 'paid',
       paid_at: new Date().toISOString(),

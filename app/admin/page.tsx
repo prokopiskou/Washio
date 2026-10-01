@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { NO_COMMISSION_ON_COUPON_LOCATION_IDS } from '@/lib/commission'
 import { ChevronRight, Download, RefreshCw, Check, X, Power } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { ADMIN_EMAILS } from '@/lib/admins'
@@ -213,6 +214,7 @@ export default function AdminPage() {
     })
 
     let onlineKept = 0   // online που κράτησε η Washio (μείον refunds) — incl. no-show
+    let couponFree = 0   // online αξία κρατήσεων με κουπόνι 3€ σε πλυντήριο χωρίς προμήθεια (lib/commission)
     let cashGross = 0    // μετρητά σε ολοκληρωμένο πλύσιμο (τα κρατά το πλυντήριο)
     let refunded = 0
     let completed = 0, noShow = 0, cancelled = 0
@@ -224,6 +226,12 @@ export default function AdminPage() {
       const done = isDone(b)
       if (ps === 'paid') onlineKept += amt
       else if (ps === 'partially_refunded') onlineKept += Math.max(0, amt - refund)
+      // Κουπόνι 3€ σε πλυντήριο με συμφωνία → καμία προμήθεια γι' αυτή την κράτηση
+      // (το webhook γράφει platform_fee = 0 μόνο σε αυτή την περίπτωση).
+      if ((ps === 'paid' || ps === 'partially_refunded') && b.source !== 'manual'
+          && NO_COMMISSION_ON_COUPON_LOCATION_IDS.has(loc.id) && Number(b.platform_fee) === 0) {
+        couponFree += ps === 'paid' ? amt : Math.max(0, amt - refund)
+      }
       // 'refunded' → 0
       if (refund > 0) refunded += refund
       if (ps === 'pay_at_venue' && done) cashGross += amt
@@ -233,7 +241,7 @@ export default function AdminPage() {
     }
 
     const gross = onlineKept + cashGross
-    const commission = +(gross * rate / 100).toFixed(2)  // τι παίρνεις ΕΣΥ
+    const commission = +((gross - couponFree) * rate / 100).toFixed(2)  // τι παίρνεις ΕΣΥ
     const washGets = +(gross - commission).toFixed(2)    // τι παίρνει ο ΠΛΥΝΤΗΡΙΑΣ (90%)
     // Καθαρός διακανονισμός: 90% online − 10% μετρητών.
     // >0 → του πληρώνεις.  <0 → σου χρωστάει προμήθεια.
