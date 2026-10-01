@@ -17,8 +17,12 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await sb.auth.getUser()
     if (!user) return NextResponse.json({ ok: false }, { status: 401 })
 
-    const code = req.cookies.get('ws_ref')?.value || null
-    if (code) await linkReferral(admin, user.id, code)
+    // Με κωδικό φίλου → σύνδεση referrer + −3€. ΧΩΡΙΣ κωδικό (το cookie χάθηκε: άλλος
+    // browser, εφαρμογή, Apple/Google redirect, flyer, bio) → πάλι −3€ καλωσορίσματος,
+    // γιατί το −3€ στο πρώτο πλύσιμο το υποσχόμαστε παντού. Το linkReferral δίνει
+    // welcome ΜΟΝΟ σε χρήστη χωρίς καμία κράτηση και χωρίς προηγούμενο welcome.
+    const code = req.cookies.get('ws_ref')?.value || 'WELCOME'
+    await linkReferral(admin, user.id, code)
 
     return NextResponse.json({ ok: true })
   } catch {

@@ -25,8 +25,22 @@ export function RegistrationTracker() {
     } catch { /* ignore */ }
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== 'SIGNED_IN' || !session?.user) return
+      // SIGNED_IN = login μέσα στη σελίδα (OTP). INITIAL_SESSION = επιστροφή από
+      // Google/Apple redirect ή άνοιγμα με ήδη ενεργό session — πριν χανόταν εδώ το −3€.
+      if ((event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') || !session?.user) return
       const u = session.user
+
+      // −3€ καλωσορίσματος: ΜΙΑ φορά ανά χρήστη/συσκευή, ανεξαρτήτως πότε έκανε verify.
+      // Ο server αποφασίζει (μόνο αν δεν έχει καμία κράτηση & δεν έχει ξαναπάρει welcome).
+      try {
+        const refKey = 'wsx_ref_' + u.id
+        if (!localStorage.getItem(refKey)) {
+          localStorage.setItem(refKey, '1')
+          fetch('/api/referral/link', { method: 'POST', keepalive: true }).catch(() => {})
+        }
+      } catch {
+        fetch('/api/referral/link', { method: 'POST', keepalive: true }).catch(() => {})
+      }
 
       // ADVANCED MATCHING: μόλις ξέρουμε ποιος είναι ο χρήστης, «ταυτοποιούμε»
       // το pixel με email + user id. Το Meta τα κάνει hash client-side. Έτσι ΟΛΑ
@@ -43,10 +57,11 @@ export function RegistrationTracker() {
         }
       } catch { /* ignore */ }
 
-      // «Νέα εγγραφή» = ο λογαριασμός δημιουργήθηκε μόλις τώρα (εντός 5').
-      // Το SIGNED_IN πυροδοτείται και σε κάθε επόμενο login — το φιλτράρουμε.
+      // «Νέα εγγραφή» = ο λογαριασμός δημιουργήθηκε πρόσφατα. Με OTP ο λογαριασμός
+      // δημιουργείται όταν ΖΗΤΗΘΕΙ ο κωδικός — αν το email αργήσει, το verify γίνεται
+      // λεπτά αργότερα. Παράθυρο 60' (το dedup από κάτω εμποδίζει διπλό event).
       const createdMs = u.created_at ? new Date(u.created_at).getTime() : 0
-      const isNew = createdMs > 0 && Date.now() - createdMs < 5 * 60 * 1000
+      const isNew = createdMs > 0 && Date.now() - createdMs < 60 * 60 * 1000
       if (!isNew) return
 
       // De-dup ανά χρήστη — να μη σταλεί δεύτερη φορά αν ξανανοίξει το app.
@@ -70,11 +85,6 @@ export function RegistrationTracker() {
         }).catch(() => {})
       } catch { /* ignore */ }
 
-      // Σύνδεση παραπομπής: αν ο νέος ήρθε με κωδικό, δώσε του welcome credit
-      // και «κλείδωσε» τον referrer (το endpoint διαβάζει το cookie ws_ref).
-      try {
-        fetch('/api/referral/link', { method: 'POST', keepalive: true }).catch(() => {})
-      } catch { /* ignore */ }
     })
 
     return () => {
