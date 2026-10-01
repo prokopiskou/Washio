@@ -13,6 +13,7 @@ import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday } from '@/lib/time'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
+import { computeRedeemable, isCreditEligible } from '@/lib/referral'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -46,6 +47,7 @@ const T = {
     plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
     backToMyVehicles: '← Επιστροφή στα οχήματά μου',
     phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
+    couponCard: 'Κουπόνι (με κάρτα)', totalWithCoupon: 'Σύνολο με κάρτα', couponNote: (full: string) => `Το κουπόνι ισχύει με πληρωμή κάρτας. Με μετρητά στο κατάστημα: €${full}. Στην κάρτα προστίθεται το τέλος υπηρεσίας.`,
     freeCancel: 'Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.',
     or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Πληρωμή με μετρητά στο κατάστημα',
     cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
@@ -73,6 +75,7 @@ const T = {
     plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
     backToMyVehicles: '← Back to my vehicles',
     phone: 'Phone', addons: 'Add-on services', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
+    couponCard: 'Coupon (card)', totalWithCoupon: 'Total by card', couponNote: (full: string) => `The coupon applies to card payment. Cash at the venue: €${full}. A service fee is added to card payments.`,
     freeCancel: 'Free cancellation up to 2 hours before your appointment.',
     or: 'or', confirming: 'Confirming...', payCash: 'Pay with cash at the store',
     cashHint: 'Book now, pay at the store during your visit.',
@@ -322,6 +325,8 @@ function BookingPageContent() {
   const [clientSecret, setClientSecret] = useState('')
   const [customerSessionClientSecret, setCustomerSessionClientSecret] = useState<string | undefined>(undefined)
   const [appliedCredit, setAppliedCredit] = useState(0)
+  // Υπόλοιπο κουπονιών του χρήστη — για να φαίνεται το −3€ ΗΔΗ στη σύνοψη (πριν την κάρτα).
+  const [walletCredit, setWalletCredit] = useState(0)
   const [bookingRef, setBookingRef] = useState('')
   const [cashLoading, setCashLoading] = useState(false)
   const paymentAnchorRef = useRef<HTMLDivElement>(null)
@@ -452,7 +457,7 @@ function BookingPageContent() {
         locationId
           ? supabase.from('location_addons').select('addon_id, price_override, addons(name, price, sort_order)').eq('location_id', locationId)
           : none,
-        supabase.from('profiles').select('phone').eq('id', user.id).single(),
+        supabase.from('profiles').select('phone, referral_credit').eq('id', user.id).single(),
         supabase.from('vehicles').select('id, plate, type').eq('user_id', user.id).order('created_at', { ascending: false }),
       ])
 
@@ -490,6 +495,7 @@ function BookingPageContent() {
 
       if (user.email) setEmail(user.email)
 
+      setWalletCredit(Number((profileData as { referral_credit?: number } | null)?.referral_credit) || 0)
       if (profileData?.phone) setPhone(profileData.phone)
       else if (user.user_metadata?.phone) setPhone(user.user_metadata.phone as string)
 
@@ -531,6 +537,8 @@ function BookingPageContent() {
   // πληρώνουν την καθαρή τιμή στο κατάστημα. Το appliedCredit το γυρίζει το
   // create-intent (ισχύει μόνο σε Μέσα-Έξω ≥12€) — 0 μέχρι να απαντήσει.
   const cardTotal = Math.max(0, total - appliedCredit) + SERVICE_FEE_EUR
+  // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: κάρτα, ≥12€, έως 3€).
+  const previewCredit = !isRange && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
   const canProceed = phone.trim() && email.trim() && service && (
     selectedVehicleId !== 'new' ? true : plate.trim().length > 0
   )
@@ -849,10 +857,19 @@ function BookingPageContent() {
                     <span className="text-[14px] font-medium text-gray-900">€{addonTotal.toFixed(2)}</span>
                   </div>
                 )}
+                {previewCredit > 0 && (
+                  <div className="flex justify-between items-center py-3 border-b border-washio-border">
+                    <span className="text-[13px] font-semibold text-green-600">{t.couponCard}</span>
+                    <span className="text-[14px] font-semibold text-green-600">−€{previewCredit.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-3.5">
-                  <span className="text-[15px] font-bold text-washio-navy">{t.total}</span>
-                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">€{total.toFixed(2)}</span>
+                  <span className="text-[15px] font-bold text-washio-navy">{previewCredit > 0 ? t.totalWithCoupon : t.total}</span>
+                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">€{(total - previewCredit).toFixed(2)}</span>
                 </div>
+                {previewCredit > 0 && (
+                  <p className="text-[11px] text-gray-400 -mt-2 pb-3 leading-snug">{t.couponNote(total.toFixed(2))}</p>
+                )}
               </>
             )}
           </div>
