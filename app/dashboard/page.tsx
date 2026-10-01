@@ -230,6 +230,10 @@ export default function DashboardPage() {
   const [manualPhone, setManualPhone] = useState('')
   const [manualSaving, setManualSaving] = useState(false)
   const [manualError, setManualError] = useState('')
+  // Επεξεργασία υπάρχουσας ΧΕΙΡΟΚΙΝΗΤΗΣ κράτησης (tap στο ημερολόγιο).
+  const [editingManual, setEditingManual] = useState<Booking | null>(null)
+  const [manualDate, setManualDate] = useState('')
+  const [manualDeleting, setManualDeleting] = useState(false)
   const [notifPermission, setNotifPermission] = useState<string>('default')
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
@@ -356,7 +360,7 @@ export default function DashboardPage() {
     const dateStr = ymdFromLocalDate(date)
     const { data } = await supabase
       .from('bookings')
-      .select('id, slot_start_time, total_amount, status, duration_minutes, source, customer_name, stripe_payment_status, profiles(full_name), services(name)')
+      .select('id, slot_start_time, total_amount, status, duration_minutes, source, customer_name, customer_phone, service_id, stripe_payment_status, profiles(full_name), services(name)')
       .eq('location_id', location.id)
       .eq('slot_date', dateStr)
       .not('status', 'in', '("cancelled")')
@@ -837,10 +841,54 @@ export default function DashboardPage() {
   }
 
   const openManualForm = () => {
+    setEditingManual(null)
     setManualServiceName(bookableServices.find(s => s.is_active)?.name || '')
+    setManualFirstName(''); setManualLastName(''); setManualPhone('')
+    setManualDate(ymdFromLocalDate(calendarDate))
     setManualError('')
     setShowManualForm(true)
     lightTap()
+  }
+
+  // Tap σε χειροκίνητη κράτηση → ίδια φόρμα, προσυμπληρωμένη, με αλλαγή ημερομηνίας + διαγραφή.
+  const openEditManual = (b: Booking) => {
+    if (b.source !== 'manual') return
+    const full = (b.customer_name || '').trim()
+    const sp = full.indexOf(' ')
+    setEditingManual(b)
+    setManualServiceName(b.services?.name || bookableServices.find(s => s.is_active)?.name || '')
+    setManualTime((b.slot_start_time || '10:00').slice(0, 5))
+    setManualFirstName(sp === -1 ? full : full.slice(0, sp))
+    setManualLastName(sp === -1 ? '' : full.slice(sp + 1))
+    setManualPhone(b.customer_phone || '')
+    setManualDate(ymdFromLocalDate(calendarDate))
+    setManualError('')
+    setShowManualForm(true)
+    lightTap()
+  }
+
+  const deleteManualBooking = async () => {
+    if (!editingManual) return
+    if (!confirm('Διαγραφή αυτού του ραντεβού; Η ώρα θα ελευθερωθεί.')) return
+    setManualDeleting(true)
+    setManualError('')
+    try {
+      const res = await fetch('/api/bookings/update-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: editingManual.id, action: 'delete' }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setManualError(json.error || 'Κάτι πήγε στραβά.'); return }
+      selectionHaptic()
+      setShowManualForm(false)
+      setEditingManual(null)
+      setCalendarBookings(prev => prev.filter(x => x.id !== editingManual.id))
+    } catch {
+      setManualError('Κάτι πήγε στραβά. Δοκίμασε ξανά.')
+    } finally {
+      setManualDeleting(false)
+    }
   }
 
   const createManualBooking = async () => {
@@ -851,19 +899,25 @@ export default function DashboardPage() {
     setManualSaving(true)
     setManualError('')
     try {
-      const dateStr = ymdFromLocalDate(calendarDate)
-      const res = await fetch('/api/bookings/create-manual', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          locationId: location.id,
-          serviceName: manualServiceName,
-          slotDate: dateStr,
-          slotStartTime: manualTime,
-          customerName: `${manualFirstName.trim()} ${manualLastName.trim()}`.trim(),
-          customerPhone: manualPhone.trim() || null,
-        }),
-      })
+      const dateStr = manualDate || ymdFromLocalDate(calendarDate)
+      const payload = {
+        serviceName: manualServiceName,
+        slotDate: dateStr,
+        slotStartTime: manualTime,
+        customerName: `${manualFirstName.trim()} ${manualLastName.trim()}`.trim(),
+        customerPhone: manualPhone.trim() || null,
+      }
+      const res = editingManual
+        ? await fetch('/api/bookings/update-manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingId: editingManual.id, action: 'update', ...payload }),
+          })
+        : await fetch('/api/bookings/create-manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ locationId: location.id, ...payload }),
+          })
       const json = await res.json()
       if (!res.ok) {
         setManualError(json.error || 'Κάτι πήγε στραβά.')
@@ -872,6 +926,7 @@ export default function DashboardPage() {
       }
       selectionHaptic()
       setShowManualForm(false)
+      setEditingManual(null)
       setManualFirstName(''); setManualLastName(''); setManualPhone('')
       await loadCalendarBookings(calendarDate)
     } catch {
@@ -1585,7 +1640,9 @@ export default function DashboardPage() {
                           return (
                             <div
                               key={b.id}
-                              className="absolute rounded-lg px-2 py-1 overflow-hidden"
+                              onClick={b.source === 'manual' ? () => openEditManual(b) : undefined}
+                              role={b.source === 'manual' ? 'button' : undefined}
+                              className={`absolute rounded-lg px-2 py-1 overflow-hidden ${b.source === 'manual' ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}`}
                               style={{
                                 top,
                                 height,
@@ -1596,6 +1653,9 @@ export default function DashboardPage() {
                                 opacity: b.status === 'no_show' || b.status === 'cancelled' ? 0.65 : 1,
                               }}
                             >
+                              {b.source === 'manual' && (
+                                <svg className="absolute top-1 right-1 opacity-60" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={st.fg} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                              )}
                               <p className="text-[10px] font-bold leading-tight" style={{ color: st.fg, fontVariantNumeric: 'tabular-nums' }}>
                                 {b.slot_start_time?.slice(0, 5)}–{`${String(Math.floor(e / 60)).padStart(2, '0')}:${String(e % 60).padStart(2, '0')}`}
                               </p>
@@ -1645,19 +1705,30 @@ export default function DashboardPage() {
           {/* Modal χειροκίνητης κράτησης (τηλεφωνική / εκτός πλατφόρμας) */}
           {showManualForm && (
             <div className="fixed inset-0 z-50 flex items-end justify-center">
-              <div className="absolute inset-0 bg-black/30" onClick={() => setShowManualForm(false)} />
+              <div className="absolute inset-0 bg-black/30" onClick={() => { setShowManualForm(false); setEditingManual(null) }} />
               {/* max-h + scroll: με ανοιχτό πληκτρολόγιο σκρολάρεις ΠΑΝΤΑ σε όλα τα πεδία/κουμπιά. */}
               <div className="relative bg-white rounded-t-3xl px-5 pt-5 pb-10 w-full max-w-md z-10 max-h-[82vh] overflow-y-auto overscroll-contain">
                 <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3" />
                 {/* Κουμπί κλεισίματος — ΠΑΝΤΑ ορατό, ακόμα κι αν το backdrop κρύβεται από το πληκτρολόγιο. */}
                 <button
-                  onClick={() => setShowManualForm(false)}
+                  onClick={() => { setShowManualForm(false); setEditingManual(null) }}
                   aria-label="Κλείσιμο"
                   className="absolute top-3.5 right-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
-                <p className="text-base font-semibold text-gray-900 mb-1">Προσθήκη ραντεβού</p>
+                <p className="text-base font-semibold text-gray-900 mb-1">{editingManual ? 'Επεξεργασία ραντεβού' : 'Προσθήκη ραντεβού'}</p>
+                {editingManual ? (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-400 mb-1.5">Ημερομηνία</p>
+                    <input
+                      type="date" value={manualDate}
+                      onChange={e => setManualDate(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm bg-white focus:outline-none"
+                    />
+                  </div>
+                ) : (
+                  <>
                 {/* Η ημερομηνία ΕΜΦΑΝΗΣ — να την επιβεβαιώνει ο πλυντηριάς πριν αποθηκεύσει. */}
                 <div
                   className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg mb-2"
@@ -1675,6 +1746,9 @@ export default function DashboardPage() {
                   Το ραντεβού θα μπει στην παραπάνω ημερομηνία — αν θες άλλη μέρα, κλείσε και διάλεξέ τη πρώτα στο ημερολόγιο.
                 </p>
 
+                  </>
+                )}
+
                 <div className="mb-3">
                   <p className="text-xs text-gray-400 mb-1.5">Υπηρεσία</p>
                   <select
@@ -1689,6 +1763,10 @@ export default function DashboardPage() {
                         {s.name} · {s.duration_minutes}′
                       </option>
                     ))}
+                    {/* Σε επεξεργασία: κράτα και την υπηρεσία της κράτησης, ακόμα κι αν δεν είναι πια ενεργή. */}
+                    {manualServiceName && !bookableServices.some(s => s.is_active && s.name === manualServiceName) && (
+                      <option value={manualServiceName}>{manualServiceName}</option>
+                    )}
                   </select>
                 </div>
 
@@ -1700,11 +1778,14 @@ export default function DashboardPage() {
                     className="w-full border border-gray-200 rounded-xl px-3.5 py-3 text-sm bg-white focus:outline-none"
                     style={{ fontVariantNumeric: 'tabular-nums' }}
                   >
-                    {Array.from({ length: 28 }).map((_, i) => {
-                      const m = 8 * 60 + i * 30
-                      const t = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
-                      return <option key={t} value={t}>{t}</option>
-                    })}
+                    {(() => {
+                      const grid = Array.from({ length: 28 }).map((_, i) => {
+                        const m = 8 * 60 + i * 30
+                        return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+                      })
+                      const all = grid.includes(manualTime) ? grid : [...grid, manualTime].sort()
+                      return all.map(t => <option key={t} value={t}>{t}</option>)
+                    })()}
                   </select>
                 </div>
 
@@ -1749,8 +1830,19 @@ export default function DashboardPage() {
                 >
                   {manualSaving
                     ? 'Αποθήκευση...'
-                    : `Αποθήκευση για ${calendarDate.toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })} · ${manualTime}`}
+                    : editingManual
+                      ? 'Αποθήκευση αλλαγών'
+                      : `Αποθήκευση για ${calendarDate.toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })} · ${manualTime}`}
                 </button>
+                {editingManual && (
+                  <button
+                    onClick={deleteManualBooking}
+                    disabled={manualDeleting || manualSaving}
+                    className="w-full mt-2.5 border border-red-200 text-red-600 text-sm font-medium py-3 rounded-xl disabled:opacity-40"
+                  >
+                    {manualDeleting ? 'Διαγραφή...' : 'Διαγραφή ραντεβού'}
+                  </button>
+                )}
               </div>
             </div>
           )}
