@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDuration } from '@/lib/duration'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -1760,7 +1761,7 @@ export default function DashboardPage() {
                         ό,τι προσφέρει στην πλατφόρμα μπορεί να το βάλει και ως δικό του ραντεβού. */}
                     {bookableServices.filter(s => s.is_active).map(s => (
                       <option key={s.id} value={s.name}>
-                        {s.name} · {s.duration_minutes}′
+                        {s.name} · {formatDuration(s.duration_minutes)}
                       </option>
                     ))}
                     {/* Σε επεξεργασία: κράτα και την υπηρεσία της κράτησης, ακόμα κι αν δεν είναι πια ενεργή. */}
@@ -1916,7 +1917,7 @@ export default function DashboardPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-[15px] font-semibold tracking-tight text-gray-900">
                               {bs.name}
-                              <span className="text-[12px] font-medium text-gray-400 ml-1.5">· {bs.duration_minutes}′</span>
+                              <span className="text-[12px] font-medium text-gray-400 ml-1.5">· {formatDuration(bs.duration_minutes)}</span>
                             </p>
                             <p className={`text-[12px] font-medium mt-0.5 ${bs.is_active ? 'text-green-600' : 'text-gray-400'}`}>
                               {bs.is_active ? '● Ενεργή' : '○ Ανενεργή'}
@@ -2021,24 +2022,10 @@ export default function DashboardPage() {
                                 ΔΕΝ επηρεάζει τα slots. */}
                             <div className="mt-2 flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
                               <p className="text-[12px] font-medium text-gray-600">Διάρκεια πλυσίματος</p>
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={5}
-                                  defaultValue={bs.display_duration_minutes && bs.display_duration_minutes > 0 ? bs.display_duration_minutes : ''}
-                                  placeholder="—"
-                                  onBlur={e => {
-                                    const raw = e.target.value.trim()
-                                    if (!bs.id) return
-                                    const val = raw === '' ? null : Math.max(0, parseInt(raw) || 0) || null
-                                    updateBaseService(bs.id, { display_duration_minutes: val } as Partial<BookableService>)
-                                  }}
-                                  className="w-14 bg-transparent text-right text-[15px] font-bold tracking-tight text-gray-900 focus:outline-none"
-                                  style={{ fontVariantNumeric: 'tabular-nums' }}
-                                />
-                                <span className="text-[13px] font-semibold text-gray-500">λεπτά</span>
-                              </div>
+                              <DurationField
+                                minutes={bs.display_duration_minutes && bs.display_duration_minutes > 0 ? bs.display_duration_minutes : null}
+                                onSave={val => { if (bs.id) updateBaseService(bs.id, { display_duration_minutes: val } as Partial<BookableService>) }}
+                              />
                             </div>
                             {missingPrice && (
                               <p className="text-[11px] font-medium text-orange-600 mt-2">
@@ -2716,5 +2703,50 @@ export default function DashboardPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+// Διάρκεια σε λεπτά ή ώρες (π.χ. βιολογικός 24 ώρες αντί για 1440 λεπτά).
+// Αποθηκεύεται ΠΑΝΤΑ σε λεπτά· η μονάδα είναι μόνο για εύκολη πληκτρολόγηση.
+function DurationField({ minutes, onSave }: { minutes: number | null; onSave: (val: number | null) => void }) {
+  const [unit, setUnit] = useState<'min' | 'h'>(minutes != null && minutes >= 60 && minutes % 60 === 0 ? 'h' : 'min')
+  const shown = minutes == null ? '' : unit === 'h' ? String(+(minutes / 60).toFixed(2)) : String(minutes)
+  const [text, setText] = useState(shown)
+  useEffect(() => { setText(shown) }, [shown])
+  const commit = (raw: string, u: 'min' | 'h') => {
+    const n = parseFloat(raw.replace(',', '.'))
+    const val = raw.trim() === '' || !(n > 0) ? null : Math.round(u === 'h' ? n * 60 : n)
+    if (val !== minutes) onSave(val)
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        type="text"
+        inputMode="decimal"
+        value={text}
+        placeholder="—"
+        onChange={e => setText(e.target.value)}
+        onBlur={() => commit(text, unit)}
+        className="w-12 bg-transparent text-right text-[15px] font-bold tracking-tight text-gray-900 focus:outline-none"
+        style={{ fontVariantNumeric: 'tabular-nums' }}
+      />
+      <div className="flex rounded-lg bg-white border border-gray-200 p-0.5">
+        {(['min', 'h'] as const).map(u => (
+          <button
+            key={u}
+            type="button"
+            onClick={() => {
+              if (u === unit) return
+              // Ίδια διάρκεια, άλλη μονάδα: 1440 λεπτά ⇄ 24 ώρες.
+              if (minutes != null) setText(u === 'h' ? String(+(minutes / 60).toFixed(2)) : String(minutes))
+              setUnit(u)
+            }}
+            className={`px-2 py-0.5 rounded-md text-[12px] font-semibold ${unit === u ? 'bg-gray-900 text-white' : 'text-gray-500'}`}
+          >
+            {u === 'min' ? 'λεπτά' : 'ώρες'}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }

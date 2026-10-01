@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDuration } from '@/lib/duration'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
@@ -495,7 +496,7 @@ export default function LocationPage() {
                     </p>
                     {s.description && (
                       <p className={`text-xs mt-0.5 ${selected ? 'text-white/60' : 'text-gray-500'}`}>
-                        {s.description} · {s.duration_minutes}′
+                        {s.description} · {formatDuration(s.duration_minutes, locale)}
                       </p>
                     )}
                   </div>

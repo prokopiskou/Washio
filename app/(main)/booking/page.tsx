@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDuration } from '@/lib/duration'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, Lock, Calendar, Sparkles, Mail, Check } from 'lucide-react'
@@ -695,7 +696,7 @@ function BookingPageContent() {
                 </div>
                 {/* Ενημερωτική διάρκεια που δήλωσε ο πλυντηριάς· fallback στη διάρκεια slot. */}
                 <span className="text-[13px] font-semibold text-washio-navy">
-                  ~{service.display_duration_minutes && service.display_duration_minutes > 0 ? service.display_duration_minutes : service.duration_minutes}′
+                  ~{formatDuration(service.display_duration_minutes && service.display_duration_minutes > 0 ? service.display_duration_minutes : service.duration_minutes, locale)}
                 </span>
               </div>
             </div>

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDuration } from '@/lib/duration'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -578,7 +579,7 @@ export default function HomePage() {
                             <span className="flex items-center gap-1 whitespace-nowrap"><Car size={12} />{t.from} €{loc.minPrice}</span>
                           )}
                           {loc.duration != null && (
-                            <span className="flex items-center gap-1 whitespace-nowrap"><Clock size={12} />{loc.duration}′</span>
+                            <span className="flex items-center gap-1 whitespace-nowrap"><Clock size={12} />{formatDuration(loc.duration, locale)}</span>
                           )}
                         </div>
                         <span className="w-7 h-7 rounded-full bg-washio-cyan flex items-center justify-center shrink-0">

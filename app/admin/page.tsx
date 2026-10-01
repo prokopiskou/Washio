@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDuration } from '@/lib/duration'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -2029,7 +2030,7 @@ export default function AdminPage() {
                           <div className="flex-1 min-w-0">
                             <p className={`text-[13px] font-semibold tracking-tight truncate ${item.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
                               {item.name}
-                              <span className="text-[11px] font-medium text-gray-400 ml-1.5">· {item.duration_minutes}′</span>
+                              <span className="text-[11px] font-medium text-gray-400 ml-1.5">· {formatDuration(item.duration_minutes)}</span>
                             </p>
                             <p className="text-[11px] text-gray-400 mt-0.5">
                               {(item.vehicles || []).map((v: string) => v === 'Μοτοσικλέτα' ? 'Μοτο' : v).join(' · ')}
