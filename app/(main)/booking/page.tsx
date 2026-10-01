@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, Lock, Calendar, Sparkles, Mail } from 'lucide-react'
+import { ChevronLeft, Lock, Calendar, Sparkles, Mail, Check } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createClient } from '@/lib/supabase/client'
@@ -820,8 +820,11 @@ function BookingPageContent() {
                       }`}
                     >
                       <span className={`text-[14px] font-medium ${selected ? 'text-washio-navy font-semibold' : 'text-washio-navy'}`}>{addon.name}</span>
-                      <span className={`text-[14px] font-bold ${selected ? 'text-washio-cyan-dark' : 'text-washio-navy'}`}>
-                        {selected ? '−' : '+'} €{addon.price}
+                      {/* Επιλεγμένο: ✓ + τιμή (όχι «−€4», που διαβαζόταν σαν έκπτωση). */}
+                      <span className={`inline-flex items-center gap-1.5 text-[14px] font-bold ${selected ? 'text-washio-cyan-dark' : 'text-washio-navy'}`}>
+                        {selected
+                          ? <><Check size={15} strokeWidth={3} />€{addon.price}</>
+                          : <>+ €{addon.price}</>}
                       </span>
                     </button>
                   )
