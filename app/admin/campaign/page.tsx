@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-type Preview = { subject: string; total: number; withCoupon: number; sample: string[] }
+type Preview = { subject: string; total: number; withCoupon: number; willGetCoupon: number; sample: string[] }
 
 // Admin: καμπάνια email «Από Δευτέρα ήλιος — κλείσε με −3€».
 // 1) Βλέπεις πόσους αφορά  2) Στέλνεις δοκιμή στον εαυτό σου  3) Αποστολή σε όλους.
@@ -36,7 +36,7 @@ export default function CampaignPage() {
     setBusy('send'); setMsg(''); setErr('')
     try {
       const r = await call('send')
-      setMsg(`Στάλθηκε σε ${r.sent} χρήστες.${r.errors?.length ? ' Σφάλματα: ' + r.errors.join(', ') : ''}`)
+      setMsg(`Στάλθηκε σε ${r.sent} χρήστες. Νέα κουπόνια: ${r.couponsGiven}.${r.skipped ? ' Παραλείφθηκαν: ' + r.skipped + '.' : ''}${r.errors?.length ? ' Σφάλματα: ' + r.errors.join(', ') : ''}`)
     } catch (e) { setErr((e as Error).message) } finally { setBusy('') }
   }
 
@@ -57,6 +57,11 @@ export default function CampaignPage() {
                 <div><p className="text-[26px] font-bold text-gray-900">{preview.total}</p><p className="text-[11px] text-gray-400">παραλήπτες</p></div>
                 <div><p className="text-[26px] font-bold text-green-600">{preview.withCoupon}</p><p className="text-[11px] text-gray-400">με κουπόνι −3€</p></div>
               </div>
+              {preview.willGetCoupon > 0 && (
+                <p className="text-[12px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-3">
+                  {preview.willGetCoupon} δεν έχουν ακόμα −3€ — θα τους δοθεί αυτόματα πριν φύγει το email, ώστε να ισχύει για όλους.
+                </p>
+              )}
               <p className="text-[11px] text-gray-400 mt-3">Δείγμα: {preview.sample.join(', ')}</p>
             </>
           )}

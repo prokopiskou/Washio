@@ -83,6 +83,8 @@ export async function POST(req: NextRequest) {
         subject: SUBJECT,
         total: list.length,
         withCoupon: list.filter(r => r.hasCoupon).length,
+      // Όσοι δεν έχουν ακόμα −3€ θα το πάρουν ΑΥΤΟΜΑΤΑ πριν φύγει το email (δεν έχουν κράτηση → δικαιούνται).
+      willGetCoupon: list.filter(r => !r.hasCoupon).length,
         sample: list.slice(0, 5).map(r => r.email.replace(/^(.{2}).*(@.*)$/, '$1***$2')),
       })
     }
@@ -99,22 +101,40 @@ export async function POST(req: NextRequest) {
     }
 
     if (mode === 'send') {
+      // 1) Το email υπόσχεται −3€ → ΚΑΘΕ παραλήπτης πρέπει να το έχει ΠΡΙΝ φύγει.
+      //    Όλοι εδώ είναι χωρίς κράτηση, άρα δικαιούνται το welcome (ίδια πολιτική με την εγγραφή).
+      //    Μόνο σε όσους δεν έχουν ήδη πάρει welcome (όχι διπλό).
+      const missing = list.filter(r => !r.hasCoupon)
+      if (missing.length) {
+        const { data: hadWelcome } = await admin.from('credit_ledger')
+          .select('user_id').eq('kind', 'welcome').in('user_id', missing.map(m => m.id))
+        const had = new Set((hadWelcome || []).map(h => h.user_id as string))
+        for (const m of missing) {
+          if (had.has(m.id)) continue
+          await admin.rpc('apply_credit', { p_user: m.id, p_delta: 3, p_kind: 'welcome', p_note: 'Καλωσόρισμα' })
+        }
+      }
+      // Ξαναδιάβασε υπόλοιπα — στέλνεται μόνο σε όσους ΟΝΤΩΣ έχουν −3€ τώρα.
+      const fresh = await recipients()
+      const finalList = fresh.filter(r => r.hasCoupon)
+      const skipped = fresh.length - finalList.length
+
       let sent = 0
       const errors: string[] = []
-      for (let i = 0; i < list.length; i += 100) {
-        const chunk = list.slice(i, i + 100)
+      for (let i = 0; i < finalList.length; i += 100) {
+        const chunk = finalList.slice(i, i + 100)
         const { error } = await resend.batch.send(chunk.map(r => ({
           from: 'Washio <noreply@washio.gr>',
           to: r.email,
           subject: SUBJECT,
-          html: html(r.hasCoupon),
+          html: html(true),
           headers: { 'List-Unsubscribe': '<mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio>' },
           tags: [{ name: 'campaign', value: CAMPAIGN }],
         })))
         if (error) errors.push(error.message)
         else sent += chunk.length
       }
-      return NextResponse.json({ ok: errors.length === 0, sent, errors })
+      return NextResponse.json({ ok: errors.length === 0, sent, skipped, couponsGiven: missing.length, errors })
     }
 
     return NextResponse.json({ error: 'mode: preview | test | send' }, { status: 400 })
