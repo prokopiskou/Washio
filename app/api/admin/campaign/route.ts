@@ -29,7 +29,7 @@ function html(hasCoupon: boolean, ctaUrl: string = URL_CTA): string {
     <div style="background:#FFFFFF;border:1px solid #E8EEF2;border-top:none;border-radius:0 0 18px 18px;padding:28px;">
       <h1 style="margin:0 0 14px;color:#10182A;font-size:22px;line-height:1.3;font-weight:800;">Από Δευτέρα, μια ολόκληρη εβδομάδα ήλιος. ☀️</h1>
       <p style="margin:0 0 12px;color:#4B5563;font-size:15px;line-height:1.6;">Μετά τις μπόρες του Σαββατοκύριακου, ήρθε η καλύτερη στιγμή για να λάμψει ξανά το αυτοκίνητό σου.</p>
-      <p style="margin:0 0 20px;color:#4B5563;font-size:15px;line-height:1.6;"><strong style="color:#10182A;">Κλείσε από τώρα την ώρα σου</strong> για Δευτέρα, Τρίτη ή όποια μέρα σε βολεύει. Πας και σε περιμένουν. Χωρίς αναμονή.</p>
+      <p style="margin:0 0 20px;color:#4B5563;font-size:15px;line-height:1.6;"><strong style="color:#10182A;">Κλείσε από τώρα το ραντεβού σου</strong> για Δευτέρα ή όποια μέρα σε βολεύει. Πας και σε περιμένουν. Χωρίς αναμονή.</p>
       ${hasCoupon ? `<div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 22px;">
         <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 Το κουπόνι −3€ είναι ήδη στον λογαριασμό σου</p>
         <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Ισχύει με πληρωμή κάρτας, σε πλύσιμο από 12€.</p>
