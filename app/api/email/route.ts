@@ -41,7 +41,7 @@ function confirmationEmail(data: {
             <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Υπηρεσία</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.service}</td></tr>
             <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ημερομηνία</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.date}</td></tr>
             <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ώρα</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.time}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Πινακίδα</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.plate}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Πινακίδα</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.plate || '—'}</td></tr>
             <tr><td style="color: #10182A; font-weight: 600; padding: 8px 0 0;">Σύνολο</td><td style="color: #10182A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td></tr>
           </table>
         </div>
@@ -86,7 +86,7 @@ function reminderEmail(data: {
             <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Σταθμός</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationName}</td></tr>
             <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Διεύθυνση</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">${data.locationAddress}</td></tr>
             <tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Ώρα</td><td style="color: #10182A; font-weight: 600; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF; font-size: 15px;">${data.time}</td></tr>
-            <tr><td style="color: #999; padding: 6px 0;">Πινακίδα</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0;">${data.plate}</td></tr>
+            <tr><td style="color: #999; padding: 6px 0;">Πινακίδα</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0;">${data.plate || '—'}</td></tr>
           </table>
         </div>
         <a href="https://maps.google.com/?q=${encodeURIComponent(data.locationAddress)}" style="display: block; background: #10182A; color: white; text-align: center; padding: 14px; border-radius: 12px; text-decoration: none; font-size: 14px; font-weight: 500; margin-bottom: 12px;">📍 Οδηγίες στο χάρτη →</a>

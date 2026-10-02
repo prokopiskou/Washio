@@ -52,7 +52,7 @@ const T = {
     freeCancel: 'Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.',
     or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Πληρωμή με μετρητά στο κατάστημα',
     cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
-    fillPlatePhone: 'Συμπλήρωσε πινακίδα και τηλέφωνο',
+    fillPlatePhone: 'Συμπλήρωσε το τηλέφωνό σου', optional: 'προαιρετικό',
     estimateRange: 'Εκτιμώμενο εύρος', estimateNote: 'Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.',
     bookCash: 'Κράτηση — πληρωμή με μετρητά', cashOnlyHint: 'Πληρώνεις μετρητά στο κατάστημα μετά την εκτίμηση.',
   },
@@ -80,7 +80,7 @@ const T = {
     freeCancel: 'Free cancellation up to 2 hours before your appointment.',
     or: 'or', confirming: 'Confirming...', payCash: 'Pay with cash at the store',
     cashHint: 'Book now, pay at the store during your visit.',
-    fillPlatePhone: 'Fill in plate and phone',
+    fillPlatePhone: 'Fill in your phone', optional: 'optional',
     estimateRange: 'Estimated range', estimateNote: 'The final price is set after the on-site estimate.',
     bookCash: 'Book — pay with cash', cashOnlyHint: 'You pay cash at the store after the estimate.',
   },
@@ -540,9 +540,8 @@ function BookingPageContent() {
   const cardTotal = Math.max(0, total - appliedCredit) + SERVICE_FEE_EUR
   // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: κάρτα, ≥12€, έως 3€).
   const previewCredit = !isRange && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
-  const canProceed = phone.trim() && email.trim() && service && (
-    selectedVehicleId !== 'new' ? true : plate.trim().length > 0
-  )
+  // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
+  const canProceed = !!(phone.trim() && email.trim() && service)
 
   const handleProceedToPayment = async () => {
     if (!canProceed || !service) return
@@ -706,31 +705,10 @@ function BookingPageContent() {
           {/* RIGHT (desktop): φόρμα κράτησης */}
           <div className="flex flex-col gap-5 md:flex-1">
 
-          {/* No matching vehicle warning */}
-          {vehicles.length === 0 && selectedVehicleId === 'new' && (
-            <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3.5 flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <p className="text-[13px] font-semibold text-amber-900">
-                  {vehicleType === 'Μοτοσικλέτα' ? t.noMoto : t.noCar}
-                </p>
-                <p className="text-[12px] text-amber-800 mt-0.5 leading-snug">
-                  {t.addPlateBelow}
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Vehicle */}
           <div>
             <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
-              {t.plate}
+              {t.plate} <span className="normal-case tracking-normal font-medium text-gray-400">· {t.optional}</span>
             </p>
 
             {vehicles.length > 0 && selectedVehicleId !== 'new' ? (
@@ -957,7 +935,7 @@ function BookingPageContent() {
               >
                 <span>{t.pay}</span>
                 <span className="w-px h-4 bg-white/25" />
-                <span>€{total}</span>
+                <span>€{+(total - previewCredit).toFixed(2)}</span>
               </button>
             )}
             <div className="flex items-center justify-center gap-1.5 mt-3">
