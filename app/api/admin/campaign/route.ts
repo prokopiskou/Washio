@@ -8,7 +8,8 @@ import { isAdminEmail, ADMIN_EMAILS } from '@/lib/admins'
 // POST { mode: 'preview' }  → πόσοι παραλήπτες + δείγμα (δεν στέλνει τίποτα)
 // POST { mode: 'test' }     → στέλνει ΜΟΝΟ στον admin που είναι συνδεδεμένος
 // POST { mode: 'send' }     → στέλνει σε όλους τους παραλήπτες (batch, έως 100/κλήση)
-// Παραλήπτες: χρήστες ΧΩΡΙΣ καμία ενεργή κράτηση, όχι ιδιοκτήτες πλυντηρίων, όχι admins.
+// Παραλήπτες: χρήστες ΧΩΡΙΣ καμία ενεργή κράτηση. ΕΞΑΙΡΟΥΝΤΑΙ: ιδιοκτήτες πλυντηρίων,
+// όσοι έκαναν αίτηση/onboarding ως πλυντήριο (κατά email) και οι admins.
 export const maxDuration = 60
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
@@ -49,16 +50,22 @@ async function recipients() {
     for (const u of data.users) if (u.email) users.push({ id: u.id, email: u.email.toLowerCase() })
     if (data.users.length < 1000) break
   }
-  const [{ data: booked }, { data: owners }, { data: profs }] = await Promise.all([
+  const [{ data: booked }, { data: owners }, { data: profs }, { data: apps }, { data: onb }] = await Promise.all([
     admin.from('bookings').select('user_id').not('user_id', 'is', null).neq('status', 'cancelled'),
     admin.from('locations').select('owner_id').not('owner_id', 'is', null),
     admin.from('profiles').select('id, referral_credit'),
+    // Πλυντήρια που έκαναν αίτηση / onboarding (ακόμα κι αν δεν έχουν ενεργό σημείο).
+    admin.from('applications').select('email'),
+    admin.from('partner_onboarding').select('email'),
   ])
   const bookedSet = new Set((booked || []).map(b => b.user_id as string))
   const ownerSet = new Set((owners || []).map(o => o.owner_id as string))
+  const partnerEmails = new Set(
+    [...(apps || []), ...(onb || [])].map(r => String((r as { email?: string }).email || '').trim().toLowerCase()).filter(Boolean)
+  )
   const credit = new Map((profs || []).map(p => [p.id as string, Number(p.referral_credit) || 0]))
   return users
-    .filter(u => !bookedSet.has(u.id) && !ownerSet.has(u.id) && !ADMIN_EMAILS.includes(u.email))
+    .filter(u => !bookedSet.has(u.id) && !ownerSet.has(u.id) && !partnerEmails.has(u.email) && !ADMIN_EMAILS.includes(u.email))
     .map(u => ({ ...u, hasCoupon: (credit.get(u.id) || 0) >= 3 }))
 }
 
