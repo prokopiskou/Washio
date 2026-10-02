@@ -34,7 +34,7 @@ function html(hasCoupon: boolean, ctaUrl: string = URL_CTA): string {
         <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 Το κουπόνι −3€ είναι ήδη στον λογαριασμό σου</p>
         <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Ισχύει με πληρωμή κάρτας, σε πλύσιμο από 12€.</p>
       </div>` : ''}
-      <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε την ώρα σου →</a>
+      <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε το ραντεβού σου →</a>
       <p style="margin:20px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;text-align:center;">📍 Αργυρούπολη · Άλιμος · Άγ. Δημήτριος · Ηλιούπολη · Βύρωνας · Ζωγράφου</p>
     </div>
     <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; <a href="mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio" style="color:#9AA3AF;">Διαγραφή</a>.</p>
