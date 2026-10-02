@@ -8,6 +8,7 @@ import { isAdminEmail, ADMIN_EMAILS } from '@/lib/admins'
 // POST { mode: 'preview' }  → πόσοι παραλήπτες + δείγμα (δεν στέλνει τίποτα)
 // POST { mode: 'test' }     → στέλνει ΜΟΝΟ στον admin που είναι συνδεδεμένος
 // POST { mode: 'send' }     → στέλνει σε όλους τους παραλήπτες (batch, έως 100/κλήση)
+// POST { mode: 'stats' }    → ανοίγματα / κλικ / κρατήσεις της καμπάνιας (από Resend + Supabase)
 // Παραλήπτες: χρήστες ΧΩΡΙΣ καμία ενεργή κράτηση. ΕΞΑΙΡΟΥΝΤΑΙ: ιδιοκτήτες πλυντηρίων,
 // όσοι έκαναν αίτηση/onboarding ως πλυντήριο (κατά email) και οι admins.
 export const maxDuration = 60
@@ -92,13 +93,78 @@ async function recipients() {
     .map(u => ({ ...u, hasCoupon: (credit.get(u.id) || 0) >= 3 }))
 }
 
+// ── Στατιστικά καμπάνιας από το Resend (GET /emails → last_event ανά email) ──
+// Δεν χρειάζεται webhook ούτε νέο πίνακα: διαβάζουμε τα email της καμπάνιας (ίδιο θέμα, όχι [ΔΟΚΙΜΗ]).
+// last_event: sent | delivered | opened | clicked | bounced | complained | failed | suppressed | delivery_delayed
+type ResendListed = { id: string; to: string[]; subject: string; created_at: string; last_event: string }
+
+async function campaignStats() {
+  const emails: ResendListed[] = []
+  let after: string | undefined
+  for (let page = 0; page < 40; page++) {
+    const url = 'https://api.resend.com/emails?limit=100' + (after ? `&after=${after}` : '')
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` }, cache: 'no-store' })
+    if (res.status === 429) { await new Promise(r => setTimeout(r, 1200)); page--; continue }
+    const json = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const m = String(json?.message || json?.name || res.status)
+      throw new Error(/restricted|permission|sending access/i.test(m)
+        ? 'Το Resend API key είναι «Sending access» — δεν επιτρέπει ανάγνωση στατιστικών. Χρειάζεται key με «Full access».'
+        : 'Resend: ' + m)
+    }
+    const data = (json.data || []) as ResendListed[]
+    emails.push(...data.filter(e => e.subject === SUBJECT))
+    if (!json.has_more || !data.length) break
+    after = data[data.length - 1].id
+    await new Promise(r => setTimeout(r, 300))
+  }
+
+  const by = (ev: string[]) => emails.filter(e => ev.includes(e.last_event)).length
+  const sent = emails.length
+  const bounced = by(['bounced', 'failed', 'suppressed'])
+  const complained = by(['complained'])
+  const clicked = by(['clicked'])
+  const opened = by(['opened', 'clicked'])
+  const delivered = by(['delivered', 'opened', 'clicked', 'complained'])
+  const pct = (n: number) => (delivered ? Math.round((n / delivered) * 1000) / 10 : 0)
+
+  // Κρατήσεις ΜΕΤΑ την αποστολή από όσους πήραν το email (η πραγματική μέτρηση).
+  let bookings = 0, bookers = 0, revenue = 0
+  if (sent) {
+    const firstSent = emails.reduce((min, e) => (e.created_at < min ? e.created_at : min), emails[0].created_at)
+    const toSet = new Set(emails.flatMap(e => (e.to || []).map(x => x.toLowerCase())))
+    const ids: string[] = []
+    for (let page = 1; page <= 20; page++) {
+      const { data } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+      for (const u of data?.users || []) if (u.email && toSet.has(u.email.toLowerCase())) ids.push(u.id)
+      if (!data || data.users.length < 1000) break
+    }
+    if (ids.length) {
+      const { data: bk } = await admin.from('bookings').select('user_id, total_amount')
+        .in('user_id', ids).neq('status', 'cancelled').gte('created_at', new Date(firstSent.replace(' ', 'T')).toISOString())
+      bookings = bk?.length || 0
+      bookers = new Set((bk || []).map(b => b.user_id)).size
+      revenue = (bk || []).reduce((s, b) => s + Number(b.total_amount || 0), 0)
+    }
+  }
+
+  return {
+    sent, delivered, opened, clicked, bounced, complained,
+    openRate: pct(opened), clickRate: pct(clicked),
+    clickToOpen: opened ? Math.round((clicked / opened) * 1000) / 10 : 0,
+    bookings, bookers, revenue: Math.round(revenue * 100) / 100,
+    firstSentAt: sent ? emails[emails.length - 1].created_at : null,
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const sb = await createServerClient()
     const { data: { user } } = await sb.auth.getUser()
     if (!user || !isAdminEmail(user.email)) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
 
-    const { mode } = (await req.json().catch(() => ({}))) as { mode?: 'preview' | 'test' | 'send' }
+    const { mode } = (await req.json().catch(() => ({}))) as { mode?: 'preview' | 'test' | 'send' | 'stats' }
+    if (mode === 'stats') return NextResponse.json(await campaignStats())
     const list = await recipients()
 
     if (mode === 'preview') {
@@ -164,7 +230,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: errors.length === 0, sent, skipped, couponsGiven: missing.length, errors })
     }
 
-    return NextResponse.json({ error: 'mode: preview | test | send' }, { status: 400 })
+    return NextResponse.json({ error: 'mode: preview | test | send | stats' }, { status: 400 })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Σφάλμα' }, { status: 500 })
   }

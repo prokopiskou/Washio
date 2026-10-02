@@ -3,6 +3,10 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
+type Stats = {
+  sent: number; delivered: number; opened: number; clicked: number; bounced: number; complained: number
+  openRate: number; clickRate: number; clickToOpen: number; bookings: number; bookers: number; revenue: number; firstSentAt: string | null
+}
 type Preview = { subject: string; total: number; withCoupon: number; willGetCoupon: number; sample: string[] }
 
 // Admin: καμπάνια email «Από Δευτέρα ήλιος — κλείσε με −3€».
@@ -12,8 +16,11 @@ export default function CampaignPage() {
   const [busy, setBusy] = useState<'' | 'test' | 'send'>('')
   const [msg, setMsg] = useState('')
   const [err, setErr] = useState('')
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [statsBusy, setStatsBusy] = useState(false)
+  const [statsErr, setStatsErr] = useState('')
 
-  const call = async (mode: 'preview' | 'test' | 'send') => {
+  const call = async (mode: 'preview' | 'test' | 'send' | 'stats') => {
     const res = await fetch('/api/admin/campaign', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }),
     })
@@ -22,7 +29,15 @@ export default function CampaignPage() {
     return json
   }
 
-  useEffect(() => { call('preview').then(setPreview).catch(e => setErr(e.message)) }, [])
+  const loadStats = async () => {
+    setStatsBusy(true); setStatsErr('')
+    try { setStats(await call('stats')) } catch (e) { setStatsErr((e as Error).message) } finally { setStatsBusy(false) }
+  }
+
+  useEffect(() => {
+    call('preview').then(setPreview).catch(e => setErr(e.message))
+    loadStats()
+  }, [])
 
   const sendTest = async () => {
     setBusy('test'); setMsg(''); setErr('')
@@ -78,6 +93,42 @@ export default function CampaignPage() {
 
         {msg && <p className="text-[13px] text-green-700 mt-4">{msg}</p>}
         {err && <p className="text-[13px] text-red-600 mt-4">{err}</p>}
+
+        {/* ── Αποτελέσματα ── */}
+        <div className="flex items-center justify-between mt-8">
+          <h2 className="text-[17px] font-bold text-gray-900">Αποτελέσματα</h2>
+          <button onClick={loadStats} disabled={statsBusy} className="text-[13px] font-semibold text-gray-500 disabled:opacity-40">
+            {statsBusy ? 'Φόρτωση…' : '↻ Ανανέωση'}
+          </button>
+        </div>
+        <div className="bg-white border border-gray-100 rounded-2xl p-4 mt-3">
+          {statsErr && <p className="text-[13px] text-red-600">{statsErr}</p>}
+          {!stats && !statsErr && <p className="text-[13px] text-gray-400">Φόρτωση στατιστικών…</p>}
+          {stats && stats.sent === 0 && <p className="text-[13px] text-gray-400">Δεν έχει σταλεί ακόμα η καμπάνια.</p>}
+          {stats && stats.sent > 0 && (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <div><p className="text-[22px] font-bold text-gray-900">{stats.delivered}<span className="text-[13px] text-gray-400 font-medium">/{stats.sent}</span></p><p className="text-[11px] text-gray-400">παραδόθηκαν</p></div>
+                <div><p className="text-[22px] font-bold text-gray-900">{stats.openRate}%</p><p className="text-[11px] text-gray-400">άνοιξαν ({stats.opened})</p></div>
+                <div><p className="text-[22px] font-bold text-[#19A8C7]">{stats.clickRate}%</p><p className="text-[11px] text-gray-400">πάτησαν ({stats.clicked})</p></div>
+              </div>
+              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-100">
+                <div><p className="text-[22px] font-bold text-green-600">{stats.bookings}</p><p className="text-[11px] text-gray-400">κρατήσεις</p></div>
+                <div><p className="text-[22px] font-bold text-gray-900">€{stats.revenue.toFixed(0)}</p><p className="text-[11px] text-gray-400">τζίρος</p></div>
+                <div><p className="text-[22px] font-bold text-gray-900">{stats.clickToOpen}%</p><p className="text-[11px] text-gray-400">κλικ / ανοίγματα</p></div>
+              </div>
+              {(stats.bounced > 0 || stats.complained > 0) && (
+                <p className="text-[12px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-4">
+                  Bounce: {stats.bounced} · Spam: {stats.complained}
+                </p>
+              )}
+              <p className="text-[11px] text-gray-400 mt-4 leading-relaxed">
+                Ποσοστά επί των παραδομένων. Τα «ανοίγματα» είναι φουσκωμένα (το Apple Mail ανοίγει αυτόματα τα email) — μέτρα κλικ και κρατήσεις.
+                Κρατήσεις = όσοι πήραν το email και έκλεισαν μετά την αποστολή.
+              </p>
+            </>
+          )}
+        </div>
       </div>
     </main>
   )
