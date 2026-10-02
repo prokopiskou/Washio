@@ -13,6 +13,55 @@ import { Geolocation } from '@capacitor/geolocation'
 
 export type GeoResult = { latitude: number; longitude: number }
 
+// Τελευταία γνωστή θέση (localStorage) — ο χάρτης κεντράρει ΑΜΕΣΩΣ εκεί,
+// πριν απαντήσει το GPS. Ισχύει έως 24 ώρες.
+const CACHE_KEY = 'washio_last_pos'
+const CACHE_MAX_MS = 24 * 3600 * 1000
+
+export function getCachedPosition(): GeoResult | null {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const c = JSON.parse(raw) as GeoResult & { t: number }
+    if (!c || Date.now() - c.t > CACHE_MAX_MS) return null
+    return { latitude: c.latitude, longitude: c.longitude }
+  } catch { return null }
+}
+
+function saveCachedPosition(p: GeoResult) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ...p, t: Date.now() })) } catch { /* ignore */ }
+}
+
+// Απόσταση σε μέτρα (για να μην ξανα-ταξινομούμε/κεντράρουμε για μικρές διορθώσεις).
+export function metersBetween(a: GeoResult, b: GeoResult): number {
+  const R = 6371000, toRad = (d: number) => d * Math.PI / 180
+  const dLat = toRad(b.latitude - a.latitude), dLng = toRad(b.longitude - a.longitude)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.latitude)) * Math.cos(toRad(b.latitude)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+
+/**
+ * ΓΡΗΓΟΡΗ θέση σε 2 φάσεις:
+ *  1) αμέσως: τελευταία γνωστή (cache), αν υπάρχει
+ *  2) ~0,5″: θέση δικτύου/WiFi (enableHighAccuracy: false) — γρήγορη, ακρίβεια ~50–200μ
+ *  3) στο παρασκήνιο: GPS υψηλής ακρίβειας — ενημερώνει ΜΟΝΟ αν μετακινήθηκε > 150μ
+ * Το onUpdate καλείται σε κάθε βελτίωση. Επιστρέφει όταν βρεθεί η πρώτη πραγματική θέση.
+ */
+export async function getFastPosition(onUpdate: (p: GeoResult, source: 'cache' | 'quick' | 'precise') => void): Promise<void> {
+  let last: GeoResult | null = getCachedPosition()
+  if (last) onUpdate(last, 'cache')
+
+  const quick = await getCurrentPosition({ enableHighAccuracy: false, timeout: 5000, maximumAge: 600000 }).catch(() => null)
+  if (quick && (!last || metersBetween(last, quick) > 50)) { last = quick; onUpdate(quick, 'quick') }
+
+  // Ακριβής θέση χωρίς να μπλοκάρει τίποτα.
+  getCurrentPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 })
+    .then(precise => {
+      if (!last || metersBetween(last, precise) > 150) { last = precise; onUpdate(precise, 'precise') }
+    })
+    .catch(() => { /* κρατάμε τη γρήγορη */ })
+}
+
 export async function getCurrentPosition(options?: {
   enableHighAccuracy?: boolean
   timeout?: number
@@ -30,7 +79,9 @@ export async function getCurrentPosition(options?: {
     // περιέχουν το plugin → UNIMPLEMENTED. Σε κάθε αποτυχία → browser fallback.
     try {
       const pos = await Geolocation.getCurrentPosition(opts)
-      return { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
+      const r = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
+      saveCachedPosition(r)
+      return r
     } catch {
       // πέφτουμε στο browser fallback παρακάτω
     }
@@ -40,7 +91,11 @@ export async function getCurrentPosition(options?: {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) { reject(new Error('unsupported')); return }
     navigator.geolocation.getCurrentPosition(
-      pos => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+      pos => {
+        const r = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
+        saveCachedPosition(r)
+        resolve(r)
+      },
       err => reject(err),
       opts
     )

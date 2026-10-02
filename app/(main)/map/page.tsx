@@ -10,7 +10,7 @@ import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } from '@/lib/availability'
-import { getCurrentPosition } from '@/lib/geo'
+import { getCurrentPosition, getFastPosition } from '@/lib/geo'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService } from '@/lib/services-catalog'
@@ -436,13 +436,13 @@ function MapPageContent() {
     // Φόρτωσε τα πλυντήρια ΑΜΕΣΩΣ — χωρίς να περιμένεις το geolocation.
     loadLocations()
     // Παράλληλα ζήτα τη θέση· όταν έρθει, ξαναφόρτωσε με ταξινόμηση/κεντράρισμα.
-    getCurrentPosition({ maximumAge: 300000 }).then(
-      pos => {
-        setUserLat(pos.latitude)
-        setUserLng(pos.longitude)
-        loadLocations(pos.latitude, pos.longitude)
-      }
-    ).catch(() => { /* χωρίς θέση — τα πλυντήρια ήδη φορτώθηκαν */ })
+    // Θέση σε φάσεις: cache → γρήγορη (δίκτυο) → ακριβής GPS στο παρασκήνιο.
+    // Ο χάρτης κεντράρει ΑΜΕΣΩΣ και διορθώνει μόνο αν μετακινήθηκες αισθητά.
+    getFastPosition(pos => {
+      setUserLat(pos.latitude)
+      setUserLng(pos.longitude)
+      loadLocations(pos.latitude, pos.longitude)
+    }).catch(() => { /* χωρίς θέση — τα πλυντήρια ήδη φορτώθηκαν */ })
   }, [])
 
   // Με το που είναι έτοιμος ο χάρτης ΚΑΙ ξέρουμε τη θέση: κεντράρουμε πάνω στον χρήστη,
