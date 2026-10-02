@@ -445,6 +445,43 @@ function MapPageContent() {
     }).catch(() => { /* χωρίς θέση — τα πλυντήρια ήδη φορτώθηκαν */ })
   }, [])
 
+  // ΖΩΝΤΑΝΗ διαθεσιμότητα: αν ο χάρτης μείνει ανοιχτός (ή η εφαρμογή στο παρασκήνιο)
+  // και ο χρήστης επιστρέψει ώρες μετά, ΠΡΕΠΕΙ να ξαναϋπολογιστεί τι είναι ανοιχτό τώρα.
+  // • επιστροφή στην οθόνη (visibilitychange / pageshow / app resume) → ανανέωση αν πέρασε > 30″
+  // • όσο είναι ανοιχτός → ανανέωση κάθε 60″ (αλλάζει το «τώρα» και κλείνουν/ανοίγουν σημεία)
+  const refreshRef = useRef<() => void>(() => {})
+  const lastLoadRef = useRef(Date.now())
+  const [refreshTick, setRefreshTick] = useState(0)
+  refreshRef.current = () => {
+    lastLoadRef.current = Date.now()
+    loadLocations(userLat ?? undefined, userLng ?? undefined)
+    setRefreshTick(t => t + 1) // ξαναϋπολογίζει και τις ώρες του ανοιχτού πλυντηρίου
+  }
+  useEffect(() => {
+    const maybeRefresh = () => {
+      if (document.visibilityState !== 'visible') return
+      if (Date.now() - lastLoadRef.current > 30_000) refreshRef.current()
+    }
+    document.addEventListener('visibilitychange', maybeRefresh)
+    window.addEventListener('pageshow', maybeRefresh)
+    window.addEventListener('focus', maybeRefresh)
+    const iv = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refreshRef.current()
+    }, 60_000)
+    // Native app: επιστροφή από το παρασκήνιο.
+    let removeResume: (() => void) | null = null
+    import('@capacitor/app').then(({ App }) => {
+      App.addListener('resume', maybeRefresh).then(h => { removeResume = () => h.remove() }).catch(() => {})
+    }).catch(() => {})
+    return () => {
+      document.removeEventListener('visibilitychange', maybeRefresh)
+      window.removeEventListener('pageshow', maybeRefresh)
+      window.removeEventListener('focus', maybeRefresh)
+      window.clearInterval(iv)
+      removeResume?.()
+    }
+  }, [])
+
   // Με το που είναι έτοιμος ο χάρτης ΚΑΙ ξέρουμε τη θέση: κεντράρουμε πάνω στον χρήστη,
   // δείχνουμε μια περίμετρο ~5–10' δρόμος και κάνουμε fitBounds ώστε να φαίνονται τα κοντινά.
   useEffect(() => {
@@ -722,7 +759,7 @@ function MapPageContent() {
     }
     loadSlots()
     return () => { cancelled = true }
-  }, [selectedLocation, timing, selectedDate, selectedTime, selectedService, locationServices])
+  }, [selectedLocation, timing, selectedDate, selectedTime, selectedService, locationServices, refreshTick])
 
   const selectLocation = (loc: Location) => {
     setSelectedLocation(loc)
