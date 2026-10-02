@@ -19,7 +19,7 @@ const CAMPAIGN = 'sunny_week_oct'
 const URL_CTA = `https://washio.gr/map?utm_source=email&utm_medium=campaign&utm_campaign=${CAMPAIGN}`
 const SUBJECT = 'Από Δευτέρα ήλιος ☀️ Κλείσε το πλύσιμό σου με −3€'
 
-function html(hasCoupon: boolean): string {
+function html(hasCoupon: boolean, ctaUrl: string = URL_CTA): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px 16px;">
     <div style="background:#10182A;border-radius:18px 18px 0 0;padding:28px 28px 22px;text-align:center;">
@@ -34,11 +34,34 @@ function html(hasCoupon: boolean): string {
         <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 Το κουπόνι −3€ είναι ήδη στον λογαριασμό σου</p>
         <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Ισχύει με πληρωμή κάρτας, σε πλύσιμο από 12€.</p>
       </div>` : ''}
-      <a href="${URL_CTA}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε την ώρα σου →</a>
+      <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε την ώρα σου →</a>
       <p style="margin:20px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;text-align:center;">📍 Αργυρούπολη · Άλιμος · Άγ. Δημήτριος · Ηλιούπολη · Βύρωνας · Ζωγράφου</p>
     </div>
     <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; <a href="mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio" style="color:#9AA3AF;">Διαγραφή</a>.</p>
   </div></body></html>`
+}
+
+// ΠΡΟΣΩΠΙΚΟ link: συνδέει αυτόματα τον χρήστη (χωρίς κωδικό) και τον πάει στον χάρτη.
+// Ισχύει όσο το «Email OTP expiration» του Supabase (ρυθμισμένο στις 24 ώρες).
+// Αν λήξει ή αποτύχει → η σελίδα /auth/link τον στέλνει στο κανονικό login (ίδιος προορισμός).
+async function personalLink(email: string): Promise<string> {
+  try {
+    const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
+    const th = data?.properties?.hashed_token
+    if (error || !th) return URL_CTA
+    const next = '/map?utm_source=email&utm_medium=campaign&utm_campaign=' + CAMPAIGN
+    return `https://washio.gr/auth/link?token_hash=${encodeURIComponent(th)}&next=${encodeURIComponent(next)}`
+  } catch { return URL_CTA }
+}
+
+// Τρέξε async δουλειές με όριο ταυτόχρονων (για να μη «χτυπήσουμε» το Auth API).
+async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let i = 0
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (i < items.length) { const k = i++; out[k] = await fn(items[k]) }
+  }))
+  return out
 }
 
 async function recipients() {
@@ -94,7 +117,7 @@ export async function POST(req: NextRequest) {
         from: 'Washio <noreply@washio.gr>',
         to: user.email!,
         subject: '[ΔΟΚΙΜΗ] ' + SUBJECT,
-        html: html(true),
+        html: html(true, await personalLink(user.email!)),
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ ok: true, sentTo: user.email })
@@ -119,6 +142,10 @@ export async function POST(req: NextRequest) {
       const finalList = fresh.filter(r => r.hasCoupon)
       const skipped = fresh.length - finalList.length
 
+      // Προσωπικό link για τον καθένα (10 ταυτόχρονα).
+      const links = await mapLimit(finalList, 10, r => personalLink(r.email))
+      const linkByEmail = new Map(finalList.map((r, k) => [r.email, links[k]]))
+
       let sent = 0
       const errors: string[] = []
       for (let i = 0; i < finalList.length; i += 100) {
@@ -127,7 +154,7 @@ export async function POST(req: NextRequest) {
           from: 'Washio <noreply@washio.gr>',
           to: r.email,
           subject: SUBJECT,
-          html: html(true),
+          html: html(true, linkByEmail.get(r.email) || URL_CTA),
           headers: { 'List-Unsubscribe': '<mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio>' },
           tags: [{ name: 'campaign', value: CAMPAIGN }],
         })))
