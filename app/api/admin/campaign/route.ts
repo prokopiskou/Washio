@@ -20,7 +20,7 @@ const URL_CTA = `https://washio.gr/map?utm_source=email&utm_medium=campaign&utm_
 const SUBJECT = 'Από Δευτέρα ήλιος ☀️ Κλείσε το πλύσιμό σου με −3€'
 
 function html(hasCoupon: boolean): string {
-  return `<!doctype html><html><body style="margin:0;background:#F7FAFC;">
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px 16px;">
     <div style="background:#10182A;border-radius:18px 18px 0 0;padding:28px 28px 22px;text-align:center;">
       <img src="https://washio.gr/logo.png" alt="Washio" width="120" style="display:block;margin:0 auto 6px;" />
