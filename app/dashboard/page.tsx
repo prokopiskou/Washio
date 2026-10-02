@@ -1,6 +1,8 @@
 'use client'
 
 import { formatDuration } from '@/lib/duration'
+import { useLocale } from '@/lib/i18n'
+import { DASH_EN } from '@/lib/dashboard-i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -183,6 +185,10 @@ function triggerNewBookingAlert(locationName: string) {
 
 export default function DashboardPage() {
   const router = useRouter()
+  // Γλώσσα dashboard (Ρυθμίσεις → Γλώσσα). Ελληνικά = αυτούσια, English = λεξικό DASH_EN.
+  const { locale, setLocale } = useLocale()
+  const t = (s: string): string => (locale === 'en' ? DASH_EN[s] ?? s : s)
+  const dl = locale === 'en' ? 'en-GB' : 'el-GR'
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [loading, setLoading] = useState(true)
   const [location, setLocation] = useState<any | null>(null)
@@ -284,28 +290,28 @@ export default function DashboardPage() {
         const supabase = createClient()
         const { data: sess } = await supabase.auth.getSession()
         const userId = sess.session?.user?.id
-        if (!userId) { alert('Χρειάζεται να είσαι συνδεδεμένος.'); return }
+        if (!userId) { alert(t('Χρειάζεται να είσαι συνδεδεμένος.')); return }
         const result = await registerNativePush(userId)
         setNotifPermission(result.ok ? 'granted' : 'denied')
         if (!result.ok) {
-          const r = result.reason || 'άγνωστο'
+          const r = result.reason || t('άγνωστο')
           if (r.includes('not implemented') || r.includes('UNIMPLEMENTED')) {
-            alert('Τρέχεις παλιό build χωρίς ειδοποιήσεις. Κάνε update από το TestFlight στο 1.0.2 (5).')
+            alert(t('Τρέχεις παλιό build χωρίς ειδοποιήσεις. Κάνε update από το TestFlight στο 1.0.2 (5).'))
           } else if (r.startsWith('permission')) {
-            alert('Δεν δόθηκε άδεια. Ενεργοποίησέ τες από Ρυθμίσεις → Washio → Ειδοποιήσεις.')
+            alert(t('Δεν δόθηκε άδεια. Ενεργοποίησέ τες από Ρυθμίσεις → Washio → Ειδοποιήσεις.'))
           } else {
-            alert('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν.\nΛόγος: ' + r)
+            alert(t('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν.') + '\n' + t('Λόγος:') + ' ' + r)
           }
         } else {
           selectionHaptic()
-          alert('Οι ειδοποιήσεις ενεργοποιήθηκαν! ✅')
+          alert(t('Οι ειδοποιήσεις ενεργοποιήθηκαν! ✅'))
         }
         return
       }
 
       // 1) WEB: υπάρχει καθόλου API ειδοποιήσεων;
       if (typeof Notification === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
-        alert('Η συσκευή σου δεν υποστηρίζει ειδοποιήσεις μέσα από το app. Δοκίμασε να ανοίξεις το washio.gr από τον browser (Safari/Chrome) και ενεργοποίησέ τες από εκεί.')
+        alert(t('Η συσκευή σου δεν υποστηρίζει ειδοποιήσεις μέσα από το app. Δοκίμασε να ανοίξεις το washio.gr από τον browser (Safari/Chrome) και ενεργοποίησέ τες από εκεί.'))
         return
       }
 
@@ -315,11 +321,11 @@ export default function DashboardPage() {
       if (permission !== 'granted') {
         const isDesktop = !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
         if (permission === 'denied' && isDesktop) {
-          alert('Οι ειδοποιήσεις είναι μπλοκαρισμένες σε αυτόν τον browser για το washio.gr.\n\nΞεμπλόκαρέ τες: πάτησε το εικονίδιο 🔒 (ή ⚙️) αριστερά από τη διεύθυνση → «Ειδοποιήσεις» → «Να επιτρέπεται», μετά κάνε refresh και πάτησε ξανά «Ενεργοποίηση».')
+          alert(t('Οι ειδοποιήσεις είναι μπλοκαρισμένες σε αυτόν τον browser για το washio.gr.\n\nΞεμπλόκαρέ τες: πάτησε το εικονίδιο 🔒 (ή ⚙️) αριστερά από τη διεύθυνση → «Ειδοποιήσεις» → «Να επιτρέπεται», μετά κάνε refresh και πάτησε ξανά «Ενεργοποίηση».'))
         } else if (permission === 'denied') {
-          alert('Οι ειδοποιήσεις είναι μπλοκαρισμένες. Ενεργοποίησέ τες από τις Ρυθμίσεις του browser/συσκευής για το washio.gr και δοκίμασε ξανά.')
+          alert(t('Οι ειδοποιήσεις είναι μπλοκαρισμένες. Ενεργοποίησέ τες από τις Ρυθμίσεις του browser/συσκευής για το washio.gr και δοκίμασε ξανά.'))
         } else {
-          alert('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν. Δοκίμασε ξανά και πάτησε «Επιτρέπω» στο παράθυρο του browser.')
+          alert(t('Οι ειδοποιήσεις δεν ενεργοποιήθηκαν. Δοκίμασε ξανά και πάτησε «Επιτρέπω» στο παράθυρο του browser.'))
         }
         return
       }
@@ -328,7 +334,7 @@ export default function DashboardPage() {
       const supabase = createClient()
       const { data: sess } = await supabase.auth.getSession()
       const userId = sess.session?.user?.id
-      if (!userId) { alert('Χρειάζεται να είσαι συνδεδεμένος.'); return }
+      if (!userId) { alert(t('Χρειάζεται να είσαι συνδεδεμένος.')); return }
 
       const registration = await navigator.serviceWorker.register('/sw.js')
       const existing = await registration.pushManager.getSubscription()
@@ -342,12 +348,12 @@ export default function DashboardPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subscription, userId }),
       })
-      if (!res.ok) { alert('Κάτι πήγε στραβά στην εγγραφή. Δοκίμασε ξανά.'); return }
+      if (!res.ok) { alert(t('Κάτι πήγε στραβά στην εγγραφή. Δοκίμασε ξανά.')); return }
 
       selectionHaptic()
     } catch (err) {
       console.error('Notif enable error:', err)
-      alert('Δεν ήταν δυνατή η ενεργοποίηση των ειδοποιήσεων σε αυτή τη συσκευή.')
+      alert(t('Δεν ήταν δυνατή η ενεργοποίηση των ειδοποιήσεων σε αυτή τη συσκευή.'))
     } finally {
       setNotifBusy(false)
     }
@@ -613,7 +619,7 @@ export default function DashboardPage() {
     const points = Array.from({ length: months }, (_, i) => {
       const d = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1)
       const key = `${d.getFullYear()}-${d.getMonth()}`
-      return { key, label: d.toLocaleDateString('el-GR', { month: 'short', timeZone: 'Europe/Athens' }), revenue: 0, bookings: 0 }
+      return { key, label: d.toLocaleDateString(dl, { month: 'short', timeZone: 'Europe/Athens' }), revenue: 0, bookings: 0 }
     })
     bookings.forEach(b => {
       if (!b.slot_date) return
@@ -625,7 +631,7 @@ export default function DashboardPage() {
       if (b.status === 'completed') point.revenue += Number(b.total_amount || 0)
     })
     return points.map(({ label, revenue, bookings: bCount }) => ({ label, revenue, bookings: bCount }))
-  }, [bookings, chartPeriod])
+  }, [bookings, chartPeriod, dl])
 
   const avgRating = useMemo(() => {
     if (!reviews.length) return 0
@@ -646,10 +652,10 @@ export default function DashboardPage() {
   }
 
   const statusLabel = (status?: string) => {
-    if (status === 'pending') return 'Εκκρεμεί'
-    if (status === 'confirmed') return 'Επιβεβαιώθηκε'
-    if (status === 'completed') return 'Ολοκληρώθηκε'
-    if (status === 'cancelled') return 'Ακυρώθηκε'
+    if (status === 'pending') return t('Εκκρεμεί')
+    if (status === 'confirmed') return t('Επιβεβαιώθηκε')
+    if (status === 'completed') return t('Ολοκληρώθηκε')
+    if (status === 'cancelled') return t('Ακυρώθηκε')
     return status || '—'
   }
 
@@ -677,7 +683,7 @@ export default function DashboardPage() {
     // Delete + insert αντί για upsert onConflict — δεν εξαρτάται από unique
     // constraint στον πίνακα (που έλειπε και έσκαγε με 400).
     const { error: delErr } = await supabase.from('location_hours').delete().eq('location_id', location.id)
-    if (delErr) { setSavingHours(false); alert('Σφάλμα αποθήκευσης ωραρίου: ' + delErr.message); return }
+    if (delErr) { setSavingHours(false); alert(t('Σφάλμα αποθήκευσης ωραρίου: ') + delErr.message); return }
     const rows = hours.map(row => ({
       location_id: location.id,
       day_of_week: row.day_of_week,
@@ -687,8 +693,8 @@ export default function DashboardPage() {
     }))
     const { error: insErr } = await supabase.from('location_hours').insert(rows)
     setSavingHours(false)
-    if (insErr) { alert('Σφάλμα αποθήκευσης ωραρίου: ' + insErr.message); return }
-    alert('Το ωράριο αποθηκεύτηκε ✅')
+    if (insErr) { alert(t('Σφάλμα αποθήκευσης ωραρίου: ') + insErr.message); return }
+    alert(t('Το ωράριο αποθηκεύτηκε ✅'))
   }
 
   const saveException = async () => {
@@ -772,12 +778,12 @@ export default function DashboardPage() {
       // Ασφαλές parse: αν ο server γυρίσει μη-JSON (crash page), να ΦΑΝΕΙ το σφάλμα.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let json: { service?: any; error?: string } = {}
-      try { json = await res.json() } catch { json = { error: `Σφάλμα server (HTTP ${res.status})` } }
+      try { json = await res.json() } catch { json = { error: `${t('Σφάλμα server')} (HTTP ${res.status})` } }
       if (!res.ok || !json.service) {
         revert()
         errorHaptic()
         // Το σφάλμα πρέπει να ΦΑΙΝΕΤΑΙ — όχι σιωπηλή δόνηση.
-        alert(`Δεν ενεργοποιήθηκε η υπηρεσία: ${json.error || 'άγνωστο σφάλμα'}`)
+        alert(`${t('Δεν ενεργοποιήθηκε η υπηρεσία:')} ${json.error || t('άγνωστο σφάλμα')}`)
         return
       }
       const svc = json.service
@@ -798,7 +804,7 @@ export default function DashboardPage() {
     } catch {
       revert()
       errorHaptic()
-      alert('Δεν ενεργοποιήθηκε η υπηρεσία: πρόβλημα σύνδεσης. Δοκίμασε ξανά.')
+      alert(t('Δεν ενεργοποιήθηκε η υπηρεσία: πρόβλημα σύνδεσης. Δοκίμασε ξανά.'))
     }
   }
 
@@ -820,7 +826,7 @@ export default function DashboardPage() {
 
   // «Δεν εμφανίστηκε» — μόνο αφού περάσουν 15' από την ώρα του ραντεβού.
   const markNoShow = async (b: Booking) => {
-    if (!confirm('Ο πελάτης δεν εμφανίστηκε; Η κράτηση θα σημανθεί ως no-show.')) return
+    if (!confirm(t('Ο πελάτης δεν εμφανίστηκε; Η κράτηση θα σημανθεί ως no-show.'))) return
     const supabase = createClient()
     const { error } = await supabase.from('bookings')
       .update({ status: 'no_show' })
@@ -870,7 +876,7 @@ export default function DashboardPage() {
 
   const deleteManualBooking = async () => {
     if (!editingManual) return
-    if (!confirm('Διαγραφή αυτού του ραντεβού; Η ώρα θα ελευθερωθεί.')) return
+    if (!confirm(t('Διαγραφή αυτού του ραντεβού; Η ώρα θα ελευθερωθεί.'))) return
     setManualDeleting(true)
     setManualError('')
     try {
@@ -880,13 +886,13 @@ export default function DashboardPage() {
         body: JSON.stringify({ bookingId: editingManual.id, action: 'delete' }),
       })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) { setManualError(json.error || 'Κάτι πήγε στραβά.'); return }
+      if (!res.ok) { setManualError(json.error || t('Κάτι πήγε στραβά.')); return }
       selectionHaptic()
       setShowManualForm(false)
       setEditingManual(null)
       setCalendarBookings(prev => prev.filter(x => x.id !== editingManual.id))
     } catch {
-      setManualError('Κάτι πήγε στραβά. Δοκίμασε ξανά.')
+      setManualError(t('Κάτι πήγε στραβά. Δοκίμασε ξανά.'))
     } finally {
       setManualDeleting(false)
     }
@@ -894,7 +900,7 @@ export default function DashboardPage() {
 
   const createManualBooking = async () => {
     if (!location?.id || !manualServiceName || !manualTime || !manualFirstName.trim()) {
-      setManualError('Συμπλήρωσε υπηρεσία, ώρα και όνομα.')
+      setManualError(t('Συμπλήρωσε υπηρεσία, ώρα και όνομα.'))
       return
     }
     setManualSaving(true)
@@ -921,7 +927,7 @@ export default function DashboardPage() {
           })
       const json = await res.json()
       if (!res.ok) {
-        setManualError(json.error || 'Κάτι πήγε στραβά.')
+        setManualError(json.error || t('Κάτι πήγε στραβά.'))
         setManualSaving(false)
         return
       }
@@ -931,7 +937,7 @@ export default function DashboardPage() {
       setManualFirstName(''); setManualLastName(''); setManualPhone('')
       await loadCalendarBookings(calendarDate)
     } catch {
-      setManualError('Κάτι πήγε στραβά. Δοκίμασε ξανά.')
+      setManualError(t('Κάτι πήγε στραβά. Δοκίμασε ξανά.'))
     } finally {
       setManualSaving(false)
     }
@@ -966,7 +972,7 @@ export default function DashboardPage() {
     // τον πελάτη με email και ανοίγει το slot. Ποτέ απευθείας update.
     const b = bookings.find(x => x.id === id)
     const who = [(b as any)?.car_plate, (b as any)?.slot_start_time?.slice(0, 5)].filter(Boolean).join(' · ')
-    if (!confirm(`Ακύρωση κράτησης${who ? ` (${who})` : ''};\n\nΟ πελάτης θα ενημερωθεί με email και η ώρα θα ελευθερωθεί. Δεν αναιρείται.`)) return
+    if (!confirm(`${t('Ακύρωση κράτησης')}${who ? ` (${who})` : ''}${t(';')}\n\n${t('Ο πελάτης θα ενημερωθεί με email και η ώρα θα ελευθερωθεί. Δεν αναιρείται.')}`)) return
     try {
       const res = await fetch('/api/bookings/cancel', {
         method: 'POST',
@@ -974,17 +980,17 @@ export default function DashboardPage() {
         body: JSON.stringify({ bookingId: id, reason: 'owner_cancelled' }),
       })
       const json = await res.json().catch(() => ({}))
-      if (!res.ok) { alert(json.error || 'Η ακύρωση δεν ολοκληρώθηκε.'); return }
+      if (!res.ok) { alert(json.error || t('Η ακύρωση δεν ολοκληρώθηκε.')); return }
       setBookings(prev => prev.map(b => b.id === id ? { ...b, status: 'cancelled' } : b))
     } catch {
-      alert('Πρόβλημα σύνδεσης. Η κράτηση ΔΕΝ ακυρώθηκε.')
+      alert(t('Πρόβλημα σύνδεσης. Η κράτηση ΔΕΝ ακυρώθηκε.'))
     }
   }
 
   if (loading) return <main className="min-h-screen bg-white flex items-center justify-center"><WashioLoader /></main>
   if (!location?.id) return (
     <main className="min-h-screen bg-white flex flex-col items-center justify-center gap-4 px-6 text-center">
-      <p className="text-sm text-gray-500">Δεν έχεις συνδεδεμένο πλυντήριο.</p>
+      <p className="text-sm text-gray-500">{t('Δεν έχεις συνδεδεμένο πλυντήριο.')}</p>
       <button
         onClick={() => {
           try { localStorage.setItem('washio_mode', 'customer') } catch { /* ignore */ }
@@ -992,7 +998,7 @@ export default function DashboardPage() {
         }}
         className="h-11 px-5 rounded-xl bg-gray-900 text-white text-[13px] font-semibold"
       >
-        Επιστροφή στην εφαρμογή
+        {t('Επιστροφή στην εφαρμογή')}
       </button>
     </main>
   )
@@ -1013,7 +1019,7 @@ export default function DashboardPage() {
                 try { localStorage.setItem('washio_mode', 'customer') } catch { /* ignore */ }
                 router.push('/')
               }}
-              title="Επιστροφή στην εφαρμογή πελάτη"
+              title={t('Επιστροφή στην εφαρμογή πελάτη')}
               className="h-[38px] pl-2.5 pr-3 rounded-full bg-gray-900 text-white flex items-center gap-1.5 shrink-0 active:opacity-80"
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -1022,14 +1028,14 @@ export default function DashboardPage() {
                 <path d="m16 21 4-4-4-4" />
                 <path d="M20 17H4" />
               </svg>
-              <span className="text-[12px] font-semibold">Εφαρμογή</span>
+              <span className="text-[12px] font-semibold">{t('Εφαρμογή')}</span>
             </button>
           </div>
 
           {notifPermission === 'granted' ? (
             <div className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-lg" style={{ background: '#E7F6EF', color: '#0F7A5C' }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: '#10B981' }} />
-              <span className="text-[11px] font-semibold tracking-tight">Ειδοποιήσεις ενεργές</span>
+              <span className="text-[11px] font-semibold tracking-tight">{t('Ειδοποιήσεις ενεργές')}</span>
             </div>
           ) : (
             <button
@@ -1042,8 +1048,8 @@ export default function DashboardPage() {
                 <path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/>
                 <path d="M10 19a2 2 0 0 0 4 0"/>
               </svg>
-              <span className="flex-1 text-left text-[12px] font-medium" style={{ color: '#8A6209' }}>Ενεργοποίησε ειδοποιήσεις</span>
-              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md" style={{ background: '#8A6209', color: '#fff' }}>{notifBusy ? '...' : 'Ενεργοποίηση'}</span>
+              <span className="flex-1 text-left text-[12px] font-medium" style={{ color: '#8A6209' }}>{t('Ενεργοποίησε ειδοποιήσεις')}</span>
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md" style={{ background: '#8A6209', color: '#fff' }}>{notifBusy ? '...' : t('Ενεργοποίηση')}</span>
             </button>
           )}
         </div>
@@ -1055,13 +1061,13 @@ export default function DashboardPage() {
               <path d="M14.7 6.3a5 5 0 0 0-7 7l-4 4 3 3 4-4a5 5 0 0 0 7-7l-3 3-3-3 3-3z"/>
             </svg>
             <p className="flex-1 text-[12px] font-semibold text-white truncate">
-              Λειτουργία υποστήριξης — {location?.name || 'πλυντήριο'}
+              {t('Λειτουργία υποστήριξης')} — {location?.name || t('πλυντήριο')}
             </p>
             <button
               onClick={() => { window.location.href = '/admin' }}
               className="text-[11px] font-semibold text-white/90 underline underline-offset-2 shrink-0"
             >
-              Έξοδος
+              {t('Έξοδος')}
             </button>
           </div>
         )}
@@ -1070,11 +1076,11 @@ export default function DashboardPage() {
           <div className="flex overflow-x-auto scrollbar-hide px-5 gap-[22px]">
           {([
             ['overview', 'Overview'],
-            ['bookings', `Κρατήσεις${newBookingsCount > 0 ? ` (${newBookingsCount})` : ''}`],
-            ['calendar', 'Ημερολόγιο'],
-            ['services', 'Υπηρεσίες'],
-            ['hours', 'Ωράριο'],
-            ['settings', 'Ρυθμίσεις'],
+            ['bookings', `${t('Κρατήσεις')}${newBookingsCount > 0 ? ` (${newBookingsCount})` : ''}`],
+            ['calendar', t('Ημερολόγιο')],
+            ['services', t('Υπηρεσίες')],
+            ['hours', t('Ωράριο')],
+            ['settings', t('Ρυθμίσεις')],
             ['feedback', 'Feedback'],
           ] as [TabKey, string][]).map(([key, label]) => (
             <button key={key}
@@ -1096,10 +1102,10 @@ export default function DashboardPage() {
               {/* Stat cards */}
               <div className="grid grid-cols-2 gap-2.5">
                 {[
-                  { label: 'Σήμερα', value: todayBookings.length },
-                  { label: 'Μήνα', value: monthlyBookings.length },
-                  { label: 'Έσοδα μήνα', value: `€${monthlyRevenue.toFixed(0)}` },
-                  { label: 'Βαθμολογία', value: avgRating.toFixed(1) },
+                  { label: t('Σήμερα'), value: todayBookings.length },
+                  { label: t('Μήνα'), value: monthlyBookings.length },
+                  { label: t('Έσοδα μήνα'), value: `€${monthlyRevenue.toFixed(0)}` },
+                  { label: t('Βαθμολογία'), value: avgRating.toFixed(1) },
                 ].map(s => (
                   <div key={s.label} className="bg-white border border-gray-100 rounded-2xl p-3.5"
                        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
@@ -1113,15 +1119,15 @@ export default function DashboardPage() {
                 <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden"
                      style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                   <div className="px-4 py-3.5 flex items-baseline justify-between">
-                    <p className="text-[15px] font-semibold tracking-tight text-gray-900">Σήμερα</p>
-                    <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{todayBookings.length} κρατήσεις</span>
+                    <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t('Σήμερα')}</p>
+                    <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{todayBookings.length} {t('κρατήσεις')}</span>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => (
                       <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                         <div>
                           <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · {'—'}</p>
-                          <p className="text-xs text-gray-400">{b.profiles?.full_name || 'Πελάτης'}</p>
+                          <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
                       </div>
@@ -1133,15 +1139,15 @@ export default function DashboardPage() {
               <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden"
                    style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                 <div className="px-4 py-3.5 flex items-baseline justify-between">
-                  <p className="text-[15px] font-semibold tracking-tight text-gray-900">Πρόσφατες κρατήσεις</p>
-                  <span className="text-[12px] font-medium text-blue-600">Όλες →</span>
+                  <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t('Πρόσφατες κρατήσεις')}</p>
+                  <span className="text-[12px] font-medium text-blue-600">{t('Όλες →')}</span>
                 </div>
                 <div className="divide-y divide-gray-50">
                   {bookings.slice(0, 5).map(b => (
                     <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                       <div>
                         <p className="text-sm text-gray-900">{b.slot_date} · {'—'}</p>
-                        <p className="text-xs text-gray-400">{b.profiles?.full_name || 'Πελάτης'}</p>
+                        <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
@@ -1149,7 +1155,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
                   ))}
-                  {bookings.length === 0 && <p className="text-xs text-gray-400 px-4 py-6">Δεν υπάρχουν κρατήσεις ακόμα.</p>}
+                  {bookings.length === 0 && <p className="text-xs text-gray-400 px-4 py-6">{t('Δεν υπάρχουν κρατήσεις ακόμα.')}</p>}
                 </div>
               </div>
 
@@ -1163,7 +1169,7 @@ export default function DashboardPage() {
                         className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${
                           chartMetric === m.key ? 'bg-gray-900 text-white' : 'text-gray-500'
                         }`}>
-                        {m.label}
+                        {t(m.label)}
                       </button>
                     ))}
                   </div>
@@ -1173,7 +1179,7 @@ export default function DashboardPage() {
                         className={`text-[11px] px-2 py-1 rounded-md font-semibold transition-all ${
                           chartPeriod === p.key ? 'bg-gray-50 text-gray-900' : 'text-gray-400'
                         }`}>
-                        {p.label}
+                        {t(p.label)}
                       </button>
                     ))}
                   </div>
@@ -1186,7 +1192,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <p className="text-[11px] text-gray-400 mb-3">
-                  {chartMetric === 'revenue' ? 'Έσοδα' : 'Κρατήσεις'} · {chartPeriod === '7D' ? 'τελευταίες 7 ημέρες' : chartPeriod === '30D' ? 'τελευταίες 30 ημέρες' : `τελευταίοι ${chartPeriod === '3M' ? '3' : chartPeriod === '6M' ? '6' : '12'} μήνες`}
+                  {chartMetric === 'revenue' ? t('Έσοδα') : t('Κρατήσεις')} · {chartPeriod === '7D' ? t('τελευταίες 7 ημέρες') : chartPeriod === '30D' ? t('τελευταίες 30 ημέρες') : `${t('τελευταίοι')} ${chartPeriod === '3M' ? '3' : chartPeriod === '6M' ? '6' : '12'} ${t('μήνες')}`}
                 </p>
 
                 <div className="h-48">
@@ -1198,7 +1204,7 @@ export default function DashboardPage() {
                       <YAxis tick={{ fontSize: 10 }}
                         tickFormatter={chartMetric === 'revenue' ? (v) => `€${v}` : undefined} />
                       <Tooltip
-                        formatter={(value: any) => chartMetric === 'revenue' ? [`€${value}`, 'Έσοδα'] : [value, 'Κρατήσεις']} />
+                        formatter={(value: any) => chartMetric === 'revenue' ? [`€${value}`, t('Έσοδα')] : [value, t('Κρατήσεις')]} />
                       <Line
                         type="monotone"
                         dataKey={chartMetric}
@@ -1234,19 +1240,19 @@ export default function DashboardPage() {
             }
 
             const statusPillConfig = (status?: string) => {
-              if (status === 'pending') return { bg: '#FEF3C7', fg: '#92400E', label: 'Εκκρεμεί' }
+              if (status === 'pending') return { bg: '#FEF3C7', fg: '#92400E', label: t('Εκκρεμεί') }
               if (status === 'confirmed') return null // «Επιβεβαιωμένη» = κανονική κατάσταση, χωρίς σήμανση.
-              if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
-              if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
-              if (status === 'no_show') return { bg: '#F3E8FF', fg: '#7E22CE', label: 'Δεν ήρθε' }
+              if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('Ολοκλ.') }
+              if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: t('Ακυρ.') }
+              if (status === 'no_show') return { bg: '#F3E8FF', fg: '#7E22CE', label: t('Δεν ήρθε') }
               return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
             }
 
             // Τρόπος πληρωμής — ΡΗΤΑ, για να ξέρει ο πλυντηριάς αν εισπράττει.
             const paymentBadge = (b: Booking) => {
-              if (b.source === 'manual') return { bg: '#F3F4F6', fg: '#4B5563', label: 'Εκτός πλατφόρμας' }
-              if (b.stripe_payment_status === 'pay_at_venue') return { bg: '#FFEDD5', fg: '#C2410C', label: '💵 ΜΕΤΡΗΤΑ — εισπράττεις εσύ' }
-              if (b.stripe_payment_status === 'paid') return { bg: '#E7F6EF', fg: '#0F7A5C', label: '💳 Πληρωμένη με κάρτα' }
+              if (b.source === 'manual') return { bg: '#F3F4F6', fg: '#4B5563', label: t('Εκτός πλατφόρμας') }
+              if (b.stripe_payment_status === 'pay_at_venue') return { bg: '#FFEDD5', fg: '#C2410C', label: t('💵 ΜΕΤΡΗΤΑ — εισπράττεις εσύ') }
+              if (b.stripe_payment_status === 'paid') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('💳 Πληρωμένη με κάρτα') }
               return null
             }
 
@@ -1255,11 +1261,11 @@ export default function DashboardPage() {
                 {/* Status filter chips */}
                 <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
                   {[
-                    { value: 'all', label: 'Όλες' },
-                    { value: 'completed', label: 'Ολοκληρωμένες' },
-                    { value: 'no_show', label: 'Δεν ήρθαν' },
-                    { value: 'cancelled', label: 'Ακυρωμένες' },
-                    { value: 'pending', label: 'Εκκρεμείς' },
+                    { value: 'all', label: t('Όλες') },
+                    { value: 'completed', label: t('Ολοκληρωμένες') },
+                    { value: 'no_show', label: t('Δεν ήρθαν') },
+                    { value: 'cancelled', label: t('Ακυρωμένες') },
+                    { value: 'pending', label: t('Εκκρεμείς') },
                   ].map(opt => {
                     const active = filterStatus === opt.value
                     const count = (statusCounts as any)[opt.value]
@@ -1282,7 +1288,7 @@ export default function DashboardPage() {
 
                 {/* Sort row */}
                 <div className="flex items-center justify-end gap-2 pb-1">
-                  <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">Ταξινόμηση</span>
+                  <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{t('Ταξινόμηση')}</span>
                   <div className="flex gap-1 bg-white border border-gray-200 p-0.5 rounded-lg">
                     <button
                       onClick={() => { setSortBy('slot_date'); lightTap() }}
@@ -1290,7 +1296,7 @@ export default function DashboardPage() {
                         sortBy === 'slot_date' ? 'bg-gray-900 text-white' : 'text-gray-500'
                       }`}
                     >
-                      Πλύσιμο
+                      {t('Πλύσιμο')}
                     </button>
                     <button
                       onClick={() => { setSortBy('created_at'); lightTap() }}
@@ -1298,7 +1304,7 @@ export default function DashboardPage() {
                         sortBy === 'created_at' ? 'bg-gray-900 text-white' : 'text-gray-500'
                       }`}
                     >
-                      Κλείσιμο
+                      {t('Κλείσιμο')}
                     </button>
                   </div>
                 </div>
@@ -1308,10 +1314,10 @@ export default function DashboardPage() {
                   {filtered.map(b => {
                     const pill = statusPillConfig(b.status)
                     const canCancel = b.status === 'pending' || b.status === 'confirmed'
-                    const slotDate = b.slot_date ? new Date(b.slot_date).toLocaleDateString('el-GR', {
+                    const slotDate = b.slot_date ? new Date(b.slot_date).toLocaleDateString(dl, {
                       day: 'numeric', month: 'short', timeZone: 'Europe/Athens'
                     }) : '—'
-                    const bookedAt = b.created_at ? new Date(b.created_at).toLocaleDateString('el-GR', {
+                    const bookedAt = b.created_at ? new Date(b.created_at).toLocaleDateString(dl, {
                       day: 'numeric', month: 'short', timeZone: 'Europe/Athens'
                     }) : '—'
 
@@ -1325,7 +1331,7 @@ export default function DashboardPage() {
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-[14px] font-semibold tracking-tight text-gray-900">
-                            {b.customer_name || b.profiles?.full_name || 'Πελάτης'}
+                            {b.customer_name || b.profiles?.full_name || t('Πελάτης')}
                           </p>
                           {payBadge && (
                             <span
@@ -1353,7 +1359,7 @@ export default function DashboardPage() {
                               {slotDate} · {b.slot_start_time?.slice(0, 5) || '—'}
                             </p>
                           </div>
-                          <p className="text-[10px] text-gray-400 mt-1">Κλείστηκε: {bookedAt}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">{t('Κλείστηκε:')} {bookedAt}</p>
                         </div>
 
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
@@ -1374,7 +1380,7 @@ export default function DashboardPage() {
                               onClick={() => { lightTap(); markNoShow(b) }}
                               className="px-2.5 py-1.5 rounded-lg bg-purple-50 text-purple-700 text-[11px] font-semibold border border-purple-100"
                             >
-                              Δεν εμφανίστηκε
+                              {t('Δεν εμφανίστηκε')}
                             </button>
                           )}
                           {canCancel && (
@@ -1382,7 +1388,7 @@ export default function DashboardPage() {
                               onClick={() => { errorHaptic(); cancelBooking(b.id) }}
                               className="text-[11px] font-medium text-red-500 underline underline-offset-[2px]"
                             >
-                              Ακύρωση
+                              {t('Ακύρωση')}
                             </button>
                           )}
                         </div>
@@ -1402,7 +1408,7 @@ export default function DashboardPage() {
                       </svg>
                     </div>
                     <p className="text-[15px] font-semibold tracking-tight text-gray-900">
-                      {filterStatus === 'all' ? 'Δεν υπάρχουν κρατήσεις' : 'Δεν υπάρχουν κρατήσεις σε αυτή τη κατηγορία'}
+                      {filterStatus === 'all' ? t('Δεν υπάρχουν κρατήσεις') : t('Δεν υπάρχουν κρατήσεις σε αυτή τη κατηγορία')}
                     </p>
                   </div>
                 )}
@@ -1432,11 +1438,11 @@ export default function DashboardPage() {
             })
 
             const statusPillConfig = (status?: string) => {
-              if (status === 'pending') return { bg: '#FEF3C7', fg: '#92400E', label: 'Εκκρεμεί' }
-              if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: 'Επιβεβ.' }
-              if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: 'Ολοκλ.' }
-              if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: 'Ακυρ.' }
-              if (status === 'no_show') return { bg: '#F3E8FF', fg: '#7E22CE', label: 'Δεν ήρθε' }
+              if (status === 'pending') return { bg: '#FEF3C7', fg: '#92400E', label: t('Εκκρεμεί') }
+              if (status === 'confirmed') return { bg: '#EAF2FD', fg: '#1A6FD4', label: t('Επιβεβ.') }
+              if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('Ολοκλ.') }
+              if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: t('Ακυρ.') }
+              if (status === 'no_show') return { bg: '#F3E8FF', fg: '#7E22CE', label: t('Δεν ήρθε') }
               return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
             }
 
@@ -1455,7 +1461,7 @@ export default function DashboardPage() {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"><path d="M15 6l-6 6 6 6"/></svg>
                   </button>
                   <p className="text-[17px] font-semibold tracking-tight text-gray-900 capitalize">
-                    {calendarDate.toLocaleDateString('el-GR', { month: 'long', year: 'numeric', timeZone: 'Europe/Athens' })}
+                    {calendarDate.toLocaleDateString(dl, { month: 'long', year: 'numeric', timeZone: 'Europe/Athens' })}
                   </p>
                   <button
                     onClick={() => {
@@ -1471,9 +1477,9 @@ export default function DashboardPage() {
 
                 {/* Weekday labels */}
                 <div className="grid grid-cols-7 gap-1 mb-1">
-                  {['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ'].map(w => (
+                  {[t('Δε'), t('Τρ'), t('Τε'), t('Πε'), t('Πα'), t('Σα'), t('Κυ')].map(w => (
                     <p key={w} className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-400 text-center">
-                      {w}
+                      {t(w)}
                     </p>
                   ))}
                 </div>
@@ -1573,10 +1579,10 @@ export default function DashboardPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-[16px] font-semibold tracking-tight text-gray-900 capitalize">
-                            {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
+                            {calendarDate.toLocaleDateString(dl, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
                           </p>
                           <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mt-1">
-                            {calendarLoading ? 'Φόρτωση...' : `${calendarBookings.length} ${calendarBookings.length === 1 ? 'κράτηση' : 'κρατήσεις'}`}
+                            {calendarLoading ? t('Φόρτωση...') : `${calendarBookings.length} ${calendarBookings.length === 1 ? t('κράτηση') : t('κρατήσεις')}`}
                           </p>
                         </div>
                         <button
@@ -1584,18 +1590,18 @@ export default function DashboardPage() {
                           className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gray-900 text-white text-[13px] font-semibold"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                          Ραντεβού
+                          {t('Ραντεβού')}
                         </button>
                       </div>
 
                       {/* Υπόμνημα */}
                       <div className="flex flex-wrap gap-x-3 gap-y-1 mt-3">
                         {[
-                          { c: '#5C9CE6', l: 'Κάρτα' },
-                          { c: '#FB923C', l: 'Μετρητά' },
-                          { c: '#9CA3AF', l: 'Εκτός πλατφόρμας' },
-                          { c: '#34C79A', l: 'Ολοκληρωμένη' },
-                          { c: '#C084FC', l: 'Δεν ήρθε' },
+                          { c: '#5C9CE6', l: t('Κάρτα') },
+                          { c: '#FB923C', l: t('Μετρητά') },
+                          { c: '#9CA3AF', l: t('Εκτός πλατφόρμας') },
+                          { c: '#34C79A', l: t('Ολοκληρωμένη') },
+                          { c: '#C084FC', l: t('Δεν ήρθε') },
                         ].map(x => (
                           <span key={x.l} className="inline-flex items-center gap-1 text-[10px] font-medium text-gray-500">
                             <span className="w-2 h-2 rounded-full" style={{ background: x.c }} />
@@ -1661,7 +1667,7 @@ export default function DashboardPage() {
                                 {b.slot_start_time?.slice(0, 5)}–{`${String(Math.floor(e / 60)).padStart(2, '0')}:${String(e % 60).padStart(2, '0')}`}
                               </p>
                               <p className="text-[11px] font-semibold leading-tight truncate mt-0.5" style={{ color: st.fg }}>
-                                {b.customer_name || b.profiles?.full_name || 'Πελάτης'}
+                                {b.customer_name || b.profiles?.full_name || t('Πελάτης')}
                               </p>
                               {height > 56 && (
                                 <p className="text-[10px] leading-tight truncate mt-0.5" style={{ color: st.fg, opacity: 0.8 }}>
@@ -1674,7 +1680,7 @@ export default function DashboardPage() {
 
                         {!calendarLoading && placed.length === 0 && (
                           <p className="absolute left-[60px] top-6 text-[13px] text-gray-400">
-                            Δεν υπάρχουν κρατήσεις αυτή τη μέρα.
+                            {t('Δεν υπάρχουν κρατήσεις αυτή τη μέρα.')}
                           </p>
                         )}
                       </div>
@@ -1691,7 +1697,7 @@ export default function DashboardPage() {
           {activeTab === 'calendar' && !showManualForm && (
             <button
               onClick={openManualForm}
-              aria-label="Προσθήκη ραντεβού"
+              aria-label={t('Προσθήκη ραντεβού')}
               className="fixed z-40 right-5 flex items-center gap-2 px-5 h-14 rounded-full bg-gray-900 text-white text-[15px] font-semibold active:scale-95 transition-transform"
               style={{
                 bottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
@@ -1699,7 +1705,7 @@ export default function DashboardPage() {
               }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-              Ραντεβού
+              {t('Ραντεβού')}
             </button>
           )}
 
@@ -1713,15 +1719,15 @@ export default function DashboardPage() {
                 {/* Κουμπί κλεισίματος — ΠΑΝΤΑ ορατό, ακόμα κι αν το backdrop κρύβεται από το πληκτρολόγιο. */}
                 <button
                   onClick={() => { setShowManualForm(false); setEditingManual(null) }}
-                  aria-label="Κλείσιμο"
+                  aria-label={t('Κλείσιμο')}
                   className="absolute top-3.5 right-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
-                <p className="text-base font-semibold text-gray-900 mb-1">{editingManual ? 'Επεξεργασία ραντεβού' : 'Προσθήκη ραντεβού'}</p>
+                <p className="text-base font-semibold text-gray-900 mb-1">{editingManual ? t('Επεξεργασία ραντεβού') : t('Προσθήκη ραντεβού')}</p>
                 {editingManual ? (
                   <div className="mb-3">
-                    <p className="text-xs text-gray-400 mb-1.5">Ημερομηνία</p>
+                    <p className="text-xs text-gray-400 mb-1.5">{t('Ημερομηνία')}</p>
                     <input
                       type="date" value={manualDate}
                       onChange={e => setManualDate(e.target.value)}
@@ -1739,19 +1745,18 @@ export default function DashboardPage() {
                     <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
                   </svg>
                   <span className="text-[13px] font-bold tracking-tight capitalize">
-                    {calendarDate.toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
+                    {calendarDate.toLocaleDateString(dl, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Athens' })}
                   </span>
                 </div>
                 <p className="text-[12px] text-gray-400 mb-4">
-                  Για κρατήσεις που έρχονται από τηλέφωνο ή από τον πάγκο. Δεσμεύει την ώρα ώστε να μη διπλοκλειστεί.
-                  Το ραντεβού θα μπει στην παραπάνω ημερομηνία — αν θες άλλη μέρα, κλείσε και διάλεξέ τη πρώτα στο ημερολόγιο.
+                  {t('Για κρατήσεις που έρχονται από τηλέφωνο ή από τον πάγκο. Δεσμεύει την ώρα ώστε να μη διπλοκλειστεί. Το ραντεβού θα μπει στην παραπάνω ημερομηνία — αν θες άλλη μέρα, κλείσε και διάλεξέ τη πρώτα στο ημερολόγιο.')}
                 </p>
 
                   </>
                 )}
 
                 <div className="mb-3">
-                  <p className="text-xs text-gray-400 mb-1.5">Υπηρεσία</p>
+                  <p className="text-xs text-gray-400 mb-1.5">{t('Υπηρεσία')}</p>
                   <select
                     value={manualServiceName}
                     onChange={e => setManualServiceName(e.target.value)}
@@ -1761,7 +1766,7 @@ export default function DashboardPage() {
                         ό,τι προσφέρει στην πλατφόρμα μπορεί να το βάλει και ως δικό του ραντεβού. */}
                     {bookableServices.filter(s => s.is_active).map(s => (
                       <option key={s.id} value={s.name}>
-                        {s.name} · {formatDuration(s.duration_minutes)}
+                        {s.name} · {formatDuration(s.duration_minutes, locale)}
                       </option>
                     ))}
                     {/* Σε επεξεργασία: κράτα και την υπηρεσία της κράτησης, ακόμα κι αν δεν είναι πια ενεργή. */}
@@ -1772,7 +1777,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="mb-3">
-                  <p className="text-xs text-gray-400 mb-1.5">Ώρα έναρξης</p>
+                  <p className="text-xs text-gray-400 mb-1.5">{t('Ώρα έναρξης')}</p>
                   <select
                     value={manualTime}
                     onChange={e => setManualTime(e.target.value)}
@@ -1792,7 +1797,7 @@ export default function DashboardPage() {
 
                 <div className="grid grid-cols-2 gap-2 mb-3">
                   <div>
-                    <p className="text-xs text-gray-400 mb-1.5">Όνομα</p>
+                    <p className="text-xs text-gray-400 mb-1.5">{t('Όνομα')}</p>
                     <input
                       type="text" value={manualFirstName}
                       onChange={e => setManualFirstName(e.target.value)}
@@ -1800,7 +1805,7 @@ export default function DashboardPage() {
                     />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-1.5">Επίθετο</p>
+                    <p className="text-xs text-gray-400 mb-1.5">{t('Επίθετο')}</p>
                     <input
                       type="text" value={manualLastName}
                       onChange={e => setManualLastName(e.target.value)}
@@ -1810,7 +1815,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="mb-4">
-                  <p className="text-xs text-gray-400 mb-1.5">Κινητό</p>
+                  <p className="text-xs text-gray-400 mb-1.5">{t('Κινητό')}</p>
                   <input
                     type="tel" value={manualPhone}
                     onChange={e => setManualPhone(e.target.value)}
@@ -1830,10 +1835,10 @@ export default function DashboardPage() {
                   className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40"
                 >
                   {manualSaving
-                    ? 'Αποθήκευση...'
+                    ? t('Αποθήκευση...')
                     : editingManual
-                      ? 'Αποθήκευση αλλαγών'
-                      : `Αποθήκευση για ${calendarDate.toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })} · ${manualTime}`}
+                      ? t('Αποθήκευση αλλαγών')
+                      : `${t('Αποθήκευση για')} ${calendarDate.toLocaleDateString(dl, { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })} · ${manualTime}`}
                 </button>
                 {editingManual && (
                   <button
@@ -1841,7 +1846,7 @@ export default function DashboardPage() {
                     disabled={manualDeleting || manualSaving}
                     className="w-full mt-2.5 border border-red-200 text-red-600 text-sm font-medium py-3 rounded-xl disabled:opacity-40"
                   >
-                    {manualDeleting ? 'Διαγραφή...' : 'Διαγραφή ραντεβού'}
+                    {manualDeleting ? t('Διαγραφή...') : t('Διαγραφή ραντεβού')}
                   </button>
                 )}
               </div>
@@ -1852,11 +1857,10 @@ export default function DashboardPage() {
             <div className="space-y-4">
               {/* ───────── ΒΑΣΙΚΕΣ ΥΠΗΡΕΣΙΕΣ ───────── */}
               <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
-                Βασικές υπηρεσίες
+                {t('Βασικές υπηρεσίες')}
               </p>
               <p className="text-[13px] text-gray-500 -mt-2 leading-relaxed">
-                Ενεργοποίησε όσες υπηρεσίες προσφέρεις και όρισε τιμή για ΙΧ, SUV και Μοτοσικλέτα.
-                Μια υπηρεσία εμφανίζεται στους πελάτες μόνο όταν είναι ενεργή ΚΑΙ έχει τιμή.
+                {t('Ενεργοποίησε όσες υπηρεσίες προσφέρεις και όρισε τιμή για ΙΧ, SUV και Μοτοσικλέτα. Μια υπηρεσία εμφανίζεται στους πελάτες μόνο όταν είναι ενεργή ΚΑΙ έχει τιμή.')}
               </p>
 
               <div className="space-y-2.5">
@@ -1917,11 +1921,11 @@ export default function DashboardPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-[15px] font-semibold tracking-tight text-gray-900">
                               {bs.name}
-                              <span className="text-[12px] font-medium text-gray-400 ml-1.5">· {formatDuration(bs.duration_minutes)}</span>
+                              <span className="text-[12px] font-medium text-gray-400 ml-1.5">· {formatDuration(bs.duration_minutes, locale)}</span>
                             </p>
                             <p className={`text-[12px] font-medium mt-0.5 ${bs.is_active ? 'text-green-600' : 'text-gray-400'}`}>
-                              {bs.is_active ? '● Ενεργή' : '○ Ανενεργή'}
-                              {!forCar && <span className="text-gray-400"> · μόνο μοτοσικλέτα</span>}
+                              {bs.is_active ? t('● Ενεργή') : t('○ Ανενεργή')}
+                              {!forCar && <span className="text-gray-400"> {t('· μόνο μοτοσικλέτα')}</span>}
                             </p>
                           </div>
                           <button
@@ -1945,17 +1949,17 @@ export default function DashboardPage() {
                               /* Υπηρεσία ΕΥΡΟΥΣ (βιολογικός): min–max ανά όχημα, μετρητά, εκτίμηση επιτόπου. */
                               <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
                                 <p className="text-[11px] text-gray-500 leading-snug">
-                                  Ο πελάτης πληρώνει <strong>μετρητά</strong>· η τελική τιμή λέγεται επιτόπου μετά την εκτίμηση. Όρισε εύρος (από–έως) ανά όχημα.
+                                  {t('Ο πελάτης πληρώνει')} <strong>{t('μετρητά')}</strong>{t('· η τελική τιμή λέγεται επιτόπου μετά την εκτίμηση. Όρισε εύρος (από–έως) ανά όχημα.')}
                                 </p>
                                 {([
                                   ['ΙΧ', 'price_min', 'price_max', bs.price_min, bs.price_max] as const,
                                   ['SUV', 'price_min_suv', 'price_max_suv', bs.price_min_suv, bs.price_max_suv] as const,
                                 ]).map(([label, minField, maxField, minVal, maxVal]) => (
                                   <div key={label} className="bg-gray-50 rounded-xl p-2.5">
-                                    <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-500 mb-1.5">{label}</p>
+                                    <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-500 mb-1.5">{t(label)}</p>
                                     <div className="flex items-center gap-2">
                                       <div className="flex items-center gap-1 flex-1">
-                                        <span className="text-[12px] text-gray-400 shrink-0">από €</span>
+                                        <span className="text-[12px] text-gray-400 shrink-0">{t('από €')}</span>
                                         <input
                                           type="number"
                                           defaultValue={minVal && Number(minVal) > 0 ? Number(minVal) : ''}
@@ -1971,7 +1975,7 @@ export default function DashboardPage() {
                                       </div>
                                       <span className="text-gray-300">–</span>
                                       <div className="flex items-center gap-1 flex-1">
-                                        <span className="text-[12px] text-gray-400 shrink-0">έως €</span>
+                                        <span className="text-[12px] text-gray-400 shrink-0">{t('έως €')}</span>
                                         <input
                                           type="number"
                                           defaultValue={maxVal && Number(maxVal) > 0 ? Number(maxVal) : ''}
@@ -1997,7 +2001,7 @@ export default function DashboardPage() {
                               ]).map(([label, field, value]) => (
                                 <div key={field} className="bg-gray-50 rounded-xl p-2.5">
                                   <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-500 mb-1">
-                                    {label}
+                                    {t(label)}
                                   </p>
                                   <div className="flex items-center gap-1">
                                     <span className="text-[14px] font-semibold text-gray-500">€</span>
@@ -2021,7 +2025,7 @@ export default function DashboardPage() {
                             {/* Ενημερωτική διάρκεια πλυσίματος — φαίνεται στον πελάτη στο checkout.
                                 ΔΕΝ επηρεάζει τα slots. */}
                             <div className="mt-2 flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
-                              <p className="text-[12px] font-medium text-gray-600">Διάρκεια πλυσίματος</p>
+                              <p className="text-[12px] font-medium text-gray-600">{t('Διάρκεια πλυσίματος')}</p>
                               <DurationField
                                 minutes={bs.display_duration_minutes && bs.display_duration_minutes > 0 ? bs.display_duration_minutes : null}
                                 onSave={val => { if (bs.id) updateBaseService(bs.id, { display_duration_minutes: val } as Partial<BookableService>) }}
@@ -2029,7 +2033,7 @@ export default function DashboardPage() {
                             </div>
                             {missingPrice && (
                               <p className="text-[11px] font-medium text-orange-600 mt-2">
-                                ⚠ Βάλε τιμή για να εμφανιστεί η υπηρεσία στους πελάτες.
+                                {t('⚠ Βάλε τιμή για να εμφανιστεί η υπηρεσία στους πελάτες.')}
                               </p>
                             )}
                           </>
@@ -2044,10 +2048,10 @@ export default function DashboardPage() {
 
               {/* ───────── ΔΕΥΤΕΡΕΥΟΥΣΕΣ ΥΠΗΡΕΣΙΕΣ ───────── */}
               <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
-                Δευτερεύουσες υπηρεσίες
+                {t('Δευτερεύουσες υπηρεσίες')}
               </p>
               <p className="text-[13px] text-gray-500 -mt-2 leading-relaxed">
-                Πρόσθετα που μπορεί να επιλέξει ο πελάτης μαζί με τη βασική υπηρεσία.
+                {t('Πρόσθετα που μπορεί να επιλέξει ο πελάτης μαζί με τη βασική υπηρεσία.')}
               </p>
 
               <div className="space-y-2.5">
@@ -2063,7 +2067,7 @@ export default function DashboardPage() {
                           {service.service_name}
                         </p>
                         <p className={`text-[12px] font-medium mt-0.5 ${service.is_active ? 'text-green-600' : 'text-gray-400'}`}>
-                          {service.is_active ? '● Ενεργή' : '○ Ανενεργή'}
+                          {service.is_active ? t('● Ενεργή') : t('○ Ανενεργή')}
                         </p>
                       </div>
                       <button
@@ -2086,7 +2090,7 @@ export default function DashboardPage() {
                         {/* Πρόσθετες υπηρεσίες: ΜΙΑ τιμή (χωρίς ΙΧ/SUV/μοτό). */}
                         <div className="bg-gray-50 rounded-xl p-3">
                           <p className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
-                            Τιμή
+                            {t('Τιμή')}
                           </p>
                           <div className="flex items-center gap-1.5">
                             <span className="text-[16px] font-semibold text-gray-500">€</span>
@@ -2105,7 +2109,7 @@ export default function DashboardPage() {
                           </div>
                           {!(Number(service.price_override) > 0) && (
                             <p className="text-[11px] text-amber-600 mt-1.5 leading-snug">
-                              Βάλε τιμή — χωρίς τιμή δεν εμφανίζεται στους πελάτες.
+                              {t('Βάλε τιμή — χωρίς τιμή δεν εμφανίζεται στους πελάτες.')}
                             </p>
                           )}
                         </div>
@@ -2128,7 +2132,7 @@ export default function DashboardPage() {
                     </svg>
                   </div>
                   <p className="text-[15px] font-semibold tracking-tight text-gray-900">
-                    Δεν υπάρχουν διαθέσιμες υπηρεσίες
+                    {t('Δεν υπάρχουν διαθέσιμες υπηρεσίες')}
                   </p>
                 </div>
               )}
@@ -2146,7 +2150,7 @@ export default function DashboardPage() {
                 {/* Weekly hours section */}
                 <div>
                   <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-3">
-                    Εβδομαδιαίο ωράριο
+                    {t('Εβδομαδιαίο ωράριο')}
                   </p>
                   <div className="space-y-2">
                     {hours.map((row, idx) => {
@@ -2159,10 +2163,10 @@ export default function DashboardPage() {
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <p className="text-[15px] font-semibold tracking-tight text-gray-900">{DAYS[idx]}</p>
+                              <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t(DAYS[idx])}</p>
                               {isToday && (
                                 <span className="px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 text-[10px] font-semibold tracking-[0.4px] uppercase">
-                                  Σήμερα
+                                  {t('Σήμερα')}
                                 </span>
                               )}
                             </div>
@@ -2181,7 +2185,7 @@ export default function DashboardPage() {
                                 />
                               </button>
                               <span className={`text-[12px] font-semibold ${row.is_open ? 'text-gray-500' : 'text-gray-400'}`}>
-                                {row.is_open ? 'Ανοιχτό' : 'Κλειστό'}
+                                {row.is_open ? t('Ανοιχτό') : t('Κλειστό')}
                               </span>
                             </div>
                           </div>
@@ -2195,7 +2199,7 @@ export default function DashboardPage() {
                               >
                                 {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
                               </select>
-                              <span className="text-[12px] text-gray-400">έως</span>
+                              <span className="text-[12px] text-gray-400">{t('έως')}</span>
                               <select
                                 value={row.close_time}
                                 onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, close_time: e.target.value } : h))}
@@ -2216,7 +2220,7 @@ export default function DashboardPage() {
                     disabled={savingHours}
                     className="w-full h-12 mt-4 rounded-xl bg-gray-900 text-white text-[14px] font-semibold tracking-tight disabled:opacity-40"
                   >
-                    {savingHours ? 'Αποθήκευση...' : 'Αποθήκευση ωραρίου'}
+                    {savingHours ? t('Αποθήκευση...') : t('Αποθήκευση ωραρίου')}
                   </button>
                 </div>
 
@@ -2227,19 +2231,19 @@ export default function DashboardPage() {
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
-                      Εξαιρέσεις ημερών
+                      {t('Εξαιρέσεις ημερών')}
                     </p>
                     <button
                       onClick={() => setShowExceptionPicker(true)}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                      Προσθήκη
+                      {t('Προσθήκη')}
                     </button>
                   </div>
 
                   {exceptions.length === 0 ? (
-                    <p className="text-[13px] text-gray-400">Δεν υπάρχουν εξαιρέσεις.</p>
+                    <p className="text-[13px] text-gray-400">{t('Δεν υπάρχουν εξαιρέσεις.')}</p>
                   ) : (
                     <div className="space-y-2">
                       {exceptions.map(ex => (
@@ -2250,25 +2254,25 @@ export default function DashboardPage() {
                         >
                           <div className="flex-1">
                             <p className="text-[14px] font-semibold text-gray-900">
-                              {new Date(ex.exception_date).toLocaleDateString('el-GR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })}
+                              {new Date(ex.exception_date).toLocaleDateString(dl, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })}
                             </p>
                             {ex.is_closed ? (
                               <span
                                 className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold"
                                 style={{ background: '#FCEAEA', color: '#B43C3C' }}
                               >
-                                Κλειστά όλη τη μέρα
+                                {t('Κλειστά όλη τη μέρα')}
                               </span>
                             ) : ex.closed_from && ex.closed_to ? (
                               <span
                                 className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold"
                                 style={{ background: '#FFEDD5', color: '#C2410C', fontVariantNumeric: 'tabular-nums' }}
                               >
-                                Κλειστά {ex.closed_from.slice(0, 5)} – {ex.closed_to.slice(0, 5)}
+                                {t('Κλειστά')} {ex.closed_from.slice(0, 5)} – {ex.closed_to.slice(0, 5)}
                               </span>
                             ) : (
                               <p className="text-[12px] text-gray-500 mt-1" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                {(ex.periods || []).map(p => `Ανοιχτά ${p.open} – ${p.close}`).join(' · ') || '—'}
+                                {(ex.periods || []).map(p => `${t('Ανοιχτά')} ${p.open} – ${p.close}`).join(' · ') || '—'}
                               </p>
                             )}
                           </div>
@@ -2276,7 +2280,7 @@ export default function DashboardPage() {
                             onClick={() => deleteException(ex.exception_date)}
                             className="text-[11px] font-medium text-red-500 underline underline-offset-[2px]"
                           >
-                            Διαγραφή
+                            {t('Διαγραφή')}
                           </button>
                         </div>
                       ))}
@@ -2292,13 +2296,13 @@ export default function DashboardPage() {
                     <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3" />
                     <button
                       onClick={() => setShowExceptionPicker(false)}
-                      aria-label="Κλείσιμο"
+                      aria-label={t('Κλείσιμο')}
                       className="absolute top-3.5 right-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                     </button>
-                    <p className="text-base font-semibold text-gray-900 mb-1">Προσθήκη εξαίρεσης</p>
-                    <p className="text-[12px] text-gray-400 mb-4">Δήλωσε πότε ΔΕΝ θα δουλέψεις — οι ώρες κλείνουν αυτόματα για κρατήσεις.</p>
+                    <p className="text-base font-semibold text-gray-900 mb-1">{t('Προσθήκη εξαίρεσης')}</p>
+                    <p className="text-[12px] text-gray-400 mb-4">{t('Δήλωσε πότε ΔΕΝ θα δουλέψεις — οι ώρες κλείνουν αυτόματα για κρατήσεις.')}</p>
 
                     {/* Δύο επιλογές */}
                     <div className="grid grid-cols-2 gap-2 mb-4">
@@ -2309,10 +2313,10 @@ export default function DashboardPage() {
                         }`}
                       >
                         <p className={`text-[14px] font-semibold ${exceptionMode === 'day' ? 'text-white' : 'text-gray-900'}`}>
-                          Εξαίρεση ημέρας
+                          {t('Εξαίρεση ημέρας')}
                         </p>
                         <p className={`text-[11px] mt-1 leading-snug ${exceptionMode === 'day' ? 'text-white/70' : 'text-gray-400'}`}>
-                          Κλειστά όλη τη μέρα
+                          {t('Κλειστά όλη τη μέρα')}
                         </p>
                       </button>
                       <button
@@ -2322,17 +2326,17 @@ export default function DashboardPage() {
                         }`}
                       >
                         <p className={`text-[14px] font-semibold ${exceptionMode === 'hours' ? 'text-white' : 'text-gray-900'}`}>
-                          Εξαίρεση ώρας
+                          {t('Εξαίρεση ώρας')}
                         </p>
                         <p className={`text-[11px] mt-1 leading-snug ${exceptionMode === 'hours' ? 'text-white/70' : 'text-gray-400'}`}>
-                          Κλειστά από–έως
+                          {t('Κλειστά από–έως')}
                         </p>
                       </button>
                     </div>
 
                     {/* Ημερομηνία — και στις δύο επιλογές */}
                     <div className="mb-4">
-                      <p className="text-xs text-gray-400 mb-1.5">Ημερομηνία</p>
+                      <p className="text-xs text-gray-400 mb-1.5">{t('Ημερομηνία')}</p>
                       <input type="date" value={exceptionDate}
                         onChange={e => setExceptionDate(e.target.value)}
                         className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none" />
@@ -2341,14 +2345,14 @@ export default function DashboardPage() {
                     {/* Διάστημα — μόνο στην εξαίρεση ώρας */}
                     {exceptionMode === 'hours' && (
                       <div className="mb-4">
-                        <p className="text-xs text-gray-400 mb-1.5">Δεν θα δουλέψω από — έως</p>
+                        <p className="text-xs text-gray-400 mb-1.5">{t('Δεν θα δουλέψω από — έως')}</p>
                         <div className="flex items-center gap-2">
                           <select value={exceptionFrom}
                             onChange={e => setExceptionFrom(e.target.value)}
                             className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white">
                             {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
                           </select>
-                          <span className="text-gray-400 text-xs">έως</span>
+                          <span className="text-gray-400 text-xs">{t('έως')}</span>
                           <select value={exceptionTo}
                             onChange={e => setExceptionTo(e.target.value)}
                             className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white">
@@ -2356,7 +2360,7 @@ export default function DashboardPage() {
                           </select>
                         </div>
                         {exceptionFrom >= exceptionTo && (
-                          <p className="text-[11px] text-red-500 mt-1.5">Η ώρα «έως» πρέπει να είναι μετά την «από».</p>
+                          <p className="text-[11px] text-red-500 mt-1.5">{t('Η ώρα «έως» πρέπει να είναι μετά την «από».')}</p>
                         )}
                       </div>
                     )}
@@ -2366,7 +2370,7 @@ export default function DashboardPage() {
                       disabled={!exceptionDate || (exceptionMode === 'hours' && exceptionFrom >= exceptionTo)}
                       className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40"
                     >
-                      Αποθήκευση
+                      {t('Αποθήκευση')}
                     </button>
                   </div>
                 </div>
@@ -2381,10 +2385,32 @@ export default function DashboardPage() {
                 className="bg-white border border-gray-100 rounded-[14px] p-4"
                 style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
               >
-                <p className="text-[15px] font-semibold tracking-tight text-gray-900">Μάνικες / θέσεις εξυπηρέτησης</p>
+                <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t('Γλώσσα')}</p>
+                <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">{t('Η γλώσσα του dashboard σε αυτή τη συσκευή.')}</p>
+                <div className="grid grid-cols-2 gap-2 mt-4 p-1 bg-gray-50 rounded-xl border border-gray-100">
+                  {([['el', 'Ελληνικά'], ['en', 'English']] as const).map(([code, name]) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => { setLocale(code); selectionHaptic() }}
+                      className={`h-10 rounded-lg text-[14px] font-semibold tracking-tight transition-all ${
+                        locale === code ? 'bg-gray-900 text-white' : 'text-gray-600'
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div
+                className="bg-white border border-gray-100 rounded-[14px] p-4"
+                style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+              >
+                <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t('Μάνικες / θέσεις εξυπηρέτησης')}</p>
                 <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">
-                  Πόσα αυτοκίνητα μπορείς να εξυπηρετείς <span className="font-semibold text-gray-900">ταυτόχρονα</span>;
-                  Αν έχεις 2 μάνικες, η ίδια ώρα μπορεί να κλειστεί 2 φορές.
+                  {t('Πόσα αυτοκίνητα μπορείς να εξυπηρετείς')} <span className="font-semibold text-gray-900">{t('ταυτόχρονα')}</span>;
+                  {t('Αν έχεις 2 μάνικες, η ίδια ώρα μπορεί να κλειστεί 2 φορές.')}
                 </p>
 
                 <div className="flex items-center justify-center gap-5 mt-5">
@@ -2400,7 +2426,7 @@ export default function DashboardPage() {
                       {capacity}
                     </p>
                     <p className="text-[11px] font-semibold tracking-[1.2px] uppercase text-gray-400 -mt-1">
-                      {capacity === 1 ? 'μάνικα' : 'μάνικες'}
+                      {capacity === 1 ? t('μάνικα') : t('μάνικες')}
                     </p>
                   </div>
                   <button
@@ -2417,13 +2443,12 @@ export default function DashboardPage() {
                   disabled={savingCapacity}
                   className="w-full h-12 mt-5 rounded-xl bg-gray-900 text-white text-[14px] font-semibold tracking-tight disabled:opacity-40"
                 >
-                  {savingCapacity ? 'Αποθήκευση...' : capacitySaved ? '✓ Αποθηκεύτηκε' : 'Αποθήκευση'}
+                  {savingCapacity ? t('Αποθήκευση...') : capacitySaved ? t('✓ Αποθηκεύτηκε') : t('Αποθήκευση')}
                 </button>
               </div>
 
               <p className="text-[12px] text-gray-400 leading-relaxed px-1">
-                Η αλλαγή ισχύει αμέσως: αν δηλώσεις 2 μάνικες, οι πελάτες στην εφαρμογή θα βλέπουν
-                διαθέσιμη μια ώρα μέχρι να έχει 2 κρατήσεις.
+                {t('Η αλλαγή ισχύει αμέσως: αν δηλώσεις 2 μάνικες, οι πελάτες στην εφαρμογή θα βλέπουν διαθέσιμη μια ώρα μέχρι να έχει 2 κρατήσεις.')}
               </p>
             </div>
           )}
@@ -2440,7 +2465,7 @@ export default function DashboardPage() {
                 {/* Existing staff section */}
                 <div>
                   <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-3">
-                    Ομάδα ({staff.length})
+                    {t('Ομάδα')} ({staff.length})
                   </p>
 
                   {staff.length === 0 ? (
@@ -2452,8 +2477,8 @@ export default function DashboardPage() {
                           <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>
                         </svg>
                       </div>
-                      <p className="text-[14px] font-semibold text-gray-900">Δεν υπάρχει προσωπικό</p>
-                      <p className="text-[12px] text-gray-500 mt-1">Πρόσθεσε το πρώτο μέλος της ομάδας</p>
+                      <p className="text-[14px] font-semibold text-gray-900">{t('Δεν υπάρχει προσωπικό')}</p>
+                      <p className="text-[12px] text-gray-500 mt-1">{t('Πρόσθεσε το πρώτο μέλος της ομάδας')}</p>
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -2478,7 +2503,7 @@ export default function DashboardPage() {
                                   className="px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-tight shrink-0"
                                   style={{ background: role.bg, color: role.fg }}
                                 >
-                                  {member.role}
+                                  {t(member.role)}
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5 mt-0.5">
@@ -2511,26 +2536,26 @@ export default function DashboardPage() {
                 {/* Add new member */}
                 <div>
                   <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-3">
-                    Προσθήκη μέλους
+                    {t('Προσθήκη μέλους')}
                   </p>
 
                   <div className="bg-white border border-gray-100 rounded-2xl p-4 space-y-3"
                        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
                     <div>
                       <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
-                        Όνομα
+                        {t('Όνομα')}
                       </p>
                       <input
                         value={newStaffName}
                         onChange={e => setNewStaffName(e.target.value)}
-                        placeholder="π.χ. Γιώργος Παπαδόπουλος"
+                        placeholder={t('π.χ. Γιώργος Παπαδόπουλος')}
                         className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-[14px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400"
                       />
                     </div>
 
                     <div>
                       <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
-                        Ρόλος
+                        {t('Ρόλος')}
                       </p>
                       <div className="grid grid-cols-3 gap-2">
                         {['Τεχνικός', 'Ταμίας', 'Διευθυντής'].map(r => {
@@ -2545,7 +2570,7 @@ export default function DashboardPage() {
                                   : 'bg-white border-gray-200 text-gray-600'
                               }`}
                             >
-                              {r}
+                              {t(r)}
                             </button>
                           )
                         })}
@@ -2554,7 +2579,7 @@ export default function DashboardPage() {
 
                     <div>
                       <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
-                        Τηλέφωνο
+                        {t('Τηλέφωνο')}
                       </p>
                       <input
                         value={newStaffPhone}
@@ -2572,7 +2597,7 @@ export default function DashboardPage() {
                       className="w-full h-12 rounded-xl bg-gray-900 text-white text-[14px] font-semibold tracking-tight flex items-center justify-center gap-1.5 disabled:opacity-40"
                     >
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-                      Προσθήκη μέλους
+                      {t('Προσθήκη μέλους')}
                     </button>
                   </div>
                 </div>
@@ -2613,7 +2638,7 @@ export default function DashboardPage() {
                         ))}
                       </div>
                       <p className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-500 mt-1.5">
-                        {reviews.length} {reviews.length === 1 ? 'κριτική' : 'κριτικές'}
+                        {reviews.length} {reviews.length === 1 ? t('κριτική') : t('κριτικές')}
                       </p>
                     </div>
 
@@ -2644,7 +2669,7 @@ export default function DashboardPage() {
                 {reviews.length > 0 ? (
                   <div>
                     <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 mb-3">
-                      Πρόσφατες κριτικές
+                      {t('Πρόσφατες κριτικές')}
                     </p>
                     <div className="space-y-2">
                       {reviews.map(review => {
@@ -2662,7 +2687,7 @@ export default function DashboardPage() {
                                 ))}
                               </div>
                               <p className="text-[11px] font-medium text-gray-400">
-                                {new Date(review.created_at).toLocaleDateString('el-GR', {
+                                {new Date(review.created_at).toLocaleDateString(dl, {
                                   day: 'numeric',
                                   month: 'short',
                                   year: 'numeric',
@@ -2689,10 +2714,10 @@ export default function DashboardPage() {
                       <Star filled={false} size={28} />
                     </div>
                     <p className="text-[15px] font-semibold tracking-tight text-gray-900">
-                      Δεν υπάρχουν αξιολογήσεις ακόμα
+                      {t('Δεν υπάρχουν αξιολογήσεις ακόμα')}
                     </p>
                     <p className="text-[13px] text-gray-500 mt-1.5 max-w-[280px]">
-                      Όταν οι πελάτες αξιολογήσουν τις κρατήσεις τους, θα εμφανιστούν εδώ.
+                      {t('Όταν οι πελάτες αξιολογήσουν τις κρατήσεις τους, θα εμφανιστούν εδώ.')}
                     </p>
                   </div>
                 )}
@@ -2709,6 +2734,7 @@ export default function DashboardPage() {
 // Διάρκεια σε λεπτά ή ώρες (π.χ. βιολογικός 24 ώρες αντί για 1440 λεπτά).
 // Αποθηκεύεται ΠΑΝΤΑ σε λεπτά· η μονάδα είναι μόνο για εύκολη πληκτρολόγηση.
 function DurationField({ minutes, onSave }: { minutes: number | null; onSave: (val: number | null) => void }) {
+  const { locale } = useLocale()
   const [unit, setUnit] = useState<'min' | 'h'>(minutes != null && minutes >= 60 && minutes % 60 === 0 ? 'h' : 'min')
   const shown = minutes == null ? '' : unit === 'h' ? String(+(minutes / 60).toFixed(2)) : String(minutes)
   const [text, setText] = useState(shown)
@@ -2743,7 +2769,7 @@ function DurationField({ minutes, onSave }: { minutes: number | null; onSave: (v
             }}
             className={`px-2 py-0.5 rounded-md text-[12px] font-semibold ${unit === u ? 'bg-gray-900 text-white' : 'text-gray-500'}`}
           >
-            {u === 'min' ? 'λεπτά' : 'ώρες'}
+            {u === 'min' ? (locale === 'en' ? 'min' : 'λεπτά') : (locale === 'en' ? 'hours' : 'ώρες')}
           </button>
         ))}
       </div>
