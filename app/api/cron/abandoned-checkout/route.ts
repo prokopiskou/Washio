@@ -4,7 +4,7 @@ import { Resend } from 'resend'
 
 // Abandoned-checkout recovery: όποιος έφτασε στην πληρωμή (δημιουργήθηκε PaymentIntent)
 // αλλά δεν ολοκλήρωσε κράτηση σε ~90', λαμβάνει ένα email «ολοκλήρωσε την κράτησή σου».
-// Τρέχει από cron (bearer CRON_SECRET). Στέλνει μία φορά ανά attempt.
+// Τρέχει από cron (bearer CRON_SECRET). ΕΝΑ email ανά χρήστη, το πολύ ένα ανά 72 ώρες.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -44,23 +44,54 @@ export async function GET(req: Request) {
 
     const { data: attempts } = await supabase
       .from('checkout_attempts')
-      .select('id, payment_intent_id, user_id, email, service_name, location_id')
+      .select('id, payment_intent_id, user_id, email, service_name, location_id, created_at')
       .eq('reminded', false)
       .lt('created_at', minAge)
       .gt('created_at', maxAge)
+      .order('created_at', { ascending: true })
 
     if (!attempts || attempts.length === 0) return NextResponse.json({ ok: true, sent: 0 })
 
+    // ΕΝΑ email ανά χρήστη: κάθε άνοιγμα της σελίδας κράτησης δημιουργεί attempt,
+    // άρα ένας χρήστης μπορεί να έχει 3-4 ταυτόχρονα → έπαιρνε 3-4 ίδια email.
+    // Κρατάμε το πιο πρόσφατο attempt ανά χρήστη/email και σημαδεύουμε τα υπόλοιπα.
+    const keyOf = (a: { user_id?: string | null; email?: string | null }) =>
+      (a.user_id || (a.email || '').toLowerCase() || '') as string
+    const latest = new Map<string, (typeof attempts)[number]>()
+    for (const a of attempts) {
+      const k = keyOf(a)
+      if (!k) continue
+      latest.set(k, a) // τα attempts έρχονται με σειρά δημιουργίας → το τελευταίο κερδίζει
+    }
+    const toSend = new Set([...latest.values()].map(a => a.id))
+
+    // Μην ξαναστείλεις σε όποιον πήρε υπενθύμιση τις τελευταίες 72 ώρες.
+    const since72 = new Date(now - 72 * 3600_000).toISOString()
+    const userIds = [...new Set(attempts.map(a => a.user_id).filter(Boolean))] as string[]
+    const { data: recent } = userIds.length
+      ? await supabase.from('checkout_attempts').select('user_id')
+          .in('user_id', userIds).eq('reminded', true).gt('created_at', since72)
+      : { data: [] as { user_id: string }[] }
+    const remindedRecently = new Set((recent || []).map(r => r.user_id as string))
+
     let sent = 0
     for (const a of attempts) {
-      // Ολοκληρώθηκε τελικά; (booking με αυτό το payment_intent) → μην στείλεις.
-      const { data: booking } = await supabase
+      const skip = !toSend.has(a.id) || (a.user_id && remindedRecently.has(a.user_id))
+
+      // Έκλεισε τελικά; (αυτό το payment_intent Ή οποιαδήποτε κράτηση του χρήστη το τελευταίο 24ωρο) → μην στείλεις.
+      const { data: booking } = skip ? { data: null } : await supabase
         .from('bookings')
         .select('id')
         .eq('stripe_payment_intent_id', a.payment_intent_id)
         .maybeSingle()
+      let bookedAny = false
+      if (!skip && !booking && a.user_id) {
+        const { count } = await supabase.from('bookings').select('id', { count: 'exact', head: true })
+          .eq('user_id', a.user_id).gt('created_at', maxAge).neq('status', 'cancelled')
+        bookedAny = (count || 0) > 0
+      }
 
-      if (!booking) {
+      if (!skip && !booking && !bookedAny) {
         // Link στο πλυντήριο αν το ξέρουμε, αλλιώς στον χάρτη.
         let url = 'https://washio.gr/map'
         if (a.location_id) {
