@@ -260,13 +260,14 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
       </p>
       <div className="bg-white border border-washio-border rounded-[18px] p-3.5 mb-4" style={{ boxShadow: '0 6px 20px rgba(16,24,42,0.06)' }}>
         <PaymentElement
-          onChange={(e) => setUsingSaved(!!e.value?.payment_method)}
+          // Το checkbox αφορά μόνο νέα κάρτα — όχι αποθηκευμένη ή Apple/Google Pay.
+          onChange={(e) => setUsingSaved(!!e.value?.payment_method || (e.value?.type ? e.value.type !== 'card' : false))}
           options={{
           layout: 'tabs',
-          // ΜΟΝΟ κάρτα: αριθμός · λήξη · CVC (χωρίς Apple/Google Pay tabs, χωρίς χώρα/ΤΚ,
-          // χωρίς κείμενο εντολής). Αποθηκευμένες κάρτες εμφανίζονται από πάνω (customerSession).
-          wallets: { applePay: 'never', googlePay: 'never' },
-          terms: { card: 'never' },
+          // Κάρτα: αριθμός · λήξη · CVC (χωρίς χώρα/ΤΚ, χωρίς κείμενο εντολής) + Apple Pay /
+          // Google Pay όπου υποστηρίζονται. Αποθηκευμένες κάρτες εμφανίζονται από πάνω (customerSession).
+          wallets: { applePay: 'auto', googlePay: 'auto' },
+          terms: { card: 'never', applePay: 'never', googlePay: 'never' },
           fields: {
             billingDetails: {
               name: 'never',
