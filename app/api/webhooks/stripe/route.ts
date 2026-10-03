@@ -178,16 +178,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: inserted.message }, { status: 500 })
     }
 
-    // Σιωπηλή αποθήκευση κάρτας — ΧΩΡΙΣ κανένα checkbox/email/Link/κείμενο στη φόρμα.
-    // Κάνουμε attach το PaymentMethod στον customer ΜΟΝΟ αφού πληρώσει, ώστε την
-    // επόμενη φορά να εμφανίζεται (redisplay) και να πληρώνει με 1 tap. allow_redisplay
-    // = 'always' για να το δείχνει το Payment Element. Best-effort — δεν μπλοκάρει.
-    if (intent.customer && typeof intent.payment_method === 'string') {
-      try {
-        await stripe.paymentMethods.attach(intent.payment_method, {
-          customer: intent.customer as string,
-        })
-      } catch { /* πιθανόν ήδη attached */ }
+    // Αποθήκευση κάρτας ΜΟΝΟ με συγκατάθεση (checkbox «Αποθήκευση κάρτας» → /api/payments/save-card
+    // έβαλε setup_future_usage=off_session + metadata.saveCard=1). Το Stripe κάνει ήδη attach στον
+    // customer· εδώ τη σημαδεύουμε allow_redisplay=always ώστε να εμφανίζεται την επόμενη φορά.
+    // Χωρίς συγκατάθεση → καμία αποθήκευση.
+    if (m.saveCard === '1' && intent.customer && typeof intent.payment_method === 'string') {
       try {
         await stripe.paymentMethods.update(intent.payment_method, { allow_redisplay: 'always' })
       } catch { /* μη-κρίσιμο */ }

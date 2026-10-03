@@ -7,7 +7,7 @@ import { ChevronLeft, Lock, Calendar, Sparkles, Mail, Check } from 'lucide-react
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createClient } from '@/lib/supabase/client'
-import { mediumTap, errorHaptic } from '@/lib/haptics'
+import { mediumTap, errorHaptic, selectionHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
 import { WashioLoader } from '@/components/WashioLoader'
@@ -50,6 +50,8 @@ const T = {
     phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
     couponCard: 'Κουπόνι Washio', totalWithCoupon: 'Πληρώνεις', couponNote: (_full: string) => `Το κουπόνι ισχύει είτε πληρώσεις στο πλυντήριο είτε με κάρτα. Με κάρτα προστίθεται τέλος υπηρεσίας.`,
     bookPayThere: 'Κλείσε τώρα · πλήρωσε εκεί', orPayCard: 'ή πλήρωσε τώρα με κάρτα', payThereHint: 'Πληρώνεις στο πλυντήριο κατά την επίσκεψη.',
+    payMethod: 'Τρόπος πληρωμής', payAtVenue: 'Στο πλυντήριο', payAtVenueSub: 'Μετρητά ή όπως δέχεται', payByCard: 'Κάρτα', payByCardSub: 'Τώρα, online',
+    continueCard: 'Συνέχεια με κάρτα', saveCard: 'Αποθήκευση κάρτας για επόμενες πληρωμές', switchToVenue: '💵 Προτιμώ να πληρώσω στο πλυντήριο',
     freeCancel: 'Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.',
     or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Κλείσε τώρα, πλήρωσε εκεί',
     cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
@@ -79,6 +81,8 @@ const T = {
     phone: 'Phone', addons: 'Add-on services', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
     couponCard: 'Washio coupon', totalWithCoupon: 'You pay', couponNote: (_full: string) => `The coupon applies whether you pay at the venue or by card. A service fee is added to card payments.`,
     bookPayThere: 'Book now · pay there', orPayCard: 'or pay now by card', payThereHint: 'You pay at the car wash during your visit.',
+    payMethod: 'Payment method', payAtVenue: 'At the car wash', payAtVenueSub: 'Cash or as accepted', payByCard: 'Card', payByCardSub: 'Now, online',
+    continueCard: 'Continue with card', saveCard: 'Save card for future payments', switchToVenue: '💵 I prefer to pay at the car wash',
     freeCancel: 'Free cancellation up to 2 hours before your appointment.',
     or: 'or', confirming: 'Confirming...', payCash: 'Book now, pay there',
     cashHint: 'Book now, pay at the store during your visit.',
@@ -160,6 +164,17 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [stripeFailed, setStripeFailed] = useState(false)
+  // «Αποθήκευση κάρτας» — μόνο με συγκατάθεση. Κρύβεται όταν διαλέγει ήδη αποθηκευμένη κάρτα.
+  const [saveCard, setSaveCard] = useState(false)
+  const [usingSaved, setUsingSaved] = useState(false)
+  // Αν σε προηγούμενη (αποτυχημένη) προσπάθεια βάλαμε setup_future_usage στο ίδιο intent.
+  const piSaveSetRef = useRef(false)
+  const toggleSave = (v: boolean) => {
+    setSaveCard(v)
+    selectionHaptic()
+    // Το Element πρέπει να ταιριάζει με το PaymentIntent (setup_future_usage).
+    try { elements?.update({ setupFutureUsage: v ? 'off_session' : null }) } catch { /* noop */ }
+  }
 
   useEffect(() => {
     if (stripe) { setStripeFailed(false); return }
@@ -177,6 +192,22 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
     setLoading(true)
     setError('')
     try {
+      // Συγκατάθεση αποθήκευσης → ενημέρωση PaymentIntent + Element ΠΡΙΝ το submit/confirm
+      // (setup_future_usage πρέπει να ταιριάζει ανάμεσα σε Element και PaymentIntent).
+      const wantSave = saveCard && !usingSaved
+      let saveOk = false
+      if (wantSave || piSaveSetRef.current) {
+        const sr = await fetch('/api/payments/save-card', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentIntentId: clientSecret.split('_secret')[0], save: wantSave }),
+        }).catch(() => null)
+        const ok = !!sr && sr.ok
+        saveOk = wantSave && ok
+        if (ok) piSaveSetRef.current = wantSave
+      }
+      // Αν δεν αποθηκεύεται (ή απέτυχε το save) → πληρώνει κανονικά, χωρίς αποθήκευση.
+      try { elements.update({ setupFutureUsage: saveOk ? 'off_session' : null }) } catch { /* noop */ }
+
       // DEFERRED flow (το Element δημιουργείται με mode/amount, ΧΩΡΙΣ clientSecret):
       // ΠΡΩΤΑ elements.submit() (μαζεύει/validάρει την κάρτα), ΜΕΤΑ confirmPayment
       // με το clientSecret του server. Χωρίς το submit → IntegrationError.
@@ -199,7 +230,9 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
               name: email || 'Washio',
               email: email || undefined,
               phone: phone || undefined,
-              // Η διεύθυνση/ΤΚ μαζεύεται από το Element — δεν την περνάμε εδώ.
+              // Χώρα κρυφή στη φόρμα (fields.address.country='never') → την περνάμε εδώ.
+              // Για GR δεν ζητείται ΤΚ → η φόρμα μένει: αριθμός · λήξη · CVC.
+              address: { country: 'GR' },
             },
           },
         },
@@ -224,22 +257,34 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
         {t.payment}
       </p>
       <div className="bg-white border border-washio-border rounded-[18px] p-3.5 mb-4" style={{ boxShadow: '0 6px 20px rgba(16,24,42,0.06)' }}>
-        <PaymentElement options={{
+        <PaymentElement
+          onChange={(e) => setUsingSaved(!!e.value?.payment_method)}
+          options={{
           layout: 'tabs',
-          wallets: { applePay: 'auto', googlePay: 'auto' },
-          // Ελάχιστη φόρμα: κρύβουμε ΟΛΑ τα billing πεδία (όνομα/email/τηλέφωνο/διεύθυνση)
-          // που πρόσθετε το Stripe κάτω από το «αποθήκευση στοιχείων». Μένει κάρτα + tick.
+          // ΜΟΝΟ κάρτα: αριθμός · λήξη · CVC (χωρίς Apple/Google Pay tabs, χωρίς χώρα/ΤΚ,
+          // χωρίς κείμενο εντολής). Αποθηκευμένες κάρτες εμφανίζονται από πάνω (customerSession).
+          wallets: { applePay: 'never', googlePay: 'never' },
+          terms: { card: 'never' },
           fields: {
             billingDetails: {
               name: 'never',
               email: 'never',
               phone: 'never',
-              // Τη διεύθυνση την μαζεύει το ίδιο το Element (για κάρτα = μόνο
-              // ένα μικρό πεδίο ΤΚ). Αν βάζαμε 'never' θα έπρεπε να περνάμε
-              // ΚΑΘΕ subfield (postal_code/line1/city…) — ατέλειωτο loop.
+              address: { country: 'never', postalCode: 'auto' },
             },
           },
         }} />
+        {!usingSaved && (
+          <label className="flex items-center gap-2.5 mt-3 px-0.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={saveCard}
+              onChange={(e) => toggleSave(e.target.checked)}
+              className="w-[18px] h-[18px] rounded-[5px] accent-[#078EAD] shrink-0"
+            />
+            <span className="text-[13px] text-gray-600">{t.saveCard}</span>
+          </label>
+        )}
       </div>
 
       {stripeFailed && !stripe && (
@@ -330,6 +375,8 @@ function BookingPageContent() {
   const [appliedCredit, setAppliedCredit] = useState(0)
   // Υπόλοιπο κουπονιών του χρήστη — για να φαίνεται το −3€ ΗΔΗ στη σύνοψη (πριν την κάρτα).
   const [walletCredit, setWalletCredit] = useState(0)
+  // Τρόπος πληρωμής: 'venue' (Κλείσε τώρα, πλήρωσε εκεί — default) ή 'card'.
+  const [payMethod, setPayMethod] = useState<'venue' | 'card'>('venue')
   const [bookingRef, setBookingRef] = useState('')
   const [cashLoading, setCashLoading] = useState(false)
   const paymentAnchorRef = useRef<HTMLDivElement>(null)
@@ -869,6 +916,41 @@ function BookingPageContent() {
           <p className="text-[11px] text-gray-400 text-center">
             {t.freeCancel}
           </p>
+
+          {/* Τρόπος πληρωμής — καθαρή επιλογή: στο πλυντήριο ή κάρτα */}
+          {!isRange && !showPayment && (
+            <div className="mt-5">
+              <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">{t.payMethod}</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {([
+                  ['venue', '💵', t.payAtVenue, t.payAtVenueSub],
+                  ['card', '💳', t.payByCard, t.payByCardSub],
+                ] as const).map(([key, icon, label, sub]) => {
+                  const active = payMethod === key
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => { setPayMethod(key); selectionHaptic() }}
+                      className={`relative text-left rounded-[16px] border px-3.5 py-3 transition-all ${
+                        active ? 'border-[#078EAD] bg-washio-cyan-light/60' : 'border-washio-border bg-white'
+                      }`}
+                      style={active ? { boxShadow: '0 0 0 1.5px #078EAD inset' } : undefined}
+                    >
+                      <span className={`absolute top-3 right-3 w-[18px] h-[18px] rounded-full border flex items-center justify-center ${
+                        active ? 'border-[#078EAD] bg-[#078EAD]' : 'border-gray-300 bg-white'
+                      }`}>
+                        {active && <Check size={11} strokeWidth={3} className="text-white" />}
+                      </span>
+                      <span className="text-[18px] leading-none">{icon}</span>
+                      <p className="text-[14px] font-bold text-washio-navy mt-1.5">{label}</p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
           </div>
         </div>
 
@@ -909,9 +991,9 @@ function BookingPageContent() {
             <button
               onClick={handleCashBooking}
               disabled={cashLoading}
-              className="w-full h-11 rounded-xl border border-gray-200 bg-white text-[13px] font-medium text-gray-500 flex items-center justify-center gap-2 disabled:opacity-40"
+              className="w-full h-12 rounded-xl border-[1.5px] border-[#078EAD] bg-white text-[14px] font-semibold text-[#078EAD] flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.99] transition-transform"
             >
-              {cashLoading ? t.confirming : t.payCash}
+              {cashLoading ? t.confirming : `${t.switchToVenue}${previewCredit > 0 ? ` · €${(total - previewCredit).toFixed(2)}` : ''}`}
             </button>
             <p className="text-[10px] text-gray-400 text-center mt-2 leading-snug">
               {t.cashHint}
@@ -942,15 +1024,15 @@ function BookingPageContent() {
               // «Κλείσε τώρα, πλήρωσε εκεί»: κύρια επιλογή = πληρωμή στο πλυντήριο (με κουπόνι).
               // Η κάρτα μένει ως δεύτερη επιλογή (link κάτω από το κουμπί).
               <button
-                onClick={handleCashBooking}
+                onClick={payMethod === 'venue' ? handleCashBooking : handleProceedToPayment}
                 disabled={cashLoading}
                 className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] transition-transform" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.35)' }}
               >
                 {cashLoading ? t.confirming : (
                   <>
-                    <span>{t.bookPayThere}</span>
+                    <span>{payMethod === 'venue' ? t.bookPayThere : t.continueCard}</span>
                     <span className="w-px h-4 bg-white/25" />
-                    <span>€{+(total - previewCredit).toFixed(2)}</span>
+                    <span>€{(payMethod === 'venue' ? +(total - previewCredit) : +(total - previewCredit + SERVICE_FEE_EUR)).toFixed(2)}</span>
                   </>
                 )}
               </button>
@@ -958,21 +1040,13 @@ function BookingPageContent() {
             <div className="flex items-center justify-center gap-1.5 mt-3">
               {isRange ? (
                 <p className="text-[11px] font-medium text-gray-400 text-center">{t.cashOnlyHint}</p>
-              ) : !canProceed ? (
+              ) : payMethod === 'venue' && canProceed ? (
+                <p className="text-[11px] font-medium text-gray-400 text-center">{t.payThereHint}</p>
+              ) : (
                 <>
                   <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
                   <p className="text-[11px] font-medium text-gray-400">{t.securePayment}</p>
                 </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleProceedToPayment}
-                  disabled={cashLoading}
-                  className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-500 underline-offset-2 hover:underline disabled:opacity-40"
-                >
-                  <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
-                  {t.orPayCard}
-                </button>
               )}
             </div>
           </div>

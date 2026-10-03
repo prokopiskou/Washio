@@ -66,9 +66,10 @@ export async function POST(req: NextRequest) {
               features: {
                 // Ο επιστρέφων πελάτης ΒΛΕΠΕΙ τις αποθηκευμένες κάρτες του (1-tap).
                 payment_method_redisplay: 'enabled',
-                // ΚΛΕΙΣΤΟ το interactive save (checkbox + email/τηλέφωνο/όνομα Link) —
-                // δημιουργούσε τριβή. Η κάρτα αποθηκεύεται σιωπηλά μέσω
-                // setup_future_usage στο PaymentIntent παρακάτω.
+                // Και κάρτες αποθηκευμένες μέσω setup_future_usage (allow_redisplay=unspecified).
+                payment_method_allow_redisplay_filters: ['always', 'limited', 'unspecified'],
+                // ΚΛΕΙΣΤΟ το save του Stripe (έφερνε Link: email/τηλέφωνο/όνομα). Έχουμε ΔΙΚΟ μας
+                // checkbox «Αποθήκευση κάρτας» → /api/payments/save-card (setup_future_usage).
                 payment_method_save: 'disabled',
                 payment_method_remove: 'enabled',
               },
