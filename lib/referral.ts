@@ -2,13 +2,16 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 // Referral + wallet — server-side, best-effort (ποτέ δεν μπλοκάρει booking/auth).
 //   • Νέος από link: −3€ welcome (πίστωση στο wallet).
-//   • Referrer: +3€ μόλις ο φίλος ΟΛΟΚΛΗΡΩΣΕΙ κράτηση — έως 2 φορές.
+//   • Referrer: +3€ για ΚΑΘΕ φίλο που κάνει την πρώτη του κράτηση — χωρίς όριο φίλων.
+//     Αν η κράτηση ακυρωθεί / no-show → το +3€ αφαιρείται (revokeReferrerReward)
+//     και δίνεται ξανά στην επόμενη πραγματική κράτηση του φίλου.
 //   • Πίστωση εξαργυρώνεται ΜΟΝΟ σε κράτηση, αφήνοντας ≥0.50€ πραγματική χρέωση
 //     (Stripe minimum + να μη βγαίνει τζάμπα).
 
 export const WELCOME_DISCOUNT = 3
 export const REFERRER_REWARD = 3
-export const MAX_REFERRALS = 2
+/** Χωρίς όριο φίλων (ο referrer κερδίζει για κάθε φίλο που κλείνει). */
+export const MAX_REFERRALS = Number.POSITIVE_INFINITY
 const MIN_CHARGE = 0.5
 
 // Το κουπόνι εξαργυρώνεται ΜΟΝΟ σε πλήρες πλύσιμο (Μέσα-Έξω) από 12€ και πάνω.
@@ -107,32 +110,4 @@ export async function refundCredit(
   } catch { /* best-effort */ }
 }
 
-// Μόλις ο referred ολοκληρώσει την ΠΡΩΤΗ του κράτηση → reward στον referrer (έως 2).
-export async function grantReferrerRewardIfFirst(
-  db: SupabaseClient, referredUserId: string, bookingId: string
-): Promise<void> {
-  try {
-    const { data: ref } = await db.from('referrals')
-      .select('id, referrer_id, referrer_reward, status')
-      .eq('referred_id', referredUserId).maybeSingle()
-    if (!ref || ref.status !== 'pending') return
-
-    // Όριο: ο referrer κερδίζει reward για έως MAX_REFERRALS ολοκληρωμένες παραπομπές.
-    const { count } = await db.from('referrals')
-      .select('id', { count: 'exact', head: true })
-      .eq('referrer_id', ref.referrer_id).eq('status', 'completed')
-
-    // Κλείδωσε το referral ως completed ΠΑΝΤΑ (ώστε να μη ξαναμπεί).
-    await db.from('referrals').update({
-      status: 'completed', completed_at: new Date().toISOString(), booking_id: bookingId,
-    }).eq('id', ref.id)
-
-    // Δώσε reward μόνο αν δεν ξεπεράστηκε το όριο.
-    if ((count || 0) < MAX_REFERRALS) {
-      await db.rpc('apply_credit', {
-        p_user: ref.referrer_id, p_delta: Number(ref.referrer_reward) || REFERRER_REWARD,
-        p_kind: 'referral_reward', p_booking: bookingId, p_note: 'Επιβράβευση παραπομπής',
-      })
-    }
-  } catch { /* best-effort */ }
-}
+// grantReferrerRewardIfFirst / revokeReferrerReward → lib/referral-server.ts (server-only: στέλνουν push).

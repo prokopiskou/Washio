@@ -9,6 +9,7 @@ import { shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { athensEpoch } from '@/lib/time'
 import { Resend } from 'resend'
 import { refundCredit } from '@/lib/referral'
+import { revokeReferrerReward } from '@/lib/referral-server'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -202,6 +203,8 @@ export async function POST(req: NextRequest) {
     // Το κουπόνι Washio επιστρέφει στον πελάτη (δεν «καίγεται» σε ακύρωση).
     const usedCoupon = Number((booking as { coupon_amount?: number }).coupon_amount) || 0
     if (usedCoupon > 0 && booking.user_id) await refundCredit(supabase, booking.user_id, usedCoupon)
+    // Αν ήταν η κράτηση που επιβράβευσε referrer → αφαίρεσε το +3€ (θα δοθεί στην επόμενη).
+    await revokeReferrerReward(supabase, booking.id)
 
     // Push στον πρατηριούχο: ακύρωση → το slot άνοιξε.
     // Ίδιος κανόνας με τις νέες κρατήσεις: μόνο σημερινές, εντός ωραρίου.

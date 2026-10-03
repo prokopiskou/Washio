@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
+import { revokeReferrerReward } from '@/lib/referral-server'
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,6 +55,9 @@ export async function POST(req: NextRequest) {
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
+
+    // No-show δεν μετράει ως «έκλεισε ο φίλος» → αφαίρεση επιβράβευσης referrer.
+    await revokeReferrerReward(admin, bookingId)
 
     return NextResponse.json({ ok: true, status: 'no_show' })
   } catch (error: unknown) {

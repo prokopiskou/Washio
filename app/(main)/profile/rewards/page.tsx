@@ -16,11 +16,11 @@ const T = {
     history: 'Ιστορικό', empty: 'Δεν έχεις κουπόνια ακόμα.',
     welcome: 'Καλωσόρισμα', referral_reward: 'Επιβράβευση παραπομπής', redeem: 'Εξαργύρωση',
     referTitle: 'Φέρε φίλους, κερδίστε και οι δύο',
-    referSub: (a: number, b: number, n: number) =>
-      `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση — κι εσύ −${b}€ στην επόμενη δική σου, μόλις κάνει την κράτηση. Έως ${n} φίλοι.`,
+    referSub: (a: number, b: number, _n: number) =>
+      `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση — κι εσύ −${b}€ για ΚΑΘΕ φίλο που κλείνει. Χωρίς όριο.`,
     yourCode: 'Ο κωδικός σου', yourLink: 'Ο σύνδεσμός σου',
     copy: 'Αντιγραφή', copied: 'Αντιγράφηκε!', share: 'Κοινοποίηση',
-    used: (x: number, n: number) => `${x} από ${n} παραπομπές ολοκληρώθηκαν`,
+    used: (x: number, _n: number) => `${x} ${x === 1 ? 'φίλος έκλεισε' : 'φίλοι έκλεισαν'} μέσω σου`,
     shareMsg: (code: string) => `Κλείσε πλύσιμο αυτοκινήτου με το Washio και πάρε −${WELCOME_DISCOUNT}€ στην πρώτη σου κράτηση με τον κωδικό μου: ${code}`,
     loading: 'Φόρτωση...',
   },
@@ -31,11 +31,11 @@ const T = {
     history: 'History', empty: 'No coupons yet.',
     welcome: 'Welcome', referral_reward: 'Referral reward', redeem: 'Redeemed',
     referTitle: 'Invite friends, both win',
-    referSub: (a: number, b: number, n: number) =>
-      `Each friend gets −€${a} on their first booking — and you get −€${b} on your next one once they book. Up to ${n} friends.`,
+    referSub: (a: number, b: number, _n: number) =>
+      `Each friend gets −€${a} on their first booking — and you get −€${b} for EVERY friend who books. No limit.`,
     yourCode: 'Your code', yourLink: 'Your link',
     copy: 'Copy', copied: 'Copied!', share: 'Share',
-    used: (x: number, n: number) => `${x} of ${n} referrals completed`,
+    used: (x: number, _n: number) => `${x} ${x === 1 ? 'friend' : 'friends'} booked through you`,
     shareMsg: (code: string) => `Book a car wash with Washio and get −€${WELCOME_DISCOUNT} on your first booking with my code: ${code}`,
     loading: 'Loading...',
   },

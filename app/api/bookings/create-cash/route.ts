@@ -9,7 +9,8 @@ import { checkSlotAvailability, shouldNotifyOwnerNow } from '@/lib/availability-
 import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
-import { grantReferrerRewardIfFirst, computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
+import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
+import { grantReferrerRewardIfFirst } from '@/lib/referral-server'
 import { couponWaivesCommission } from '@/lib/commission'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.

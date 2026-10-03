@@ -8,7 +8,8 @@ import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
-import { redeemCredit, grantReferrerRewardIfFirst } from '@/lib/referral'
+import { redeemCredit } from '@/lib/referral'
+import { grantReferrerRewardIfFirst } from '@/lib/referral-server'
 import { couponWaivesCommission } from '@/lib/commission'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
