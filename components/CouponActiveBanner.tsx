@@ -14,12 +14,12 @@ const DISMISS_KEY = 'washio_coupon_banner_dismissed'
 const T = {
   el: {
     title: (a: string) => `Το κουπόνι σου −${a}€ ενεργοποιήθηκε`,
-    sub: (m: number) => `Αυτόματα στο επόμενο πλύσιμο με κάρτα από ${m}€.`,
+    sub: (m: number) => `Αυτόματα στο επόμενο πλύσιμο από ${m}€ — πληρώνεις στο πλυντήριο ή με κάρτα.`,
     close: 'Κλείσιμο',
   },
   en: {
     title: (a: string) => `Your −€${a} coupon is active`,
-    sub: (m: number) => `Applied automatically on your next card booking from €${m}.`,
+    sub: (m: number) => `Applied automatically on your next wash from €${m} — pay at the venue or by card.`,
     close: 'Close',
   },
 }

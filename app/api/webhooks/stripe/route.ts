@@ -140,6 +140,7 @@ export async function POST(req: NextRequest) {
       slot_start_time: m.slotStartTime,
       car_plate: m.carPlate || null,
       total_amount: parseFloat(m.amount),
+      coupon_amount: parseFloat(m.appliedCredit || '0') || 0,
       platform_fee: platformFee,
       stripe_payment_intent_id: intent.id,
       stripe_payment_status: 'paid',

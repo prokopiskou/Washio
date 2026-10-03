@@ -48,9 +48,10 @@ const T = {
     plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
     backToMyVehicles: '← Επιστροφή στα οχήματά μου',
     phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
-    couponCard: 'Κουπόνι (με κάρτα)', totalWithCoupon: 'Σύνολο με κάρτα', couponNote: (full: string) => `Το κουπόνι ισχύει με πληρωμή κάρτας. Με μετρητά στο κατάστημα: €${full}. Στην κάρτα προστίθεται το τέλος υπηρεσίας.`,
+    couponCard: 'Κουπόνι Washio', totalWithCoupon: 'Πληρώνεις', couponNote: (_full: string) => `Το κουπόνι ισχύει είτε πληρώσεις στο πλυντήριο είτε με κάρτα. Με κάρτα προστίθεται τέλος υπηρεσίας.`,
+    bookPayThere: 'Κλείσε τώρα · πλήρωσε εκεί', orPayCard: 'ή πλήρωσε τώρα με κάρτα', payThereHint: 'Πληρώνεις στο πλυντήριο κατά την επίσκεψη.',
     freeCancel: 'Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.',
-    or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Πληρωμή με μετρητά στο κατάστημα',
+    or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Κλείσε τώρα, πλήρωσε εκεί',
     cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
     fillPlatePhone: 'Συμπλήρωσε το τηλέφωνό σου', optional: 'προαιρετικό',
     estimateRange: 'Εκτιμώμενο εύρος', estimateNote: 'Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.',
@@ -76,9 +77,10 @@ const T = {
     plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
     backToMyVehicles: '← Back to my vehicles',
     phone: 'Phone', addons: 'Add-on services', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
-    couponCard: 'Coupon (card)', totalWithCoupon: 'Total by card', couponNote: (full: string) => `The coupon applies to card payment. Cash at the venue: €${full}. A service fee is added to card payments.`,
+    couponCard: 'Washio coupon', totalWithCoupon: 'You pay', couponNote: (_full: string) => `The coupon applies whether you pay at the venue or by card. A service fee is added to card payments.`,
+    bookPayThere: 'Book now · pay there', orPayCard: 'or pay now by card', payThereHint: 'You pay at the car wash during your visit.',
     freeCancel: 'Free cancellation up to 2 hours before your appointment.',
-    or: 'or', confirming: 'Confirming...', payCash: 'Pay with cash at the store',
+    or: 'or', confirming: 'Confirming...', payCash: 'Book now, pay there',
     cashHint: 'Book now, pay at the store during your visit.',
     fillPlatePhone: 'Fill in your phone', optional: 'optional',
     estimateRange: 'Estimated range', estimateNote: 'The final price is set after the on-site estimate.',
@@ -538,13 +540,14 @@ function BookingPageContent() {
   // πληρώνουν την καθαρή τιμή στο κατάστημα. Το appliedCredit το γυρίζει το
   // create-intent (ισχύει μόνο σε Μέσα-Έξω ≥12€) — 0 μέχρι να απαντήσει.
   const cardTotal = Math.max(0, total - appliedCredit) + SERVICE_FEE_EUR
-  // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: κάρτα, ≥12€, έως 3€).
+  // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: ≥12€, έως 3€ — κάρτα ΚΑΙ μετρητά).
   const previewCredit = !isRange && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
   // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
   const canProceed = !!(phone.trim() && email.trim() && service)
 
-  const handleProceedToPayment = async () => {
-    if (!canProceed || !service) return
+  // Αποθήκευση οχήματος + κινητού στο προφίλ — ΚΑΙ για κάρτα ΚΑΙ για «πλήρωσε εκεί»
+  // (το πλυντήριο βλέπει το κινητό από το προφίλ για να καλέσει τον πελάτη).
+  const saveContact = async () => {
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
 
@@ -562,6 +565,11 @@ function BookingPageContent() {
     if (phone.trim() && session?.user?.id) {
       await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', session.user.id)
     }
+  }
+
+  const handleProceedToPayment = async () => {
+    if (!canProceed || !service) return
+    await saveContact()
 
     // Χρησιμοποίησε το ΗΔΗ προετοιμασμένο intent (prefetch) — αλλιώς φτιάξ' το τώρα.
     let data = await fetchIntent(service, plate, selectedAddons)
@@ -585,10 +593,12 @@ function BookingPageContent() {
   }
 
   const handleCashBooking = async () => {
-    if (!service || cashLoading) return
+    if (!service || cashLoading || !canProceed) return
     mediumTap()
     setCashLoading(true)
     try {
+      try { await saveContact() } catch { /* best-effort — δεν μπλοκάρει την κράτηση */ }
+      trackEvent('InitiateCheckout', { value: total - previewCredit, currency: 'EUR', content_ids: [locationId || serviceId] })
       const res = await fetch('/api/bookings/create-cash', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -613,7 +623,7 @@ function BookingPageContent() {
       }
       const q = new URLSearchParams({
         email, date: formattedDate, time: slotTime, service: service.name,
-        plate, total: total.toString(), ref: data.bookingRef, method: 'cash',
+        plate, total: String(data.payable ?? total), ref: data.bookingRef, method: 'cash',
         ...(isRange ? { range: `${rangeMin.toFixed(0)}–${rangeMax.toFixed(0)}` } : {}),
       })
       router.push(`/booking/confirmed?${q.toString()}`)
@@ -929,25 +939,40 @@ function BookingPageContent() {
                 {cashLoading ? t.confirming : t.bookCash}
               </button>
             ) : (
+              // «Κλείσε τώρα, πλήρωσε εκεί»: κύρια επιλογή = πληρωμή στο πλυντήριο (με κουπόνι).
+              // Η κάρτα μένει ως δεύτερη επιλογή (link κάτω από το κουμπί).
               <button
-                onClick={handleProceedToPayment}
-                className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.99] transition-transform" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.35)' }}
+                onClick={handleCashBooking}
+                disabled={cashLoading}
+                className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.99] transition-transform" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.35)' }}
               >
-                <span>{t.pay}</span>
-                <span className="w-px h-4 bg-white/25" />
-                <span>€{+(total - previewCredit).toFixed(2)}</span>
+                {cashLoading ? t.confirming : (
+                  <>
+                    <span>{t.bookPayThere}</span>
+                    <span className="w-px h-4 bg-white/25" />
+                    <span>€{+(total - previewCredit).toFixed(2)}</span>
+                  </>
+                )}
               </button>
             )}
             <div className="flex items-center justify-center gap-1.5 mt-3">
               {isRange ? (
                 <p className="text-[11px] font-medium text-gray-400 text-center">{t.cashOnlyHint}</p>
-              ) : (
+              ) : !canProceed ? (
                 <>
                   <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
-                  <p className="text-[11px] font-medium text-gray-400">
-                    {t.securePayment}
-                  </p>
+                  <p className="text-[11px] font-medium text-gray-400">{t.securePayment}</p>
                 </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleProceedToPayment}
+                  disabled={cashLoading}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-500 underline-offset-2 hover:underline disabled:opacity-40"
+                >
+                  <Lock size={12} className="text-gray-400" strokeWidth={1.6} />
+                  {t.orPayCard}
+                </button>
               )}
             </div>
           </div>

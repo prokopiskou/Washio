@@ -221,6 +221,7 @@ export default function AdminPage() {
     let onlineKept = 0   // online που κράτησε η Washio (μείον refunds) — incl. no-show
     let couponFree = 0   // online αξία κρατήσεων με κουπόνι 3€ σε πλυντήριο χωρίς προμήθεια (lib/commission)
     let cashGross = 0    // μετρητά σε ολοκληρωμένο πλύσιμο (τα κρατά το πλυντήριο)
+    let cashCoupon = 0   // κουπόνια Washio σε «πλήρωσε εκεί»: το πλυντήριο εισέπραξε λιγότερα → του τα ΧΡΩΣΤΑΣ
     let refunded = 0
     let completed = 0, noShow = 0, cancelled = 0
 
@@ -239,7 +240,13 @@ export default function AdminPage() {
       }
       // 'refunded' → 0
       if (refund > 0) refunded += refund
-      if (ps === 'pay_at_venue' && done) cashGross += amt
+      if (ps === 'pay_at_venue' && done) {
+        cashGross += amt
+        const cp = Number(b.coupon_amount) || 0
+        cashCoupon += cp
+        // Συμφωνία «χωρίς προμήθεια με κουπόνι» ισχύει και στα μετρητά.
+        if (cp > 0 && NO_COMMISSION_ON_COUPON_LOCATION_IDS.has(loc.id) && Number(b.platform_fee) === 0) couponFree += amt
+      }
       if (done) completed++
       else if (b.status === 'no_show') noShow++
       else if (b.status === 'cancelled') cancelled++
@@ -250,7 +257,8 @@ export default function AdminPage() {
     const washGets = +(gross - commission).toFixed(2)    // τι παίρνει ο ΠΛΥΝΤΗΡΙΑΣ (90%)
     // Καθαρός διακανονισμός: 90% online − 10% μετρητών.
     // >0 → του πληρώνεις.  <0 → σου χρωστάει προμήθεια.
-    const net = +(onlineKept - commission).toFixed(2)
+    // + κουπόνια μετρητών: τα πλήρωσε το Washio (ο πελάτης έδωσε τιμή − κουπόνι στο πλυντήριο).
+    const net = +(onlineKept - commission + cashCoupon).toFixed(2)
     const bank = loc.bank_name || bankFromIban(loc.iban) || ''
 
     const existingPayout = payouts.find(p => p.location_id === loc.id && p.month === payoutMonth)
@@ -267,6 +275,7 @@ export default function AdminPage() {
       completed, noShow, cancelled, cancelRate, highCancel,
       onlineKept: +onlineKept.toFixed(2),
       cashGross: +cashGross.toFixed(2),
+      cashCoupon: +cashCoupon.toFixed(2),
       refunded: +refunded.toFixed(2),
       totalRevenue: +gross.toFixed(2),
       commission,      // εσύ
@@ -1840,6 +1849,7 @@ export default function AdminPage() {
                           <p className="text-[11px] text-gray-400 mt-2">
                             Ολοκληρωμένα {loc.completed} · No-show {loc.noShow} · Ακυρώσεις {loc.cancelled}
                             {loc.refunded > 0 ? ` · Επιστροφές €${loc.refunded.toFixed(0)}` : ''}
+                            {loc.cashCoupon > 0 ? ` · Κουπόνια μετρητών που του οφείλεις €${loc.cashCoupon.toFixed(2)} (μέσα στο καθαρό)` : ''}
                           </p>
 
                           {/* Κόκκινη σημαία: υψηλό ποσοστό ακυρώσεων (πιθανή υποδήλωση) */}

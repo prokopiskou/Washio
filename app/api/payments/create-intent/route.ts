@@ -144,7 +144,7 @@ export async function POST(req: NextRequest) {
     const clientIp = ipFrom(req) || ''
     const clientUa = (req.headers.get('user-agent') || '').slice(0, 350)
 
-    // Εξαργύρωση πίστωσης wallet (κουπόνια/referral) — ΜΟΝΟ σε κάρτα. Μειώνει τη
+    // Εξαργύρωση πίστωσης wallet (κουπόνια/referral) — κάρτα (εδώ) ΚΑΙ μετρητά (create-cash). Μειώνει τη
     // χρέωση· ο πλυντηριάς παίρνει πλήρη τιμή (booking.total_amount = base) και το
     // credit το απορροφά η πλατφόρμα. Αφαιρείται από το wallet στο webhook (μετά
     // την επιτυχή πληρωμή), όχι εδώ — για να μη χαθεί αν δεν ολοκληρωθεί.

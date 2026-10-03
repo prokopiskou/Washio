@@ -26,6 +26,7 @@ type Booking = {
   slot_date?: string
   slot_start_time?: string
   total_amount?: number
+  coupon_amount?: number | null
   status?: string
   service_id?: string
   user_id?: string
@@ -463,7 +464,7 @@ export default function DashboardPage() {
       // σιωπηλά στις 1000 → λάθος στατιστικά, βαρύ φορτίο κάθε 30'').
       const sinceYmd = (() => { const d = new Date(); d.setMonth(d.getMonth() - 12); return ymdFromLocalDate(d) })()
       const loadBookings = () => supabase.from('bookings')
-        .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, profiles(full_name, phone, email)')
+        .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, profiles(full_name, phone, email)')
         .eq('location_id', locationId)
         .gte('slot_date', sinceYmd)
         .order('created_at', { ascending: false })
@@ -1269,7 +1270,14 @@ export default function DashboardPage() {
             // Τρόπος πληρωμής — ΡΗΤΑ, για να ξέρει ο πλυντηριάς αν εισπράττει.
             const paymentBadge = (b: Booking) => {
               if (b.source === 'manual') return { bg: '#F3F4F6', fg: '#4B5563', label: t('Εκτός πλατφόρμας') }
-              if (b.stripe_payment_status === 'pay_at_venue') return { bg: '#FFEDD5', fg: '#C2410C', label: t('💵 ΜΕΤΡΗΤΑ — εισπράττεις εσύ') }
+              if (b.stripe_payment_status === 'pay_at_venue') {
+                // «Πλήρωσε εκεί» με κουπόνι Washio: εισπράττεις τιμή − κουπόνι, το κουπόνι σου επιστρέφεται.
+                const cp = Number(b.coupon_amount) || 0
+                const collect = Math.max(0, Number(b.total_amount || 0) - cp)
+                return cp > 0
+                  ? { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εισπράττεις')} €${collect.toFixed(2)} · 🎁 ${t('κουπόνι')} −€${cp.toFixed(0)} ${t('(σου επιστρέφεται)')}` }
+                  : { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εισπράττεις')} €${collect.toFixed(2)} ${t('στο κατάστημα')}` }
+              }
               if (b.stripe_payment_status === 'paid') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('💳 Πληρωμένη με κάρτα') }
               return null
             }

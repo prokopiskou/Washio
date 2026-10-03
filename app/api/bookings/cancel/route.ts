@@ -8,6 +8,7 @@ import { sendPush, getLocationOwnerId } from '@/lib/push'
 import { shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { athensEpoch } from '@/lib/time'
 import { Resend } from 'resend'
+import { refundCredit } from '@/lib/referral'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest) {
       .select(`
         id, booking_ref, slot_date, slot_start_time, total_amount,
         stripe_payment_intent_id, user_id, location_id, service_id,
-        status, refund_amount, stripe_payment_status, source,
+        status, refund_amount, stripe_payment_status, source, coupon_amount,
         locations(name, owner_id),
         services(name)
       `)
@@ -197,6 +198,10 @@ export async function POST(req: NextRequest) {
         })
         .eq('id', bookingId)
     }
+
+    // Το κουπόνι Washio επιστρέφει στον πελάτη (δεν «καίγεται» σε ακύρωση).
+    const usedCoupon = Number((booking as { coupon_amount?: number }).coupon_amount) || 0
+    if (usedCoupon > 0 && booking.user_id) await refundCredit(supabase, booking.user_id, usedCoupon)
 
     // Push στον πρατηριούχο: ακύρωση → το slot άνοιξε.
     // Ίδιος κανόνας με τις νέες κρατήσεις: μόνο σημερινές, εντός ωραρίου.

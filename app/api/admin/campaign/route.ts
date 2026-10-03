@@ -33,7 +33,7 @@ function html(hasCoupon: boolean, ctaUrl: string = URL_CTA): string {
       <p style="margin:0 0 20px;color:#4B5563;font-size:15px;line-height:1.6;"><strong style="color:#10182A;">Κλείσε από τώρα το ραντεβού σου</strong> για Δευτέρα ή όποια μέρα σε βολεύει. Πας και σε περιμένουν. Χωρίς αναμονή.</p>
       ${hasCoupon ? `<div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 22px;">
         <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 Το κουπόνι −3€ είναι ήδη στον λογαριασμό σου</p>
-        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Ισχύει με πληρωμή κάρτας, σε πλύσιμο από 12€.</p>
+        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Κλείσε τώρα, πλήρωσε εκεί. Σε πλύσιμο από 12€.</p>
       </div>` : ''}
       <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε το ραντεβού σου →</a>
       <p style="margin:20px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;text-align:center;">📍 Αργυρούπολη · Άλιμος · Άγ. Δημήτριος · Ηλιούπολη · Βύρωνας · Ζωγράφου</p>

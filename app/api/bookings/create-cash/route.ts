@@ -9,7 +9,8 @@ import { checkSlotAvailability, shouldNotifyOwnerNow } from '@/lib/availability-
 import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
-import { grantReferrerRewardIfFirst } from '@/lib/referral'
+import { grantReferrerRewardIfFirst, computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
+import { couponWaivesCommission } from '@/lib/commission'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -27,13 +28,15 @@ const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιου�
 function cashEmailHtml(data: {
   bookingRef: string; locationName: string; service: string
   date: string; time: string; plate: string; total: string; extraInstructions?: string
-  isRange?: boolean; rangeText?: string
+  isRange?: boolean; rangeText?: string; coupon?: number; fullPrice?: string
 }) {
   // Υπηρεσία εύρους (βιολογικός): ο πελάτης βλέπει εύρος, όχι σταθερό ποσό —
   // η τελική τιμή λέγεται επιτόπου μετά την εκτίμηση.
   const payableRow = data.isRange
     ? `<tr><td style="color: #10182A; font-weight: 600; padding: 8px 0 0;">Εκτιμώμενο εύρος</td><td style="color: #10182A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.rangeText}</td></tr>`
-    : `<tr><td style="color: #10182A; font-weight: 600; padding: 8px 0 0;">Πληρωτέο (μετρητά)</td><td style="color: #10182A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td></tr>`
+    : `${data.coupon && data.coupon > 0 ? `<tr><td style="color: #999; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Τιμή</td><td style="color: #10182A; font-weight: 500; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">€${data.fullPrice}</td></tr>
+       <tr><td style="color: #16A34A; font-weight: 600; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">Κουπόνι Washio</td><td style="color: #16A34A; font-weight: 600; text-align: right; padding: 6px 0; border-bottom: 1px solid #EFEFEF;">−€${data.coupon.toFixed(2)}</td></tr>` : ''}
+       <tr><td style="color: #10182A; font-weight: 600; padding: 8px 0 0;">Πληρώνεις στο πλυντήριο</td><td style="color: #10182A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td></tr>`
   const instructionsBlock = data.extraInstructions
     ? `<div style="background: #F0F7FF; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
           <p style="color: #1A6FD4; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 6px;">Χρήσιμες οδηγίες</p>
@@ -64,7 +67,7 @@ function cashEmailHtml(data: {
         </div>
         <div style="background: #FFF7ED; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
           <p style="color: #B45309; font-size: 12px; margin: 0; line-height: 1.6;">
-            💵 Η πληρωμή γίνεται με <strong>μετρητά στο κατάστημα</strong>.${data.isRange ? '<br/>Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.' : ''}<br/>
+            💵 Η πληρωμή γίνεται <strong>στο πλυντήριο</strong>.${data.coupon && data.coupon > 0 ? ` Η έκπτωση του κουπονιού έχει ήδη υπολογιστεί — πες απλώς τον κωδικό σου.` : ''}${data.isRange ? '<br/>Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.' : ''}<br/>
             Κράτα τον κωδικό <strong>${data.bookingRef}</strong> για οποιαδήποτε αλλαγή.
           </p>
         </div>
@@ -191,6 +194,21 @@ export async function POST(req: NextRequest) {
     // 4) Δημιουργία κράτησης — ΜΕΤΡΗΤΑ (χωρίς Stripe).
     const bookingRef = 'WS-' + Math.random().toString(16).slice(2, 10).toUpperCase()
 
+    // 4a) Κουπόνι Washio ΚΑΙ στα μετρητά («Κλείσε τώρα, πλήρωσε εκεί»): ίδιοι κανόνες με την
+    //     κάρτα (≥12€, έως 3€, όχι υπηρεσία εύρους). Ο πελάτης πληρώνει amount − coupon στο
+    //     πλυντήριο· το Washio επιστρέφει το coupon στο πλυντήριο στην εκκαθάριση (admin payouts).
+    let couponAmount = 0
+    if (!isRange && isCreditEligible(amount)) {
+      const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
+      couponAmount = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
+    }
+    const payable = +(amount - couponAmount).toFixed(2)
+
+    // Προμήθεια: ποσοστό του πλυντηρίου (όπως η κάρτα), μηδέν όπου ισχύει η συμφωνία κουπονιού.
+    const { data: locRate } = await admin.from('locations').select('commission_rate').eq('id', locationId).maybeSingle()
+    const cashRate = Number(locRate?.commission_rate ?? 10) / 100
+    const cashFee = couponWaivesCommission(locationId, couponAmount) ? 0 : +(amount * cashRate).toFixed(2)
+
     // ΑΤΟΜΙΚΟ insert: κλειδαριά ανά (πλυντήριο, μέρα) + έλεγχος πληρότητας
     // μέσα στη βάση — δύο ταυτόχρονες κρατήσεις δεν χωράνε πια στο ίδιο slot.
     const inserted = await insertBookingAtomic(admin, {
@@ -205,7 +223,8 @@ export async function POST(req: NextRequest) {
       source: 'platform',
       car_plate: carPlate || null,
       total_amount: amount,
-      platform_fee: amount * 0.10,
+      coupon_amount: couponAmount,
+      platform_fee: cashFee,
       stripe_payment_intent_id: null,
       stripe_payment_status: 'pay_at_venue',
       paid_at: null,
@@ -227,6 +246,8 @@ export async function POST(req: NextRequest) {
     // Referral: αν αυτός που κλείνει είναι παραπεμπόμενος, επιβράβευσε τον referrer
     // (και σε μετρητά — το reward είναι πίστωση στον referrer, όχι έκπτωση εδώ).
     if (user.id) await grantReferrerRewardIfFirst(admin, user.id, inserted.id)
+    // Εξαργύρωση κουπονιού (μετά την επιτυχή δημιουργία).
+    if (couponAmount > 0) await redeemCredit(admin, user.id, couponAmount, inserted.id)
 
     // Push στον πρατηριούχο: νέα κράτηση (μετρητά).
     // ΜΟΝΟ αν είναι για σήμερα ΚΑΙ το πλυντήριο είναι ανοιχτό τώρα.
@@ -237,7 +258,7 @@ export async function POST(req: NextRequest) {
         const dPush = new Date(slotDate)
         await sendPush(ownerId, {
           title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
-          body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις εσύ €${amount.toFixed(2)} στο κατάστημα`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
+          body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις €${payable.toFixed(2)} στο κατάστημα${couponAmount > 0 ? ` (κουπόνι Washio −€${couponAmount.toFixed(0)}, σου επιστρέφεται)` : ''}`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
           url: '/dashboard',
         })
       }
@@ -254,6 +275,7 @@ export async function POST(req: NextRequest) {
       carPlate,
       total: amount,
       isCash: true,
+      couponAmount,
     })
 
     // 5) Επιβεβαιωτικό email (best-effort).
@@ -282,7 +304,9 @@ export async function POST(req: NextRequest) {
             date: formattedDate,
             time: (slotStartTime as string)?.slice(0, 5) || '',
             plate: carPlate || '',
-            total: amount.toFixed(0),
+            total: payable.toFixed(2),
+            fullPrice: amount.toFixed(2),
+            coupon: couponAmount,
             isRange,
             rangeText,
             extraInstructions: (locationData as { extra_instructions?: string })?.extra_instructions || '',
@@ -298,7 +322,7 @@ export async function POST(req: NextRequest) {
     // κάρτα από το webhook· οι cash κρατήσεις είχαν browser Purchase χωρίς server).
     await sendPurchaseCapi({
       eventId: bookingRef,
-      value: amount,
+      value: payable,
       email: user.email || null,
       externalId: user.id,
       fbp: req.cookies.get('_fbp')?.value || null,
@@ -307,7 +331,7 @@ export async function POST(req: NextRequest) {
       clientUserAgent: (req.headers.get('user-agent') || '').slice(0, 350) || null,
     })
 
-    return NextResponse.json({ bookingRef })
+    return NextResponse.json({ bookingRef, couponAmount, payable })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'
     await alertCritical('Αποτυχία create-cash', message)
