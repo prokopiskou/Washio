@@ -6,7 +6,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
-import { canBookSlot, isOpenAtMinutes, type OccupancyBooking } from '@/lib/availability'
+import { canBookSlot, isOpenAtMinutes, BOOKING_GRACE_LEAD_MINUTES, type OccupancyBooking } from '@/lib/availability'
 
 export type AvailabilityCheckResult =
   | { ok: true; durationMinutes: number; capacity: number }
@@ -78,6 +78,8 @@ export async function checkSlotAvailability(admin: SupabaseClient, args: {
     isToday: slotDate === athensToday(),
     nowMinutes: athensMinutesOfDay(),
     startTime: slotStartTime,
+    // Περιθώριο: όποιος είδε το slot (≥5' πριν) και πάτησε «Συνέχεια» δεν απορρίπτεται όσο πληρώνει.
+    leadMinutes: BOOKING_GRACE_LEAD_MINUTES,
   })
 
   if (!available) {

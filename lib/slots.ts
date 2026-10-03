@@ -5,7 +5,7 @@
 import { athensMinutesOfDay, athensToday, weekdayMon1FromYmd } from '@/lib/time'
 
 export const SLOT_INTERVAL_MINUTES = 30
-export const MIN_LEAD_MINUTES = 15
+export const MIN_LEAD_MINUTES = 5
 export const TIGHT_SLOT_THRESHOLD_MINUTES = 20
 export const NOW_WINDOW_MINUTES = 60
 

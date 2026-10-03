@@ -7,8 +7,10 @@
 //
 // Κανόνες:
 //  - Slots ανά 30' μέσα στο ωράριο της μέρας.
-//  - Lead time: ένα slot κλείνεται μόνο αν ξεκινά ≥ SLOT_LEAD_MINUTES
-//    λεπτά από τώρα (ώρα Ελλάδας).
+//  - Lead time: ένα slot ΕΜΦΑΝΙΖΕΤΑΙ μόνο αν ξεκινά ≥ SLOT_LEAD_MINUTES (5')
+//    λεπτά από τώρα (ώρα Ελλάδας). Ο SERVER δέχεται την κράτηση με περιθώριο
+//    BOOKING_GRACE_MINUTES (έως 10' μετά την έναρξη), ώστε όποιος είδε το slot
+//    στον χάρτη και πάτησε «Συνέχεια» να μην απορρίπτεται όσο πληρώνει.
 //  - Capacity (μάνικες): ένα slot είναι γεμάτο όταν οι ταυτόχρονες
 //    κρατήσεις του = capacity του πλυντηρίου.
 //  - Διάρκεια: υπηρεσία διάρκειας D δεσμεύει ceil(D/30) διαδοχικά
@@ -18,7 +20,9 @@
 // ============================================================
 
 export const SLOT_STEP_MINUTES = 30
-export const SLOT_LEAD_MINUTES = 15
+export const SLOT_LEAD_MINUTES = 5
+/** Server-side: lead για αποδοχή κράτησης (αρνητικό = επιτρέπεται και λίγο μετά την έναρξη). */
+export const BOOKING_GRACE_LEAD_MINUTES = -10
 
 export type WeeklyHours = {
   is_closed?: boolean
@@ -82,6 +86,8 @@ export type ComputeSlotsArgs = {
   isToday: boolean
   /** Λεπτά από τα μεσάνυχτα ΤΩΡΑ (ώρα Ελλάδας). Αγνοείται αν !isToday. */
   nowMinutes?: number
+  /** Lead time σε λεπτά (default SLOT_LEAD_MINUTES). Ο server περνάει BOOKING_GRACE_LEAD_MINUTES. */
+  leadMinutes?: number
 }
 
 /**
@@ -96,6 +102,7 @@ export function computeSlots(args: ComputeSlotsArgs): SlotAvailability[] {
   const {
     dayHours, exception, bookings, capacity,
     durationMinutes = SLOT_STEP_MINUTES, isToday, nowMinutes = 0,
+    leadMinutes = SLOT_LEAD_MINUTES,
   } = args
 
   // Όλη μέρα κλειστά;
@@ -159,7 +166,7 @@ export function computeSlots(args: ComputeSlotsArgs): SlotAvailability[] {
       let ok = true
 
       // Lead time (μόνο σήμερα).
-      if (isToday && start < nowMinutes + SLOT_LEAD_MINUTES) ok = false
+      if (isToday && start < nowMinutes + leadMinutes) ok = false
 
       // Όλα τα 30λεπτα της διάρκειας: ανοιχτά ΚΑΙ με χώρο.
       if (ok) {
