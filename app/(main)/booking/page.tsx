@@ -266,7 +266,9 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
           layout: 'tabs',
           // Κάρτα: αριθμός · λήξη · CVC (χωρίς χώρα/ΤΚ, χωρίς κείμενο εντολής) + Apple Pay /
           // Google Pay όπου υποστηρίζονται. Αποθηκευμένες κάρτες εμφανίζονται από πάνω (customerSession).
-          wallets: { applePay: 'auto', googlePay: 'auto' },
+          // link: 'never' → ΚΑΘΟΛΟΥ Link (ούτε το «Ασφαλής ολοκλήρωση με Link» ούτε το
+          // «Προαιρετικό: αποθήκευση πληροφοριών» με email/κινητό/όνομα).
+          wallets: { applePay: 'auto', googlePay: 'auto', link: 'never' },
           terms: { card: 'never', applePay: 'never', googlePay: 'never' },
           fields: {
             billingDetails: {
