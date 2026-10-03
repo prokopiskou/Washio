@@ -5,7 +5,8 @@ import { isAdminEmail } from '@/lib/admins'
 
 // Διαχείριση ΚΕΝΤΡΙΚΟΥ καταλόγου βασικών υπηρεσιών — ΜΟΝΟ admin.
 // POST  = προσθήκη νέας βασικής υπηρεσίας
-// PATCH = ενημέρωση (is_active, duration_minutes, vehicles, sort_order)
+// PATCH = ενημέρωση (is_active, duration_minutes, vehicles, sort_order, name)
+//         name: μετονομάζει ΚΑΙ τις υπηρεσίες όλων των πλυντηρίων (συνδέονται με το όνομα).
 
 const admin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,6 +97,31 @@ export async function PATCH(req: NextRequest) {
     }
     if (patch.sort_order !== undefined) allowed.sort_order = Number(patch.sort_order) || 0
 
+    // Μετονομασία: οι υπηρεσίες των πλυντηρίων (services) δένονται με τον κατάλογο μέσω ΟΝΟΜΑΤΟΣ,
+    // άρα αλλάζουν κι αυτές — αλλιώς το πλυντήριο θα «έχανε» την υπηρεσία του.
+    let oldName: string | null = null
+    if (patch.name !== undefined) {
+      const newName = String(patch.name || '').trim().replace(/\s+/g, ' ')
+      if (!newName) return NextResponse.json({ error: 'Το όνομα δεν μπορεί να είναι κενό' }, { status: 400 })
+      if (newName.length > 60) return NextResponse.json({ error: 'Πολύ μεγάλο όνομα (έως 60)' }, { status: 400 })
+      const { data: cur } = await admin.from('service_catalog').select('name, vehicles').eq('id', id).maybeSingle()
+      if (!cur) return NextResponse.json({ error: 'Δεν βρέθηκε η υπηρεσία' }, { status: 404 })
+      if (cur.name !== newName) {
+        // Υπηρεσία μόνο για μοτοσικλέτα: η εφαρμογή την αναγνωρίζει από το «Μοτο» στο όνομα.
+        const motoOnly = Array.isArray(cur.vehicles) && cur.vehicles.length === 1 && cur.vehicles[0] === 'Μοτοσικλέτα'
+        if (motoOnly && !/μοτο|moto/i.test(newName)) {
+          return NextResponse.json({ error: 'Υπηρεσία μοτοσικλέτας: το όνομα πρέπει να περιέχει «Μοτο».' }, { status: 400 })
+        }
+        // Σύγκρουση: πλυντήριο που έχει ήδη υπηρεσία με το νέο όνομα.
+        const { data: clash } = await admin.from('services').select('location_id').eq('name', newName).limit(1)
+        if (clash && clash.length) {
+          return NextResponse.json({ error: 'Υπάρχει ήδη υπηρεσία με αυτό το όνομα σε πλυντήριο.' }, { status: 400 })
+        }
+        oldName = cur.name
+        allowed.name = newName
+      }
+    }
+
     if (Object.keys(allowed).length === 0) {
       return NextResponse.json({ error: 'Τίποτα προς ενημέρωση' }, { status: 400 })
     }
@@ -107,8 +133,23 @@ export async function PATCH(req: NextRequest) {
       .select('*')
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, item: data })
+    if (error) {
+      const msg = /unique|duplicate/i.test(error.message) ? 'Υπάρχει ήδη υπηρεσία με αυτό το όνομα' : error.message
+      return NextResponse.json({ error: msg }, { status: 400 })
+    }
+
+    let renamedServices = 0
+    if (oldName && allowed.name) {
+      const { data: upd, error: sErr } = await admin.from('services')
+        .update({ name: allowed.name }).eq('name', oldName).select('id')
+      if (sErr) {
+        // Επαναφορά καταλόγου ώστε να μη μείνει ασυνέπεια.
+        await admin.from('service_catalog').update({ name: oldName }).eq('id', id)
+        return NextResponse.json({ error: 'Αποτυχία μετονομασίας στα πλυντήρια: ' + sErr.message }, { status: 500 })
+      }
+      renamedServices = upd?.length || 0
+    }
+    return NextResponse.json({ ok: true, item: data, renamedServices })
   } catch {
     return NextResponse.json({ error: 'Κάτι πήγε στραβά' }, { status: 500 })
   }

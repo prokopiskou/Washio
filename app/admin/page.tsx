@@ -2032,10 +2032,22 @@ export default function AdminPage() {
                         <div key={item.id}
                           className={`px-3.5 py-3 flex items-center gap-2.5 ${i === 0 ? '' : 'border-t border-gray-100'}`}>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-[13px] font-semibold tracking-tight truncate ${item.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
-                              {item.name}
-                              <span className="text-[11px] font-medium text-gray-400 ml-1.5">· {formatDuration(item.duration_minutes)}</span>
-                            </p>
+                            <EditableName
+                              value={item.name}
+                              active={item.is_active}
+                              suffix={`· ${formatDuration(item.duration_minutes)}`}
+                              onSave={async (name) => {
+                                const res = await fetch('/api/admin/catalog', {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ id: item.id, name }),
+                                })
+                                const json = await res.json().catch(() => ({}))
+                                if (!res.ok) return json.error || 'Κάτι πήγε στραβά'
+                                if (json.item) setCatalogItems(prev => prev.map(c => c.id === item.id ? json.item : c))
+                                return null
+                              }}
+                            />
                             <p className="text-[11px] text-gray-400 mt-0.5">
                               {(item.vehicles || []).map((v: string) => v === 'Μοτοσικλέτα' ? 'Μοτο' : v).join(' · ')}
                             </p>
@@ -2133,9 +2145,18 @@ export default function AdminPage() {
                             className={`px-3.5 py-3 flex items-center gap-2.5 ${isLast ? '' : 'border-t border-gray-100'}`}
                           >
                             <div className="flex-1 min-w-0">
-                              <p className={`text-[13px] font-semibold tracking-tight truncate ${addon.is_active ? 'text-gray-900' : 'text-gray-500'}`}>
-                                {addon.name}
-                              </p>
+                              <EditableName
+                                value={addon.name}
+                                active={addon.is_active}
+                                onSave={async (name) => {
+                                  // Τα πλυντήρια δένονται με id (location_addons) → αρκεί η αλλαγή εδώ.
+                                  const supabase = createClient()
+                                  const { error } = await supabase.from('addons').update({ name }).eq('id', addon.id)
+                                  if (error) return /unique|duplicate/i.test(error.message) ? 'Υπάρχει ήδη υπηρεσία με αυτό το όνομα' : error.message
+                                  setAddons(prev => prev.map(a => a.id === addon.id ? { ...a, name } : a))
+                                  return null
+                                }}
+                              />
                               <p className="text-[11px] text-gray-400 mt-0.5">Τιμή: ορίζει το πλυντήριο</p>
                             </div>
 
@@ -2253,5 +2274,76 @@ export default function AdminPage() {
         </div>
       )}
     </main>
+  )
+}
+
+// Όνομα υπηρεσίας με μολυβάκι → inline επεξεργασία (Enter = αποθήκευση, Esc = άκυρο).
+// onSave επιστρέφει μήνυμα λάθους ή null.
+function EditableName({ value, active, suffix, onSave }: {
+  value: string
+  active: boolean
+  suffix?: string
+  onSave: (name: string) => Promise<string | null>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [text, setText] = useState(value)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const save = async () => {
+    const name = text.trim().replace(/\s+/g, ' ')
+    if (!name) { setErr('Κενό όνομα'); return }
+    if (name === value) { setEditing(false); setErr(''); return }
+    setBusy(true); setErr('')
+    const e = await onSave(name)
+    setBusy(false)
+    if (e) { setErr(e); return }
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <div className="flex items-center gap-1.5 min-w-0">
+        <p className={`text-[13px] font-semibold tracking-tight truncate ${active ? 'text-gray-900' : 'text-gray-500'}`}>
+          {value}
+          {suffix && <span className="text-[11px] font-medium text-gray-400 ml-1.5">{suffix}</span>}
+        </p>
+        <button
+          type="button"
+          onClick={() => { setText(value); setErr(''); setEditing(true) }}
+          aria-label="Μετονομασία"
+          title="Μετονομασία"
+          className="shrink-0 -m-1 p-1 rounded-md text-gray-400 hover:text-gray-700 active:bg-gray-100"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>
+          </svg>
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-1.5">
+        <input
+          autoFocus
+          value={text}
+          maxLength={60}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') { setEditing(false); setErr('') } }}
+          className="flex-1 min-w-0 h-8 px-2.5 rounded-lg border border-gray-300 text-[13px] font-semibold text-gray-900 focus:outline-none focus:border-gray-900"
+        />
+        <button type="button" onClick={save} disabled={busy}
+          className="h-8 px-2.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold disabled:opacity-40">
+          {busy ? '…' : 'OK'}
+        </button>
+        <button type="button" onClick={() => { setEditing(false); setErr('') }} disabled={busy}
+          className="h-8 px-2 rounded-lg text-gray-500 text-[12px] font-semibold">
+          Άκυρο
+        </button>
+      </div>
+      {err && <p className="text-[11px] text-red-500 mt-1">{err}</p>}
+    </div>
   )
 }

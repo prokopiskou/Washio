@@ -31,5 +31,6 @@ export function catalogEntry(name: string): CatalogService | undefined {
  * στη βάση πριν τη μετονομασία) και το νέο «Πλύσιμο Μοτο».
  */
 export function isMotoService(name: string): boolean {
-  return name === 'Πλύσιμο' || name === 'Πλύσιμο Μοτο'
+  // Και μετά από μετονομασία στο admin: ό,τι περιέχει «Μοτο» (το admin το επιβάλλει).
+  return name === 'Πλύσιμο' || /μοτο|moto/i.test(name || '')
 }
