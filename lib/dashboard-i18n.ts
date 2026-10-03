@@ -100,6 +100,8 @@ export const DASH_EN: Record<string, string> = {
   'Πλύσιμο': 'Wash date',
   'Κλείσιμο': 'Close',
   'Κλείστηκε:': 'Booked:',
+  'Αντιγραφή κινητού': 'Copy phone',
+  'Αντιγράφηκε': 'Copied',
   'Δεν εμφανίστηκε': 'No-show',
   'Ακύρωση': 'Cancel',
   'Δεν υπάρχουν κρατήσεις': 'No bookings',

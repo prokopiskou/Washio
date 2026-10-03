@@ -189,6 +189,24 @@ export default function DashboardPage() {
   const { locale, setLocale } = useLocale()
   const t = (s: string): string => (locale === 'en' ? DASH_EN[s] ?? s : s)
   const dl = locale === 'en' ? 'en-GB' : 'el-GR'
+
+  // Αντιγραφή κινητού πελάτη (Κρατήσεις) — εικονίδιο δίπλα στο κινητό, ✓ για 1,5''.
+  const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null)
+  const copyPhone = async (id: string, phone: string) => {
+    try {
+      await navigator.clipboard.writeText(phone)
+    } catch {
+      // Fallback για παλιά WebView χωρίς Clipboard API.
+      const ta = document.createElement('textarea')
+      ta.value = phone; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'
+      document.body.appendChild(ta); ta.select()
+      try { document.execCommand('copy') } catch {}
+      document.body.removeChild(ta)
+    }
+    selectionHaptic()
+    setCopiedPhoneId(id)
+    setTimeout(() => setCopiedPhoneId(c => (c === id ? null : c)), 1500)
+  }
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
   const [loading, setLoading] = useState(true)
   const [location, setLocation] = useState<any | null>(null)
@@ -1341,14 +1359,35 @@ export default function DashboardPage() {
                               {payBadge.label}
                             </span>
                           )}
-                          {(b.profiles?.phone || b.profiles?.email) && (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.6" strokeLinecap="round">
-                                <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>
-                              </svg>
-                              <p className="text-[11px] text-gray-500">{b.profiles?.phone || b.profiles?.email}</p>
-                            </div>
-                          )}
+                          {(() => {
+                            const phone = (b.customer_phone || b.profiles?.phone || '').trim()
+                            const contact = phone || b.profiles?.email
+                            if (!contact) return null
+                            return (
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="1.6" strokeLinecap="round">
+                                  <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1"/>
+                                </svg>
+                                <p className="text-[11px] text-gray-500">{contact}</p>
+                                {phone && (
+                                  <button
+                                    type="button"
+                                    onClick={() => copyPhone(b.id, phone)}
+                                    aria-label={t('Αντιγραφή κινητού')}
+                                    title={t('Αντιγραφή κινητού')}
+                                    className="-m-1 p-1 rounded-md active:bg-gray-100"
+                                  >
+                                    {copiedPhoneId === b.id ? (
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0F7A5C" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+                                    ) : (
+                                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+                                    )}
+                                  </button>
+                                )}
+                                {copiedPhoneId === b.id && <span className="text-[10px] font-semibold text-[#0F7A5C]">{t('Αντιγράφηκε')}</span>}
+                              </div>
+                            )
+                          })()}
                           <div className="flex items-center gap-1.5 mt-2">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.7" strokeLinecap="round">
                               <path d="M5 13V8a4 4 0 0 1 4-4h2M11 4a3 3 0 0 1 3 3v6"/>
