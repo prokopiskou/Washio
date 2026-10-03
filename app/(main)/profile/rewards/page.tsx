@@ -16,11 +16,11 @@ const T = {
     history: 'Ιστορικό', empty: 'Δεν έχεις κουπόνια ακόμα.',
     welcome: 'Καλωσόρισμα', referral_reward: 'Επιβράβευση παραπομπής', redeem: 'Εξαργύρωση',
     referTitle: 'Φέρε φίλους, κερδίστε και οι δύο',
-    referSub: (a: number, b: number, _n: number) =>
-      `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση — κι εσύ −${b}€ για ΚΑΘΕ φίλο που κλείνει. Χωρίς όριο.`,
+    referSub: (a: number, b: number, n: number) =>
+      `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση — κι εσύ −${b}€ για κάθε φίλο που κλείνει. Έως ${n} φίλοι.`,
     yourCode: 'Ο κωδικός σου', yourLink: 'Ο σύνδεσμός σου',
     copy: 'Αντιγραφή', copied: 'Αντιγράφηκε!', share: 'Κοινοποίηση',
-    used: (x: number, _n: number) => `${x} ${x === 1 ? 'φίλος έκλεισε' : 'φίλοι έκλεισαν'} μέσω σου`,
+    used: (x: number, n: number) => `${x} από ${n} φίλους έκλεισαν μέσω σου`,
     shareMsg: (code: string) => `Κλείσε πλύσιμο αυτοκινήτου με το Washio και πάρε −${WELCOME_DISCOUNT}€ στην πρώτη σου κράτηση με τον κωδικό μου: ${code}`,
     loading: 'Φόρτωση...',
   },
@@ -31,11 +31,11 @@ const T = {
     history: 'History', empty: 'No coupons yet.',
     welcome: 'Welcome', referral_reward: 'Referral reward', redeem: 'Redeemed',
     referTitle: 'Invite friends, both win',
-    referSub: (a: number, b: number, _n: number) =>
-      `Each friend gets −€${a} on their first booking — and you get −€${b} for EVERY friend who books. No limit.`,
+    referSub: (a: number, b: number, n: number) =>
+      `Each friend gets −€${a} on their first booking — and you get −€${b} for each friend who books. Up to ${n} friends.`,
     yourCode: 'Your code', yourLink: 'Your link',
     copy: 'Copy', copied: 'Copied!', share: 'Share',
-    used: (x: number, _n: number) => `${x} ${x === 1 ? 'friend' : 'friends'} booked through you`,
+    used: (x: number, n: number) => `${x} of ${n} friends booked through you`,
     shareMsg: (code: string) => `Book a car wash with Washio and get −€${WELCOME_DISCOUNT} on your first booking with my code: ${code}`,
     loading: 'Loading...',
   },
@@ -174,7 +174,7 @@ export default function RewardsPage() {
               {copied === 'link' ? <><Check size={15} className="text-green-600" /> {t.copied}</> : <><Copy size={15} /> {t.yourLink}</>}
             </button>
 
-            <p className="text-[12px] text-gray-400 text-center">{t.used(completedRefs, MAX_REFERRALS)}</p>
+            <p className="text-[12px] text-gray-400 text-center">{t.used(Math.min(completedRefs, MAX_REFERRALS), MAX_REFERRALS)}</p>
           </div>
         )}
       </div>

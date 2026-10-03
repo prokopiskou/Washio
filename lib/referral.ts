@@ -2,7 +2,7 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 // Referral + wallet — server-side, best-effort (ποτέ δεν μπλοκάρει booking/auth).
 //   • Νέος από link: −3€ welcome (πίστωση στο wallet).
-//   • Referrer: +3€ για ΚΑΘΕ φίλο που κάνει την πρώτη του κράτηση — χωρίς όριο φίλων.
+//   • Referrer: +3€ για κάθε φίλο που κάνει την πρώτη του κράτηση — έως 2 φίλοι.
 //     Αν η κράτηση ακυρωθεί / no-show → το +3€ αφαιρείται (revokeReferrerReward)
 //     και δίνεται ξανά στην επόμενη πραγματική κράτηση του φίλου.
 //   • Πίστωση εξαργυρώνεται ΜΟΝΟ σε κράτηση, αφήνοντας ≥0.50€ πραγματική χρέωση
@@ -10,8 +10,8 @@ import { SupabaseClient } from '@supabase/supabase-js'
 
 export const WELCOME_DISCOUNT = 3
 export const REFERRER_REWARD = 3
-/** Χωρίς όριο φίλων (ο referrer κερδίζει για κάθε φίλο που κλείνει). */
-export const MAX_REFERRALS = Number.POSITIVE_INFINITY
+/** Ο referrer κερδίζει για έως 2 φίλους. */
+export const MAX_REFERRALS = 2
 const MIN_CHARGE = 0.5
 
 // Το κουπόνι εξαργυρώνεται ΜΟΝΟ σε πλήρες πλύσιμο (Μέσα-Έξω) από 12€ και πάνω.
