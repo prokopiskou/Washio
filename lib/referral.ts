@@ -50,6 +50,9 @@ export async function linkReferral(
     const { data: hadWelcome } = await db.from('credit_ledger')
       .select('id').eq('user_id', newUserId).eq('kind', 'welcome').maybeSingle()
 
+    // Ένα welcome ανά χρήστη ΠΑΝΤΑ: εκτός από αυτόν τον έλεγχο, η βάση έχει unique index
+    // (credit_ledger_one_welcome_per_user) → 2 ταυτόχρονα αιτήματα δεν δίνουν διπλό −3€.
+    // Ο νέος από referral παίρνει ΤΟ ΙΔΙΟ ένα −3€ (όχι εγγραφή + referral = 6€).
     const giveWelcome = async () => {
       if (hadWelcome) return
       await db.rpc('apply_credit', {
