@@ -96,6 +96,8 @@ export default function AdminPage() {
     ] = await Promise.all([
       supabase.from('bookings')
         .select('*, locations(name, city), services(name, price), profiles(full_name, phone, email)')
+        // Admin = μόνο κρατήσεις πλατφόρμας. Τα χειροκίνητα ραντεβού (source='manual') μένουν στο dashboard του πλυντηρίου.
+        .or('source.is.null,source.neq.manual')
         .order('created_at', { ascending: false }).limit(200),
       supabase.from('locations_checklist').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
@@ -134,9 +136,10 @@ export default function AdminPage() {
   const platformBookings = bookings.filter(b => b.source !== 'manual')
   const totalRevenue = platformBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
   const totalCommission = platformBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
-  const completedBookings = bookings.filter(b => b.status === 'completed').length
-  const confirmedBookings = bookings.filter(b => b.status === 'confirmed').length
-  const cancelledBookings = bookings.filter(b => b.status === 'cancelled').length
+  // Μετρητές: ΜΟΝΟ κρατήσεις της πλατφόρμας (όχι τα χειροκίνητα ραντεβού των πλυντηρίων).
+  const completedBookings = platformBookings.filter(b => b.status === 'completed').length
+  const confirmedBookings = platformBookings.filter(b => b.status === 'confirmed').length
+  const cancelledBookings = platformBookings.filter(b => b.status === 'cancelled').length
   const pendingApplications = applications.filter(a => a.status === 'pending').length
   const pendingOnboardings = onboardings.filter(o => o.status !== 'active').length
 
@@ -208,6 +211,7 @@ export default function AdminPage() {
     // Κρατήσεις του μήνα με οικονομική σημασία.
     const monthBookings = bookings.filter(b => {
       if (b.locations?.name !== loc.name) return false
+      if (b.source === 'manual') return false // χειροκίνητα ραντεβού πλυντηρίου: εκτός πλατφόρμας
       if (!b.slot_date) return false
       const d = new Date(b.slot_date)
       if (!(d.getFullYear() === year && d.getMonth() + 1 === month)) return false
