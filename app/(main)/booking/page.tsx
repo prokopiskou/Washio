@@ -202,8 +202,10 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
           body: JSON.stringify({ paymentIntentId: clientSecret.split('_secret')[0], save: wantSave }),
         }).catch(() => null)
         const ok = !!sr && sr.ok
-        saveOk = wantSave && ok
-        if (ok) piSaveSetRef.current = wantSave
+        // Ο server λέει αν ΟΝΤΩΣ μπήκε setup_future_usage (π.χ. χωρίς Stripe customer → όχι).
+        const applied = ok ? Boolean((await sr!.json().catch(() => ({}))).save) : piSaveSetRef.current
+        saveOk = applied
+        piSaveSetRef.current = applied
       }
       // Αν δεν αποθηκεύεται (ή απέτυχε το save) → πληρώνει κανονικά, χωρίς αποθήκευση.
       try { elements.update({ setupFutureUsage: saveOk ? 'off_session' : null }) } catch { /* noop */ }
