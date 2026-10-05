@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
         .maybeSingle(),
       requestedAddonIds.length > 0
         ? admin.from('location_addons')
-            .select('addon_id, price_override, addons(price)')
+            .select('addon_id, price_override, addons(name, price)')
             .eq('location_id', locationId)
             .in('addon_id', requestedAddonIds)
         : Promise.resolve({ data: [] as any[] }),
@@ -122,10 +122,16 @@ export async function POST(req: NextRequest) {
       : isSuv && service.price_suv != null ? Number(service.price_suv)
       : Number(service.price)
 
+    const servicePrice = amount
+    // Πρόσθετα που πλήρωσε ο πελάτης (όνομα + τιμή) — αποθηκεύονται στην κράτηση ώστε
+    // το πλυντήριο να βλέπει ΤΙ πληρώθηκε (δεν αρκεί μόνο το σύνολο).
+    const addonLines: { n: string; p: number }[] = []
     for (const a of locAddons || []) {
       const priceOverride = (a as { price_override: number | null }).price_override
-      const basePrice = (a as { addons?: { price?: number } }).addons?.price
-      amount += Number(priceOverride ?? basePrice ?? 0)
+      const ad = (a as { addons?: { price?: number; name?: string } }).addons
+      const pr = Number(priceOverride ?? ad?.price ?? 0)
+      amount += pr
+      addonLines.push({ n: String(ad?.name || 'Πρόσθετο').slice(0, 40), p: pr })
     }
 
     if (!(amount > 0)) {
@@ -180,6 +186,8 @@ export async function POST(req: NextRequest) {
         amount: amount.toString(),           // ΒΑΣΗ (booking + settlement)
         serviceFee: SERVICE_FEE_EUR.toString(),
         appliedCredit: appliedCredit.toString(),
+        servicePrice: servicePrice.toString(),
+        addons: JSON.stringify(addonLines).slice(0, 490), // Stripe metadata ≤500 χαρ.
         fbp, fbc, clientIp, clientUa,
       },
     })

@@ -132,6 +132,8 @@ export async function POST(req: NextRequest) {
     // Καμία πρόσθετη υπηρεσία εδώ — η τελική τιμή ορίζεται στο κατάστημα.
     const isRange = svc.is_range === true
     let amount: number
+    let servicePrice: number | null = null
+    const addonLines: { name: string; price: number }[] = []
     let rangeText: string | undefined
     if (isRange) {
       const rmin = Number(isSuv ? svc.price_min_suv : svc.price_min) || 0
@@ -145,19 +147,22 @@ export async function POST(req: NextRequest) {
       amount = isMoto && svc.price_moto != null ? Number(svc.price_moto)
         : isSuv && svc.price_suv != null ? Number(svc.price_suv)
         : Number(svc.price)
+      servicePrice = amount
 
       const requestedAddonIds: string[] = Array.isArray(addonIds) ? addonIds : []
       if (requestedAddonIds.length > 0) {
         const { data: locAddons } = await admin
           .from('location_addons')
-          .select('addon_id, price_override, addons(price)')
+          .select('addon_id, price_override, addons(name, price)')
           .eq('location_id', locationId)
           .in('addon_id', requestedAddonIds)
 
         for (const a of locAddons || []) {
           const priceOverride = (a as { price_override: number | null }).price_override
-          const basePrice = (a as { addons?: { price?: number } }).addons?.price
-          amount += Number(priceOverride ?? basePrice ?? 0)
+          const ad = (a as { addons?: { price?: number; name?: string } }).addons
+          const pr = Number(priceOverride ?? ad?.price ?? 0)
+          amount += pr
+          addonLines.push({ name: String(ad?.name || 'Πρόσθετο'), price: pr })
         }
       }
     }
@@ -226,6 +231,8 @@ export async function POST(req: NextRequest) {
       source: 'platform',
       car_plate: carPlate || null,
       total_amount: amount,
+      service_price: servicePrice,
+      addons: addonLines,
       coupon_amount: couponAmount,
       platform_fee: cashFee,
       stripe_payment_intent_id: null,
@@ -279,6 +286,7 @@ export async function POST(req: NextRequest) {
       // Στο πλυντήριο λέμε ΜΟΝΟ το τελικό ποσό που εισπράττει (τιμή − κουπόνι).
       total: payable,
       isCash: true,
+      addons: addonLines,
     })
 
     // Ειδοποίηση σε εσένα (admin): email + Telegram για κάθε νέα κράτηση.

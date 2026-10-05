@@ -137,6 +137,8 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
       slot_start_time: m.slotStartTime,
       car_plate: m.carPlate || null,
       total_amount: parseFloat(m.amount),
+      service_price: m.servicePrice ? parseFloat(m.servicePrice) : null,
+      addons: (() => { try { return (JSON.parse(m.addons || '[]') as { n: string; p: number }[]).map(x => ({ name: x.n, price: Number(x.p) || 0 })) } catch { return [] } })(),
       coupon_amount: parseFloat(m.appliedCredit || '0') || 0,
       platform_fee: platformFee,
       stripe_payment_intent_id: intent.id,
@@ -235,6 +237,7 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
       carPlate: m.carPlate,
       total: parseFloat(m.amount),
       isCash: false,
+      addons: (() => { try { return (JSON.parse(m.addons || '[]') as { n: string; p: number }[]).map(x => ({ name: x.n, price: Number(x.p) || 0 })) } catch { return [] } })(),
     })
 
     // Ειδοποίηση σε εσένα (admin): email + Telegram για κάθε νέα κράτηση.

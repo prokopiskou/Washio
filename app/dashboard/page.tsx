@@ -28,6 +28,8 @@ type Booking = {
   slot_start_time?: string
   total_amount?: number
   coupon_amount?: number | null
+  addons?: { name: string; price: number }[] | null
+  service_price?: number | null
   status?: string
   service_id?: string
   user_id?: string
@@ -465,7 +467,7 @@ export default function DashboardPage() {
       // σιωπηλά στις 1000 → λάθος στατιστικά, βαρύ φορτίο κάθε 30'').
       const sinceYmd = (() => { const d = new Date(); d.setMonth(d.getMonth() - 12); return ymdFromLocalDate(d) })()
       const loadBookings = () => supabase.from('bookings')
-        .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, profiles(full_name, phone, email)')
+        .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, addons, service_price, services(name), profiles(full_name, phone, email)')
         .eq('location_id', locationId)
         .gte('slot_date', sinceYmd)
         .order('created_at', { ascending: false })
@@ -1406,6 +1408,23 @@ export default function DashboardPage() {
                               </div>
                             )
                           })()}
+                          {/* Τι πλήρωσε ο πελάτης: υπηρεσία + πρόσθετα με την τιμή του καθενός */}
+                          {b.source !== 'manual' && (b.services?.name || (b.addons && b.addons.length > 0)) && (
+                            <div className="mt-2 rounded-lg bg-gray-50 px-2.5 py-2 space-y-0.5">
+                              {b.services?.name && (
+                                <div className="flex justify-between gap-3 text-[12px]">
+                                  <span className="font-semibold text-gray-900 truncate">{b.services.name}</span>
+                                  {b.service_price != null && <span className="text-gray-700 shrink-0">€{Number(b.service_price).toFixed(2)}</span>}
+                                </div>
+                              )}
+                              {(b.addons || []).map((a, i) => (
+                                <div key={i} className="flex justify-between gap-3 text-[12px]">
+                                  <span className="text-gray-600 truncate">+ {a.name}</span>
+                                  <span className="text-gray-700 shrink-0">€{Number(a.price).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           <div className="flex items-center gap-1.5 mt-2">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.7" strokeLinecap="round">
                               <path d="M5 13V8a4 4 0 0 1 4-4h2M11 4a3 3 0 0 1 3 3v6"/>
