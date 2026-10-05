@@ -1147,7 +1147,7 @@ function MapPageContent() {
             <div className="self-start inline-flex items-center gap-2 px-3 py-2 rounded-full bg-gray-900 text-white text-[12px] font-semibold tracking-tight"
                  style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
               <span>🎁</span>
-              <span>{locale === 'en' ? '−€3 on your first wash · pay at the car wash' : '−3€ στο πρώτο σου πλύσιμο · πληρώνεις στο πλυντήριο'}</span>
+              <span>{locale === 'en' ? '−€3 on your first wash' : '−3€ στο πρώτο σου πλύσιμο'}</span>
             </div>
           )}
 
