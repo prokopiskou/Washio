@@ -95,6 +95,13 @@ export async function POST(req: NextRequest) {
     const intent = event.data.object as Stripe.PaymentIntent
     const m = intent.metadata
 
+    // Ο λογαριασμός Stripe είναι ΚΟΙΝΟΣ με το WithinSuccess: πληρωμές που ΔΕΝ είναι κράτηση
+    // Washio (χωρίς locationId/serviceId/slotDate) → 200 «ignored». Πριν επέστρεφε 500 →
+    // το Stripe ξαναδοκίμαζε για μέρες και τελικά ΑΠΕΝΕΡΓΟΠΟΙΗΣΕ το endpoint (χάθηκαν κρατήσεις).
+    if (!m?.locationId || !m?.serviceId || !m?.slotDate || !m?.slotStartTime) {
+      return NextResponse.json({ received: true, ignored: 'not a washio booking' })
+    }
+
     // Idempotency check — αν υπάρχει ήδη booking για αυτό το payment, skip
     const { data: existing } = await supabase
       .from('bookings')
