@@ -112,13 +112,14 @@ async function campaignStats() {
   let after: string | undefined
   for (let page = 0; page < 40; page++) {
     const url = 'https://api.resend.com/emails?limit=100' + (after ? `&after=${after}` : '')
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` }, cache: 'no-store' })
+    // Ξεχωριστό key ΜΟΝΟ για ανάγνωση στατιστικών (Full access). Το key αποστολής μένει «Sending access».
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${process.env.RESEND_STATS_API_KEY || process.env.RESEND_API_KEY}` }, cache: 'no-store' })
     if (res.status === 429) { await new Promise(r => setTimeout(r, 1200)); page--; continue }
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
       const m = String(json?.message || json?.name || res.status)
       throw new Error(/restricted|permission|sending access/i.test(m)
-        ? 'Το Resend API key είναι «Sending access» — δεν επιτρέπει ανάγνωση στατιστικών. Χρειάζεται key με «Full access».'
+        ? 'Λείπει το RESEND_STATS_API_KEY (Resend key με «Full access») στο Vercel — χωρίς αυτό δεν διαβάζονται στατιστικά.'
         : 'Resend: ' + m)
     }
     const data = (json.data || []) as ResendListed[]
