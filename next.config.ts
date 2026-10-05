@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: '/insta', destination: '/?ref=WASHIO&utm_source=instagram&utm_medium=bio&utm_campaign=welcome3', permanent: false },
-      { source: '/tiktok', destination: '/?utm_source=tiktok&utm_medium=bio&utm_campaign=launch', permanent: false },
+      { source: '/tiktok', destination: '/?ref=WASHIO&utm_source=tiktok&utm_medium=bio&utm_campaign=welcome3', permanent: false },
       { source: '/yt', destination: '/?utm_source=youtube&utm_medium=bio&utm_campaign=launch', permanent: false },
       { source: '/fb', destination: '/?ref=WASHIO&utm_source=facebook&utm_medium=page&utm_campaign=welcome3', permanent: false },
     ]
