@@ -19,8 +19,8 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 // Τρέχουσα καμπάνια: λήξη κουπονιού −3€ τη Δευτέρα 12/10. (Προηγούμενη: sunny_week_oct.)
 const CAMPAIGN = 'coupon_expiry_1210'
 const URL_CTA = `https://washio.gr/map?utm_source=email&utm_medium=campaign&utm_campaign=${CAMPAIGN}`
-const SUBJECT = 'Το −3€ σου λήγει τη Δευτέρα 12/10'
-const PREHEADER = 'Κλείσε πλύσιμο σε 30″ και πλήρωσε εκεί, στο πλυντήριο.'
+const SUBJECT = 'Το πλύσιμό σου έγινε 3€ φθηνότερο μέχρι τη Δευτέρα 12/10'
+const PREHEADER = 'Γιατί να το χάσεις; Κλείσε ραντεβού και πλήρωσε στο πλυντήριο.'
 
 function html(hasCoupon: boolean, ctaUrl: string = URL_CTA): string {
   const row = (t: string) => `<tr><td style="padding:5px 0;vertical-align:top;width:26px;"><span style="display:inline-block;width:18px;height:18px;border-radius:9px;background:#19A8C7;color:#fff;font-size:12px;line-height:18px;text-align:center;font-weight:700;">✓</span></td><td style="padding:5px 0;color:#374151;font-size:14px;line-height:1.5;">${t}</td></tr>`
@@ -32,15 +32,15 @@ function html(hasCoupon: boolean, ctaUrl: string = URL_CTA): string {
       <p style="margin:0;color:#19A8C7;font-size:12px;font-weight:700;letter-spacing:1.6px;">ΤΟ ΚΟΥΠΟΝΙ ΣΟΥ ΛΗΓΕΙ</p>
     </div>
     <div style="background:#FFFFFF;border:1px solid #E8EEF2;border-top:none;border-radius:0 0 18px 18px;padding:28px;">
-      <h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;">Το −3€ σου ισχύει μέχρι τη <span style="color:#078EAD;">Δευτέρα 12/10</span>.</h1>
-      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Κλείσε το πλύσιμό σου από το κινητό σε 30″. <strong style="color:#10182A;">Πληρώνεις εκεί, στο πλυντήριο</strong> — με μετρητά ή κάρτα.</p>
+      <h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;">Το πλύσιμό σου έγινε 3€ φθηνότερο μέχρι τη <span style="color:#078EAD;">Δευτέρα 12/10</span>.</h1>
+      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;"><strong style="color:#10182A;">Γιατί να το χάσεις;</strong> Βρες το πλυντήριο που σε βολεύει, κλείσε ραντεβού και άσε την αναμονή για τον επόμενο.</p>
       ${hasCoupon ? `<div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 20px;">
-        <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 −3€ στο πρώτο σου πλύσιμο</p>
-        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Είναι ήδη στον λογαριασμό σου · Λήγει Δευτέρα 12/10 · Σε πλύσιμο από 12€.</p>
+        <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 3€ έκπτωση στο πρώτο σου πλύσιμο</p>
+        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Είναι ήδη στον λογαριασμό σου · Πληρώνεις στο πλυντήριο ή με κάρτα · Σε πλύσιμο από 12€.</p>
       </div>` : ''}
       <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border-collapse:collapse;">
         ${row('Ελεύθερες ώρες σε πραγματικό χρόνο')}
-        ${row('Πας στην ώρα σου — χωρίς ουρά')}
+        ${row('Πας στην ώρα σου, χωρίς ουρά')}
         ${row('Δωρεάν ακύρωση έως 2 ώρες πριν')}
       </table>
       <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε το ραντεβού σου →</a>
