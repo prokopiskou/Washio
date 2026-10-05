@@ -4,7 +4,7 @@ import { Resend } from 'resend'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail, ADMIN_EMAILS } from '@/lib/admins'
 
-// Καμπάνια email «Από Δευτέρα ήλιος — κλείσε με −3€».
+// Καμπάνια email (τρέχουσα: «Το −3€ σου λήγει τη Δευτέρα 12/10»).
 // POST { mode: 'preview' }  → πόσοι παραλήπτες + δείγμα (δεν στέλνει τίποτα)
 // POST { mode: 'test' }     → στέλνει ΜΟΝΟ στον admin που είναι συνδεδεμένος
 // POST { mode: 'send' }     → στέλνει σε όλους τους παραλήπτες (batch, έως 100/κλήση)
@@ -16,31 +16,40 @@ export const maxDuration = 60
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const CAMPAIGN = 'sunny_week_oct'
+// Τρέχουσα καμπάνια: λήξη κουπονιού −3€ τη Δευτέρα 12/10. (Προηγούμενη: sunny_week_oct.)
+const CAMPAIGN = 'coupon_expiry_1210'
 const URL_CTA = `https://washio.gr/map?utm_source=email&utm_medium=campaign&utm_campaign=${CAMPAIGN}`
-const SUBJECT = 'Από Δευτέρα ήλιος ☀️ Κλείσε το πλύσιμό σου με −3€'
+const SUBJECT = 'Το −3€ σου λήγει τη Δευτέρα 12/10'
+const PREHEADER = 'Κλείσε πλύσιμο σε 30″ και πλήρωσε εκεί, στο πλυντήριο.'
 
 function html(hasCoupon: boolean, ctaUrl: string = URL_CTA): string {
+  const row = (t: string) => `<tr><td style="padding:5px 0;vertical-align:top;width:26px;"><span style="display:inline-block;width:18px;height:18px;border-radius:9px;background:#19A8C7;color:#fff;font-size:12px;line-height:18px;text-align:center;font-weight:700;">✓</span></td><td style="padding:5px 0;color:#374151;font-size:14px;line-height:1.5;">${t}</td></tr>`
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${PREHEADER}</div>
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px 16px;">
     <div style="background:#10182A;border-radius:18px 18px 0 0;padding:28px 28px 22px;text-align:center;">
       <img src="https://washio.gr/logo.png" alt="Washio" width="120" style="display:block;margin:0 auto 6px;" />
-      <p style="margin:0;color:#19A8C7;font-size:12px;font-weight:700;letter-spacing:1.6px;">ΚΑΙΡΟΣ ΓΙΑ ΠΛΥΣΙΜΟ</p>
+      <p style="margin:0;color:#19A8C7;font-size:12px;font-weight:700;letter-spacing:1.6px;">ΤΟ ΚΟΥΠΟΝΙ ΣΟΥ ΛΗΓΕΙ</p>
     </div>
     <div style="background:#FFFFFF;border:1px solid #E8EEF2;border-top:none;border-radius:0 0 18px 18px;padding:28px;">
-      <h1 style="margin:0 0 14px;color:#10182A;font-size:22px;line-height:1.3;font-weight:800;">Από Δευτέρα, μια ολόκληρη εβδομάδα ήλιος. ☀️</h1>
-      <p style="margin:0 0 12px;color:#4B5563;font-size:15px;line-height:1.6;">Μετά τις μπόρες του Σαββατοκύριακου, ήρθε η καλύτερη στιγμή για να λάμψει ξανά το αυτοκίνητό σου.</p>
-      <p style="margin:0 0 20px;color:#4B5563;font-size:15px;line-height:1.6;"><strong style="color:#10182A;">Κλείσε από τώρα το ραντεβού σου</strong> για Δευτέρα ή όποια μέρα σε βολεύει. Πας και σε περιμένουν. Χωρίς αναμονή.</p>
-      ${hasCoupon ? `<div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 22px;">
-        <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 Το κουπόνι −3€ είναι ήδη στον λογαριασμό σου</p>
-        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Κλείσε τώρα, πλήρωσε εκεί. Σε πλύσιμο από 12€.</p>
+      <h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;">Το −3€ σου ισχύει μέχρι τη <span style="color:#078EAD;">Δευτέρα 12/10</span>.</h1>
+      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Κλείσε το πλύσιμό σου από το κινητό σε 30″. <strong style="color:#10182A;">Πληρώνεις εκεί, στο πλυντήριο</strong> — με μετρητά ή κάρτα.</p>
+      ${hasCoupon ? `<div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 20px;">
+        <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 −3€ στο πρώτο σου πλύσιμο</p>
+        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Είναι ήδη στον λογαριασμό σου · Λήγει Δευτέρα 12/10 · Σε πλύσιμο από 12€.</p>
       </div>` : ''}
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border-collapse:collapse;">
+        ${row('Ελεύθερες ώρες σε πραγματικό χρόνο')}
+        ${row('Πας στην ώρα σου — χωρίς ουρά')}
+        ${row('Δωρεάν ακύρωση έως 2 ώρες πριν')}
+      </table>
       <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε το ραντεβού σου →</a>
       <p style="margin:20px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;text-align:center;">📍 Αργυρούπολη · Άλιμος · Άγ. Δημήτριος · Ηλιούπολη · Βύρωνας · Ζωγράφου</p>
     </div>
     <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; <a href="mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio" style="color:#9AA3AF;">Διαγραφή</a>.</p>
   </div></body></html>`
 }
+
 
 // ΠΡΟΣΩΠΙΚΟ link: συνδέει αυτόματα τον χρήστη (χωρίς κωδικό) και τον πάει στον χάρτη.
 // Ισχύει όσο το «Email OTP expiration» του Supabase (ρυθμισμένο στις 24 ώρες).
