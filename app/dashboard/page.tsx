@@ -105,9 +105,10 @@ type Review = {
 }
 
 const DAYS = ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή']
-const HOUR_OPTIONS = Array.from({ length: 16 }, (_, i) => {
-  const hour = 7 + i
-  return `${String(hour).padStart(2, '0')}:00`
+// Ανά μισάωρο: 07:00, 07:30, … 22:00
+const HOUR_OPTIONS = Array.from({ length: 31 }, (_, i) => {
+  const mins = 7 * 60 + i * 30
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
 })
 
 // Όλες οι μέρες ΚΛΕΙΣΤΕΣ by default — ο ιδιοκτήτης ανοίγει & ορίζει ό,τι θέλει.
@@ -2300,9 +2301,11 @@ export default function DashboardPage() {
                                       type="button"
                                       onClick={() => {
                                         // Πρόταση 2ου ωραρίου: 1 ώρα μετά το τέλος του 1ου, έως 21:00.
-                                        const end = parseInt(String(row.close_time).slice(0, 2), 10) || 15
-                                        const o2 = `${String(Math.min(end + 1, 21)).padStart(2, '0')}:00`
-                                        const c2 = `${String(Math.min(Math.max(end + 5, 18), 22)).padStart(2, '0')}:00`
+                                        const ct = String(row.close_time).slice(0, 5)
+                                        const end = (Number(ct.slice(0, 2)) || 15) * 60 + (Number(ct.slice(3, 5)) || 0)
+                                        const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
+                                        const o2 = fmt(Math.min(end + 60, 21 * 60))
+                                        const c2 = fmt(Math.min(Math.max(end + 5 * 60, 18 * 60), 22 * 60))
                                         upd({ open_time2: o2, close_time2: c2 }); lightTap()
                                       }}
                                       aria-label={t('Δεύτερο ωράριο')}
