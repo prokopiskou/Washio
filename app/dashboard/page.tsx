@@ -630,7 +630,7 @@ export default function DashboardPage() {
         const point = points.find(p => p.dateStr === b.slot_date)
         if (!point) return
         if (b.status !== 'cancelled') point.bookings++
-        if (b.status === 'completed') point.revenue += Number(b.total_amount || 0)
+        if (b.status === 'completed') point.revenue += Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0))
       })
       return points.map(({ label, revenue, bookings: bCount }) => ({ label, revenue, bookings: bCount }))
     }
@@ -648,7 +648,7 @@ export default function DashboardPage() {
       const point = points.find(p => p.key === key)
       if (!point) return
       if (b.status !== 'cancelled') point.bookings++
-      if (b.status === 'completed') point.revenue += Number(b.total_amount || 0)
+      if (b.status === 'completed') point.revenue += Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0))
     })
     return points.map(({ label, revenue, bookings: bCount }) => ({ label, revenue, bookings: bCount }))
   }, [bookings, chartPeriod, dl])
@@ -660,7 +660,7 @@ export default function DashboardPage() {
 
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   const monthlyBookings = bookings.filter(b => b.slot_date && new Date(b.slot_date) >= monthStart)
-  const monthlyRevenue = monthlyBookings.filter(b => b.status === 'completed').reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
+  const monthlyRevenue = monthlyBookings.filter(b => b.status === 'completed').reduce((sum, b) => sum + Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)), 0)
   const todayBookings = bookings.filter(b => b.slot_date === ymdFromLocalDate(new Date()))
 
   const statusClass = (status?: string) => {

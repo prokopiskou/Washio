@@ -134,7 +134,9 @@ export default function AdminPage() {
   // Τα έσοδα μετράνε ΜΟΝΟ τις κρατήσεις της πλατφόρμας — οι χειροκίνητες
   // (source='manual', εκτός πλατφόρμας) δεν προσμετρώνται στα δικά μας έσοδα.
   const platformBookings = bookings.filter(b => b.source !== 'manual')
-  const totalRevenue = platformBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0)
+  // Έσοδα = ό,τι πλήρωσε ο πελάτης για το πλύσιμο: τιμή − κουπόνι (π.χ. 20 − 3 = 17).
+  const netAmt = (b: any) => Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0))
+  const totalRevenue = platformBookings.reduce((sum, b) => sum + netAmt(b), 0)
   const totalCommission = platformBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
   // Μετρητές: ΜΟΝΟ κρατήσεις της πλατφόρμας (όχι τα χειροκίνητα ραντεβού των πλυντηρίων).
   const completedBookings = platformBookings.filter(b => b.status === 'completed').length
@@ -176,7 +178,7 @@ export default function AdminPage() {
     })
     return {
       month: MONTHS_SHORT[month],
-      revenue: monthBookings.reduce((sum, b) => sum + Number(b.total_amount || 0), 0),
+      revenue: monthBookings.reduce((sum, b) => sum + netAmt(b), 0),
       commission: monthBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0),
     }
   })
@@ -184,7 +186,7 @@ export default function AdminPage() {
   const topLocations = locations.map(loc => ({
     ...loc,
     bookingCount: bookings.filter(b => b.locations?.name === loc.name).length,
-    revenue: platformBookings.filter(b => b.locations?.name === loc.name).reduce((sum, b) => sum + Number(b.total_amount || 0), 0),
+    revenue: platformBookings.filter(b => b.locations?.name === loc.name).reduce((sum, b) => sum + netAmt(b), 0),
     commission: platformBookings.filter(b => b.locations?.name === loc.name).reduce((sum, b) => sum + Number(b.platform_fee || 0), 0),
   })).sort((a, b) => b.bookingCount - a.bookingCount)
 
@@ -654,8 +656,8 @@ export default function AdminPage() {
                             </p>
                           </div>
                           <p className="text-[13px] font-semibold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                            €{Number(b.total_amount).toFixed(0)}
-                            {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι</span>}
+                            €{netAmt(b).toFixed(0)}
+                            {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
                           </p>
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${pill || 'bg-gray-50 text-gray-500'}`}>
                             {statusLabels[b.status] || b.status}
@@ -829,9 +831,9 @@ export default function AdminPage() {
 
                               <div className="flex flex-col items-end gap-1 shrink-0">
                                 <p className="text-[16px] font-bold tracking-tight text-gray-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                  €{Number(b.total_amount || 0).toFixed(0)}
+                                  €{netAmt(b).toFixed(0)}
                                 </p>
-                                {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι</span>}
+                                {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
 
                                 <div className="flex flex-col gap-1 mt-1">
                                   {/* Εκτός πλατφόρμας (manual): δεν περνάει από εμάς — ούτε refund ούτε ακύρωση από admin. */}
@@ -1129,8 +1131,8 @@ export default function AdminPage() {
                                     </p>
                                   </div>
                                   <p className="text-[13px] font-bold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                    €{Number(b.total_amount || 0).toFixed(0)}
-                                    {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι</span>}
+                                    €{netAmt(b).toFixed(0)}
+                                    {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
                                   </p>
                                   <span
                                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0"
@@ -1561,7 +1563,7 @@ export default function AdminPage() {
                   return {
                     ...loc,
                     bookingCount: lb.length,
-                    revenue: lb.reduce((s, b) => s + Number(b.total_amount || 0), 0),
+                    revenue: lb.reduce((s, b) => s + netAmt(b), 0),
                     commission: lb.reduce((s, b) => s + Number(b.platform_fee || 0), 0),
                   }
                 }).filter(l => l.bookingCount > 0).sort((a, b) => b.commission - a.commission)
