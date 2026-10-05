@@ -654,6 +654,7 @@ export default function AdminPage() {
                           </div>
                           <p className="text-[13px] font-semibold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
                             €{Number(b.total_amount).toFixed(0)}
+                            {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι</span>}
                           </p>
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${pill || 'bg-gray-50 text-gray-500'}`}>
                             {statusLabels[b.status] || b.status}
@@ -829,6 +830,7 @@ export default function AdminPage() {
                                 <p className="text-[16px] font-bold tracking-tight text-gray-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   €{Number(b.total_amount || 0).toFixed(0)}
                                 </p>
+                                {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι</span>}
 
                                 <div className="flex flex-col gap-1 mt-1">
                                   {/* Εκτός πλατφόρμας (manual): δεν περνάει από εμάς — ούτε refund ούτε ακύρωση από admin. */}
@@ -1127,6 +1129,7 @@ export default function AdminPage() {
                                   </div>
                                   <p className="text-[13px] font-bold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                     €{Number(b.total_amount || 0).toFixed(0)}
+                                    {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι</span>}
                                   </p>
                                   <span
                                     className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold shrink-0"

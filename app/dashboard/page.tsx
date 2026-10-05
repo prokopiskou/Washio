@@ -1169,7 +1169,7 @@ export default function DashboardPage() {
                         <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-900">€{Number(b.total_amount || 0).toFixed(0)}</p>
+                        <p className="text-sm text-gray-900">€{Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)).toFixed(0)}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
                       </div>
                     </div>
@@ -1411,8 +1411,11 @@ export default function DashboardPage() {
 
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <p className="text-[16px] font-bold tracking-tight text-gray-900">
-                            €{Number(b.total_amount || 0).toFixed(0)}
+                            €{Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)).toFixed(0)}
                           </p>
+                          {Number(b.coupon_amount) > 0 && (
+                            <p className="text-[10px] font-semibold text-green-600 -mt-1">+€{Number(b.coupon_amount).toFixed(0)} {t('από Washio')}</p>
+                          )}
                           {pill && (
                             <span
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-tight"

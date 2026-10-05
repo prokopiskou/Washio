@@ -49,6 +49,7 @@ type UserBooking = {
   slot_date: string
   slot_start_time: string
   total_amount: number
+  coupon_amount?: number | null
   status: string
   locations?: { name?: string } | null
   services?: { name?: string } | null
@@ -156,7 +157,8 @@ function BookingCard({
           {booking.booking_ref}
         </p>
         <p className="text-[15px] font-bold tracking-tight text-gray-900">
-          €{Number(booking.total_amount || 0).toFixed(2)}
+          {/* Ό,τι ΠΛΗΡΩΝΕΙ ο πελάτης: τιμή − κουπόνι */}
+          €{Math.max(0, Number(booking.total_amount || 0) - (Number(booking.coupon_amount) || 0)).toFixed(2)}
         </p>
       </div>
     </button>
@@ -183,7 +185,7 @@ export default function ProfileBookingsPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select('id, booking_ref, slot_date, slot_start_time, total_amount, status, locations(name), services(name)')
+        .select('id, booking_ref, slot_date, slot_start_time, total_amount, coupon_amount, status, locations(name), services(name)')
         .eq('user_id', user.id)
         .order('slot_date', { ascending: false })
 

@@ -36,6 +36,7 @@ export const DASH_EN: Record<string, string> = {
   'κουπόνι': 'coupon',
   '(σου επιστρέφεται)': '(we reimburse you)',
   'στο κατάστημα': 'at the venue',
+  'από Washio': 'from Washio',
   'Όλες': 'All',
   'Ολοκληρωμένες': 'Completed',
   'Δεν ήρθαν': 'No-shows',
