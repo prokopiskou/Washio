@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `Μπορείς να το δηλώσεις ${NO_SHOW_FROM_MIN}' μετά την ώρα του ραντεβού.` }, { status: 409 })
       }
       if (now > start + NO_SHOW_UNTIL_MIN * 60_000) {
-        return NextResponse.json({ error: `Έληξε το περιθώριο (${NO_SHOW_UNTIL_MIN}' μετά το ραντεβού) — η κράτηση θεωρείται ολοκληρωμένη.` }, { status: 409 })
+        return NextResponse.json({ error: 'closed' }, { status: 409 })
       }
     }
 

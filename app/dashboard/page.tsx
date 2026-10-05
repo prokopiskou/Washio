@@ -844,13 +844,16 @@ export default function DashboardPage() {
     }
   }
 
-  // «Δεν εμφανίστηκε» — μόνο αφού περάσουν 15' από την ώρα του ραντεβού.
+  // «Δεν εμφανίστηκε» — μόνο 15'–45' μετά την ώρα του ραντεβού (ο server το επιβάλλει).
   const markNoShow = async (b: Booking) => {
     if (!confirm(t('Ο πελάτης δεν εμφανίστηκε; Η κράτηση θα σημανθεί ως no-show.'))) return
-    const supabase = createClient()
-    const { error } = await supabase.from('bookings')
-      .update({ status: 'no_show' })
-      .eq('id', b.id)
+    const res = await fetch('/api/bookings/no-show', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId: b.id }),
+    }).catch(() => null)
+    const error = !res || !res.ok
+    // Αν έληξε το περιθώριο: κανένα μήνυμα — απλώς εξαφανίζεται το κουμπί.
+    setNowTick(Date.now())
     if (!error) {
       setBookings(prev => prev.map(x => x.id === b.id ? { ...x, status: 'no_show' } : x))
       setCalendarBookings(prev => prev.map(x => x.id === b.id ? { ...x, status: 'no_show' } : x))
