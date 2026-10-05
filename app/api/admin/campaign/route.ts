@@ -107,6 +107,18 @@ async function recipients() {
 // last_event: sent | delivered | opened | clicked | bounced | complained | failed | suppressed | delivery_delayed
 type ResendListed = { id: string; to: string[]; subject: string; created_at: string; last_event: string }
 
+// Resend: «2026-10-05 10:50:12.123456+00» → έγκυρο ISO (T, ms, +00:00).
+function resendDateToIso(v: string): string {
+  const m = String(v).trim().match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(\.\d+)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/)
+  if (!m) { const d = new Date(v); return isNaN(d.getTime()) ? new Date(0).toISOString() : d.toISOString() }
+  const ms = m[3] ? m[3].slice(0, 4).padEnd(4, '0') : '.000'
+  let tz = m[4] || 'Z'
+  if (/^[+-]\d{2}$/.test(tz)) tz += ':00'
+  else if (/^[+-]\d{4}$/.test(tz)) tz = tz.slice(0, 3) + ':' + tz.slice(3)
+  const d = new Date(`${m[1]}T${m[2]}${ms}${tz}`)
+  return isNaN(d.getTime()) ? new Date(0).toISOString() : d.toISOString()
+}
+
 async function campaignStats() {
   const emails: ResendListed[] = []
   let after: string | undefined
@@ -151,7 +163,7 @@ async function campaignStats() {
     }
     if (ids.length) {
       const { data: bk } = await admin.from('bookings').select('user_id, total_amount')
-        .in('user_id', ids).neq('status', 'cancelled').gte('created_at', new Date(firstSent.replace(' ', 'T')).toISOString())
+        .in('user_id', ids).neq('status', 'cancelled').gte('created_at', resendDateToIso(firstSent))
       bookings = bk?.length || 0
       bookers = new Set((bk || []).map(b => b.user_id)).size
       revenue = (bk || []).reduce((s, b) => s + Number(b.total_amount || 0), 0)
