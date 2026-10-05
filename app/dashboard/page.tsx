@@ -1274,9 +1274,8 @@ export default function DashboardPage() {
                 // «Πλήρωσε εκεί» με κουπόνι Washio: εισπράττεις τιμή − κουπόνι (αυτό είναι το ποσό, χωρίς επιστροφή).
                 const cp = Number(b.coupon_amount) || 0
                 const collect = Math.max(0, Number(b.total_amount || 0) - cp)
-                return cp > 0
-                  ? { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εισπράττεις')} €${collect.toFixed(2)} · 🎁 ${t('κουπόνι')} −€${cp.toFixed(0)}` }
-                  : { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εισπράττεις')} €${collect.toFixed(2)} ${t('στο κατάστημα')}` }
+                // Μόνο το τελικό ποσό — καμία αναφορά σε κουπόνι.
+                return { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εισπράττεις')} €${collect.toFixed(2)} ${t('στο κατάστημα')}` }
               }
               if (b.stripe_payment_status === 'paid') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('💳 Πληρωμένη με κάρτα') }
               return null
@@ -1413,9 +1412,6 @@ export default function DashboardPage() {
                           <p className="text-[16px] font-bold tracking-tight text-gray-900">
                             €{Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)).toFixed(0)}
                           </p>
-                          {Number(b.coupon_amount) > 0 && (
-                            <p className="text-[10px] font-semibold text-green-600 -mt-1">{t('κουπόνι')} −€{Number(b.coupon_amount).toFixed(0)}</p>
-                          )}
                           {pill && (
                             <span
                               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold tracking-tight"

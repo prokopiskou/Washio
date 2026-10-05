@@ -260,7 +260,7 @@ export async function POST(req: NextRequest) {
         const dPush = new Date(slotDate)
         await sendPush(ownerId, {
           title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
-          body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις €${payable.toFixed(2)} στο κατάστημα${couponAmount > 0 ? ` (κουπόνι Washio −€${couponAmount.toFixed(0)})` : ''}`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
+          body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις €${payable.toFixed(2)} στο κατάστημα`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
           url: '/dashboard',
         })
       }
@@ -275,9 +275,9 @@ export async function POST(req: NextRequest) {
       slotDate,
       slotStartTime: slotStartTime as string,
       carPlate,
-      total: amount,
+      // Στο πλυντήριο λέμε ΜΟΝΟ το τελικό ποσό που εισπράττει (τιμή − κουπόνι).
+      total: payable,
       isCash: true,
-      couponAmount,
     })
 
     // 5) Επιβεβαιωτικό email (best-effort).
