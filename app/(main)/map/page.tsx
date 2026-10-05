@@ -428,7 +428,24 @@ function MapPageContent() {
     }
 
     setFilteredLocations([...available, ...unavailable])
+    // Cache για ΑΜΕΣΕΣ πινέζες στο επόμενο άνοιγμα (ανανεώνεται αμέσως μετά με φρέσκα δεδομένα).
+    if (timing === 'now') {
+      try { localStorage.setItem(LOCS_CACHE_KEY, JSON.stringify({ at: Date.now(), locs: [...available, ...unavailable] })) } catch { /* ignore */ }
+    }
   }, [timing, selectedDate, selectedTime])
+
+  // Πινέζες ΑΜΕΣΑ από την τελευταία επίσκεψη (≤30') — τα φρέσκα δεδομένα έρχονται σε <1″.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LOCS_CACHE_KEY)
+      if (!raw) return
+      const c = JSON.parse(raw) as { at: number; locs: Location[] }
+      if (Date.now() - c.at < 30 * 60_000 && Array.isArray(c.locs) && c.locs.length) {
+        setAllLocations(prev => (prev.length ? prev : c.locs))
+        setFilteredLocations(prev => (prev.length ? prev : c.locs))
+      }
+    } catch { /* ignore */ }
+  }, [])
 
   useEffect(() => {
     track('map_viewed')
@@ -1571,6 +1588,8 @@ function MapPageContent() {
     </main>
   )
 }
+
+const LOCS_CACHE_KEY = 'washio_map_locs_v1'
 
 export default function MapPage() {
   return (

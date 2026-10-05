@@ -1,3 +1,4 @@
+import MapsPreloader from '@/components/MapsPreloader'
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -43,6 +44,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Washio" />
         <link rel="apple-touch-icon" href="/washio-logo.png" />
+        {/* Γρηγορότερος χάρτης: έτοιμες συνδέσεις σε Google Maps & Supabase πριν χρειαστούν */}
+        <link rel="preconnect" href="https://maps.googleapis.com" />
+        <link rel="preconnect" href="https://maps.gstatic.com" crossOrigin="" />
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="" />
       </head>
       <body className="min-h-full flex flex-col">
         <LanguageProvider>
@@ -50,6 +55,7 @@ export default function RootLayout({
           <RegistrationTracker />
           {children}
           <GetAppButton />
+          <MapsPreloader />
           <Analytics />
           <AnalyticsScripts />
         </LanguageProvider>
