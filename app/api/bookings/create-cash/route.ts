@@ -197,7 +197,8 @@ export async function POST(req: NextRequest) {
 
     // 4a) Κουπόνι Washio ΚΑΙ στα μετρητά («Κλείσε τώρα, πλήρωσε εκεί»): ίδιοι κανόνες με την
     //     κάρτα (≥12€, έως 3€, όχι υπηρεσία εύρους). Ο πελάτης πληρώνει amount − coupon στο
-    //     πλυντήριο· το Washio επιστρέφει το coupon στο πλυντήριο στην εκκαθάριση (admin payouts).
+    //     πλυντήριο — ΤΕΛΟΣ. Η έκπτωση ΔΕΝ επιστρέφεται στο πλυντήριο· η προμήθεια υπολογίζεται
+    //     στο ποσό που όντως εισπράττει (payable).
     let couponAmount = 0
     if (!isRange && isCreditEligible(amount)) {
       const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
@@ -208,7 +209,7 @@ export async function POST(req: NextRequest) {
     // Προμήθεια: ποσοστό του πλυντηρίου (όπως η κάρτα), μηδέν όπου ισχύει η συμφωνία κουπονιού.
     const { data: locRate } = await admin.from('locations').select('commission_rate').eq('id', locationId).maybeSingle()
     const cashRate = Number(locRate?.commission_rate ?? 10) / 100
-    const cashFee = couponWaivesCommission(locationId, couponAmount) ? 0 : +(amount * cashRate).toFixed(2)
+    const cashFee = couponWaivesCommission(locationId, couponAmount) ? 0 : +(payable * cashRate).toFixed(2)
 
     // ΑΤΟΜΙΚΟ insert: κλειδαριά ανά (πλυντήριο, μέρα) + έλεγχος πληρότητας
     // μέσα στη βάση — δύο ταυτόχρονες κρατήσεις δεν χωράνε πια στο ίδιο slot.
@@ -259,7 +260,7 @@ export async function POST(req: NextRequest) {
         const dPush = new Date(slotDate)
         await sendPush(ownerId, {
           title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
-          body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις €${payable.toFixed(2)} στο κατάστημα${couponAmount > 0 ? ` (κουπόνι Washio −€${couponAmount.toFixed(0)}, σου επιστρέφεται)` : ''}`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
+          body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις €${payable.toFixed(2)} στο κατάστημα${couponAmount > 0 ? ` (κουπόνι Washio −€${couponAmount.toFixed(0)})` : ''}`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
           url: '/dashboard',
         })
       }

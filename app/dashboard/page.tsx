@@ -1271,11 +1271,11 @@ export default function DashboardPage() {
             const paymentBadge = (b: Booking) => {
               if (b.source === 'manual') return { bg: '#F3F4F6', fg: '#4B5563', label: t('Εκτός πλατφόρμας') }
               if (b.stripe_payment_status === 'pay_at_venue') {
-                // «Πλήρωσε εκεί» με κουπόνι Washio: εισπράττεις τιμή − κουπόνι, το κουπόνι σου επιστρέφεται.
+                // «Πλήρωσε εκεί» με κουπόνι Washio: εισπράττεις τιμή − κουπόνι (αυτό είναι το ποσό, χωρίς επιστροφή).
                 const cp = Number(b.coupon_amount) || 0
                 const collect = Math.max(0, Number(b.total_amount || 0) - cp)
                 return cp > 0
-                  ? { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εισπράττεις')} €${collect.toFixed(2)} · 🎁 ${t('κουπόνι')} −€${cp.toFixed(0)} ${t('(σου επιστρέφεται)')}` }
+                  ? { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εισπράττεις')} €${collect.toFixed(2)} · 🎁 ${t('κουπόνι')} −€${cp.toFixed(0)}` }
                   : { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εισπράττεις')} €${collect.toFixed(2)} ${t('στο κατάστημα')}` }
               }
               if (b.stripe_payment_status === 'paid') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('💳 Πληρωμένη με κάρτα') }
@@ -1414,7 +1414,7 @@ export default function DashboardPage() {
                             €{Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)).toFixed(0)}
                           </p>
                           {Number(b.coupon_amount) > 0 && (
-                            <p className="text-[10px] font-semibold text-green-600 -mt-1">+€{Number(b.coupon_amount).toFixed(0)} {t('από Washio')}</p>
+                            <p className="text-[10px] font-semibold text-green-600 -mt-1">{t('κουπόνι')} −€{Number(b.coupon_amount).toFixed(0)}</p>
                           )}
                           {pill && (
                             <span

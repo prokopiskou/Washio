@@ -52,7 +52,7 @@ function ownerEmailHtml(data: {
     ? `<div style="background:#FFF7ED;border-radius:10px;padding:14px 16px;margin-bottom:24px;">
          <p style="color:#B45309;font-size:13px;margin:0;line-height:1.6;">
            💵 <strong>Μετρητά στο κατάστημα.</strong> Εισπράττεις εσύ <strong>€${collect}</strong> κατά την παράδοση.
-           ${coupon > 0 ? `<br/>🎁 Ο πελάτης έχει <strong>κουπόνι Washio −€${coupon.toFixed(2)}</strong> (τιμή €${data.total}). Τα €${coupon.toFixed(2)} <strong>σου τα επιστρέφουμε</strong> στην εκκαθάριση.` : ''}
+           ${coupon > 0 ? `<br/>🎁 Ο πελάτης έχει <strong>κουπόνι Washio −€${coupon.toFixed(2)}</strong> (τιμή €${data.total} → πληρώνει €${collect}).` : ''}
          </p>
        </div>`
     : `<div style="background:#F0F7FF;border-radius:10px;padding:14px 16px;margin-bottom:24px;">
@@ -102,7 +102,7 @@ export async function sendOwnerBookingEmail(
     carPlate?: string | null
     total: number
     isCash: boolean
-    /** Κουπόνι Washio (€). Σε μετρητά ο πελάτης πληρώνει total − couponAmount· το Washio το επιστρέφει στο πλυντήριο. */
+    /** Κουπόνι Washio (€). Σε μετρητά ο πελάτης πληρώνει total − couponAmount στο πλυντήριο (χωρίς επιστροφή). */
     couponAmount?: number
   }
 ): Promise<void> {

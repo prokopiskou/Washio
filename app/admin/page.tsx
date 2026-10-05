@@ -221,7 +221,7 @@ export default function AdminPage() {
     let onlineKept = 0   // online που κράτησε η Washio (μείον refunds) — incl. no-show
     let couponFree = 0   // online αξία κρατήσεων με κουπόνι 3€ σε πλυντήριο χωρίς προμήθεια (lib/commission)
     let cashGross = 0    // μετρητά σε ολοκληρωμένο πλύσιμο (τα κρατά το πλυντήριο)
-    let cashCoupon = 0   // κουπόνια Washio σε «πλήρωσε εκεί»: το πλυντήριο εισέπραξε λιγότερα → του τα ΧΡΩΣΤΑΣ
+    let cashCoupon = 0   // κουπόνια σε «πλήρωσε εκεί» — μόνο ενημερωτικά (ΔΕΝ επιστρέφονται στο πλυντήριο)
     let refunded = 0
     let completed = 0, noShow = 0, cancelled = 0
 
@@ -241,11 +241,13 @@ export default function AdminPage() {
       // 'refunded' → 0
       if (refund > 0) refunded += refund
       if (ps === 'pay_at_venue' && done) {
-        cashGross += amt
+        // Το πλυντήριο εισπράττει τιμή − κουπόνι· η προμήθεια υπολογίζεται σε αυτό.
         const cp = Number(b.coupon_amount) || 0
+        const collected = Math.max(0, amt - cp)
+        cashGross += collected
         cashCoupon += cp
         // Συμφωνία «χωρίς προμήθεια με κουπόνι» ισχύει και στα μετρητά.
-        if (cp > 0 && NO_COMMISSION_ON_COUPON_LOCATION_IDS.has(loc.id) && Number(b.platform_fee) === 0) couponFree += amt
+        if (cp > 0 && NO_COMMISSION_ON_COUPON_LOCATION_IDS.has(loc.id) && Number(b.platform_fee) === 0) couponFree += collected
       }
       if (done) completed++
       else if (b.status === 'no_show') noShow++
@@ -257,8 +259,7 @@ export default function AdminPage() {
     const washGets = +(gross - commission).toFixed(2)    // τι παίρνει ο ΠΛΥΝΤΗΡΙΑΣ (90%)
     // Καθαρός διακανονισμός: 90% online − 10% μετρητών.
     // >0 → του πληρώνεις.  <0 → σου χρωστάει προμήθεια.
-    // + κουπόνια μετρητών: τα πλήρωσε το Washio (ο πελάτης έδωσε τιμή − κουπόνι στο πλυντήριο).
-    const net = +(onlineKept - commission + cashCoupon).toFixed(2)
+    const net = +(onlineKept - commission).toFixed(2)
     const bank = loc.bank_name || bankFromIban(loc.iban) || ''
 
     const existingPayout = payouts.find(p => p.location_id === loc.id && p.month === payoutMonth)
@@ -1852,7 +1853,7 @@ export default function AdminPage() {
                           <p className="text-[11px] text-gray-400 mt-2">
                             Ολοκληρωμένα {loc.completed} · No-show {loc.noShow} · Ακυρώσεις {loc.cancelled}
                             {loc.refunded > 0 ? ` · Επιστροφές €${loc.refunded.toFixed(0)}` : ''}
-                            {loc.cashCoupon > 0 ? ` · Κουπόνια μετρητών που του οφείλεις €${loc.cashCoupon.toFixed(2)} (μέσα στο καθαρό)` : ''}
+                            {loc.cashCoupon > 0 ? ` · Κουπόνια σε μετρητά −€${loc.cashCoupon.toFixed(0)} (έκπτωση στο ταμείο)` : ''}
                           </p>
 
                           {/* Κόκκινη σημαία: υψηλό ποσοστό ακυρώσεων (πιθανή υποδήλωση) */}
