@@ -8,6 +8,7 @@ import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
+import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { redeemCredit } from '@/lib/referral'
 import { grantReferrerRewardIfFirst } from '@/lib/referral-server'
 import { couponWaivesCommission } from '@/lib/commission'
@@ -240,6 +241,13 @@ export async function POST(req: NextRequest) {
       total: parseFloat(m.amount),
       isCash: false,
     })
+
+    // Ειδοποίηση σε εσένα (admin): email + Telegram για κάθε νέα κράτηση.
+    await notifyAdminNewBooking({
+      bookingRef, locationName: locationData?.name || '—', serviceName: m.serviceName || 'Υπηρεσία',
+      slotDate: m.slotDate, slotTime: m.slotStartTime || '', total: parseFloat(m.amount),
+      coupon: parseFloat(m.appliedCredit || '0') || 0, method: 'card', customerEmail: m.userEmail || null,
+    }).catch(() => {})
 
     // Get user email
     let userEmail = m.userEmail || null

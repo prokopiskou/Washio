@@ -8,6 +8,7 @@ import { sendPush, getLocationOwnerId } from '@/lib/push'
 import { checkSlotAvailability, shouldNotifyOwnerNow } from '@/lib/availability-server'
 import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
+import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
 import { grantReferrerRewardIfFirst } from '@/lib/referral-server'
@@ -279,6 +280,17 @@ export async function POST(req: NextRequest) {
       total: payable,
       isCash: true,
     })
+
+    // Ειδοποίηση σε εσένα (admin): email + Telegram για κάθε νέα κράτηση.
+    try {
+      const { data: ln } = await admin.from('locations').select('name').eq('id', locationId).maybeSingle()
+      const { data: pf } = await admin.from('profiles').select('phone').eq('id', user.id).maybeSingle()
+      await notifyAdminNewBooking({
+        bookingRef, locationName: ln?.name || '—', serviceName: service.name || 'Υπηρεσία',
+        slotDate, slotTime: slotStartTime as string, total: amount, coupon: couponAmount,
+        method: 'venue', customerEmail: user.email, customerPhone: pf?.phone || null,
+      })
+    } catch { /* best-effort */ }
 
     // 5) Επιβεβαιωτικό email (best-effort).
     try {
