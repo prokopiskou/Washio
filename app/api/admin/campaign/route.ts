@@ -18,7 +18,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 
 // Τρέχουσα καμπάνια: λήξη κουπονιού −3€ τη Δευτέρα 12/10. (Προηγούμενη: sunny_week_oct.)
 const CAMPAIGN = 'coupon_expiry_1210'
-const URL_CTA = `https://washio.gr/map?utm_source=email&utm_medium=campaign&utm_campaign=${CAMPAIGN}`
+const URL_CTA = `https://www.washio.gr/map?utm_source=email&utm_medium=campaign&utm_campaign=${CAMPAIGN}`
 const SUBJECT = 'Η έκπτωσή σου λήγει σύντομα'
 const PREHEADER = 'Γιατί να το χάσεις; Κλείσε ραντεβού και πλήρωσε στο πλυντήριο.'
 
@@ -60,7 +60,7 @@ async function personalLink(email: string): Promise<string> {
     const th = data?.properties?.hashed_token
     if (error || !th) return URL_CTA
     const next = '/map?utm_source=email&utm_medium=campaign&utm_campaign=' + CAMPAIGN
-    return `https://washio.gr/auth/link?token_hash=${encodeURIComponent(th)}&next=${encodeURIComponent(next)}`
+    return `https://www.washio.gr/auth/link?token_hash=${encodeURIComponent(th)}&next=${encodeURIComponent(next)}`
   } catch { return URL_CTA }
 }
 
