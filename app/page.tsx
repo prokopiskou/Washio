@@ -185,7 +185,7 @@ export default function HomePage() {
 
       // Ξεκινά ΠΑΡΑΛΛΗΛΑ με τα παρακάτω (ίδιο round-trip): ωράριο/εξαιρέσεις σήμερα + ιστορικό σημείων.
       const extraP = Promise.all([
-        supabase.from('location_hours').select('location_id, open_time, close_time, is_closed')
+        supabase.from('location_hours').select('location_id, open_time, close_time, open_time2, close_time2, is_closed')
           .eq('day_of_week', weekdayMon1FromYmd(today)),
         supabase.from('location_hours_exceptions').select('location_id, is_closed').eq('exception_date', today),
         supabase.from('bookings').select('location_id').eq('user_id', user.id)
@@ -246,7 +246,8 @@ export default function HomePage() {
       const closedExc = new Set((excToday || []).filter((e: any) => e.is_closed).map((e: any) => e.location_id))
       const openIds = new Set((hoursToday || [])
         .filter((h: any) => !h.is_closed && !closedExc.has(h.location_id)
-          && toMin(h.open_time) <= nowMin && nowMin < toMin(h.close_time))
+          && ((toMin(h.open_time) <= nowMin && nowMin < toMin(h.close_time))
+            || (h.open_time2 && h.close_time2 && toMin(h.open_time2) <= nowMin && nowMin < toMin(h.close_time2))))
         .map((h: any) => h.location_id))
 
       // Σειρά: πρώτα όσα έχει ήδη κλείσει ο χρήστης (πιο πρόσφατα πρώτα), μετά τα ανοιχτά, μετά τα υπόλοιπα.

@@ -151,7 +151,7 @@ export default function LocationPage() {
           .from('locations')
           .select(`id, name, address, city, photos, capacity,
             services(id, name, description, price, price_moto, price_suv, duration_minutes, is_active, sort_order, is_range, price_min, price_max, price_min_suv, price_max_suv),
-            location_hours(day_of_week, is_closed, open_time, close_time),
+            location_hours(day_of_week, is_closed, open_time, close_time, open_time2, close_time2),
             reviews(rating)`)
           .eq('slug', slug)
           .single(),

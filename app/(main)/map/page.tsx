@@ -342,7 +342,7 @@ function MapPageContent() {
 
     const [{ data: locsData }, { data: hoursData }, { data: bookingsData }, { data: exceptionsData }] = await Promise.all([
       supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos, services(id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv, is_active, sort_order), reviews(rating)').eq('is_active', true),
-      supabase.from('location_hours').select('location_id, open_time, close_time, is_closed').eq('day_of_week', dayOfWeek),
+      supabase.from('location_hours').select('location_id, open_time, close_time, open_time2, close_time2, is_closed').eq('day_of_week', dayOfWeek),
       supabase.from('bookings').select('location_id, slot_start_time, duration_minutes').eq('slot_date', checkDate).not('status', 'in', '("cancelled","no_show")'),
       supabase.from('location_hours_exceptions').select('location_id, is_closed, closed_from, closed_to, periods').eq('exception_date', checkDate),
     ])
@@ -681,7 +681,7 @@ function MapPageContent() {
       const fetchNext = async () => {
         const supabase = createClient()
         const [{ data: hoursAll }, { data: excs }, { data: bks }, { data: capRow }] = await Promise.all([
-          supabase.from('location_hours').select('day_of_week, open_time, close_time, is_closed').eq('location_id', locId),
+          supabase.from('location_hours').select('day_of_week, open_time, close_time, open_time2, close_time2, is_closed').eq('location_id', locId),
           supabase.from('location_hours_exceptions').select('exception_date, periods, is_closed, closed_from, closed_to')
             .eq('location_id', locId).gte('exception_date', from).lte('exception_date', to),
           supabase.from('bookings').select('slot_date, slot_start_time, duration_minutes')
@@ -749,7 +749,7 @@ function MapPageContent() {
           .eq('exception_date', checkDate)
           .maybeSingle(),
         supabase.from('location_hours')
-          .select('open_time, close_time, is_closed')
+          .select('open_time, close_time, open_time2, close_time2, is_closed')
           .eq('location_id', selectedLocation.id).eq('day_of_week', dayOfWeek).maybeSingle(),
         supabase.from('bookings').select('slot_start_time, duration_minutes')
           .eq('location_id', selectedLocation.id).eq('slot_date', checkDate)

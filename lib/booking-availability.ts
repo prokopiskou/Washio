@@ -26,7 +26,7 @@ export async function offeredTimesForLocationDate(
 
   const { data: hours } = await admin
     .from('location_hours')
-    .select('open_time, close_time, is_closed')
+    .select('open_time, close_time, open_time2, close_time2, is_closed')
     .eq('location_id', locationId)
     .eq('day_of_week', dayOfWeek)
     .maybeSingle()

@@ -15,6 +15,8 @@ export type WeeklyHours = {
   open_time: string
   close_time: string
   is_closed?: boolean | null
+  open_time2?: string | null
+  close_time2?: string | null
 }
 
 export type HoursException = {
@@ -55,7 +57,9 @@ export function offeredTimesForDay(
     return (exception.periods || []).flatMap(p => generateSlots(p.open, p.close))
   }
   if (!weekly || weekly.is_closed) return []
-  return generateSlots(weekly.open_time, weekly.close_time)
+  const first = generateSlots(weekly.open_time, weekly.close_time)
+  if (weekly.open_time2 && weekly.close_time2) return [...first, ...generateSlots(weekly.open_time2, weekly.close_time2)]
+  return first
 }
 
 export function isSlotTooSoon(

@@ -28,7 +28,19 @@ export type WeeklyHours = {
   is_closed?: boolean
   open_time: string
   close_time: string
+  /** Προαιρετικό 2ο ωράριο της ίδιας μέρας (π.χ. 09:00–15:00 ΚΑΙ 16:00–21:00). */
+  open_time2?: string | null
+  close_time2?: string | null
 } | null | undefined
+
+/** Τα διαστήματα λειτουργίας μιας μέρας (1 ή 2), σε HH:MM. */
+export function weeklyRanges(h: NonNullable<WeeklyHours>): { open: string; close: string }[] {
+  const out = [{ open: h.open_time.slice(0, 5), close: h.close_time.slice(0, 5) }]
+  if (h.open_time2 && h.close_time2 && h.close_time2.slice(0, 5) > h.open_time2.slice(0, 5)) {
+    out.push({ open: h.open_time2.slice(0, 5), close: h.close_time2.slice(0, 5) })
+  }
+  return out
+}
 
 export type HoursException = {
   is_closed: boolean
@@ -117,7 +129,7 @@ export function computeSlots(args: ComputeSlotsArgs): SlotAvailability[] {
     baseRanges = legacyPeriods!
   } else {
     if (!dayHours || dayHours.is_closed) return []
-    baseRanges = [{ open: dayHours.open_time.slice(0, 5), close: dayHours.close_time.slice(0, 5) }]
+    baseRanges = weeklyRanges(dayHours)
   }
 
   // Κλειστό διάστημα από νέου τύπου εξαίρεση ώρας.
@@ -211,7 +223,7 @@ export function isOpenAtMinutes(args: {
     baseRanges = legacyPeriods!
   } else {
     if (!dayHours || dayHours.is_closed) return false
-    baseRanges = [{ open: dayHours.open_time.slice(0, 5), close: dayHours.close_time.slice(0, 5) }]
+    baseRanges = weeklyRanges(dayHours)
   }
 
   const inBase = baseRanges.some(rg => minutes >= toMinutes(rg.open) && minutes < toMinutes(rg.close))

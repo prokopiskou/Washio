@@ -376,7 +376,7 @@ export default function BookingDetailPage() {
       // (και νέου τύπου closed_from/closed_to), μάνικες, διάρκεια υπηρεσίας.
       // Πριν: μόνο «ίδια ώρα έναρξης» → αγνοούσε capacity και διάρκεια.
       const [{ data: hoursData }, { data: exceptionData }, { data: loc }, { data: svc }, { data: bookedData }] = await Promise.all([
-        supabase.from('location_hours').select('open_time, close_time, is_closed')
+        supabase.from('location_hours').select('open_time, close_time, open_time2, close_time2, is_closed')
           .eq('location_id', booking.location_id).eq('day_of_week', dayOfWeek).maybeSingle(),
         supabase.from('location_hours_exceptions').select('is_closed, closed_from, closed_to, periods')
           .eq('location_id', booking.location_id).eq('exception_date', newDate).maybeSingle(),

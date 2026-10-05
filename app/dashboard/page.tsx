@@ -76,6 +76,9 @@ type LocationHour = {
   is_closed?: boolean
   open_time: string
   close_time: string
+  /** 2ο ωράριο της μέρας (π.χ. 16:00–21:00) — null αν δεν υπάρχει. */
+  open_time2?: string | null
+  close_time2?: string | null
 }
 
 type HourException = {
@@ -478,7 +481,7 @@ export default function DashboardPage() {
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
         supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_active, is_range, price_min, price_max, price_min_suv, price_max_suv, sort_order').eq('location_id', locationId).order('sort_order', { ascending: true }),
         supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
-        supabase.from('location_hours').select('id, day_of_week, is_closed, open_time, close_time').eq('location_id', locationId).order('day_of_week', { ascending: true }),
+        supabase.from('location_hours').select('id, day_of_week, is_closed, open_time, close_time, open_time2, close_time2').eq('location_id', locationId).order('day_of_week', { ascending: true }),
         supabase.from('staff').select('id, full_name, role, phone').eq('location_id', locationId).order('created_at', { ascending: false }),
         supabase.from('reviews').select('id, rating, comment, created_at').eq('location_id', locationId).order('created_at', { ascending: false }),
       ])
@@ -525,6 +528,8 @@ export default function DashboardPage() {
           is_open: !h.is_closed,
           open_time: h.open_time,
           close_time: h.close_time,
+          open_time2: h.open_time2 ? String(h.open_time2).slice(0, 5) : null,
+          close_time2: h.close_time2 ? String(h.close_time2).slice(0, 5) : null,
         }))
         setHours(normalizedHours)
       }
@@ -700,6 +705,10 @@ export default function DashboardPage() {
 
   const saveHours = async () => {
     if (!location?.id) return
+    // Έλεγχος 2ου ωραρίου: πρέπει να ξεκινά ΜΕΤΑ το τέλος του 1ου και να τελειώνει μετά την έναρξή του.
+    const bad = hours.find(h => h.is_open && h.open_time2 && h.close_time2 &&
+      (String(h.open_time2).slice(0, 5) < String(h.close_time).slice(0, 5) || String(h.close_time2).slice(0, 5) <= String(h.open_time2).slice(0, 5)))
+    if (bad) { alert(t('Το 2ο ωράριο πρέπει να ξεκινά μετά το τέλος του 1ου.')); return }
     setSavingHours(true)
     const supabase = createClient()
     // Delete + insert αντί για upsert onConflict — δεν εξαρτάται από unique
@@ -712,6 +721,8 @@ export default function DashboardPage() {
       is_closed: !row.is_open,
       open_time: row.open_time,
       close_time: row.close_time,
+      open_time2: row.is_open && row.open_time2 && row.close_time2 ? row.open_time2 : null,
+      close_time2: row.is_open && row.open_time2 && row.close_time2 ? row.close_time2 : null,
     }))
     const { error: insErr } = await supabase.from('location_hours').insert(rows)
     setSavingHours(false)
@@ -2265,27 +2276,57 @@ export default function DashboardPage() {
                               </span>
                             </div>
                           </div>
-                          {row.is_open && (
-                            <div className="flex items-center gap-2.5 mt-3">
+                          {row.is_open && (() => {
+                            const upd = (patch: Partial<LocationHour>) => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, ...patch } : h))
+                            const sel = (value: string, onChange: (v: string) => void) => (
                               <select
-                                value={row.open_time}
-                                onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, open_time: e.target.value } : h))}
+                                value={String(value || '').slice(0, 5)}
+                                onChange={e => onChange(e.target.value)}
                                 className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-gray-900 focus:outline-none"
                                 style={{ fontVariantNumeric: 'tabular-nums' }}
                               >
                                 {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
                               </select>
-                              <span className="text-[12px] text-gray-400">{t('έως')}</span>
-                              <select
-                                value={row.close_time}
-                                onChange={e => setHours(prev => prev.map(h => h.day_of_week === row.day_of_week ? { ...h, close_time: e.target.value } : h))}
-                                className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-[13px] font-semibold text-gray-900 focus:outline-none"
-                                style={{ fontVariantNumeric: 'tabular-nums' }}
-                              >
-                                {HOUR_OPTIONS.map(h => <option key={h} value={h}>{h}</option>)}
-                              </select>
-                            </div>
-                          )}
+                            )
+                            const has2 = !!(row.open_time2 && row.close_time2)
+                            return (
+                              <div className="mt-3 space-y-2">
+                                <div className="flex items-center gap-2.5">
+                                  {sel(row.open_time, v => upd({ open_time: v }))}
+                                  <span className="text-[12px] text-gray-400">{t('έως')}</span>
+                                  {sel(row.close_time, v => upd({ close_time: v }))}
+                                  {!has2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        // Πρόταση 2ου ωραρίου: 1 ώρα μετά το τέλος του 1ου, έως 21:00.
+                                        const end = parseInt(String(row.close_time).slice(0, 2), 10) || 15
+                                        const o2 = `${String(Math.min(end + 1, 21)).padStart(2, '0')}:00`
+                                        const c2 = `${String(Math.min(Math.max(end + 5, 18), 22)).padStart(2, '0')}:00`
+                                        upd({ open_time2: o2, close_time2: c2 }); lightTap()
+                                      }}
+                                      aria-label={t('Δεύτερο ωράριο')}
+                                      title={t('Δεύτερο ωράριο')}
+                                      className="ml-auto w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-700 text-[18px] leading-none flex items-center justify-center"
+                                    >+</button>
+                                  )}
+                                </div>
+                                {has2 && (
+                                  <div className="flex items-center gap-2.5">
+                                    {sel(row.open_time2 as string, v => upd({ open_time2: v }))}
+                                    <span className="text-[12px] text-gray-400">{t('έως')}</span>
+                                    {sel(row.close_time2 as string, v => upd({ close_time2: v }))}
+                                    <button
+                                      type="button"
+                                      onClick={() => { upd({ open_time2: null, close_time2: null }); lightTap() }}
+                                      aria-label={t('Αφαίρεση 2ου ωραρίου')}
+                                      className="ml-auto w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-400 text-[16px] leading-none flex items-center justify-center"
+                                    >×</button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
                         </div>
                       )
                     })}

@@ -41,7 +41,7 @@ export async function checkSlotAvailability(admin: SupabaseClient, args: {
     admin.from('locations').select('id, capacity, is_active').eq('id', locationId).maybeSingle(),
     admin.from('services').select('id, duration_minutes').eq('id', serviceId).maybeSingle(),
     admin.from('location_hours')
-      .select('is_closed, open_time, close_time')
+      .select('is_closed, open_time, close_time, open_time2, close_time2')
       .eq('location_id', locationId).eq('day_of_week', dayOfWeek).maybeSingle(),
     admin.from('location_hours_exceptions')
       .select('is_closed, closed_from, closed_to, periods')
@@ -67,7 +67,7 @@ export async function checkSlotAvailability(admin: SupabaseClient, args: {
   const durationMinutes = Math.max(30, Number(service?.duration_minutes) || 30)
 
   const available = canBookSlot({
-    dayHours: dayHours as { is_closed: boolean; open_time: string; close_time: string } | null,
+    dayHours: dayHours as { is_closed: boolean; open_time: string; close_time: string; open_time2?: string | null; close_time2?: string | null } | null,
     exception: exception as {
       is_closed: boolean; closed_from?: string | null; closed_to?: string | null
       periods?: { open: string; close: string }[] | null
@@ -111,7 +111,7 @@ export async function shouldNotifyOwnerNow(
   const dayOfWeek = weekdayMon1FromYmd(today)
   const [{ data: dayHours }, { data: exception }] = await Promise.all([
     admin.from('location_hours')
-      .select('is_closed, open_time, close_time')
+      .select('is_closed, open_time, close_time, open_time2, close_time2')
       .eq('location_id', locationId).eq('day_of_week', dayOfWeek).maybeSingle(),
     admin.from('location_hours_exceptions')
       .select('is_closed, closed_from, closed_to, periods')
@@ -119,7 +119,7 @@ export async function shouldNotifyOwnerNow(
   ])
 
   return isOpenAtMinutes({
-    dayHours: dayHours as { is_closed: boolean; open_time: string; close_time: string } | null,
+    dayHours: dayHours as { is_closed: boolean; open_time: string; close_time: string; open_time2?: string | null; close_time2?: string | null } | null,
     exception: exception as {
       is_closed: boolean; closed_from?: string | null; closed_to?: string | null
       periods?: { open: string; close: string }[] | null
