@@ -24,6 +24,22 @@ export async function POST(req: NextRequest) {
     const code = req.cookies.get('ws_ref')?.value || 'WELCOME'
     await linkReferral(admin, user.id, code)
 
+    // A/B τεστ landing: server-side backup της καταγραφής παραλλαγής (acq_lp).
+    // Ο client (RegistrationTracker) το γράφει ήδη, αλλά μόνο μέσα σε 60' από τη
+    // δημιουργία του λογαριασμού — εδώ πιάνουμε όσους επαλήθευσαν αργότερα ή όπου
+    // το updateUser του browser απέτυχε. Ποτέ δεν αντικαθιστά υπάρχουσα τιμή.
+    try {
+      const lp = req.cookies.get('ws_lp')?.value
+      const meta = (user.user_metadata || {}) as Record<string, unknown>
+      const ageMs = Date.now() - new Date(user.created_at).getTime()
+      if ((lp === 'map' || lp === 'login') && !meta.acq_lp && ageMs < 14 * 24 * 3600 * 1000) {
+        const ref = req.cookies.get('ws_ref')?.value
+        await admin.auth.admin.updateUserById(user.id, {
+          user_metadata: { ...meta, acq_lp: lp, acq_ref: ref ? decodeURIComponent(ref) : null },
+        })
+      }
+    } catch { /* best-effort */ }
+
     return NextResponse.json({ ok: true })
   } catch {
     return NextResponse.json({ ok: false }, { status: 200 })
