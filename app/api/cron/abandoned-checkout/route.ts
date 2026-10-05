@@ -4,7 +4,8 @@ import { Resend } from 'resend'
 
 // Abandoned-checkout recovery: όποιος έφτασε στην πληρωμή (δημιουργήθηκε PaymentIntent)
 // αλλά δεν ολοκλήρωσε κράτηση σε ~90', λαμβάνει ένα email «ολοκλήρωσε την κράτησή σου».
-// Τρέχει από cron (bearer CRON_SECRET). ΕΝΑ email ανά χρήστη, το πολύ ένα ανά 72 ώρες.
+// Τρέχει από cron (bearer CRON_SECRET). ΕΝΑ email ανά χρήστη, το πολύ ένα τη μέρα.
+// ΔΕΝ στέλνεται σε όποιον έκλεισε (κάρτα Ή «πλήρωσε εκεί») — ελέγχεται κάθε κράτηση του χρήστη.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -65,8 +66,8 @@ export async function GET(req: Request) {
     }
     const toSend = new Set([...latest.values()].map(a => a.id))
 
-    // Μην ξαναστείλεις σε όποιον πήρε υπενθύμιση τις τελευταίες 72 ώρες.
-    const since72 = new Date(now - 72 * 3600_000).toISOString()
+    // ΤΟ ΠΟΛΥ 1 email τη μέρα ανά χρήστη (όσα sessions κι αν άνοιξε).
+    const since72 = new Date(now - 24 * 3600_000).toISOString()
     const userIds = [...new Set(attempts.map(a => a.user_id).filter(Boolean))] as string[]
     const { data: recent } = userIds.length
       ? await supabase.from('checkout_attempts').select('user_id')
@@ -87,7 +88,7 @@ export async function GET(req: Request) {
       let bookedAny = false
       if (!skip && !booking && a.user_id) {
         const { count } = await supabase.from('bookings').select('id', { count: 'exact', head: true })
-          .eq('user_id', a.user_id).gt('created_at', maxAge).neq('status', 'cancelled')
+          .eq('user_id', a.user_id).gt('created_at', maxAge) // ΚΑΘΕ κράτηση (κάρτα, μετρητά, ακόμα κι ακυρωμένη) → όχι email
         bookedAny = (count || 0) > 0
       }
 
