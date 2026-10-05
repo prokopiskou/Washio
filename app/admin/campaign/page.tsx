@@ -60,7 +60,7 @@ export default function CampaignPage() {
       <div className="max-w-md mx-auto">
         <Link href="/admin" className="text-[13px] text-gray-500">← Admin</Link>
         <h1 className="text-[22px] font-bold text-gray-900 mt-3">Καμπάνια email</h1>
-        <p className="text-[13px] text-gray-500 mt-1">«Το −3€ σου λήγει τη Δευτέρα 12/10» σε όσους δεν έχουν κάνει κράτηση.</p>
+        <p className="text-[13px] text-gray-500 mt-1">«Η έκπτωσή σου λήγει σύντομα» (3€ φθηνότερο μέχρι Δευτέρα 12/10) σε όσους δεν έχουν κάνει κράτηση.</p>
 
         <div className="bg-white border border-gray-100 rounded-2xl p-4 mt-5">
           {!preview && !err && <p className="text-[13px] text-gray-400">Φόρτωση παραληπτών…</p>}
