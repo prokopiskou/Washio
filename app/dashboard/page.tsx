@@ -9,7 +9,8 @@ import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
 import { CORE_SERVICES, type CatalogService } from '@/lib/services-catalog'
-import { ymdFromLocalDate } from '@/lib/time'
+import { ymdFromLocalDate, athensEpoch } from '@/lib/time'
+import { NO_SHOW_FROM_MIN, NO_SHOW_UNTIL_MIN } from '@/lib/no-show'
 import { isAdminEmail } from '@/lib/admins'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { WashioLoader } from '@/components/WashioLoader'
@@ -859,11 +860,18 @@ export default function DashboardPage() {
     }
   }
 
+  // «Δεν εμφανίστηκε»: ΜΟΝΟ από 15' έως 45' μετά την ώρα του ραντεβού (ώρα Ελλάδας).
+  // Αν δεν πατηθεί μέχρι τότε → η κράτηση θεωρείται ολοκληρωμένη (μετράει κανονικά).
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  useEffect(() => {
+    const iv = setInterval(() => setNowTick(Date.now()), 30_000)
+    return () => clearInterval(iv)
+  }, [])
   const canMarkNoShow = (b: Booking): boolean => {
     if (b.status !== 'confirmed' && b.status !== 'pending') return false
     if (!b.slot_date || !b.slot_start_time) return false
-    const start = new Date(`${b.slot_date}T${b.slot_start_time.slice(0, 8) || '00:00:00'}`)
-    return Date.now() > start.getTime() + 15 * 60 * 1000
+    const start = athensEpoch(b.slot_date, b.slot_start_time)
+    return nowTick >= start + NO_SHOW_FROM_MIN * 60_000 && nowTick <= start + NO_SHOW_UNTIL_MIN * 60_000
   }
 
   const openManualForm = () => {
