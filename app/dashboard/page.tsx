@@ -24,6 +24,7 @@ type Metric = 'revenue' | 'bookings'
 
 type Booking = {
   id: string
+  booking_ref?: string | null
   slot_date?: string
   slot_start_time?: string
   total_amount?: number
@@ -471,7 +472,7 @@ export default function DashboardPage() {
       // σιωπηλά στις 1000 → λάθος στατιστικά, βαρύ φορτίο κάθε 30'').
       const sinceYmd = (() => { const d = new Date(); d.setMonth(d.getMonth() - 12); return ymdFromLocalDate(d) })()
       const loadBookings = () => supabase.from('bookings')
-        .select('id, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, addons, service_price, services(name), profiles(full_name, phone, email)')
+        .select('id, booking_ref, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, addons, service_price, services(name), profiles(full_name, phone, email)')
         .eq('location_id', locationId)
         .gte('slot_date', sinceYmd)
         .order('created_at', { ascending: false })
@@ -1170,7 +1171,7 @@ export default function DashboardPage() {
                     {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => (
                       <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                         <div>
-                          <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · {'—'}</p>
+                          <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · <span className="font-mono text-[12px] text-gray-500">{b.booking_ref || '—'}</span></p>
                           <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
                         </div>
                         <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
@@ -1190,7 +1191,7 @@ export default function DashboardPage() {
                   {bookings.slice(0, 5).map(b => (
                     <div key={b.id} className="px-4 py-3 flex items-center justify-between">
                       <div>
-                        <p className="text-sm text-gray-900">{b.slot_date} · {'—'}</p>
+                        <p className="text-sm text-gray-900">{b.slot_date} · <span className="font-mono text-[12px] text-gray-500">{b.booking_ref || '—'}</span></p>
                         <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
                       </div>
                       <div className="text-right">
@@ -1383,6 +1384,14 @@ export default function DashboardPage() {
                           <p className="text-[14px] font-semibold tracking-tight text-gray-900">
                             {b.customer_name || b.profiles?.full_name || t('Πελάτης')}
                           </p>
+                          {b.booking_ref && (
+                            <p
+                              className="text-[11px] font-bold text-gray-400 mt-0.5"
+                              style={{ fontFamily: 'ui-monospace, "SF Mono", monospace', letterSpacing: '0.6px' }}
+                            >
+                              {b.booking_ref}
+                            </p>
+                          )}
                           {payBadge && (
                             <span
                               className="inline-flex items-center mt-1 px-2 py-0.5 rounded-md text-[11px] font-bold tracking-tight"

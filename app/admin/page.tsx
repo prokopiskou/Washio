@@ -652,7 +652,7 @@ export default function AdminPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-[13px] font-semibold text-gray-900 truncate">{getUserDisplay(b.profiles)}</p>
                             <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-                              {b.locations?.name} · {new Date(b.slot_date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}
+                              <span className="font-mono">{b.booking_ref}</span> · {b.locations?.name} · {new Date(b.slot_date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}
                             </p>
                           </div>
                           <p className="text-[13px] font-semibold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -1127,7 +1127,7 @@ export default function AdminPage() {
                                       {(b.locations as any)?.name}
                                     </p>
                                     <p className="text-[11px] text-gray-400 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                      {dateStr} · {b.slot_start_time?.slice(0, 5)}
+                                      {dateStr} · {b.slot_start_time?.slice(0, 5)} · <span className="font-mono">{b.booking_ref}</span>
                                     </p>
                                   </div>
                                   <p className="text-[13px] font-bold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
