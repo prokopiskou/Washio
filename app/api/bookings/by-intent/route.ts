@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import Stripe from 'stripe'
+import { fulfillPaymentIntent } from '@/lib/fulfill-intent'
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 // ============================================================
 // Σελίδα επιβεβαίωσης: βρες την κράτηση από το Stripe payment_intent.
@@ -22,11 +26,24 @@ export async function GET(req: NextRequest) {
   if (!/^pi_[A-Za-z0-9]+$/.test(pi)) {
     return NextResponse.json({ error: 'bad intent' }, { status: 400 })
   }
-  const { data } = await admin
+  const find = () => admin
     .from('bookings')
     .select('booking_ref, locations(name, address, city, lat, lng, extra_instructions)')
     .eq('stripe_payment_intent_id', pi)
     .maybeSingle()
+  let { data } = await find()
+
+  // ΑΥΤΟ-ΙΑΣΗ: η πληρωμή πέρασε αλλά το webhook δεν έφτασε (π.χ. απενεργοποιημένο endpoint)
+  // → δημιούργησε την κράτηση εδώ (ίδια λογική, idempotent). Μόνο για succeeded intents.
+  if (!data?.booking_ref) {
+    try {
+      const intent = await stripe.paymentIntents.retrieve(pi)
+      if (intent.status === 'succeeded' && Date.now() / 1000 - intent.created < 7 * 86400) {
+        await fulfillPaymentIntent(intent)
+        ;({ data } = await find())
+      }
+    } catch { /* συνέχισε ως pending */ }
+  }
 
   if (!data?.booking_ref) {
     return NextResponse.json({ pending: true })
