@@ -139,7 +139,12 @@ export default function HomePage() {
           try {
             document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
           } catch { /* ignore */ }
-          router.replace('/login?welcome=1')
+          // A/B τεστ landing (lp): «map» = βλέπει χάρτη/τιμές/ώρες ΧΩΡΙΣ login και γράφεται
+          // μόνο στο «Συνέχεια». Οτιδήποτε άλλο = όπως πριν (κατευθείαν εγγραφή).
+          let lp = 'login'
+          try { lp = new URLSearchParams(window.location.search).get('lp') === 'map' ? 'map' : 'login' } catch { /* ignore */ }
+          try { document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax` } catch { /* ignore */ }
+          router.replace(lp === 'map' ? '/map' : '/login?welcome=1')
           return
         }
         // Native app: μπες στη ροή της εφαρμογής. Browser επισκέπτης: δείξε το landing.

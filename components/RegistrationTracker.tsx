@@ -20,8 +20,11 @@ export function RegistrationTracker() {
     // Πιάσε τον κωδικό παραπομπής από το URL (?ref=ΚΩΔΙΚΟΣ) και κράτα τον σε
     // cookie 30 ημερών — θα διαβαστεί στο sign-up για να συνδεθεί ο νέος χρήστης.
     try {
-      const ref = new URLSearchParams(window.location.search).get('ref')
+      const sp = new URLSearchParams(window.location.search)
+      const ref = sp.get('ref')
       if (ref) document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+      const lp = sp.get('lp')
+      if (lp === 'map' || lp === 'login') document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
     } catch { /* ignore */ }
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -70,6 +73,18 @@ export function RegistrationTracker() {
         if (localStorage.getItem(key)) return
         localStorage.setItem(key, '1')
       } catch { /* localStorage μπορεί να μην υπάρχει — συνέχισε */ }
+
+      // A/B τεστ landing: ποια παραλλαγή (lp) έφερε τον χρήστη → user_metadata.acq_lp
+      // (μετριέται με SQL: εγγραφές → checkout → κρατήσεις ανά παραλλαγή).
+      try {
+        const ck = (n: string) => document.cookie.split('; ').find(c => c.startsWith(n + '='))?.split('=')[1]
+        const acqLp = ck('ws_lp')
+        if (acqLp) {
+          const acqRef = decodeURIComponent(ck('ws_ref') || '') || null
+          // setTimeout: ΠΟΤΕ κλήση Supabase μέσα στο onAuthStateChange (κίνδυνος deadlock στο auth lock).
+          setTimeout(() => { supabase.auth.updateUser({ data: { acq_lp: acqLp, acq_ref: acqRef } }).catch(() => {}) }, 0)
+        }
+      } catch { /* ignore */ }
 
       const method =
         (u.app_metadata as { provider?: string } | undefined)?.provider || 'otp'

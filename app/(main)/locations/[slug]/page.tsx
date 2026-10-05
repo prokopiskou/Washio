@@ -215,12 +215,8 @@ export default function LocationPage() {
         .eq('location_id', locationId)
         .eq('exception_date', dateStr)
         .maybeSingle(),
-      supabase
-        .from('bookings')
-        .select('slot_start_time, duration_minutes')
-        .eq('location_id', locationId)
-        .eq('slot_date', dateStr)
-        .not('status', 'in', '("cancelled","no_show")'),
+      // busy_slots: όλες οι πιασμένες ώρες (το RLS των bookings κρύβει τις ξένες κρατήσεις).
+      supabase.rpc('busy_slots', { p_from: dateStr, p_to: dateStr, p_location: locationId }),
     ])
 
     const dayHours = locationHours.find(h => h.day_of_week === dayOfWeek) || null

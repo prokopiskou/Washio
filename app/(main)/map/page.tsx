@@ -272,6 +272,8 @@ function MapPageContent() {
   const [waitDone, setWaitDone] = useState(false)
   const [userEmail, setUserEmail] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
+  // Επισκέπτης χωρίς λογαριασμό (π.χ. από διαφήμιση lp=map) → banner προσφοράς.
+  const [isGuest, setIsGuest] = useState(false)
   const locWaitCheckedRef = useRef(false)
 
   // #3 — capture όταν υπάρχει πλυντήριο αλλά γεμάτο (καμία διαθέσιμη ώρα).
@@ -343,7 +345,9 @@ function MapPageContent() {
     const [{ data: locsData }, { data: hoursData }, { data: bookingsData }, { data: exceptionsData }] = await Promise.all([
       supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos, services(id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv, is_active, sort_order), reviews(rating)').eq('is_active', true),
       supabase.from('location_hours').select('location_id, open_time, close_time, open_time2, close_time2, is_closed').eq('day_of_week', dayOfWeek),
-      supabase.from('bookings').select('location_id, slot_start_time, duration_minutes').eq('slot_date', checkDate).not('status', 'in', '("cancelled","no_show")'),
+      // busy_slots (RPC, security definer): ΟΛΕΣ οι πιασμένες ώρες χωρίς προσωπικά στοιχεία.
+      // Το RLS των bookings δείχνει στον πελάτη μόνο τις δικές του → έβλεπε πιασμένες ώρες ως ελεύθερες.
+      supabase.rpc('busy_slots', { p_from: checkDate, p_to: checkDate }),
       supabase.from('location_hours_exceptions').select('location_id, is_closed, closed_from, closed_to, periods').eq('exception_date', checkDate),
     ])
 
@@ -684,9 +688,7 @@ function MapPageContent() {
           supabase.from('location_hours').select('day_of_week, open_time, close_time, open_time2, close_time2, is_closed').eq('location_id', locId),
           supabase.from('location_hours_exceptions').select('exception_date, periods, is_closed, closed_from, closed_to')
             .eq('location_id', locId).gte('exception_date', from).lte('exception_date', to),
-          supabase.from('bookings').select('slot_date, slot_start_time, duration_minutes')
-            .eq('location_id', locId).gte('slot_date', from).lte('slot_date', to)
-            .not('status', 'in', '("cancelled","no_show")'),
+          supabase.rpc('busy_slots', { p_from: from, p_to: to, p_location: locId }),
           supabase.from('locations').select('capacity').eq('id', locId).maybeSingle(),
         ])
         if (cancelled) return
@@ -751,9 +753,7 @@ function MapPageContent() {
         supabase.from('location_hours')
           .select('open_time, close_time, open_time2, close_time2, is_closed')
           .eq('location_id', selectedLocation.id).eq('day_of_week', dayOfWeek).maybeSingle(),
-        supabase.from('bookings').select('slot_start_time, duration_minutes')
-          .eq('location_id', selectedLocation.id).eq('slot_date', checkDate)
-          .not('status', 'in', '("cancelled","no_show")'),
+        supabase.rpc('busy_slots', { p_from: checkDate, p_to: checkDate, p_location: selectedLocation.id }),
         supabase.from('locations').select('capacity').eq('id', selectedLocation.id).maybeSingle(),
       ])
 
@@ -1059,6 +1059,7 @@ function MapPageContent() {
       const u = data.session?.user
       if (u?.email) { setUserEmail(u.email); setAvailEmail(prev => prev || u.email || '') }
       if (u?.id) setUserId(u.id)
+      if (!u) setIsGuest(true)
     }).catch(() => {})
   }, [])
 
@@ -1140,6 +1141,15 @@ function MapPageContent() {
               </div>
             )}
           </div>
+
+          {/* Επισκέπτης: η προσφορά φαίνεται ΠΡΙΝ ζητηθεί εγγραφή (A/B τεστ lp=map) */}
+          {isGuest && (
+            <div className="self-start inline-flex items-center gap-2 px-3 py-2 rounded-full bg-gray-900 text-white text-[12px] font-semibold tracking-tight"
+                 style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
+              <span>🎁</span>
+              <span>{locale === 'en' ? '−€3 on your first wash · pay at the car wash' : '−3€ στο πρώτο σου πλύσιμο · πληρώνεις στο πλυντήριο'}</span>
+            </div>
+          )}
 
           {/* Segmented time chip */}
           <div className="inline-flex bg-white rounded-full p-1 self-start"

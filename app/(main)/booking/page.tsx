@@ -485,7 +485,9 @@ function BookingPageContent() {
       const user = data.session?.user
 
       if (!user) {
-        router.replace(`/login?redirect=${encodeURIComponent(window.location.href)}`)
+        let fromMapLanding = false
+        try { fromMapLanding = document.cookie.includes('ws_lp=map') } catch { /* ignore */ }
+        router.replace(`/login?redirect=${encodeURIComponent(window.location.href)}${fromMapLanding ? '&welcome=1' : ''}`)
         return
       }
 
