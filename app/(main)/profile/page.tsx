@@ -230,7 +230,7 @@ export default function ProfilePage() {
       const supabase = createClient()
       clearPageCache()
     await supabase.auth.signOut()
-      router.push('/welcome')
+      router.push('/')
     } catch { alert(t.deleteFailed) }
   }
 

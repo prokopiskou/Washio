@@ -123,7 +123,7 @@ export default function PrivacyContent() {
   return (
     <main className="min-h-screen bg-white">
       <div className="w-full max-w-2xl mx-auto px-5 py-12">
-        <Link href="/welcome" className="text-[13px] text-gray-400">{t.back}</Link>
+        <Link href="/" className="text-[13px] text-gray-400">{t.back}</Link>
         <h1 className="text-2xl font-semibold text-gray-900 mt-4 mb-1 tracking-tight">{t.title}</h1>
         <p className="text-xs text-gray-400 mb-8">{t.updatedLabel} {t.updated}</p>
 

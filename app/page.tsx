@@ -167,7 +167,9 @@ export default function HomePage() {
         }
         // Native app: μπες στη ροή της εφαρμογής. Browser επισκέπτης: δείξε το landing.
         if (Capacitor.isNativePlatform()) {
-          router.replace('/welcome')
+          // Η εφαρμογή ανοίγει κατευθείαν στον χάρτη (πραγματικά πλυντήρια, −3€ banner).
+          // Εγγραφή μόνο όταν πατήσει «Συνέχεια» σε ώρα — όχι πριν δει τίποτα.
+          router.replace('/map')
         } else {
           setShowLanding(true)
           setAuthChecking(false)

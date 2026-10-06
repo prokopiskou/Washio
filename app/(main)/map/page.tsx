@@ -15,6 +15,7 @@ import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService } from '@/lib/services-catalog'
 import { BottomNav } from '@/components/BottomNav'
+import { isNativeApp } from '@/lib/native-auth'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 
@@ -1122,13 +1123,14 @@ function MapPageContent() {
                 autoFocus={params.get('source') === 'search'}
               />
             </div>
-            <button
+            {/* Επισκέπτης στην εφαρμογή: η αρχική ΕΙΝΑΙ ο χάρτης → το «X» δεν έχει πού να πάει. */}
+            {!(isGuest && isNativeApp()) && <button
               onClick={() => router.push('/')}
               className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-gray-900 shrink-0"
               style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)' }}
             >
               <X size={18} />
-            </button>
+            </button>}
 
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-14 left-0 right-14 bg-white rounded-xl shadow-lg border border-gray-100 py-1 overflow-hidden z-20">
@@ -1144,10 +1146,20 @@ function MapPageContent() {
 
           {/* Επισκέπτης: η προσφορά φαίνεται ΠΡΙΝ ζητηθεί εγγραφή (A/B τεστ lp=map) */}
           {isGuest && (
-            <div className="self-start inline-flex items-center gap-2 px-3 py-2 rounded-full bg-gray-900 text-white text-[12px] font-semibold tracking-tight"
-                 style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
-              <span>🎁</span>
-              <span>{locale === 'en' ? '−€3 on your first wash' : '−3€ στο πρώτο σου πλύσιμο'}</span>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-gray-900 text-white text-[12px] font-semibold tracking-tight"
+                   style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
+                <span>🎁</span>
+                <span>{locale === 'en' ? '−€3 on your first wash' : '−3€ στο πρώτο σου πλύσιμο'}</span>
+              </div>
+              {/* Για όσους έχουν ήδη λογαριασμό (π.χ. κατέβασαν την εφαρμογή μετά το site). */}
+              <Link
+                href="/login?redirect=%2Fmap"
+                className="ml-auto inline-flex items-center px-3 py-2 rounded-full bg-white text-gray-900 text-[12px] font-semibold tracking-tight"
+                style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)' }}
+              >
+                {locale === 'en' ? 'Sign in' : 'Σύνδεση'}
+              </Link>
             </div>
           )}
 

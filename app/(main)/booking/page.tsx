@@ -1,5 +1,6 @@
 'use client'
 
+import { Capacitor } from '@capacitor/core'
 import { formatDuration } from '@/lib/duration'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -486,7 +487,7 @@ function BookingPageContent() {
 
       if (!user) {
         let fromMapLanding = false
-        try { fromMapLanding = document.cookie.includes('ws_lp=map') } catch { /* ignore */ }
+        try { fromMapLanding = document.cookie.includes('ws_lp=map') || Capacitor.isNativePlatform() } catch { /* ignore */ }
         router.replace(`/login?redirect=${encodeURIComponent(window.location.href)}${fromMapLanding ? '&welcome=1' : ''}`)
         return
       }
