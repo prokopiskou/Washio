@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
       { source: '/tiktok', destination: '/?ref=WASHIO&utm_source=tiktok&utm_medium=bio&utm_campaign=welcome3', permanent: false },
       { source: '/yt', destination: '/?utm_source=youtube&utm_medium=bio&utm_campaign=launch', permanent: false },
       { source: '/fb', destination: '/?ref=WASHIO&utm_source=facebook&utm_medium=page&utm_campaign=welcome3', permanent: false },
+      // Flyers: το QR δείχνει ΕΔΩ (όχι απευθείας σε σελίδα) → αλλάζουμε προορισμό χωρίς ξανατύπωμα.
+      // Τώρα: χάρτης χωρίς login (lp=map), ref=FLYER (−3€). permanent:false → ποτέ cache στον browser.
+      { source: '/f', destination: '/?ref=FLYER&lp=map&utm_source=flyer&utm_medium=print&utm_campaign=flyer1', permanent: false },
+      { source: '/f/:area', destination: '/?ref=FLYER&lp=map&utm_source=flyer&utm_medium=print&utm_campaign=:area', permanent: false },
     ]
   },
 }
