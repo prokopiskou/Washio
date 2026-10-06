@@ -139,9 +139,7 @@ export function extractCityLabel(components: AddrComp[] | undefined | null): str
   }
   if (!area) area = locality || al3 || subloc || al2 || ''
 
-  // Περιφέρεια → «Αττικής» (γενική) όταν είναι Αττική· αλλιώς κενό.
-  const isAttica = /αττικ|attic/i.test(al1) || /αττικ|attic/i.test(al2)
-  const region = isAttica ? 'Αττικής' : ''
-
-  return [area, region].filter(Boolean).join(' ').trim()
+  // Μόνο η περιοχή/ο δήμος (π.χ. «Βύρωνας») — αυτό ψάχνει και αναγνωρίζει ο πελάτης.
+  // (Πριν: «Άλιμος Αττικής» — περιττό, όλα τα πλυντήρια είναι Αττική.)
+  return area.trim()
 }
