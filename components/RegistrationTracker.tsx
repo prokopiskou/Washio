@@ -21,7 +21,8 @@ export function RegistrationTracker() {
     // cookie 30 ημερών — θα διαβαστεί στο sign-up για να συνδεθεί ο νέος χρήστης.
     try {
       const sp = new URLSearchParams(window.location.search)
-      const ref = sp.get('ref')
+      // Flyer (utm_source=flyer) → κωδικός FLYER, όχι WASHIO (να μη μπερδεύεται με τη διαφήμιση).
+      const ref = sp.get('utm_source') === 'flyer' && sp.get('ref') ? 'FLYER' : sp.get('ref')
       if (ref) document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
       const lp = sp.get('acq_lp') || sp.get('lp')
       if (lp === 'map' || lp === 'login') document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`

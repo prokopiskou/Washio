@@ -18,6 +18,10 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
 
+// Πού πάει όποιος σκανάρει flyer: 'map' (χάρτης χωρίς login) ή 'login' (κατευθείαν εγγραφή).
+// Αλλάζει εδώ → ισχύει για ΟΛΑ τα flyers που κυκλοφορούν, χωρίς ξανατύπωμα.
+const FLYER_DEST: 'map' | 'login' = 'map'
+
 const T = {
   el: {
     loading: 'Φόρτωση...',
@@ -134,7 +138,15 @@ export default function HomePage() {
         // Referral/ad link (?ref=ΚΩΔΙΚΟΣ): κράτα τον κωδικό και στείλε τον ΚΑΤΕΥΘΕΙΑΝ
         // στο sign-up με το κίνητρο «πάρε −3€».
         let ref: string | null = null
-        try { ref = new URLSearchParams(window.location.search).get('ref') } catch { /* ignore */ }
+        let isFlyer = false
+        try {
+          const sp0 = new URLSearchParams(window.location.search)
+          ref = sp0.get('ref')
+          // Τυπωμένα flyers (1η παρτίδα): το QR γράφει washio.gr/?ref=WASHIO&utm_source=flyer.
+          // Το ξεχωρίζουμε από τη διαφήμιση (ίδιο ref=WASHIO) μέσω utm_source → δικός του
+          // κωδικός (FLYER, ίδιο −3€) και δικός του προορισμός, χωρίς να αγγίζουμε τις διαφημίσεις.
+          if (sp0.get('utm_source') === 'flyer') { isFlyer = true; ref = 'FLYER' }
+        } catch { /* ignore */ }
         if (ref) {
           try {
             document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
@@ -146,7 +158,8 @@ export default function HomePage() {
           let lp: 'map' | 'login' | null = null
           try {
             const sp = new URLSearchParams(window.location.search)
-            lp = sp.get('lp') === 'map' ? 'map' : (sp.get('lp') === 'login' || sp.get('fbclid')) ? 'login' : null
+            lp = (sp.get('lp') === 'map' || (isFlyer && FLYER_DEST === 'map')) ? 'map'
+              : (sp.get('lp') === 'login' || sp.get('fbclid') || isFlyer) ? 'login' : null
           } catch { /* ignore */ }
           if (lp) { try { document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax` } catch { /* ignore */ } }
           router.replace(lp === 'map' ? '/map' : '/login?welcome=1')
