@@ -141,9 +141,14 @@ export default function HomePage() {
           } catch { /* ignore */ }
           // A/B τεστ landing (lp): «map» = βλέπει χάρτη/τιμές/ώρες ΧΩΡΙΣ login και γράφεται
           // μόνο στο «Συνέχεια». Οτιδήποτε άλλο = όπως πριν (κατευθείαν εγγραφή).
-          let lp = 'login'
-          try { lp = new URLSearchParams(window.location.search).get('lp') === 'map' ? 'map' : 'login' } catch { /* ignore */ }
-          try { document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax` } catch { /* ignore */ }
+          // Tag παραλλαγής ΜΟΝΟ για κλικ από διαφήμιση Meta: lp=map (B) ή fbclid χωρίς lp (A).
+          // Όχι για TikTok bio / links φίλων / flyers (?ref= χωρίς fbclid) — αλλιώς «μολύνουν» την A.
+          let lp: 'map' | 'login' | null = null
+          try {
+            const sp = new URLSearchParams(window.location.search)
+            lp = sp.get('lp') === 'map' ? 'map' : (sp.get('lp') === 'login' || sp.get('fbclid')) ? 'login' : null
+          } catch { /* ignore */ }
+          if (lp) { try { document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax` } catch { /* ignore */ } }
           router.replace(lp === 'map' ? '/map' : '/login?welcome=1')
           return
         }

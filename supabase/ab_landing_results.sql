@@ -33,3 +33,13 @@ order by 1;
 -- Κόστος ανά κράτηση = έξοδα του αντίστοιχου ad set στο Meta ÷ bookings.
 -- Η γραμμή «— (χωρίς tag)» = οργανικοί (bio, απευθείας, email). Αν είναι πολύ μεγάλη σε σχέση με τα
 -- έξοδα του Meta, ελέγξτε την καταγραφή (acq_lp) πριν βγάλετε συμπέρασμα.
+
+-- ΔΙΑΓΝΩΣΤΙΚΟ ΚΑΤΑΓΡΑΦΗΣ (από 6/10 ~14:00, όταν μπήκε το acq_click):
+-- χωρίς tag + acq_click=true  → ήρθε από κλικ σε διαφήμιση αλλά χάθηκε το tag (BUG — πρέπει ≈0)
+-- χωρίς tag + acq_click=false → view-through / bio / οργανικός (αναμενόμενο, εκτός σύγκρισης)
+select coalesce(raw_user_meta_data->>'acq_lp','NULL') lp,
+       coalesce(raw_user_meta_data->>'acq_click','(πριν το diag)') clicked_meta_ad,
+       count(*)
+from auth.users
+where created_at >= '2026-10-06' and last_sign_in_at is not null
+group by 1, 2 order by 1, 2;

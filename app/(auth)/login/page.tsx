@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect, useRef } from 'react'
+import { readAcq, withAcq } from '@/lib/acq'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -143,7 +144,10 @@ function LoginPageContent() {
     const supabase = createClient()
     const req = supabase.auth.signInWithOtp({
       email: email_.toLowerCase(),
-      options: { shouldCreateUser: true, emailRedirectTo: undefined },
+      // data → user_metadata ΚΑΤΑ τη δημιουργία του λογαριασμού: η παραλλαγή A/B
+      // καταγράφεται εδώ, στον browser που ήρθε από τη διαφήμιση, ακόμα κι αν ο
+      // κωδικός επαληθευτεί αλλού.
+      options: { shouldCreateUser: true, emailRedirectTo: undefined, ...(readAcq() ? { data: readAcq()! } : {}) },
     })
     const early = setTimeout(() => {
       if (settled) return
@@ -209,7 +213,9 @@ function LoginPageContent() {
   const getOauthRedirect = () => {
     const base = 'https://washio.gr'
     const path = redirectUrl.startsWith('/') ? redirectUrl : '/' + redirectUrl
-    return `${base}${path}`
+    // Η παραλλαγή A/B ταξιδεύει στο URL επιστροφής (Google/Apple μπορεί να
+    // επιστρέψουν σε άλλο browser χωρίς τα cookies μας).
+    return `${base}${withAcq(path)}`
   }
 
   const handleGoogleLogin = () => signInWithProvider(createClient(), 'google', getOauthRedirect())

@@ -23,8 +23,10 @@ export function RegistrationTracker() {
       const sp = new URLSearchParams(window.location.search)
       const ref = sp.get('ref')
       if (ref) document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
-      const lp = sp.get('lp')
+      const lp = sp.get('acq_lp') || sp.get('lp')
       if (lp === 'map' || lp === 'login') document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+      const acqRef = sp.get('acq_ref')
+      if (acqRef && !ref) document.cookie = `ws_ref=${encodeURIComponent(acqRef.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
     } catch { /* ignore */ }
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -79,10 +81,11 @@ export function RegistrationTracker() {
       try {
         const ck = (n: string) => document.cookie.split('; ').find(c => c.startsWith(n + '='))?.split('=')[1]
         const acqLp = ck('ws_lp')
-        if (acqLp) {
+        const already = (u.user_metadata as { acq_lp?: string } | undefined)?.acq_lp
+        if (acqLp && !already) {
           const acqRef = decodeURIComponent(ck('ws_ref') || '') || null
           // setTimeout: ΠΟΤΕ κλήση Supabase μέσα στο onAuthStateChange (κίνδυνος deadlock στο auth lock).
-          setTimeout(() => { supabase.auth.updateUser({ data: { acq_lp: acqLp, acq_ref: acqRef } }).catch(() => {}) }, 0)
+          setTimeout(() => { supabase.auth.updateUser({ data: acqRef ? { acq_lp: acqLp, acq_ref: acqRef } : { acq_lp: acqLp } }).catch(() => {}) }, 0)
         }
       } catch { /* ignore */ }
 

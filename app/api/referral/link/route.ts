@@ -32,11 +32,21 @@ export async function POST(req: NextRequest) {
       const lp = req.cookies.get('ws_lp')?.value
       const meta = (user.user_metadata || {}) as Record<string, unknown>
       const ageMs = Date.now() - new Date(user.created_at).getTime()
-      if ((lp === 'map' || lp === 'login') && !meta.acq_lp && ageMs < 14 * 24 * 3600 * 1000) {
-        const ref = req.cookies.get('ws_ref')?.value
-        await admin.auth.admin.updateUserById(user.id, {
-          user_metadata: { ...meta, acq_lp: lp, acq_ref: ref ? decodeURIComponent(ref) : null },
-        })
+      if (ageMs < 14 * 24 * 3600 * 1000) {
+        const patch: Record<string, unknown> = {}
+        if ((lp === 'map' || lp === 'login') && !meta.acq_lp) {
+          const ref = req.cookies.get('ws_ref')?.value
+          patch.acq_lp = lp
+          if (ref) patch.acq_ref = decodeURIComponent(ref)
+        }
+        // Διαγνωστικό: ήρθε από ΚΛΙΚ σε διαφήμιση Meta σε αυτόν τον browser; (_fbc = fbclid)
+        // Χωρίς tag + χωρίς _fbc → view-through/οργανικός (αναμενόμενο). Χωρίς tag + με _fbc → χαμένο tag (bug).
+        if (meta.acq_click === undefined) patch.acq_click = !!req.cookies.get('_fbc')?.value
+        if (Object.keys(patch).length) {
+          // Το GoTrue κάνει MERGE στα user_metadata → στέλνουμε μόνο τα νέα κλειδιά
+          // (ποτέ ολόκληρο το αντικείμενο: θα έσβηνε ό,τι έγραψε ο client στο μεταξύ).
+          await admin.auth.admin.updateUserById(user.id, { user_metadata: patch })
+        }
       }
     } catch { /* best-effort */ }
 
