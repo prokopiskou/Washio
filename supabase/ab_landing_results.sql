@@ -7,7 +7,7 @@ with u as (
          coalesce(raw_user_meta_data->>'acq_lp', '— (χωρίς tag)') as lp
   from auth.users
   where created_at >= '2026-10-06'
-    and last_sign_in_at is not null
+    and last_sign_in_at is not null and coalesce(email,'') not ilike '%+test%'
     and coalesce(raw_user_meta_data->>'acq_ref', 'WASHIO') = 'WASHIO'
 ),
 ca as (select distinct user_id from checkout_attempts),
@@ -41,5 +41,5 @@ select coalesce(raw_user_meta_data->>'acq_lp','NULL') lp,
        coalesce(raw_user_meta_data->>'acq_click','(πριν το diag)') clicked_meta_ad,
        count(*)
 from auth.users
-where created_at >= '2026-10-06' and last_sign_in_at is not null
+where created_at >= '2026-10-06' and last_sign_in_at is not null and coalesce(email,'') not ilike '%+test%'
 group by 1, 2 order by 1, 2;
