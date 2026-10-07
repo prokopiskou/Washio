@@ -4,6 +4,7 @@ import { formatDuration } from '@/lib/duration'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getSessionResilient } from '@/lib/auth-session'
 import { NO_COMMISSION_ON_COUPON_LOCATION_IDS } from '@/lib/commission'
 import { ChevronRight, Download, RefreshCw, Check, X, Power } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -71,8 +72,10 @@ export default function AdminPage() {
   useEffect(() => {
     const checkAuth = async () => {
       const supabase = createClient()
-      const { data } = await supabase.auth.getSession()
-      const email = data.session?.user?.email
+      const session = await getSessionResilient(supabase)
+      const email = session?.user?.email
+      // Χωρίς σύνδεση → login με επιστροφή εδώ (όχι στην αρχική). Συνδεδεμένος μη-admin → αρχική.
+      if (!session) { router.replace('/login?redirect=%2Fadmin'); return }
       if (!email || !ADMIN_EMAILS.includes(email)) { router.replace('/'); return }
       setAuthorized(true)
       setAuthChecking(false)

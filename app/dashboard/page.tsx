@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { createClient } from '@/lib/supabase/client'
+import { getSessionResilient } from '@/lib/auth-session'
 import { lightTap, selectionHaptic, errorHaptic } from '@/lib/haptics'
 import { CORE_SERVICES, type CatalogService } from '@/lib/services-catalog'
 import { ymdFromLocalDate, athensEpoch } from '@/lib/time'
@@ -411,11 +412,11 @@ export default function DashboardPage() {
     let disposed = false
     const loadDashboard = async () => {
       const supabase = createClient()
-      const { data: authData } = await supabase.auth.getSession()
-      const user = authData.session?.user
+      const session = await getSessionResilient(supabase)
+      const user = session?.user
 
       if (!user) {
-        router.push('/login')
+        router.push('/login?redirect=%2Fdashboard')
         return
       }
 
