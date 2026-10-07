@@ -23,7 +23,10 @@ export default function PushInit() {
 
       // NATIVE (iOS/Android): FCM μέσω Capacitor.
       if (Capacitor.isNativePlatform()) {
-        await registerNativePush(userId)
+        // ΟΧΙ παράθυρο άδειας με το άνοιγμα («κρύο» αίτημα → οι περισσότεροι λένε όχι, και
+        // στο iPhone δεν ξαναρωτάμε ποτέ). Εδώ μόνο ανανέωση token αν έχει ΗΔΗ δώσει άδεια.
+        // Η ερώτηση γίνεται μετά την κράτηση, με εξήγηση (PushReminderPrompt).
+        await registerNativePush(userId, { ask: false })
         try {
           const { FirebaseMessaging } = await import('@capacitor-firebase/messaging')
           const h = await FirebaseMessaging.addListener('notificationReceived', ({ notification }) => {
