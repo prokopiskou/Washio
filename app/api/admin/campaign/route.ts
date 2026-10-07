@@ -29,6 +29,16 @@ const CAMPAIGN_NEW = 'welcome_reminder_new'
 const SUBJECT_NEW = 'Ξέχασες το −3€ σου;'
 const PREHEADER_NEW = 'Δες ελεύθερες ώρες κοντά σου και κλείσε σε 30″.'
 type Audience = 'all' | 'new'
+// ΟΛΑ τα προωθητικά emails που έχουμε στείλει ποτέ. Όποιος έλαβε ΕΣΤΩ ΕΝΑ, εξαιρείται από την
+// υπενθύμιση «new» (μαζικές καμπάνιες + αυτόματα «δεν ολοκλήρωσες» / waitlist).
+const PROMO_SUBJECTS = [
+  'Από Δευτέρα ήλιος ☀️ Κλείσε το πλύσιμό σου με −3€', // sunny_week_oct (2/10)
+  'Η έκπτωσή σου λήγει σύντομα',                       // coupon_expiry_1210 (5/10)
+  'Ξέχασες το −3€ σου;',                                // welcome_reminder_new
+  'Δεν ολοκλήρωσες την κράτησή σου',                    // cron abandoned-checkout
+  'Άνοιξε ώρα κοντά σου!',                              // ακύρωση → waitlist
+  'Το Washio ήρθε στην περιοχή σου!',                   // waitlist-notify
+]
 const cfg = (a: Audience) => a === 'new'
   ? { campaign: CAMPAIGN_NEW, subject: SUBJECT_NEW, preheader: PREHEADER_NEW }
   : { campaign: CAMPAIGN, subject: SUBJECT, preheader: PREHEADER }
@@ -139,7 +149,7 @@ function resendDateToIso(v: string): string {
 async function listCampaignEmails(subjects: string[]): Promise<ResendListed[]> {
   const emails: ResendListed[] = []
   let after: string | undefined
-  for (let page = 0; page < 40; page++) {
+  for (let page = 0; page < 120; page++) {
     const url = 'https://api.resend.com/emails?limit=100' + (after ? `&after=${after}` : '')
     // Ξεχωριστό key ΜΟΝΟ για ανάγνωση στατιστικών (Full access). Το key αποστολής μένει «Sending access».
     const res = await fetch(url, { headers: { Authorization: `Bearer ${process.env.RESEND_STATS_API_KEY || process.env.RESEND_API_KEY}` }, cache: 'no-store' })
@@ -216,13 +226,14 @@ export async function POST(req: NextRequest) {
     // ούτε αυτό) — ποτέ δεύτερο email στον ίδιο. Η λίστα αποστολών έρχεται από το Resend.
     let alreadySent = new Set<string>()
     if (audience === 'new') {
-      const prev = await listCampaignEmails([SUBJECT, SUBJECT_NEW])
+      const prev = await listCampaignEmails(PROMO_SUBJECTS)
       alreadySent = new Set(prev.flatMap(e => (e.to || []).map(x => x.toLowerCase())))
     }
     const list = (await recipients()).filter(r => !alreadySent.has(r.email))
 
     if (mode === 'preview') {
       return NextResponse.json({
+        excludedAlreadyEmailed: audience === 'new' ? alreadySent.size : 0,
         subject: SUBJ,
         total: list.length,
         withCoupon: list.filter(r => r.hasCoupon).length,
