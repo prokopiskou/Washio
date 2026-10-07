@@ -7,7 +7,7 @@ type Stats = {
   sent: number; delivered: number; opened: number; clicked: number; bounced: number; complained: number
   openRate: number; clickRate: number; clickToOpen: number; bookings: number; bookers: number; revenue: number; firstSentAt: string | null
 }
-type Preview = { subject: string; total: number; withCoupon: number; willGetCoupon: number; sample: string[] }
+type Preview = { subject: string; total: number; withCoupon: number; willGetCoupon: number; sample: string[]; excludedAlreadyEmailed?: number }
 
 // Admin: καμπάνια email «Το −3€ σου λήγει τη Δευτέρα 12/10».
 // 1) Βλέπεις πόσους αφορά  2) Στέλνεις δοκιμή στον εαυτό σου  3) Αποστολή σε όλους.
@@ -91,6 +91,11 @@ export default function CampaignPage() {
               {preview.willGetCoupon > 0 && (
                 <p className="text-[12px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-3">
                   {preview.willGetCoupon} δεν έχουν ακόμα −3€ — θα τους δοθεί αυτόματα πριν φύγει το email, ώστε να ισχύει για όλους.
+                </p>
+              )}
+              {audience === 'new' && (
+                <p className="text-[12px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mt-3">
+                  Εξαιρέθηκαν {preview.excludedAlreadyEmailed ?? 0} διευθύνσεις που έχουν λάβει ήδη κάποιο προωθητικό email (καμπάνιες, «δεν ολοκλήρωσες», waitlist).
                 </p>
               )}
               <p className="text-[11px] text-gray-400 mt-3">Δείγμα: {preview.sample.join(', ')}</p>
