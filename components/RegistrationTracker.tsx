@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@/lib/analytics'
+import { flyerRef } from '@/lib/acq'
 
 // Πυροδοτεί CompleteRegistration (Meta) / sign_up (GA4) ΜΙΑ φορά ανά ΝΕΑ εγγραφή,
 // ανεξαρτήτως μεθόδου: OTP, Google, Apple, Facebook ή email/password.
@@ -22,7 +23,7 @@ export function RegistrationTracker() {
     try {
       const sp = new URLSearchParams(window.location.search)
       // Flyer (utm_source=flyer) → κωδικός FLYER, όχι WASHIO (να μη μπερδεύεται με τη διαφήμιση).
-      const ref = sp.get('utm_source') === 'flyer' && sp.get('ref') ? 'FLYER' : sp.get('ref')
+      const ref = flyerRef(sp) || sp.get('ref')
       if (ref) document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
       const lp = sp.get('acq_lp') || sp.get('lp')
       if (lp === 'map' || lp === 'login') document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`

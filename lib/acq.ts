@@ -34,3 +34,15 @@ export function withAcq(path: string): string {
   const sep = path.includes('?') ? '&' : '?'
   return `${path}${sep}acq_lp=${a.acq_lp}${a.acq_ref ? `&acq_ref=${encodeURIComponent(a.acq_ref)}` : ''}`
 }
+
+/**
+ * Κωδικός για flyers: «FLYER» για τα τυπωμένα (QR ?ref=WASHIO&utm_source=flyer ή /f),
+ * «FLYER_<ΚΑΝΑΛΙ>» για ξεχωριστά QR/αυτοκόλλητα (/f/fanari → FLYER_FANARI), ώστε να
+ * μετράμε χωριστά φανάρια / παρμπρίζ / περιοχές. Όλα παίρνουν το ίδιο −3€.
+ * null αν το link δεν είναι flyer.
+ */
+export function flyerRef(sp: URLSearchParams): string | null {
+  if (sp.get('utm_source') !== 'flyer') return null
+  const c = (sp.get('utm_campaign') || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20)
+  return c && c !== 'FLYER1' ? `FLYER_${c}` : 'FLYER'
+}

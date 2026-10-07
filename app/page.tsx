@@ -17,6 +17,7 @@ import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
+import { flyerRef } from '@/lib/acq'
 
 // Πού πάει όποιος σκανάρει flyer: 'map' (χάρτης χωρίς login) ή 'login' (κατευθείαν εγγραφή).
 // Αλλάζει εδώ → ισχύει για ΟΛΑ τα flyers που κυκλοφορούν, χωρίς ξανατύπωμα.
@@ -145,7 +146,8 @@ export default function HomePage() {
           // Τυπωμένα flyers (1η παρτίδα): το QR γράφει washio.gr/?ref=WASHIO&utm_source=flyer.
           // Το ξεχωρίζουμε από τη διαφήμιση (ίδιο ref=WASHIO) μέσω utm_source → δικός του
           // κωδικός (FLYER, ίδιο −3€) και δικός του προορισμός, χωρίς να αγγίζουμε τις διαφημίσεις.
-          if (sp0.get('utm_source') === 'flyer') { isFlyer = true; ref = 'FLYER' }
+          const fr = flyerRef(sp0)
+          if (fr) { isFlyer = true; ref = fr }
         } catch { /* ignore */ }
         if (ref) {
           try {
