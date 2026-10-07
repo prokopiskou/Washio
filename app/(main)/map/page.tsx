@@ -343,14 +343,24 @@ function MapPageContent() {
     // (πριν: «Αργότερα» για Κυριακή έδειχνε ωράριο της σημερινής μέρας).
     const dayOfWeek = weekdayMon1FromYmd(checkDate)
 
-    const [{ data: locsData }, { data: hoursData }, { data: bookingsData }, { data: exceptionsData }] = await Promise.all([
-      supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos, services(id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv, is_active, sort_order), reviews(rating)').eq('is_active', true),
-      supabase.from('location_hours').select('location_id, open_time, close_time, open_time2, close_time2, is_closed').eq('day_of_week', dayOfWeek),
-      // busy_slots (RPC, security definer): ΟΛΕΣ οι πιασμένες ώρες χωρίς προσωπικά στοιχεία.
-      // Το RLS των bookings δείχνει στον πελάτη μόνο τις δικές του → έβλεπε πιασμένες ώρες ως ελεύθερες.
-      supabase.rpc('busy_slots', { p_from: checkDate, p_to: checkDate }),
-      supabase.from('location_hours_exceptions').select('location_id, is_closed, closed_from, closed_to, periods').eq('exception_date', checkDate),
-    ])
+    // ΕΝΑ αίτημα στο /api/map-data (cached στο CDN, δίπλα στη βάση) αντί για 4 προς Supabase
+    // από το κινητό — οι πινέζες έρχονται σε κλάσματα του δευτερολέπτου. Fallback: απευθείας Supabase.
+    let locsData: any[] | null = null, hoursData: any[] | null = null, bookingsData: any[] | null = null, exceptionsData: any[] | null = null
+    try {
+      const r = await fetch(`/api/map-data?date=${checkDate}&dow=${dayOfWeek}`)
+      if (!r.ok) throw new Error('map-data ' + r.status)
+      const j = await r.json()
+      locsData = j.locations; hoursData = j.hours; bookingsData = j.busy; exceptionsData = j.exceptions
+    } catch {
+      const [a, b, c, d] = await Promise.all([
+        supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos, services(id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv, is_active, sort_order), reviews(rating)').eq('is_active', true),
+        supabase.from('location_hours').select('location_id, open_time, close_time, open_time2, close_time2, is_closed').eq('day_of_week', dayOfWeek),
+        // busy_slots (RPC, security definer): ΟΛΕΣ οι πιασμένες ώρες χωρίς προσωπικά στοιχεία.
+        supabase.rpc('busy_slots', { p_from: checkDate, p_to: checkDate }),
+        supabase.from('location_hours_exceptions').select('location_id, is_closed, closed_from, closed_to, periods').eq('exception_date', checkDate),
+      ])
+      locsData = a.data; hoursData = b.data; bookingsData = c.data as any[] | null; exceptionsData = d.data
+    }
 
     const hoursMap: Record<string, any> = {}
     ;(hoursData || []).forEach((h: any) => { hoursMap[h.location_id] = h })
