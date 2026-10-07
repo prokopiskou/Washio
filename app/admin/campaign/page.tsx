@@ -12,6 +12,8 @@ type Preview = { subject: string; total: number; withCoupon: number; willGetCoup
 // Admin: καμπάνια email «Το −3€ σου λήγει τη Δευτέρα 12/10».
 // 1) Βλέπεις πόσους αφορά  2) Στέλνεις δοκιμή στον εαυτό σου  3) Αποστολή σε όλους.
 export default function CampaignPage() {
+  // 'new' = υπενθύμιση σε όσους ΔΕΝ έλαβαν κανένα email (χωρίς ημερομηνία λήξης) · 'all' = «λήγει 12/10»
+  const [audience, setAudience] = useState<'new' | 'all'>('new')
   const [preview, setPreview] = useState<Preview | null>(null)
   const [busy, setBusy] = useState<'' | 'test' | 'send'>('')
   const [msg, setMsg] = useState('')
@@ -22,7 +24,7 @@ export default function CampaignPage() {
 
   const call = async (mode: 'preview' | 'test' | 'send' | 'stats') => {
     const res = await fetch('/api/admin/campaign', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, audience }),
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) throw new Error(json.error || 'Σφάλμα')
@@ -35,9 +37,11 @@ export default function CampaignPage() {
   }
 
   useEffect(() => {
+    setPreview(null); setStats(null); setErr(''); setMsg('')
     call('preview').then(setPreview).catch(e => setErr(e.message))
     loadStats()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audience])
 
   const sendTest = async () => {
     setBusy('test'); setMsg(''); setErr('')
@@ -60,7 +64,19 @@ export default function CampaignPage() {
       <div className="max-w-md mx-auto">
         <Link href="/admin" className="text-[13px] text-gray-500">← Admin</Link>
         <h1 className="text-[22px] font-bold text-gray-900 mt-3">Καμπάνια email</h1>
-        <p className="text-[13px] text-gray-500 mt-1">«Η έκπτωσή σου λήγει σύντομα» (3€ φθηνότερο μέχρι Δευτέρα 12/10) σε όσους δεν έχουν κάνει κράτηση.</p>
+        <div className="inline-flex bg-white border border-gray-200 rounded-xl p-1 mt-4">
+          {([['new', 'Νέοι (υπενθύμιση)'], ['all', '«Λήγει 12/10»']] as const).map(([k, label]) => (
+            <button key={k} onClick={() => setAudience(k)}
+              className={`px-3 py-1.5 rounded-lg text-[13px] font-semibold ${audience === k ? 'bg-gray-900 text-white' : 'text-gray-500'}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[13px] text-gray-500 mt-2">
+          {audience === 'new'
+            ? '«Ξέχασες το −3€ σου;» σε όσους ΔΕΝ έχουν κάνει κράτηση ΚΑΙ δεν έχουν λάβει κανένα email καμπάνιας. Χωρίς ημερομηνία λήξης.'
+            : '«Η έκπτωσή σου λήγει σύντομα» (3€ φθηνότερο μέχρι Δευτέρα 12/10) σε όσους δεν έχουν κάνει κράτηση.'}
+        </p>
 
         <div className="bg-white border border-gray-100 rounded-2xl p-4 mt-5">
           {!preview && !err && <p className="text-[13px] text-gray-400">Φόρτωση παραληπτών…</p>}

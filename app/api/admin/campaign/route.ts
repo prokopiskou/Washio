@@ -22,21 +22,37 @@ const URL_CTA = `https://www.washio.gr/map?utm_source=email&utm_medium=campaign&
 const SUBJECT = 'Η έκπτωσή σου λήγει σύντομα'
 const PREHEADER = 'Γιατί να το χάσεις; Κλείσε ραντεβού και πλήρωσε στο πλυντήριο.'
 
-function html(hasCoupon: boolean, ctaUrl: string = URL_CTA): string {
+// Υπενθύμιση για ΝΕΟΥΣ χρήστες (εγγράφηκαν μετά το προηγούμενο email, χωρίς κράτηση).
+// ΧΩΡΙΣ ημερομηνία λήξης: σε αυτούς το −3€ υποσχέθηκε χωρίς προθεσμία (διαφημίσεις, flyers),
+// οπότε δεν γράφουμε ψεύτικο «λήγει».
+const CAMPAIGN_NEW = 'welcome_reminder_new'
+const SUBJECT_NEW = 'Ξέχασες το −3€ σου;'
+const PREHEADER_NEW = 'Δες ελεύθερες ώρες κοντά σου και κλείσε σε 30″.'
+type Audience = 'all' | 'new'
+const cfg = (a: Audience) => a === 'new'
+  ? { campaign: CAMPAIGN_NEW, subject: SUBJECT_NEW, preheader: PREHEADER_NEW }
+  : { campaign: CAMPAIGN, subject: SUBJECT, preheader: PREHEADER }
+const ctaFor = (a: Audience) => `https://www.washio.gr/map?utm_source=email&utm_medium=campaign&utm_campaign=${cfg(a).campaign}`
+
+function html(hasCoupon: boolean, ctaUrl: string = URL_CTA, audience: Audience = 'all'): string {
+  const isNew = audience === 'new'
   const row = (t: string) => `<tr><td style="padding:5px 0;vertical-align:top;width:26px;"><span style="display:inline-block;width:18px;height:18px;border-radius:9px;background:#19A8C7;color:#fff;font-size:12px;line-height:18px;text-align:center;font-weight:700;">✓</span></td><td style="padding:5px 0;color:#374151;font-size:14px;line-height:1.5;">${t}</td></tr>`
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${PREHEADER}</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${cfg(audience).preheader}</div>
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px 16px;">
     <div style="background:#10182A;border-radius:18px 18px 0 0;padding:28px 28px 22px;text-align:center;">
       <img src="https://washio.gr/logo.png" alt="Washio" width="120" style="display:block;margin:0 auto 6px;" />
-      <p style="margin:0;color:#19A8C7;font-size:12px;font-weight:700;letter-spacing:1.6px;">ΤΟ ΚΟΥΠΟΝΙ ΣΟΥ ΛΗΓΕΙ</p>
+      <p style="margin:0;color:#19A8C7;font-size:12px;font-weight:700;letter-spacing:1.6px;">${isNew ? 'ΤΟ ΔΩΡΟ ΣΟΥ ΣΕ ΠΕΡΙΜΕΝΕΙ' : 'ΤΟ ΚΟΥΠΟΝΙ ΣΟΥ ΛΗΓΕΙ'}</p>
     </div>
     <div style="background:#FFFFFF;border:1px solid #E8EEF2;border-top:none;border-radius:0 0 18px 18px;padding:28px;">
-      <h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;">Το πλύσιμό σου έγινε 3€ φθηνότερο μέχρι τη <span style="color:#078EAD;">Δευτέρα 12/10</span>.</h1>
-      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;"><strong style="color:#10182A;">Γιατί να το χάσεις;</strong> Βρες το πλυντήριο που σε βολεύει, κλείσε ραντεβού και άσε την αναμονή για τον επόμενο.</p>
+      ${isNew
+        ? `<h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;">Το <span style="color:#078EAD;">−3€</span> για το πρώτο σου πλύσιμο σε περιμένει.</h1>
+      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Βρες το πλυντήριο που σε βολεύει, δες ελεύθερες ώρες και κλείσε σε 30″. Πας στην ώρα σου, χωρίς αναμονή.</p>`
+        : `<h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;">Το πλύσιμό σου έγινε 3€ φθηνότερο μέχρι τη <span style="color:#078EAD;">Δευτέρα 12/10</span>.</h1>
+      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;"><strong style="color:#10182A;">Γιατί να το χάσεις;</strong> Βρες το πλυντήριο που σε βολεύει, κλείσε ραντεβού και άσε την αναμονή για τον επόμενο.</p>`}
       ${hasCoupon ? `<div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 20px;">
         <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 3€ έκπτωση στο πρώτο σου πλύσιμο</p>
-        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Είναι ήδη στον λογαριασμό σου · Πληρώνεις στο πλυντήριο ή με κάρτα · Σε πλύσιμο από 12€.</p>
+        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">${isNew ? 'Είναι ήδη στον λογαριασμό σου · Κάρτα ή μετρητά, όπως θες · Σε πλύσιμο από 12€.' : 'Είναι ήδη στον λογαριασμό σου · Πληρώνεις στο πλυντήριο ή με κάρτα · Σε πλύσιμο από 12€.'}</p>
       </div>` : ''}
       <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border-collapse:collapse;">
         ${row('Ελεύθερες ώρες σε πραγματικό χρόνο')}
@@ -54,14 +70,15 @@ function html(hasCoupon: boolean, ctaUrl: string = URL_CTA): string {
 // ΠΡΟΣΩΠΙΚΟ link: συνδέει αυτόματα τον χρήστη (χωρίς κωδικό) και τον πάει στον χάρτη.
 // Ισχύει όσο το «Email OTP expiration» του Supabase (ρυθμισμένο στις 24 ώρες).
 // Αν λήξει ή αποτύχει → η σελίδα /auth/link τον στέλνει στο κανονικό login (ίδιος προορισμός).
-async function personalLink(email: string): Promise<string> {
+async function personalLink(email: string, audience: Audience = 'all'): Promise<string> {
+  const fallback = ctaFor(audience)
   try {
     const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
     const th = data?.properties?.hashed_token
-    if (error || !th) return URL_CTA
-    const next = '/map?utm_source=email&utm_medium=campaign&utm_campaign=' + CAMPAIGN
+    if (error || !th) return fallback
+    const next = '/map?utm_source=email&utm_medium=campaign&utm_campaign=' + cfg(audience).campaign
     return `https://www.washio.gr/auth/link?token_hash=${encodeURIComponent(th)}&next=${encodeURIComponent(next)}`
-  } catch { return URL_CTA }
+  } catch { return fallback }
 }
 
 // Τρέξε async δουλειές με όριο ταυτόχρονων (για να μη «χτυπήσουμε» το Auth API).
@@ -119,7 +136,7 @@ function resendDateToIso(v: string): string {
   return isNaN(d.getTime()) ? new Date(0).toISOString() : d.toISOString()
 }
 
-async function campaignStats() {
+async function listCampaignEmails(subjects: string[]): Promise<ResendListed[]> {
   const emails: ResendListed[] = []
   let after: string | undefined
   for (let page = 0; page < 40; page++) {
@@ -135,11 +152,16 @@ async function campaignStats() {
         : 'Resend: ' + m)
     }
     const data = (json.data || []) as ResendListed[]
-    emails.push(...data.filter(e => e.subject === SUBJECT))
+    emails.push(...data.filter(e => subjects.includes(e.subject)))
     if (!json.has_more || !data.length) break
     after = data[data.length - 1].id
     await new Promise(r => setTimeout(r, 300))
   }
+  return emails
+}
+
+async function campaignStats(audience: Audience = 'all') {
+  const emails = await listCampaignEmails([cfg(audience).subject])
 
   const by = (ev: string[]) => emails.filter(e => ev.includes(e.last_event)).length
   const sent = emails.length
@@ -185,13 +207,23 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await sb.auth.getUser()
     if (!user || !isAdminEmail(user.email)) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
 
-    const { mode } = (await req.json().catch(() => ({}))) as { mode?: 'preview' | 'test' | 'send' | 'stats' }
-    if (mode === 'stats') return NextResponse.json(await campaignStats())
-    const list = await recipients()
+    const { mode, audience: aud } = (await req.json().catch(() => ({}))) as { mode?: 'preview' | 'test' | 'send' | 'stats'; audience?: Audience }
+    const audience: Audience = aud === 'new' ? 'new' : 'all'
+    const { subject: SUBJ, campaign: CAMP } = cfg(audience)
+    if (mode === 'stats') return NextResponse.json(await campaignStats(audience))
+
+    // «new»: ΜΟΝΟ όσοι δεν έχουν λάβει ΚΑΝΕΝΑ από τα δύο emails (ούτε το «λήγει 12/10»,
+    // ούτε αυτό) — ποτέ δεύτερο email στον ίδιο. Η λίστα αποστολών έρχεται από το Resend.
+    let alreadySent = new Set<string>()
+    if (audience === 'new') {
+      const prev = await listCampaignEmails([SUBJECT, SUBJECT_NEW])
+      alreadySent = new Set(prev.flatMap(e => (e.to || []).map(x => x.toLowerCase())))
+    }
+    const list = (await recipients()).filter(r => !alreadySent.has(r.email))
 
     if (mode === 'preview') {
       return NextResponse.json({
-        subject: SUBJECT,
+        subject: SUBJ,
         total: list.length,
         withCoupon: list.filter(r => r.hasCoupon).length,
       // Όσοι δεν έχουν ακόμα −3€ θα το πάρουν ΑΥΤΟΜΑΤΑ πριν φύγει το email (δεν έχουν κράτηση → δικαιούνται).
@@ -204,8 +236,8 @@ export async function POST(req: NextRequest) {
       const { error } = await resend.emails.send({
         from: 'Washio <noreply@washio.gr>',
         to: user.email!,
-        subject: '[ΔΟΚΙΜΗ] ' + SUBJECT,
-        html: html(true, await personalLink(user.email!)),
+        subject: '[ΔΟΚΙΜΗ] ' + SUBJ,
+        html: html(true, await personalLink(user.email!, audience), audience),
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ ok: true, sentTo: user.email })
@@ -226,12 +258,12 @@ export async function POST(req: NextRequest) {
         }
       }
       // Ξαναδιάβασε υπόλοιπα — στέλνεται μόνο σε όσους ΟΝΤΩΣ έχουν −3€ τώρα.
-      const fresh = await recipients()
+      const fresh = (await recipients()).filter(r => !alreadySent.has(r.email))
       const finalList = fresh.filter(r => r.hasCoupon)
       const skipped = fresh.length - finalList.length
 
       // Προσωπικό link για τον καθένα (10 ταυτόχρονα).
-      const links = await mapLimit(finalList, 10, r => personalLink(r.email))
+      const links = await mapLimit(finalList, 10, r => personalLink(r.email, audience))
       const linkByEmail = new Map(finalList.map((r, k) => [r.email, links[k]]))
 
       let sent = 0
@@ -241,10 +273,10 @@ export async function POST(req: NextRequest) {
         const { error } = await resend.batch.send(chunk.map(r => ({
           from: 'Washio <noreply@washio.gr>',
           to: r.email,
-          subject: SUBJECT,
-          html: html(true, linkByEmail.get(r.email) || URL_CTA),
+          subject: SUBJ,
+          html: html(true, linkByEmail.get(r.email) || ctaFor(audience), audience),
           headers: { 'List-Unsubscribe': '<mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio>' },
-          tags: [{ name: 'campaign', value: CAMPAIGN }],
+          tags: [{ name: 'campaign', value: CAMP }],
         })))
         if (error) errors.push(error.message)
         else sent += chunk.length
