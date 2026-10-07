@@ -107,7 +107,10 @@ async function recipients() {
   for (let page = 1; page <= 20; page++) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
     if (error) throw error
-    for (const u of data.users) if (u.email) users.push({ id: u.id, email: u.email.toLowerCase() })
+    // Μόνο ΟΛΟΚΛΗΡΩΜΕΝΟΙ λογαριασμοί (επαλήθευσαν email / συνδέθηκαν τουλάχιστον μία φορά).
+    // Όσοι ζήτησαν κωδικό και δεν τον έβαλαν ποτέ συχνά έχουν λάθος email (π.χ. «gmail.con")
+    // → bounce → χαλάει η φήμη του washio.gr και κινδυνεύουν να πάνε στα spam και τα OTP.
+    for (const u of data.users) if (u.email && (u.last_sign_in_at || u.email_confirmed_at)) users.push({ id: u.id, email: u.email.toLowerCase() })
     if (data.users.length < 1000) break
   }
   const [{ data: booked }, { data: owners }, { data: profs }, { data: apps }, { data: onb }] = await Promise.all([
