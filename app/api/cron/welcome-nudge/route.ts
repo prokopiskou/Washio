@@ -29,6 +29,7 @@ const START_AT = '2026-10-07T18:30:00Z'
 const SEND_FROM_H = 9
 const SEND_TO_H = 21 // έως 21:59
 
+const COUPON_MIN = 12 // το −3€ ισχύει σε πλύσιμο από 12€
 const UTM = `utm_source=email&utm_medium=auto&utm_campaign=${CAMPAIGN}`
 
 function athensHour(d = new Date()): number {
@@ -45,7 +46,7 @@ async function washers(): Promise<Washer[]> {
     const prices = ((l.services || []) as { price: number | null; is_range?: boolean; price_min?: number | null; is_active?: boolean }[])
       .filter(s => s.is_active !== false)
       .map(s => Number(s.is_range ? s.price_min : s.price))
-      .filter(p => p > 0)
+      .filter(p => p >= COUPON_MIN) // μόνο υπηρεσίες όπου ισχύει το −3€ → καμία λάθος προσδοκία
     return {
       name: String(l.name || ''),
       area: String(l.city || ''),
