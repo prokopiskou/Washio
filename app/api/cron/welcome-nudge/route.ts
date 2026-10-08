@@ -46,7 +46,7 @@ async function washers(): Promise<Washer[]> {
     const prices = ((l.services || []) as { price: number | null; is_range?: boolean; price_min?: number | null; is_active?: boolean }[])
       .filter(s => s.is_active !== false)
       .map(s => Number(s.is_range ? s.price_min : s.price))
-      .filter(p => p >= COUPON_MIN) // μόνο υπηρεσίες όπου ισχύει το −3€ → καμία λάθος προσδοκία
+      .filter(p => p > 0) // φθηνότερη υπηρεσία· το όριο 12€ του −3€ γράφεται ρητά πάνω από τη λίστα
     return {
       name: String(l.name || ''),
       area: String(l.city || ''),
@@ -81,7 +81,8 @@ function html(link: string, list: Washer[]): string {
         <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Μπαίνει αυτόματα στην κράτηση · Κάρτα ή μετρητά · Σε πλύσιμο από 12€.</p>
       </div>
       <a href="${link}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;margin:0 0 22px;">Δες ελεύθερες ώρες →</a>
-      ${list.length ? `<p style="margin:0 0 4px;color:#10182A;font-size:13px;font-weight:700;letter-spacing:.3px;">ΠΛΥΝΤΗΡΙΑ ΣΤΟ WASHIO</p>
+      ${list.length ? `<p style="margin:0 0 2px;color:#10182A;font-size:13px;font-weight:700;letter-spacing:.3px;">ΠΛΥΝΤΗΡΙΑ ΣΤΟ WASHIO</p>
+      <p style="margin:0 0 6px;color:#6F7785;font-size:12px;">Το −3€ ισχύει σε υπηρεσίες από ${COUPON_MIN}€ και πάνω.</p>
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">${rows}</table>` : ''}
       <p style="margin:18px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;text-align:center;">Δωρεάν ακύρωση έως 2 ώρες πριν.</p>
     </div>
