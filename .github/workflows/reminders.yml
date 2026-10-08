@@ -20,3 +20,8 @@ jobs:
         run: |
           curl -fsS -X GET "https://www.washio.gr/api/cron/emails" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: Welcome nudge (−3€ email 1h+ μετά την εγγραφή)
+        if: always()
+        run: |
+          curl -fsS -X GET "https://www.washio.gr/api/cron/welcome-nudge" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

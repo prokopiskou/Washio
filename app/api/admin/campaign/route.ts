@@ -35,6 +35,7 @@ const PROMO_SUBJECTS = [
   'Από Δευτέρα ήλιος ☀️ Κλείσε το πλύσιμό σου με −3€', // sunny_week_oct (2/10)
   'Η έκπτωσή σου λήγει σύντομα',                       // coupon_expiry_1210 (5/10)
   'Ξέχασες το −3€ σου;',                                // welcome_reminder_new
+  'Το −3€ σου σε περιμένει',                            // cron welcome-nudge (1h+ μετά την εγγραφή)
   'Δεν ολοκλήρωσες την κράτησή σου',                    // cron abandoned-checkout
   'Άνοιξε ώρα κοντά σου!',                              // ακύρωση → waitlist
   'Το Washio ήρθε στην περιοχή σου!',                   // waitlist-notify
