@@ -21,7 +21,8 @@ import { flyerRef } from '@/lib/acq'
 
 // Πού πάει όποιος σκανάρει flyer: 'map' (χάρτης χωρίς login) ή 'login' (κατευθείαν εγγραφή).
 // Αλλάζει εδώ → ισχύει για ΟΛΑ τα flyers που κυκλοφορούν, χωρίς ξανατύπωμα.
-const FLYER_DEST: 'map' | 'login' = 'map'
+// 9/10: 'login' — στο A/B των διαφημίσεων η εγγραφή-πρώτα έφερε ~10% εγγραφές vs ~0,6% ο χάρτης.
+const FLYER_DEST: 'map' | 'login' = 'login'
 
 const T = {
   el: {
