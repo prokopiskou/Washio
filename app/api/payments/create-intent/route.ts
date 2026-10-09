@@ -152,8 +152,8 @@ export async function POST(req: NextRequest) {
     const clientUa = (req.headers.get('user-agent') || '').slice(0, 350)
 
     // Εξαργύρωση πίστωσης wallet (κουπόνια/referral) — κάρτα (εδώ) ΚΑΙ μετρητά (create-cash). Μειώνει τη
-    // χρέωση· ο πλυντηριάς παίρνει πλήρη τιμή (booking.total_amount = base) και το
-    // credit το απορροφά η πλατφόρμα. Αφαιρείται από το wallet στο webhook (μετά
+    // χρέωση. booking.total_amount = βάση, coupon_amount = κουπόνι· το κουπόνι το απορροφά
+    // το ΠΛΥΝΤΗΡΙΟ (εκκαθάριση = τιμή − κουπόνι − προμήθεια), ίδια πολιτική με τα μετρητά. Αφαιρείται από το wallet στο webhook (μετά
     // την επιτυχή πληρωμή), όχι εδώ — για να μη χαθεί αν δεν ολοκληρωθεί.
     let appliedCredit = 0
     try {

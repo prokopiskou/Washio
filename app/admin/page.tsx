@@ -235,13 +235,17 @@ export default function AdminPage() {
       const refund = Number(b.refund_amount || 0)
       const ps = b.stripe_payment_status
       const done = isDone(b)
-      if (ps === 'paid') onlineKept += amt
-      else if (ps === 'partially_refunded') onlineKept += Math.max(0, amt - refund)
+      // Κουπόνι −3€: το απορροφά το ΠΛΥΝΤΗΡΙΟ (ίδια πολιτική με τα μετρητά). Online κράτηση με
+      // τιμή 30€ και κουπόνι 3€ → η κάρτα χρεώθηκε 27€ → οφείλουμε 27€ (μείον προμήθεια), όχι 30€.
+      const cpOnline = Number(b.coupon_amount) || 0
+      const paidNet = Math.max(0, amt - cpOnline)
+      if (ps === 'paid') onlineKept += paidNet
+      else if (ps === 'partially_refunded') onlineKept += Math.max(0, paidNet - refund)
       // Κουπόνι 3€ σε πλυντήριο με συμφωνία → καμία προμήθεια γι' αυτή την κράτηση
       // (το webhook γράφει platform_fee = 0 μόνο σε αυτή την περίπτωση).
       if ((ps === 'paid' || ps === 'partially_refunded') && b.source !== 'manual'
           && NO_COMMISSION_ON_COUPON_LOCATION_IDS.has(loc.id) && Number(b.platform_fee) === 0) {
-        couponFree += ps === 'paid' ? amt : Math.max(0, amt - refund)
+        couponFree += ps === 'paid' ? paidNet : Math.max(0, paidNet - refund)
       }
       // 'refunded' → 0
       if (refund > 0) refunded += refund

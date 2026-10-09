@@ -120,7 +120,8 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
     const commissionRate = Number(locRow?.commission_rate ?? 10) / 100
     const platformFee = couponWaivesCommission(m.locationId, parseFloat(m.appliedCredit || '0'))
       ? 0
-      : +(parseFloat(m.amount) * commissionRate).toFixed(2)
+      // Επί του ποσού που ΠΛΗΡΩΣΕ ο πελάτης (τιμή − κουπόνι), όπως και στα μετρητά.
+      : +(Math.max(0, parseFloat(m.amount) - (parseFloat(m.appliedCredit || '0') || 0)) * commissionRate).toFixed(2)
 
     // ΑΤΟΜΙΚΟ insert (κλειδαριά + έλεγχος πληρότητας στη βάση). Αν το slot
     // γέμισε όσο ο πελάτης πλήρωνε (π.χ. μετρητά από άλλον), ΔΕΝ γράφουμε
@@ -218,7 +219,7 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
     if (await shouldNotifyOwnerNow(supabase, m.locationId, m.slotDate)) {
       await sendPush((locationData as { owner_id?: string })?.owner_id, {
         title: '💳 Νέα κράτηση — ΠΛΗΡΩΜΕΝΗ με κάρτα',
-        body: `Μη ζητήσεις χρήματα, €${parseFloat(m.amount).toFixed(2)} εξοφλημένα online • ${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${m.carPlate ? ' • ' + m.carPlate : ''}`,
+        body: `Μη ζητήσεις χρήματα, €${Math.max(0, parseFloat(m.amount) - (parseFloat(m.appliedCredit || '0') || 0)).toFixed(2)} εξοφλημένα online • ${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${m.carPlate ? ' • ' + m.carPlate : ''}`,
         url: '/dashboard',
       })
     }
