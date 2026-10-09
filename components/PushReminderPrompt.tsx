@@ -12,8 +12,8 @@ const APP_STORE_URL = 'https://apps.apple.com/app/id6785925766'
 
 const T = {
   el: {
-    title: 'Να σε ειδοποιήσουμε πριν το ραντεβού;',
-    sub: 'Περίπου 1 ώρα πριν, και όταν έρθει η ώρα για το επόμενο πλύσιμο. Τίποτα άλλο.',
+    title: 'Να σε ειδοποιούμε;',
+    sub: 'Υπενθυμίσεις για τα ραντεβού σου και προσφορές. Τίποτα άλλο.',
     yes: 'Ναι, ειδοποίησέ με',
     no: 'Όχι τώρα',
     enabling: 'Ενεργοποίηση...',
@@ -24,8 +24,8 @@ const T = {
     iosCta: 'Κατέβασε την εφαρμογή',
   },
   en: {
-    title: 'Get notified before your appointment?',
-    sub: "About 1 hour before, and when it's time for your next wash. Nothing else.",
+    title: 'Want notifications?',
+    sub: 'Reminders for your appointments and offers. Nothing else.',
     yes: 'Yes, notify me',
     no: 'Not now',
     enabling: 'Enabling...',

@@ -8,6 +8,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { AnalyticsScripts } from "@/components/AnalyticsScripts";
 import { LanguageProvider } from "@/lib/i18n";
 import { GetAppButton } from "@/components/GetAppButton";
+import { NativePushOnboard } from "@/components/NativePushOnboard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,6 +56,7 @@ export default function RootLayout({
           <RegistrationTracker />
           {children}
           <GetAppButton />
+          <NativePushOnboard />
           <MapsPreloader />
           <Analytics />
           <AnalyticsScripts />

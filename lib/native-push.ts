@@ -88,3 +88,22 @@ export async function nativePushGranted(): Promise<boolean> {
     return false
   }
 }
+
+/**
+ * Ζητά ΜΟΝΟ την άδεια του συστήματος (χωρίς εγγραφή token). Για επισκέπτες χωρίς λογαριασμό:
+ * το token καταχωρείται αργότερα, όταν συνδεθούν (registerNativePush με ask:false).
+ */
+export async function requestNativePushPermission(): Promise<boolean> {
+  if (!Capacitor.isNativePlatform()) return false
+  try {
+    const { FirebaseMessaging } = await import('@capacitor-firebase/messaging')
+    let perm = await FirebaseMessaging.checkPermissions()
+    if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+      perm = await FirebaseMessaging.requestPermissions()
+    }
+    if (perm.receive !== 'granted') reportPushDiag('permission-' + perm.receive, 'permission-guest')
+    return perm.receive === 'granted'
+  } catch {
+    return false
+  }
+}

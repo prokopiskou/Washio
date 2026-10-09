@@ -1,10 +1,10 @@
 import { Resend } from 'resend'
 
 // Ειδοποίηση ADMIN για ΚΑΘΕ νέα κράτηση πλατφόρμας (κάρτα ή «πλήρωσε εκεί»):
-// email στο withinsuccess@gmail.com + μήνυμα Telegram (ίδιο bot με τα alerts).
+// email στους admins (Προκόπης + Γιώργος) + μήνυμα Telegram (ίδιο bot με τα alerts).
 // Best-effort — ΠΟΤΕ δεν μπλοκάρει την κράτηση.
 const resend = new Resend(process.env.RESEND_API_KEY)
-const ADMIN_NOTIFY_EMAIL = 'withinsuccess@gmail.com'
+const ADMIN_NOTIFY_EMAIL = ['withinsuccess@gmail.com', 'giwrgos2070@gmail.com']
 
 export async function notifyAdminNewBooking(b: {
   bookingRef: string
