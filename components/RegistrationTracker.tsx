@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@/lib/analytics'
-import { flyerRef } from '@/lib/acq'
+import { flyerRef, cleanAd } from '@/lib/acq'
 
 // Πυροδοτεί CompleteRegistration (Meta) / sign_up (GA4) ΜΙΑ φορά ανά ΝΕΑ εγγραφή,
 // ανεξαρτήτως μεθόδου: OTP, Google, Apple, Facebook ή email/password.
@@ -29,6 +29,9 @@ export function RegistrationTracker() {
       if (lp === 'map' || lp === 'login') document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
       const acqRef = sp.get('acq_ref')
       if (acqRef && !ref) document.cookie = `ws_ref=${encodeURIComponent(acqRef.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+      // Ποια διαφήμιση: utm_content={{ad.name}} από το Meta → cookie ws_ad → user_metadata.acq_ad
+      const ad = cleanAd(sp.get('acq_ad') || sp.get('utm_content'))
+      if (ad) document.cookie = `ws_ad=${encodeURIComponent(ad)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
     } catch { /* ignore */ }
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -86,8 +89,12 @@ export function RegistrationTracker() {
         const already = (u.user_metadata as { acq_lp?: string } | undefined)?.acq_lp
         if (acqLp && !already) {
           const acqRef = decodeURIComponent(ck('ws_ref') || '') || null
+          const acqAd = cleanAd(decodeURIComponent(ck('ws_ad') || ''))
+          const data: Record<string, string> = { acq_lp: acqLp }
+          if (acqRef) data.acq_ref = acqRef
+          if (acqAd) data.acq_ad = acqAd
           // setTimeout: ΠΟΤΕ κλήση Supabase μέσα στο onAuthStateChange (κίνδυνος deadlock στο auth lock).
-          setTimeout(() => { supabase.auth.updateUser({ data: acqRef ? { acq_lp: acqLp, acq_ref: acqRef } : { acq_lp: acqLp } }).catch(() => {}) }, 0)
+          setTimeout(() => { supabase.auth.updateUser({ data }).catch(() => {}) }, 0)
         }
       } catch { /* ignore */ }
 

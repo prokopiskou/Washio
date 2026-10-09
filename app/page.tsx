@@ -17,7 +17,7 @@ import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
-import { flyerRef } from '@/lib/acq'
+import { flyerRef, cleanAd } from '@/lib/acq'
 
 // Πού πάει όποιος σκανάρει flyer: 'map' (χάρτης χωρίς login) ή 'login' (κατευθείαν εγγραφή).
 // Αλλάζει εδώ → ισχύει για ΟΛΑ τα flyers που κυκλοφορούν, χωρίς ξανατύπωμα.
@@ -153,6 +153,9 @@ export default function HomePage() {
         if (ref) {
           try {
             document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+            // Ποια διαφήμιση (utm_content={{ad.name}}) — πριν το redirect σβήσει το URL.
+            const ad = cleanAd(new URLSearchParams(window.location.search).get('utm_content'))
+            if (ad) document.cookie = `ws_ad=${encodeURIComponent(ad)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
           } catch { /* ignore */ }
           // A/B τεστ landing (lp): «map» = βλέπει χάρτη/τιμές/ώρες ΧΩΡΙΣ login και γράφεται
           // μόνο στο «Συνέχεια». Οτιδήποτε άλλο = όπως πριν (κατευθείαν εγγραφή).

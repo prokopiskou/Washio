@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
           patch.acq_lp = lp
           if (ref) patch.acq_ref = decodeURIComponent(ref)
         }
+        // Ποια διαφήμιση (utm_content={{ad.name}}) — μόνο αν λείπει.
+        const ad = req.cookies.get('ws_ad')?.value
+        if (ad && !meta.acq_ad) patch.acq_ad = decodeURIComponent(ad).slice(0, 60)
         // Διαγνωστικό: ήρθε από ΚΛΙΚ σε διαφήμιση Meta σε αυτόν τον browser; (_fbc = fbclid)
         // Χωρίς tag + χωρίς _fbc → view-through/οργανικός (αναμενόμενο). Χωρίς tag + με _fbc → χαμένο tag (bug).
         if (meta.acq_click === undefined) patch.acq_click = !!req.cookies.get('_fbc')?.value
