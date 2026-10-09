@@ -288,12 +288,16 @@ function LoginPageContent() {
               {loading ? t.sending : t.sendCode}
             </button>
 
-            <button
-              onClick={() => router.push('/')}
-              className="w-full text-xs text-gray-400 text-center py-2"
-            >
-              {t.continueGuest}
-            </button>
+            {/* Από checkout (redirect → /booking) ΔΕΝ δίνουμε «συνέχεια ως επισκέπτης»: η κράτηση
+                θέλει λογαριασμό, και το κουμπί τον έβγαζε από τη ροή χάνοντας την ώρα που διάλεξε. */}
+            {!/\/booking/.test(String(params.get('redirect') || '')) && (
+              <button
+                onClick={() => router.push('/')}
+                className="w-full text-xs text-gray-400 text-center py-2"
+              >
+                {t.continueGuest}
+              </button>
+            )}
 
             <div className="flex items-center gap-3 my-1">
               <div className="flex-1 h-px bg-gray-100" />
