@@ -193,7 +193,47 @@ export async function POST(req: NextRequest) {
   const sb = await createServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user || !isAdminEmail(user.email)) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
-  const { mode } = (await req.json().catch(() => ({}))) as { mode?: 'preview' | 'test' }
+  const { mode } = (await req.json().catch(() => ({}))) as { mode?: 'preview' | 'test' | 'stats' }
+
+  // Στατιστικά από το Resend (last_event ανά email) + κρατήσεις μετά την αποστολή (βάση).
+  if (mode === 'stats') {
+    type Listed = { id: string; to: string[]; subject: string; created_at: string; last_event: string }
+    const emails: Listed[] = []
+    let after: string | undefined
+    for (let page = 0; page < 120; page++) {
+      const res = await fetch('https://api.resend.com/emails?limit=100' + (after ? `&after=${after}` : ''), {
+        headers: { Authorization: `Bearer ${process.env.RESEND_STATS_API_KEY || process.env.RESEND_API_KEY}` }, cache: 'no-store',
+      })
+      if (res.status === 429) { await new Promise(r => setTimeout(r, 1200)); page--; continue }
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) return NextResponse.json({ error: 'Resend: ' + String(json?.message || res.status) }, { status: 500 })
+      const data = (json.data || []) as Listed[]
+      emails.push(...data.filter(e => e.subject === SUBJECT))
+      if (!json.has_more || !data.length) break
+      after = data[data.length - 1].id
+      await new Promise(r => setTimeout(r, 300))
+    }
+    const by = (ev: string[]) => emails.filter(e => ev.includes(e.last_event)).length
+    const delivered = by(['delivered', 'opened', 'clicked', 'complained'])
+    const opened = by(['opened', 'clicked'])
+    const clicked = by(['clicked'])
+    const { count: booked } = await admin.from('bookings').select('id', { count: 'exact', head: true }).neq('status', 'cancelled')
+      .gte('created_at', '2026-10-09T09:00:00Z').in('user_id', (await (async () => {
+        const ids: string[] = []
+        for (let page = 1; page <= 20; page++) {
+          const { data } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+          for (const u of data?.users || []) if ((u.app_metadata as Record<string, unknown>)?.welcome_nudge_at) ids.push(u.id)
+          if (!data || data.users.length < 1000) break
+        }
+        return ids.length ? ids : ['00000000-0000-0000-0000-000000000000']
+      })()))
+    const pct = (n: number) => (delivered ? Math.round((n / delivered) * 1000) / 10 : 0)
+    return NextResponse.json({
+      sent: emails.length, delivered, opened, clicked,
+      bounced: by(['bounced', 'failed', 'suppressed']), complained: by(['complained']),
+      openRate: pct(opened), clickRate: pct(clicked), bookingsByRecipients: booked || 0,
+    })
+  }
 
   if (mode === 'test') {
     const { error } = await resend.emails.send({
