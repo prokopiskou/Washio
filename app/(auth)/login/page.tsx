@@ -32,6 +32,8 @@ const T = {
     changeEmail: 'Αλλαγή email',
     codeOnWay: 'Ο κωδικός έρχεται στο email σου — βάλ\' τον εδώ μόλις φτάσει.',
     resendCode: 'Αποστολή νέου κωδικού',
+    resendIn: (s: string) => `Νέος κωδικός σε ${s}`,
+    checkSpam: 'Ο κωδικός μπορεί να αργήσει έως 1 λεπτό. Δες και στα «Ανεπιθύμητα» / «Προωθήσεις».',
     wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
     somethingWrong: 'Κάτι πήγε στραβά. Δοκίμασε ξανά.',
     networkSlow: 'Η σύνδεση αργεί. Έλεγξε το ίντερνετ και δοκίμασε ξανά.',
@@ -58,6 +60,8 @@ const T = {
     changeEmail: 'Change email',
     codeOnWay: 'Your code is on its way — enter it here as soon as it arrives.',
     resendCode: 'Send new code',
+    resendIn: (s: string) => `New code in ${s}`,
+    checkSpam: 'The code can take up to 1 minute. Check Spam / Promotions too.',
     wrongCode: 'Wrong code. Please try again.',
     somethingWrong: 'Something went wrong. Please try again.',
     networkSlow: 'Connection is slow. Check your internet and try again.',
@@ -95,6 +99,18 @@ function LoginPageContent() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
+  // Περιθώριο πριν από νέο κωδικό: κάθε νέα αποστολή ακυρώνει την προηγούμενη και το
+  // Supabase επιτρέπει 1 email/λεπτό → όποιος πατούσε συνέχεια «νέο κωδικό» έπαιρνε 429 ή
+  // έβαζε τον παλιό κωδικό που πλέον δεν ισχύει. 60″ αντίστροφη μέτρηση.
+  const RESEND_SECONDS = 60
+  const [cooldown, setCooldown] = useState(0)
+  const lastSentTo = useRef('')
+  useEffect(() => {
+    if (cooldown <= 0) return
+    const tm = setTimeout(() => setCooldown(c => c - 1), 1000)
+    return () => clearTimeout(tm)
+  }, [cooldown])
+  const startCooldown = () => setCooldown(RESEND_SECONDS)
   // Google web sign-in (GIS + signInWithIdToken) → όχι supabase στην οθόνη Google.
   // Μόνο σε browser (όχι native) και μόνο αν έχει οριστεί το client id (feature-flag).
   const [showGoogleWeb, setShowGoogleWeb] = useState(false)
@@ -131,12 +147,17 @@ function LoginPageContent() {
     if (!current) return
     const email_ = current
     setError('')
+    // Μέσα στο περιθώριο για ΙΔΙΟ email → καμία νέα αποστολή, απλώς στο πεδίο κωδικού.
+    if (cooldown > 0 && lastSentTo.current === email_.toLowerCase()) { setSent(true); return }
+    if (loading) return
     // Demo: δεν στέλνουμε πραγματικό email — προχωράμε κατευθείαν στην οθόνη κωδικού.
     if (email_.toLowerCase() === DEMO_EMAIL) {
       setSent(true)
       return
     }
     setLoading(true)
+    lastSentTo.current = email_.toLowerCase()
+    startCooldown()
     // Ο server στέλνει το email ΠΡΙΝ απαντήσει — αν η απάντηση αργεί (SMTP/δίκτυο),
     // ο κωδικός έχει ήδη φύγει. Άρα: αν σε ~3.5s δεν έχουμε απάντηση, πάμε ΑΜΕΣΩΣ
     // στο πεδίο κωδικού (πριν: ο χρήστης έπαιρνε τον κωδικό αλλά έμενε στο spinner).
@@ -160,7 +181,8 @@ function LoginPageContent() {
         // Όριο αποστολών (μόλις στάλθηκε κωδικός) → μείνε στο πεδίο κωδικού.
         const rate = (error as { status?: number }).status === 429 || /security purposes|rate limit/i.test(error.message)
         if (rate) { setSent(true); setInfo(t.codeOnWay); return }
-        // Πραγματικό σφάλμα (π.χ. λάθος email) → γύρνα πίσω με μήνυμα.
+        // Πραγματικό σφάλμα (π.χ. λάθος email) → γύρνα πίσω με μήνυμα (και επιτρέπεται άμεσα νέα προσπάθεια).
+        setCooldown(0); lastSentTo.current = ''
         setSent(false); setInfo(''); setError(error.message); return
       }
       setSent(true); setError('')
@@ -373,11 +395,13 @@ function LoginPageContent() {
               {t.changeEmail}
             </button>
 
+            {cooldown > 0 && !error && <p className="text-[11px] text-gray-400 text-center leading-snug">{t.checkSpam}</p>}
             <button
               onClick={handleSendOtp}
-              className="text-xs text-blue-500 text-center"
+              disabled={cooldown > 0 || loading}
+              className="text-xs text-blue-500 text-center disabled:text-gray-300"
             >
-              {t.resendCode}
+              {cooldown > 0 ? t.resendIn(`${Math.floor(cooldown / 60)}:${String(cooldown % 60).padStart(2, '0')}`) : t.resendCode}
             </button>
           </div>
         )}
