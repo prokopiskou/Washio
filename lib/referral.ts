@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { expiryForSignup } from '@/lib/coupon-expiry'
 
 // Referral + wallet — server-side, best-effort (ποτέ δεν μπλοκάρει booking/auth).
 //   • Νέος από link: −3€ welcome (πίστωση στο wallet).
@@ -61,6 +62,8 @@ export async function linkReferral(
       await db.rpc('apply_credit', {
         p_user: newUserId, p_delta: WELCOME_DISCOUNT, p_kind: 'welcome', p_note: 'Καλωσόρισμα',
       })
+      // Πραγματική λήξη: 7 μέρες (lib/coupon-expiry). Best-effort — αν αποτύχει, το cron τη συμπληρώνει.
+      try { await db.auth.admin.updateUserById(newUserId, { app_metadata: { coupon_expires_at: expiryForSignup(new Date()) } }) } catch { /* ignore */ }
     }
 
     // Γενικός κωδικός διαφήμισης (ή καθόλου κωδικός) → welcome −3€ χωρίς referrer.

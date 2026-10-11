@@ -14,7 +14,7 @@ const T = {
     tabCoupons: 'Κουπόνια', tabReferral: 'Κάλεσε φίλους',
     balance: 'Το υπόλοιπό σου', useAtCheckout: 'Εξαργυρώνεται αυτόματα σε πλύσιμο από 12€ — είτε πληρώσεις στο πλυντήριο είτε με κάρτα. Ένα κουπόνι (έως 3€) ανά πλύσιμο.',
     history: 'Ιστορικό', empty: 'Δεν έχεις κουπόνια ακόμα.',
-    welcome: 'Καλωσόρισμα', referral_reward: 'Επιβράβευση παραπομπής', redeem: 'Εξαργύρωση',
+    welcome: 'Καλωσόρισμα', referral_reward: 'Επιβράβευση παραπομπής', redeem: 'Εξαργύρωση', expired: 'Λήξη κουπονιού',
     referTitle: 'Φέρε φίλους, κερδίστε και οι δύο',
     referSub: (a: number, b: number, n: number) =>
       `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση — κι εσύ −${b}€ για κάθε φίλο που κλείνει. Έως ${n} φίλοι.`,
@@ -29,7 +29,7 @@ const T = {
     tabCoupons: 'Coupons', tabReferral: 'Invite friends',
     balance: 'Your balance', useAtCheckout: 'Applied automatically on washes from €12 — pay at the venue or by card. One coupon (up to €3) per wash.',
     history: 'History', empty: 'No coupons yet.',
-    welcome: 'Welcome', referral_reward: 'Referral reward', redeem: 'Redeemed',
+    welcome: 'Welcome', referral_reward: 'Referral reward', redeem: 'Redeemed', expired: 'Coupon expired',
     referTitle: 'Invite friends, both win',
     referSub: (a: number, b: number, n: number) =>
       `Each friend gets −€${a} on their first booking — and you get −€${b} for each friend who books. Up to ${n} friends.`,
@@ -92,7 +92,7 @@ export default function RewardsPage() {
     } catch { /* cancelled */ }
   }, [code, link, t, doCopy])
 
-  const kindLabel = (k: string) => k === 'welcome' ? t.welcome : k === 'referral_reward' ? t.referral_reward : t.redeem
+  const kindLabel = (k: string) => k === 'welcome' ? t.welcome : k === 'referral_reward' ? t.referral_reward : k === 'expired' ? t.expired : t.redeem
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">

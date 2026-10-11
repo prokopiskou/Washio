@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail, ADMIN_EMAILS } from '@/lib/admins'
+import { processCouponExpiry, expiryForSignup, greekDate } from '@/lib/coupon-expiry'
 
 // Welcome nudge: όποιος γράφτηκε πριν 1–24 ώρες και ΔΕΝ έχει κάνει κράτηση (ούτε έφτασε
 // στην πληρωμή) παίρνει ΕΝΑ email «Το −3€ σου σε περιμένει» με τα πλυντήρια και προσωπικό link.
@@ -56,7 +57,7 @@ async function washers(): Promise<Washer[]> {
   }).sort((a, b) => a.area.localeCompare(b.area, 'el'))
 }
 
-function html(link: string, list: Washer[]): string {
+function html(link: string, list: Washer[], expiresIso?: string): string {
   const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
   const rows = list.map(w => `<tr>
       <td style="padding:10px 0;border-bottom:1px solid #F0F3F6;">
@@ -79,6 +80,7 @@ function html(link: string, list: Washer[]): string {
       <div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 20px;">
         <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 −3€ στο πρώτο σου πλύσιμο</p>
         <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Μπαίνει αυτόματα στην κράτηση · Κάρτα ή μετρητά · Σε πλύσιμο από 12€.</p>
+        ${expiresIso ? `<p style="margin:8px 0 0;color:#8A6209;font-size:13px;font-weight:700;">⏳ Ισχύει έως ${greekDate(expiresIso)}, 23:59</p>` : ''}
       </div>
       <a href="${link}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;margin:0 0 22px;">Δες ελεύθερες ώρες →</a>
       ${list.length ? `<p style="margin:0 0 2px;color:#10182A;font-size:13px;font-weight:700;letter-spacing:.3px;">ΠΛΥΝΤΗΡΙΑ ΣΤΟ WASHIO</p>
@@ -101,7 +103,7 @@ async function personalLink(email: string): Promise<string> {
   } catch { return fallback }
 }
 
-type Candidate = { id: string; email: string; createdAt: string }
+type Candidate = { id: string; email: string; createdAt: string; exp?: string }
 
 async function candidates(now = Date.now()): Promise<Candidate[]> {
   const minCreated = Math.max(new Date(START_AT).getTime(), now - MAX_AGE_H * 3600_000)
@@ -117,7 +119,7 @@ async function candidates(now = Date.now()): Promise<Candidate[]> {
       if (!(u.last_sign_in_at || u.email_confirmed_at)) continue // μόνο ολοκληρωμένες εγγραφές (όχι bounce)
       if (email.includes('+test') || ADMIN_EMAILS.includes(email)) continue
       if ((u.app_metadata as Record<string, unknown> | undefined)?.welcome_nudge_at) continue
-      fresh.push({ id: u.id, email, createdAt: u.created_at })
+      fresh.push({ id: u.id, email, createdAt: u.created_at, exp: (u.app_metadata as Record<string, unknown> | undefined)?.coupon_expires_at as string | undefined })
     }
     if (data.users.length < 1000) break
   }
@@ -160,30 +162,36 @@ export async function GET(req: NextRequest) {
   if (!process.env.CRON_SECRET || req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+  // Λήξη κουπονιού 7 ημερών: backfill / «λήγει σήμερα» (13:00–22:00) / αφαίρεση μετά τη λήξη.
+  let expiry: unknown = null
+  try { expiry = await processCouponExpiry(admin, resend) } catch (e) { expiry = { error: e instanceof Error ? e.message : 'err' } }
+
   const h = athensHour()
-  if (h < SEND_FROM_H || h > SEND_TO_H) return NextResponse.json({ ok: true, sent: 0, quiet: true })
+  if (h < SEND_FROM_H || h > SEND_TO_H) return NextResponse.json({ ok: true, sent: 0, quiet: true, expiry })
 
   try {
     const list = await candidates()
-    if (!list.length) return NextResponse.json({ ok: true, sent: 0 })
+    if (!list.length) return NextResponse.json({ ok: true, sent: 0, expiry })
     const ws = await washers()
     let sent = 0, skipped = 0
     const errors: string[] = []
     for (const c of list.slice(0, 40)) {
       await mark(c.id, new Date().toISOString()) // claim πρώτα → ποτέ διπλό
       if (!(await ensureCoupon(c.id))) { skipped++; continue }
+      const exp = c.exp || expiryForSignup(c.createdAt)
+      if (!c.exp) await admin.auth.admin.updateUserById(c.id, { app_metadata: { coupon_expires_at: exp } }).catch(() => null)
       const { error } = await resend.emails.send({
         from: 'Washio <noreply@washio.gr>',
         to: c.email,
         subject: SUBJECT,
-        html: html(await personalLink(c.email), ws),
+        html: html(await personalLink(c.email), ws, exp),
         headers: { 'List-Unsubscribe': '<mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio>' },
         tags: [{ name: 'campaign', value: CAMPAIGN }],
       })
       if (error) { errors.push(error.message); await mark(c.id, null) } // retry στο επόμενο run
       else sent++
     }
-    return NextResponse.json({ ok: errors.length === 0, sent, skipped, errors })
+    return NextResponse.json({ ok: errors.length === 0, sent, skipped, errors, expiry })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Σφάλμα' }, { status: 500 })
   }
@@ -193,7 +201,10 @@ export async function POST(req: NextRequest) {
   const sb = await createServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user || !isAdminEmail(user.email)) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
-  const { mode } = (await req.json().catch(() => ({}))) as { mode?: 'preview' | 'test' | 'stats' }
+  const { mode } = (await req.json().catch(() => ({}))) as { mode?: 'preview' | 'test' | 'stats' | 'expiry_preview' }
+
+  // Τι θα έκανε τώρα η λήξη κουπονιών (χωρίς να αλλάξει/στείλει τίποτα).
+  if (mode === 'expiry_preview') return NextResponse.json(await processCouponExpiry(admin, resend, { dryRun: true }))
 
   // Στατιστικά από το Resend (last_event ανά email) + κρατήσεις μετά την αποστολή (βάση).
   if (mode === 'stats') {
@@ -240,7 +251,7 @@ export async function POST(req: NextRequest) {
       from: 'Washio <noreply@washio.gr>',
       to: user.email!,
       subject: '[ΔΟΚΙΜΗ] ' + SUBJECT,
-      html: html(await personalLink(user.email!), await washers()),
+      html: html(await personalLink(user.email!), await washers(), expiryForSignup(new Date())),
     })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, sentTo: user.email })

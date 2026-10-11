@@ -36,6 +36,7 @@ const PROMO_SUBJECTS = [
   'Η έκπτωσή σου λήγει σύντομα',                       // coupon_expiry_1210 (5/10)
   'Ξέχασες το −3€ σου;',                                // welcome_reminder_new
   'Το −3€ σου σε περιμένει',                            // cron welcome-nudge (1h+ μετά την εγγραφή)
+  'Το −3€ σου λήγει σήμερα',                            // lib/coupon-expiry (ημέρα λήξης, 13:00)
   'Δεν ολοκλήρωσες την κράτησή σου',                    // cron abandoned-checkout
   'Άνοιξε ώρα κοντά σου!',                              // ακύρωση → waitlist
   'Το Washio ήρθε στην περιοχή σου!',                   // waitlist-notify
