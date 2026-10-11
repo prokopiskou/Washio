@@ -55,7 +55,7 @@ export async function setCouponExpiry(admin: SupabaseClient, userId: string, iso
   await admin.auth.admin.updateUserById(userId, { app_metadata: { coupon_expires_at: iso } })
 }
 
-type U = { id: string; email?: string; created_at: string; app_metadata?: Record<string, unknown> }
+type U = { id: string; email?: string; created_at: string; last_sign_in_at?: string | null; email_confirmed_at?: string | null; app_metadata?: Record<string, unknown> }
 
 async function allUsers(admin: SupabaseClient): Promise<U[]> {
   const out: U[] = []
@@ -154,7 +154,9 @@ export async function processCouponExpiry(admin: SupabaseClient, resend: Resend,
 
     // 3) Ημέρα λήξης, 13:00–21:59 → ΕΝΑ email «λήγει σήμερα».
     const isExpiryDay = athensDate(new Date()) === athensDate(new Date(expMs))
-    if (isExpiryDay && hour >= REMIND_FROM_H && hour <= REMIND_TO_H && !meta.coupon_reminder_at && u.email
+    // Email μόνο σε επαληθευμένους (όχι bounce σε λάθος διευθύνσεις → φήμη του washio.gr).
+    const verified = !!(u.last_sign_in_at || u.email_confirmed_at)
+    if (isExpiryDay && hour >= REMIND_FROM_H && hour <= REMIND_TO_H && !meta.coupon_reminder_at && u.email && verified
         && !String(u.email).toLowerCase().includes('+test')) {
       stats.toRemindNow++
       if (opts.dryRun || stats.reminded >= 120) continue // όριο ανά run (χρόνος εκτέλεσης)
