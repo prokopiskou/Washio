@@ -14,7 +14,7 @@ const T = {
     tabCoupons: 'Κουπόνια', tabReferral: 'Κάλεσε φίλους',
     balance: 'Το υπόλοιπό σου', useAtCheckout: 'Εξαργυρώνεται αυτόματα σε πλύσιμο από 12€ — είτε πληρώσεις στο πλυντήριο είτε με κάρτα. Ένα κουπόνι (έως 3€) ανά πλύσιμο.',
     history: 'Ιστορικό', empty: 'Δεν έχεις κουπόνια ακόμα.',
-    welcome: 'Καλωσόρισμα', referral_reward: 'Επιβράβευση παραπομπής', redeem: 'Εξαργύρωση', expired: 'Λήξη κουπονιού',
+    welcome: 'Καλωσόρισμα', referral_reward: 'Επιβράβευση παραπομπής', redeem: 'Χρήση σε κράτηση', refund: 'Επιστροφή (ακύρωση κράτησης)', expired: 'Λήξη κουπονιού',
     referTitle: 'Φέρε φίλους, κερδίστε και οι δύο',
     referSub: (a: number, b: number, n: number) =>
       `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση — κι εσύ −${b}€ για κάθε φίλο που κλείνει. Έως ${n} φίλοι.`,
@@ -29,7 +29,7 @@ const T = {
     tabCoupons: 'Coupons', tabReferral: 'Invite friends',
     balance: 'Your balance', useAtCheckout: 'Applied automatically on washes from €12 — pay at the venue or by card. One coupon (up to €3) per wash.',
     history: 'History', empty: 'No coupons yet.',
-    welcome: 'Welcome', referral_reward: 'Referral reward', redeem: 'Redeemed', expired: 'Coupon expired',
+    welcome: 'Welcome', referral_reward: 'Referral reward', redeem: 'Used on a booking', refund: 'Returned (booking cancelled)', expired: 'Coupon expired',
     referTitle: 'Invite friends, both win',
     referSub: (a: number, b: number, n: number) =>
       `Each friend gets −€${a} on their first booking — and you get −€${b} for each friend who books. Up to ${n} friends.`,
@@ -92,7 +92,8 @@ export default function RewardsPage() {
     } catch { /* cancelled */ }
   }, [code, link, t, doCopy])
 
-  const kindLabel = (k: string) => k === 'welcome' ? t.welcome : k === 'referral_reward' ? t.referral_reward : k === 'expired' ? t.expired : t.redeem
+  // 'redeem' με θετικό ποσό = επιστροφή κουπονιού μετά από ακύρωση (refundCredit) — όχι «εξαργύρωση».
+  const kindLabel = (k: string, amount: number) => k === 'welcome' ? t.welcome : k === 'referral_reward' ? t.referral_reward : k === 'expired' ? t.expired : (k === 'redeem' && amount > 0) ? t.refund : t.redeem
 
   return (
     <main className="min-h-screen bg-gray-50 flex flex-col items-center">
@@ -135,11 +136,11 @@ export default function RewardsPage() {
                   {ledger.map(l => (
                     <div key={l.id} className="flex justify-between items-center px-4 py-3">
                       <div>
-                        <p className="text-[13px] font-medium text-gray-900">{kindLabel(l.kind)}</p>
+                        <p className="text-[13px] font-medium text-gray-900">{kindLabel(l.kind, Number(l.amount))}</p>
                         <p className="text-[11px] text-gray-400">{new Date(l.created_at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                       </div>
                       <span className={`text-[14px] font-semibold ${l.amount >= 0 ? 'text-green-600' : 'text-gray-500'}`}>
-                        {l.amount >= 0 ? '+' : ''}€{Math.abs(l.amount).toFixed(2)}
+                        {l.amount >= 0 ? '+' : '−'}€{Math.abs(l.amount).toFixed(2)}
                       </span>
                     </div>
                   ))}
