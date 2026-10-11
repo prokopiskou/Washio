@@ -159,7 +159,7 @@ export async function processCouponExpiry(admin: SupabaseClient, resend: Resend,
     if (isExpiryDay && hour >= REMIND_FROM_H && hour <= REMIND_TO_H && !meta.coupon_reminder_at && u.email && verified
         && !String(u.email).toLowerCase().includes('+test')) {
       stats.toRemindNow++
-      if (opts.dryRun || stats.reminded >= 120) continue // όριο ανά run (χρόνος εκτέλεσης)
+      if (opts.dryRun || stats.reminded >= 40) continue // όριο ανά run (60″ εκτέλεση) — τα υπόλοιπα στο επόμενο run (15')
       await admin.auth.admin.updateUserById(u.id, { app_metadata: { coupon_reminder_at: new Date().toISOString() } })
       const { error } = await resend.emails.send({
         from: 'Washio <noreply@washio.gr>',
