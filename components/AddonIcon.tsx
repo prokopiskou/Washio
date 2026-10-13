@@ -75,7 +75,7 @@ const IMG: Record<string, string> = {
   'βάση κινητού': 'phone-holder',
   'δερμάτινο κάλυμμα τιμονιού': 'steering-cover',
   'τάσια': 'hubcaps',
-  // 'αρωματικό εσωτερικού': 'air-freshener', — καρτέλα, έρχεται
+  'αρωματικό εσωτερικού': 'air-freshener',
   'χιονοκουβέρτες': 'snow-socks',
   'πατάκια': 'floor-mats',
   'κάλυμμα καθίσματος για κατοικιδίου': 'pet-seat-cover',
