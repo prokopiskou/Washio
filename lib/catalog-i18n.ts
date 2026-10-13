@@ -44,7 +44,7 @@ const EN: Record<string, string> = {
   'γυάλισμα ελαστικών': 'Tyre shine',
 }
 
-const norm = (s: string) => s.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim()
+export const norm = (s: string) => s.normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim()
 
 /** Όνομα υπηρεσίας/πρόσθετου στη γλώσσα του χρήστη (fallback: το αρχικό). */
 export function translateCatalogName(name: string | null | undefined, locale: string): string {

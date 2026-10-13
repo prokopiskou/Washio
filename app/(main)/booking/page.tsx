@@ -14,6 +14,7 @@ import { track as trackEvent } from '@/lib/analytics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
+import { AddonIcon, addonMeta } from '@/components/AddonIcon'
 import { athensToday } from '@/lib/time'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
 import { computeRedeemable, isCreditEligible } from '@/lib/referral'
@@ -49,7 +50,7 @@ const T = {
     serviceForA: 'Η υπηρεσία είναι για', vehicleWillBeSavedAs: '. Το όχημα που θα προσθέσεις θα καταχωρηθεί ως',
     plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
     backToMyVehicles: '← Επιστροφή στα οχήματά μου',
-    phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
+    phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonProducts: 'Προϊόντα & εξαρτήματα', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
     couponCard: 'Κουπόνι Washio', totalWithCoupon: 'Πληρώνεις', couponNote: (_full: string) => `Το κουπόνι ισχύει είτε πληρώσεις στο πλυντήριο είτε με κάρτα. Με κάρτα προστίθεται τέλος υπηρεσίας.`,
     bookPayThere: 'Κλείσε τώρα · πλήρωσε εκεί', orPayCard: 'ή πλήρωσε τώρα με κάρτα', payThereHint: 'Πληρώνεις στο πλυντήριο κατά την επίσκεψη.',
     payMethod: 'Τρόπος πληρωμής', payAtVenue: 'Στο πλυντήριο', payAtVenueSub: 'Μετρητά ή κάρτα', payByCard: 'Κάρτα', payByCardSub: 'Τώρα, online',
@@ -80,7 +81,7 @@ const T = {
     serviceForA: 'This service is for', vehicleWillBeSavedAs: '. The vehicle you add will be saved as',
     plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
     backToMyVehicles: '← Back to my vehicles',
-    phone: 'Phone', addons: 'Add-on services', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
+    phone: 'Phone', addons: 'Add-on services', addonProducts: 'Products & accessories', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
     couponCard: 'Washio coupon', totalWithCoupon: 'You pay', couponNote: (_full: string) => `The coupon applies whether you pay at the venue or by card. A service fee is added to card payments.`,
     bookPayThere: 'Book now · pay there', orPayCard: 'or pay now by card', payThereHint: 'You pay at the car wash during your visit.',
     payMethod: 'Payment method', payAtVenue: 'At the car wash', payAtVenueSub: 'Cash or card', payByCard: 'Card', payByCardSub: 'Now, online',
@@ -848,34 +849,46 @@ function BookingPageContent() {
             />
           </div>
 
-          {/* Addons — όχι σε υπηρεσία εύρους (τιμή επιτόπου). */}
+          {/* Addons — όχι σε υπηρεσία εύρους (τιμή επιτόπου). Δύο ομάδες: υπηρεσίες / προϊόντα. */}
           {!isRange && addons.length > 0 && (
-            <div>
-              <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
-                {t.addons}
-              </p>
-              <div className="flex flex-col gap-2">
-                {addons.map(addon => {
-                  const selected = selectedAddons.includes(addon.id)
-                  return (
-                    <button
-                      key={addon.id}
-                      onClick={() => toggleAddon(addon.id)}
-                      className={`flex items-center justify-between px-4 py-3.5 rounded-[14px] border transition-all text-left ${
-                        selected ? 'border-washio-cyan bg-washio-cyan-light' : 'border-washio-border bg-white'
-                      }`}
-                    >
-                      <span className={`text-[14px] font-medium ${selected ? 'text-washio-navy font-semibold' : 'text-washio-navy'}`}>{translateCatalogName(addon.name, locale)}</span>
-                      {/* Επιλεγμένο: ✓ + τιμή (όχι «−€4», που διαβαζόταν σαν έκπτωση). */}
-                      <span className={`inline-flex items-center gap-1.5 text-[14px] font-bold ${selected ? 'text-washio-cyan-dark' : 'text-washio-navy'}`}>
-                        {selected
-                          ? <><Check size={15} strokeWidth={3} />€{addon.price}</>
-                          : <>+ €{addon.price}</>}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
+            <div className="flex flex-col gap-5">
+              {([
+                { cat: 'service' as const, title: t.addons },
+                { cat: 'product' as const, title: t.addonProducts },
+              ]).map(group => {
+                const items = addons.filter(a => addonMeta(a.name).cat === group.cat)
+                if (!items.length) return null
+                return (
+                  <div key={group.cat}>
+                    <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
+                      {group.title}
+                    </p>
+                    <div className="bg-white rounded-[18px] border border-washio-border overflow-hidden divide-y divide-washio-border/70">
+                      {items.map(addon => {
+                        const selected = selectedAddons.includes(addon.id)
+                        return (
+                          <button
+                            key={addon.id}
+                            onClick={() => toggleAddon(addon.id)}
+                            className={`w-full flex items-center gap-3 px-3.5 py-3 text-left transition-colors ${selected ? 'bg-washio-cyan-light' : 'bg-white active:bg-gray-50'}`}
+                          >
+                            <AddonIcon name={addon.name} selected={selected} />
+                            <span className={`flex-1 min-w-0 text-[14px] leading-snug ${selected ? 'text-washio-navy font-semibold' : 'text-washio-navy font-medium'}`}>
+                              {translateCatalogName(addon.name, locale)}
+                            </span>
+                            {/* Επιλεγμένο: ✓ + τιμή (όχι «−€4», που διαβαζόταν σαν έκπτωση). */}
+                            <span className={`inline-flex items-center gap-1.5 text-[14px] font-bold shrink-0 ${selected ? 'text-washio-cyan-dark' : 'text-washio-navy'}`}>
+                              {selected
+                                ? <><Check size={15} strokeWidth={3} />€{addon.price}</>
+                                : <>+ €{addon.price}</>}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
 
