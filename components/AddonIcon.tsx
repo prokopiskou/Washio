@@ -63,13 +63,50 @@ const META: Record<string, { cat: AddonCategory; Icon: IconT }> = {
   'ψυκτικά υγρά': { cat: 'product', Icon: ThermometerSnowflake },
 }
 
+// Φωτογραφία ανά πρόσθετο (public/addons/<slug>.webp, 160×160). Όσα λείπουν → εικονίδιο.
+const IMG: Record<string, string> = {
+  'κέρωμα': 'wax',
+  'γυάλισμα φανάρια': 'headlights',
+  'γυάλισμα φαναριών': 'headlights',
+  'αλλαγή λαδιών': 'oil-change',
+  'αλλαγή υαλοκαθαριστήρων': 'wipers',
+  'γυαλιστικό του ταμπλό': 'dashboard',
+  'γυαλιστικό ταμπλό': 'dashboard',
+  'βάση κινητού': 'phone-holder',
+  'δερμάτινο κάλυμμα τιμονιού': 'steering-cover',
+  'τάσια': 'hubcaps',
+  // 'αρωματικό εσωτερικού': 'air-freshener', — καρτέλα, έρχεται
+  'χιονοκουβέρτες': 'snow-socks',
+  'πατάκια': 'floor-mats',
+  'κάλυμμα καθίσματος για κατοικιδίου': 'pet-seat-cover',
+  'καλώδια μπαταρίας': 'jumper-cables',
+  'ηλιοπροστασία': 'sunshade',
+  'κιτ φαρμακείου': 'first-aid',
+  'ψυκτικά υγρά': 'coolant',
+}
+
 /** Άγνωστο (custom) πρόσθετο → «Πρόσθετες υπηρεσίες» με γενικό εικονίδιο. */
-export function addonMeta(name: string): { cat: AddonCategory; Icon: IconT } {
-  return META[norm(name || '')] || { cat: 'service', Icon: SprayCan }
+export function addonMeta(name: string): { cat: AddonCategory; Icon: IconT; img?: string } {
+  const k = norm(name || '')
+  const m = META[k] || { cat: 'service' as const, Icon: SprayCan }
+  return IMG[k] ? { ...m, img: `/addons/${IMG[k]}.webp` } : m
 }
 
 export function AddonIcon({ name, selected }: { name: string; selected?: boolean }) {
-  const { Icon } = addonMeta(name)
+  const { Icon, img } = addonMeta(name)
+  if (img) {
+    return (
+      <span
+        className={`relative w-12 h-12 shrink-0 rounded-[12px] overflow-hidden bg-washio-cyan-light transition-shadow ${
+          selected ? 'ring-2 ring-washio-cyan ring-offset-1' : 'ring-1 ring-washio-border/70'
+        }`}
+        aria-hidden
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={img} alt="" width={48} height={48} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+      </span>
+    )
+  }
   return (
     <span
       className={`w-9 h-9 shrink-0 rounded-[11px] flex items-center justify-center transition-colors ${
