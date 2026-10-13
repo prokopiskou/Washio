@@ -21,6 +21,19 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 
+// Κέντρα περιοχών για τοπικές διαφημίσεις: /map?area=vyronas → ο χάρτης ανοίγει εκεί
+// και η λίστα ταξινομείται από εκεί (μέχρι να έρθει η πραγματική θέση του χρήστη).
+const AREA_CENTERS: Record<string, { lat: number; lng: number }> = {
+  vyronas: { lat: 37.9616, lng: 23.7530 },
+  zografou: { lat: 37.9750, lng: 23.7700 },
+  ilioupoli: { lat: 37.9310, lng: 23.7590 },
+  argyroupoli: { lat: 37.9050, lng: 23.7480 },
+  alimos: { lat: 37.9110, lng: 23.7180 },
+  'agios-dimitrios': { lat: 37.9340, lng: 23.7310 },
+  anatolika: { lat: 37.9550, lng: 23.7600 },
+  notia: { lat: 37.9150, lng: 23.7330 },
+}
+
 const T = {
   el: {
     searchPlaceholder: 'Αναζήτηση περιοχής', now: 'Τώρα', schedule: 'Προγραμματισμός',
@@ -468,7 +481,10 @@ function MapPageContent() {
     track('map_viewed')
     trackEvent('ViewContent', { content_type: 'map' }) // browse signal (Pixel/GA4)
     // Φόρτωσε τα πλυντήρια ΑΜΕΣΩΣ — χωρίς να περιμένεις το geolocation.
-    loadLocations()
+    // Από τοπική διαφήμιση (?area=): ταξινόμηση από το κέντρο της περιοχής.
+    const areaC = AREA_CENTERS[(params.get('area') || '').toLowerCase()]
+    if (areaC) loadLocations(areaC.lat, areaC.lng)
+    else loadLocations()
     // Παράλληλα ζήτα τη θέση· όταν έρθει, ξαναφόρτωσε με ταξινόμηση/κεντράρισμα.
     // Θέση σε φάσεις: cache → γρήγορη (δίκτυο) → ακριβής GPS στο παρασκήνιο.
     // Ο χάρτης κεντράρει ΑΜΕΣΩΣ και διορθώνει μόνο αν μετακινήθηκες αισθητά.
@@ -959,9 +975,10 @@ function MapPageContent() {
   useEffect(() => {
     window.initMap = () => {
       if (!mapRef.current) return
+      const areaC = AREA_CENTERS[(new URLSearchParams(window.location.search).get('area') || '').toLowerCase()]
       const map = new window.google.maps.Map(mapRef.current, {
-        center: { lat: 37.8878, lng: 23.7436 },
-        zoom: 13,
+        center: areaC || { lat: 37.8878, lng: 23.7436 },
+        zoom: areaC ? 14 : 13,
         disableDefaultUI: true,
         gestureHandling: 'greedy', // μετακίνηση με ΕΝΑ δάχτυλο σε όλους τους browsers
         styles: COOL_MAP_STYLES,

@@ -168,7 +168,10 @@ export default function HomePage() {
               : (sp.get('lp') === 'login' || sp.get('fbclid') || isFlyer) ? 'login' : null
           } catch { /* ignore */ }
           if (lp) { try { document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax` } catch { /* ignore */ } }
-          router.replace(lp === 'map' ? '/map' : '/login?welcome=1')
+          // Τοπική διαφήμιση: ?area=vyronas → ο χάρτης ανοίγει πάνω στην περιοχή.
+          let area = ''
+          try { area = (new URLSearchParams(window.location.search).get('area') || '').toLowerCase().replace(/[^a-z-]/g, '').slice(0, 30) } catch { /* ignore */ }
+          router.replace(lp === 'map' ? (area ? `/map?area=${area}` : '/map') : '/login?welcome=1')
           return
         }
         // Native app: μπες στη ροή της εφαρμογής. Browser επισκέπτης: δείξε το landing.
