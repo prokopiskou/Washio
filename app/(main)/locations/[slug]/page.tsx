@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
 import { athensToday, athensMinutesOfDay, ymdFromLocalDate } from '@/lib/time'
 import { computeSlots, type OccupancyBooking, type HoursException } from '@/lib/availability'
-import { isMotoService, compareServices } from '@/lib/services-catalog'
+import { isMotoService, compareServices, serviceImage } from '@/lib/services-catalog'
 import { WashioLoader } from '@/components/WashioLoader'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -471,7 +471,7 @@ export default function LocationPage() {
                 <button
                   key={s.id}
                   onClick={() => { setSelectedServiceId(s.id); lightTap() }}
-                  className={`flex items-center gap-3.5 p-[18px] rounded-[20px] border transition-all text-left ${
+                  className={`flex items-center gap-3.5 p-3.5 min-h-[72px] rounded-[20px] border transition-all text-left ${
                     selected
                       ? 'border-washio-navy text-white'
                       : 'bg-white border-washio-border text-washio-navy'
@@ -480,13 +480,26 @@ export default function LocationPage() {
                     ? { background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 10px 24px rgba(16,24,42,0.22)' }
                     : { boxShadow: '0 4px 14px rgba(16,24,42,0.05)' }}
                 >
-                  <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-                      selected ? 'bg-washio-cyan' : 'border-[1.5px] border-washio-border'
-                    }`}
-                  >
-                    {selected && <Check size={14} className="text-white" strokeWidth={2.6} />}
-                  </div>
+                  {serviceImage(s.name) ? (
+                    <div className="relative w-14 h-14 shrink-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={serviceImage(s.name)!} alt="" width={56} height={56} loading="lazy" decoding="async"
+                        className={`w-14 h-14 rounded-[14px] object-cover ${selected ? 'ring-2 ring-washio-cyan' : ''}`} />
+                      {selected && (
+                        <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-washio-cyan flex items-center justify-center ring-2 ring-[#10182A]">
+                          <Check size={12} className="text-white" strokeWidth={3} />
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div
+                      className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                        selected ? 'bg-washio-cyan' : 'border-[1.5px] border-washio-border'
+                      }`}
+                    >
+                      {selected && <Check size={14} className="text-white" strokeWidth={2.6} />}
+                    </div>
+                  )}
                   <div className="flex-1">
                     <p className={`text-[15px] font-semibold tracking-tight ${selected ? 'text-white' : 'text-washio-navy'}`}>
                       {translateCatalogName(s.name, locale)}

@@ -39,6 +39,12 @@ function serviceRank(name: string): number {
   return 10
 }
 
+/** Φωτογραφία βασικής υπηρεσίας (public/services/*.webp, 192px). Άλλες υπηρεσίες → null. */
+export function serviceImage(name: string): string | null {
+  const r = serviceRank(name)
+  return ['/services/mesa.webp', '/services/exo.webp', '/services/mesa-exo.webp', '/services/bio.webp', '/services/bio-child.webp'][r] ?? null
+}
+
 export function compareServices<T extends { name: string; sort_order?: number | null }>(a: T, b: T): number {
   return serviceRank(a.name) - serviceRank(b.name) || (a.sort_order ?? 0) - (b.sort_order ?? 0)
 }
