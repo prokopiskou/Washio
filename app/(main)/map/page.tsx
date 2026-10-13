@@ -11,6 +11,7 @@ import { track as trackEvent } from '@/lib/analytics'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } from '@/lib/availability'
 import { getCurrentPosition, getFastPosition } from '@/lib/geo'
+import { startMapOpenLog } from '@/lib/map-open-log'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService } from '@/lib/services-catalog'
@@ -471,11 +472,15 @@ function MapPageContent() {
     // Παράλληλα ζήτα τη θέση· όταν έρθει, ξαναφόρτωσε με ταξινόμηση/κεντράρισμα.
     // Θέση σε φάσεις: cache → γρήγορη (δίκτυο) → ακριβής GPS στο παρασκήνιο.
     // Ο χάρτης κεντράρει ΑΜΕΣΩΣ και διορθώνει μόνο αν μετακινήθηκες αισθητά.
-    getFastPosition(pos => {
+    // Μέτρηση: πόσο μακριά από το κοντινότερο πλυντήριο είναι όσοι ανοίγουν τον χάρτη (~1 χλμ. ακρίβεια).
+    const openLog = startMapOpenLog()
+    getFastPosition((pos, source) => {
       setUserLat(pos.latitude)
       setUserLng(pos.longitude)
       loadLocations(pos.latitude, pos.longitude)
+      openLog.onPosition(pos, source)
     }).catch(() => { /* χωρίς θέση — τα πλυντήρια ήδη φορτώθηκαν */ })
+    return () => openLog.stop()
   }, [])
 
   // ΖΩΝΤΑΝΗ διαθεσιμότητα: αν ο χάρτης μείνει ανοιχτός (ή η εφαρμογή στο παρασκήνιο)
