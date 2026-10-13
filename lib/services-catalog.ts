@@ -27,6 +27,23 @@ export function catalogEntry(name: string): CatalogService | undefined {
 }
 
 /**
+ * Σταθερή σειρά εμφάνισης βασικών υπηρεσιών (χάρτης, προφίλ πλυντηρίου):
+ * Μέσα → Έξω → Μέσα & Έξω → Βιολογικός → Βιολογικός παιδικού καθίσματος → υπόλοιπα (sort_order).
+ */
+function serviceRank(name: string): number {
+  const n = String(name || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim()
+  if (n.startsWith('βιολογικ')) return /παιδικ/.test(n) ? 4 : 3
+  if (/^μέσα\s*(&|-|και)\s*έξω$/.test(n)) return 2
+  if (n === 'μέσα') return 0
+  if (n === 'έξω') return 1
+  return 10
+}
+
+export function compareServices<T extends { name: string; sort_order?: number | null }>(a: T, b: T): number {
+  return serviceRank(a.name) - serviceRank(b.name) || (a.sort_order ?? 0) - (b.sort_order ?? 0)
+}
+
+/**
  * Υπηρεσία μοτοσικλέτας; Πιάνει και το παλιό όνομα «Πλύσιμο» (υπάρχοντα rows
  * στη βάση πριν τη μετονομασία) και το νέο «Πλύσιμο Μοτο».
  */

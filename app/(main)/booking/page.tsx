@@ -127,6 +127,20 @@ type Location = {
   name: string
   address?: string
   city?: string
+  photos?: string[] | null
+}
+
+// Φωτογραφία πλυντηρίου (πρώτη του προφίλ). Χωρίς φωτογραφία → μικρός χάρτης όπως πριν.
+function LocationThumb({ photo, name }: { photo?: string | null; name?: string }) {
+  if (photo) {
+    return (
+      <div className="w-[52px] h-[52px] rounded-[10px] overflow-hidden shrink-0 border border-gray-100 bg-gray-100">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photo} alt={name || ''} width={52} height={52} decoding="async" className="w-full h-full object-cover" />
+      </div>
+    )
+  }
+  return <MapThumb />
 }
 
 function MapThumb() {
@@ -513,7 +527,7 @@ function BookingPageContent() {
               .eq('id', serviceId).single()
           : none,
         locationId
-          ? supabase.from('locations').select('id, name, address, city').eq('id', locationId).single()
+          ? supabase.from('locations').select('id, name, address, city, photos').eq('id', locationId).single()
           : none,
         locationId
           ? supabase.from('location_addons').select('addon_id, price_override, addons(name, price, sort_order)').eq('location_id', locationId)
@@ -737,7 +751,7 @@ function BookingPageContent() {
             style={{ boxShadow: '0 6px 20px rgba(16,24,42,0.06)' }}
           >
             <div className="flex gap-3.5 items-start">
-              <MapThumb />
+              <LocationThumb photo={location?.photos?.[0]} name={location?.name} />
               <div className="flex-1 min-w-0">
                 <p className="text-[16px] font-bold tracking-tight text-washio-navy">{location?.name}</p>
                 {location?.address && (

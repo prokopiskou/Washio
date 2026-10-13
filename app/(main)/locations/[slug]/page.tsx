@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
 import { athensToday, athensMinutesOfDay, ymdFromLocalDate } from '@/lib/time'
 import { computeSlots, type OccupancyBooking, type HoursException } from '@/lib/availability'
-import { isMotoService } from '@/lib/services-catalog'
+import { isMotoService, compareServices } from '@/lib/services-catalog'
 import { WashioLoader } from '@/components/WashioLoader'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -177,7 +177,7 @@ export default function LocationPage() {
 
       const svc = ((loc.services || []) as Service[])
         .filter(s => s.is_active !== false)
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .sort(compareServices)
       setServices(svc)
       setLocationHours(loc.location_hours || [])
 

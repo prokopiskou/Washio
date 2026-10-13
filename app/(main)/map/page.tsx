@@ -14,7 +14,7 @@ import { getCurrentPosition, getFastPosition } from '@/lib/geo'
 import { startMapOpenLog } from '@/lib/map-open-log'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
-import { isMotoService } from '@/lib/services-catalog'
+import { isMotoService, compareServices } from '@/lib/services-catalog'
 import { BottomNav } from '@/components/BottomNav'
 import { isNativeApp } from '@/lib/native-auth'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -384,7 +384,7 @@ function MapPageContent() {
       capMap[loc.id] = Math.max(1, Number(loc.capacity) || 1)
       servicesByLocRef.current[loc.id] = ((loc.services || []) as any[])
         .filter(sv => sv.is_active !== false)
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) as Service[]
+        .sort(compareServices) as Service[]
       const r = ((loc.reviews || []) as { rating: number }[]).map(x => Number(x.rating)).filter(x => x > 0)
       ratingByLocRef.current[loc.id] = r.length ? { avg: r.reduce((a, b) => a + b, 0) / r.length, count: r.length } : { avg: 0, count: 0 }
     })
@@ -638,7 +638,7 @@ function MapPageContent() {
       const supabase = createClient()
       const { data } = await supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv')
         .eq('location_id', selectedLocation.id).eq('is_active', true).order('sort_order', { ascending: true })
-      setLocationServices((data as Service[]) || [])
+      setLocationServices(((data as Service[]) || []).sort(compareServices))
     }
     const loadRating = async () => {
       const supabase = createClient()
