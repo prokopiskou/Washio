@@ -12,6 +12,7 @@ import { track as trackEvent } from '@/lib/analytics'
 import { PushReminderPrompt } from '@/components/PushReminderPrompt'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT } from '@/lib/i18n'
+import { useCatalogName } from '@/lib/catalog-i18n'
 
 const T = {
   el: {
@@ -97,6 +98,7 @@ function PassRow({ caption, value, mono }: { caption: string; value: string; mon
 function ConfirmedContent() {
   const router = useRouter()
   const t = useT(T)
+  const tn = useCatalogName()
   const params = useSearchParams()
   const [bookingRef, setBookingRef] = useState('')
   const [locationName, setLocationName] = useState('Washio')
@@ -330,7 +332,7 @@ function ConfirmedContent() {
                   <PassRow caption={t.dateLabel} value={date || '—'} />
                   <PassRow caption={t.timeLabel} value={time || '—'} />
                 </div>
-                <PassRow caption={t.serviceLabel} value={service || '—'} />
+                <PassRow caption={t.serviceLabel} value={tn(service) || '—'} />
                 {plate && <PassRow caption={t.plateLabel} value={plate} mono />}
               </div>
               <QRPlaceholder />

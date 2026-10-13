@@ -12,6 +12,7 @@ import { isMotoService } from '@/lib/services-catalog'
 import { WashioLoader } from '@/components/WashioLoader'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
+import { translateCatalogName } from '@/lib/catalog-i18n'
 
 const T = {
   el: {
@@ -488,7 +489,7 @@ export default function LocationPage() {
                   </div>
                   <div className="flex-1">
                     <p className={`text-[15px] font-semibold tracking-tight ${selected ? 'text-white' : 'text-washio-navy'}`}>
-                      {s.name}
+                      {translateCatalogName(s.name, locale)}
                     </p>
                     {s.description && (
                       <p className={`text-xs mt-0.5 ${selected ? 'text-white/60' : 'text-gray-500'}`}>

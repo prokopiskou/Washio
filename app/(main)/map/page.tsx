@@ -17,6 +17,7 @@ import { isMotoService } from '@/lib/services-catalog'
 import { BottomNav } from '@/components/BottomNav'
 import { isNativeApp } from '@/lib/native-auth'
 import { useT, useLocale, Locale } from '@/lib/i18n'
+import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 
 const T = {
@@ -1392,7 +1393,7 @@ function MapPageContent() {
                         isSelected ? 'border-washio-navy' : 'bg-white border-washio-border'
                       }`}
                       style={isSelected ? { background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 6px 16px rgba(16,24,42,0.20)' } : undefined}>
-                      <p className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-washio-navy'}`}>{s.name}</p>
+                      <p className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-washio-navy'}`}>{translateCatalogName(s.name, locale)}</p>
                       <p className={`text-xs mt-0.5 font-semibold ${isSelected ? 'text-washio-cyan' : 'text-gray-500'}`}>{price}</p>
                     </button>
                   )

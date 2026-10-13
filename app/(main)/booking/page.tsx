@@ -13,6 +13,7 @@ import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
+import { translateCatalogName } from '@/lib/catalog-i18n'
 import { athensToday } from '@/lib/time'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
 import { computeRedeemable, isCreditEligible } from '@/lib/referral'
@@ -160,6 +161,7 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
   bookingRef: string
 }) {
   const t = useT(T)
+  const { locale: cLocale } = useLocale()
   const stripe = useStripe()
   const elements = useElements()
   const [loading, setLoading] = useState(false)
@@ -317,7 +319,7 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
       {/* Ανάλυση χρέωσης κάρτας — διαφανές τέλος υπηρεσίας */}
       <div className="rounded-[14px] bg-washio-cyan-light/60 border border-washio-border px-3.5 py-2.5 mb-3">
         <div className="flex justify-between items-center text-[12px] text-gray-500">
-          <span>{service.name}</span>
+          <span>{translateCatalogName(service.name, cLocale)}</span>
           <span>€{baseTotal.toFixed(2)}</span>
         </div>
         {appliedCredit > 0 && (
@@ -756,7 +758,7 @@ function BookingPageContent() {
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <Sparkles size={14} className="text-washio-cyan-dark" />
-                  <span className="text-[13px] text-gray-500">{service.name} · {vehicleType}</span>
+                  <span className="text-[13px] text-gray-500">{translateCatalogName(service.name, locale)} · {vehicleType}</span>
                 </div>
                 {/* Ενημερωτική διάρκεια που δήλωσε ο πλυντηριάς· fallback στη διάρκεια slot. */}
                 <span className="text-[13px] font-semibold text-washio-navy">
@@ -863,7 +865,7 @@ function BookingPageContent() {
                         selected ? 'border-washio-cyan bg-washio-cyan-light' : 'border-washio-border bg-white'
                       }`}
                     >
-                      <span className={`text-[14px] font-medium ${selected ? 'text-washio-navy font-semibold' : 'text-washio-navy'}`}>{addon.name}</span>
+                      <span className={`text-[14px] font-medium ${selected ? 'text-washio-navy font-semibold' : 'text-washio-navy'}`}>{translateCatalogName(addon.name, locale)}</span>
                       {/* Επιλεγμένο: ✓ + τιμή (όχι «−€4», που διαβαζόταν σαν έκπτωση). */}
                       <span className={`inline-flex items-center gap-1.5 text-[14px] font-bold ${selected ? 'text-washio-cyan-dark' : 'text-washio-navy'}`}>
                         {selected
@@ -895,7 +897,7 @@ function BookingPageContent() {
             ) : (
               <>
                 <div className="flex justify-between items-center py-3 border-b border-washio-border">
-                  <span className="text-[13px] text-gray-500">{service.name}</span>
+                  <span className="text-[13px] text-gray-500">{translateCatalogName(service.name, locale)}</span>
                   <span className="text-[14px] font-medium text-gray-900">€{servicePrice.toFixed(2)}</span>
                 </div>
                 {selectedAddons.length > 0 && (

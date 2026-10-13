@@ -6,6 +6,7 @@ import { ChevronLeft, Inbox } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
+import { translateCatalogName } from '@/lib/catalog-i18n'
 
 const T = {
   el: {
@@ -143,7 +144,7 @@ function BookingCard({
         <StatusPill status={effectiveStatus(booking.status, booking.slot_date, booking.slot_start_time)} />
       </div>
       <p className="text-[12px] text-gray-500 truncate">
-        {(booking.services as any)?.name} · {formatDate(booking.slot_date, locale)} · {booking.slot_start_time?.slice(0, 5)}
+        {translateCatalogName((booking.services as any)?.name, locale)} · {formatDate(booking.slot_date, locale)} · {booking.slot_start_time?.slice(0, 5)}
       </p>
       <div className="h-px bg-gray-100 my-0.5" />
       <div className="flex justify-between items-center">

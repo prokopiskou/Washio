@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star, RotateCw } from 'lucide-react'
 import { useT, useLocale } from '@/lib/i18n'
+import { translateCatalogName } from '@/lib/catalog-i18n'
 import { WashioLoader } from '@/components/WashioLoader'
 import { openDirections, directionsWebUrl } from '@/lib/open-directions'
 import { INACTIVE_STATUS_FILTER } from '@/lib/slots'
@@ -558,7 +559,7 @@ export default function BookingDetailPage() {
               <InfoRow
                 icon={<Droplet size={18} strokeWidth={1.75} />}
                 label={t.service}
-                value={booking.services.name}
+                value={translateCatalogName(booking.services.name, locale)}
               />
             )}
             {booking.car_plate && (
