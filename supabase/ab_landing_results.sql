@@ -9,6 +9,7 @@ with u as (
   where created_at >= '2026-10-06'
     and last_sign_in_at is not null and coalesce(email,'') not ilike '%+test%'
     and coalesce(raw_user_meta_data->>'acq_ref', 'WASHIO') = 'WASHIO'
+    and coalesce(raw_app_meta_data->>'internal', '') <> 'true'
 ),
 ca as (select distinct user_id from checkout_attempts),
 bk as (

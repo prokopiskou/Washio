@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@/lib/analytics'
 import { flyerRef, cleanAd } from '@/lib/acq'
+import { isInternalUser, isInternalDevice, markInternalDevice } from '@/lib/internal'
 
 // Πυροδοτεί CompleteRegistration (Meta) / sign_up (GA4) ΜΙΑ φορά ανά ΝΕΑ εγγραφή,
 // ανεξαρτήτως μεθόδου: OTP, Google, Apple, Facebook ή email/password.
@@ -22,6 +23,8 @@ export function RegistrationTracker() {
     // cookie 30 ημερών — θα διαβαστεί στο sign-up για να συνδεθεί ο νέος χρήστης.
     try {
       const sp = new URLSearchParams(window.location.search)
+      // Συσκευή ομάδας χωρίς login: άνοιξε μία φορά washio.gr/?ws_internal=1
+      if (sp.get('ws_internal') === '1') markInternalDevice()
       // Flyer (utm_source=flyer) → κωδικός FLYER, όχι WASHIO (να μη μπερδεύεται με τη διαφήμιση).
       const ref = flyerRef(sp) || sp.get('ref')
       if (ref) document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
@@ -39,6 +42,9 @@ export function RegistrationTracker() {
       // Google/Apple redirect ή άνοιγμα με ήδη ενεργό session — πριν χανόταν εδώ το −3€.
       if ((event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') || !session?.user) return
       const u = session.user
+
+      // Ομάδα / δοκιμές: σημείωσε τη συσκευή και ΜΗΝ στείλεις τίποτα στο Meta/GA.
+      if (isInternalUser(u)) markInternalDevice()
 
       // −3€ καλωσορίσματος: ΜΙΑ φορά ανά χρήστη/συσκευή, ανεξαρτήτως πότε έκανε verify.
       // Ο server αποφασίζει (μόνο αν δεν έχει καμία κράτηση & δεν έχει ξαναπάρει welcome).
@@ -58,7 +64,7 @@ export function RegistrationTracker() {
       // πολύ καλύτερα — χωρίς αυτό στέλναμε μηδέν στοιχεία χρήστη.
       try {
         const fbq = (window as unknown as { fbq?: (...a: unknown[]) => void }).fbq
-        if (fbq && PIXEL_ID && u.email) {
+        if (fbq && PIXEL_ID && u.email && !isInternalDevice()) {
           fbq('init', PIXEL_ID, {
             em: u.email.trim().toLowerCase(),
             external_id: u.id,
@@ -70,6 +76,7 @@ export function RegistrationTracker() {
       // «Νέα εγγραφή» = ο λογαριασμός δημιουργήθηκε πρόσφατα. Με OTP ο λογαριασμός
       // δημιουργείται όταν ΖΗΤΗΘΕΙ ο κωδικός — αν το email αργήσει, το verify γίνεται
       // λεπτά αργότερα. Παράθυρο 60' (το dedup από κάτω εμποδίζει διπλό event).
+      if (isInternalDevice()) return
       const createdMs = u.created_at ? new Date(u.created_at).getTime() : 0
       const isNew = createdMs > 0 && Date.now() - createdMs < 60 * 60 * 1000
       if (!isNew) return

@@ -6,7 +6,7 @@
 with u as (
   select id, raw_user_meta_data->>'acq_ref' ch, created_at from auth.users
   where raw_user_meta_data->>'acq_ref' like 'FLYER%' and last_sign_in_at is not null
-    and coalesce(email,'') not ilike '%+test%'
+    and coalesce(email,'') not ilike '%+test%' and coalesce(raw_app_meta_data->>'internal','') <> 'true'
 ),
 ca as (select distinct user_id from checkout_attempts),
 bk as (select b.user_id, count(*) n, sum(b.total_amount - coalesce(b.coupon_amount,0)) gmv,

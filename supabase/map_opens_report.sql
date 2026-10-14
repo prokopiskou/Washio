@@ -5,6 +5,7 @@ with o as (
          m.*, coalesce(m.acq_ad, u.raw_user_meta_data->>'acq_ad') ad
   from map_opens m left join auth.users u on u.id = m.user_id
   where m.created_at > now() - interval '14 days'
+    and coalesce(u.raw_app_meta_data->>'internal','') <> 'true'
   order by coalesce(m.device_id, m.id::text), m.has_location desc, m.created_at desc
 ),
 b as (

@@ -1,4 +1,5 @@
 import crypto from 'crypto'
+import { isInternalEmail } from '@/lib/internal'
 
 // Meta Conversions API (server-side) — στέλνει events απευθείας στο Meta, ώστε να
 // μη χάνονται λόγω iOS ATT / ad-blockers. Το event_id κάνει dedup με το browser
@@ -48,6 +49,7 @@ export async function sendCapiEvent(
   }
 ): Promise<void> {
   if (!PIXEL_ID || !TOKEN) return // δεν έχει ρυθμιστεί ακόμα — no-op
+  if (isInternalEmail(opts.email)) return // ομάδα / δοκιμές — να μη μαθαίνει το Meta από εμάς
   try {
     const body = {
       data: [{

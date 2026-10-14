@@ -1,3 +1,5 @@
+import { isInternalDevice } from '@/lib/internal'
+
 // Ενοποιημένο tracking → Meta Pixel + GA4 με μία κλήση.
 // Τα IDs έρχονται από env (public). Αν λείπουν, οι κλήσεις είναι no-op — τίποτα δεν σπάει.
 
@@ -26,6 +28,7 @@ const SERVER_MIRROR = new Set(['ViewContent', 'AddToCart', 'InitiateCheckout', '
 
 export function track(event: string, params: Params = {}, opts: { eventId?: string } = {}): void {
   if (typeof window === 'undefined') return
+  if (isInternalDevice()) return // ομάδα / δοκιμές — ούτε Pixel, ούτε GA4, ούτε CAPI
   const eventId = opts.eventId || (SERVER_MIRROR.has(event)
     ? `${event.toLowerCase()}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
     : undefined)

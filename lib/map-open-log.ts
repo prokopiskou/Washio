@@ -1,3 +1,5 @@
+import { isInternalDevice } from '@/lib/internal'
+
 // Καταγραφή ανοίγματος χάρτη (μία φορά ανά συσκευή ανά 30') → /api/map-open.
 // Στέλνει την πρώτη «φρέσκια» θέση (quick/precise). Αν δεν έρθει σε 10″ ή φύγει ο χρήστης,
 // στέλνει την αποθηκευμένη (cache) ή «χωρίς θέση» — μετράμε και πόσοι δεν δίνουν τοποθεσία.
@@ -29,6 +31,7 @@ function isNative(): boolean {
 export function startMapOpenLog(): { onPosition: (p: Pos, source: Src) => void; stop: () => void } {
   const noop = { onPosition: () => {}, stop: () => {} }
   if (typeof window === 'undefined') return noop
+  if (isInternalDevice()) return noop // ομάδα / δοκιμές
   try {
     const last = Number(localStorage.getItem(THROTTLE_KEY) || 0)
     if (Date.now() - last < THROTTLE_MS) return noop

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { isInternalUser } from '@/lib/internal'
 
 // Ένα άνοιγμα χάρτη → μία γραμμή στο map_opens: στρογγυλεμένη θέση (~1 χλμ.) + απόσταση από
 // το κοντινότερο πλυντήριο. Η απόσταση υπολογίζεται ΕΔΩ με την ακριβή θέση, που δεν αποθηκεύεται.
@@ -55,6 +56,7 @@ export async function POST(req: Request) {
     try {
       const auth = await createServerClient()
       const { data: { user } } = await auth.auth.getUser()
+      if (isInternalUser(user)) return NextResponse.json({ ok: true, skipped: 'internal' })
       userId = user?.id || null
     } catch { /* επισκέπτης */ }
 
