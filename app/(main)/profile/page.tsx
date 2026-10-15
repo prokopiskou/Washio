@@ -157,6 +157,16 @@ export default function ProfilePage() {
         favorites: (f.data as unknown as Favorite[]) || [],
         partner: !!p.data?.id,
       }
+      // Πλυντήριο με email αίτησης αλλά χωρίς δεμένο owner_id (π.χ. Fanis): χωρίς αυτό ο
+      // ιδιοκτήτης δεν έβλεπε ποτέ το «Η επιχείρησή μου» → δεν έμπαινε στο dashboard → δεν
+      // γινόταν ποτέ το self-heal. Το claim δένει ΜΟΝΟ location χωρίς owner με ίδιο email.
+      if (!fresh.partner) {
+        try {
+          const r = await fetch('/api/dashboard/claim', { method: 'POST' })
+          const j = await r.json().catch(() => null)
+          if (j?.locationId) fresh.partner = true
+        } catch { /* best-effort */ }
+      }
       setVehicles(fresh.vehicles); setBookings(fresh.bookings)
       setFavorites(fresh.favorites); setIsPartner(fresh.partner)
       writePageCache('profile', user.id, fresh)
