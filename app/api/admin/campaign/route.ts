@@ -59,10 +59,10 @@ const nextFor = (a: Audience) => (a === 'referral' ? '/profile/rewards?tab=refer
 const ctaFor = (a: Audience) => `https://www.washio.gr${nextFor(a)}`
 
 // ── Email παραπομπής (3€ + 3€) ──
-function referralHtml(code: string, ctaUrl: string): string {
+// copyUrl / shareUrl: ίδιο προσωπικό login, διαφορετικό «do" → η σελίδα επισημαίνει το αντίστοιχο κουμπί.
+// (Μέσα σε email δεν ανοίγει το μενού κοινοποίησης του κινητού — ανοίγει με ένα πάτημα στη σελίδα.)
+function referralHtml(code: string, copyUrl: string, shareUrl: string): string {
   const link = `https://washio.gr/?ref=${code}`
-  const wa = 'https://wa.me/?text=' + encodeURIComponent(
-    `Κλείσε πλύσιμο αυτοκινήτου με το Washio και πάρε −3€ στο πρώτο σου: ${link}`)
   const row = (n: string, t: string) => `<tr><td style="padding:6px 0;vertical-align:top;width:30px;"><span style="display:inline-block;width:22px;height:22px;border-radius:11px;background:#10182A;color:#fff;font-size:12px;line-height:22px;text-align:center;font-weight:700;">${n}</span></td><td style="padding:6px 0;color:#374151;font-size:14px;line-height:1.5;">${t}</td></tr>`
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${PREHEADER_REF}</div>
@@ -73,18 +73,18 @@ function referralHtml(code: string, ctaUrl: string): string {
     </div>
     <div style="background:#FFFFFF;border:1px solid #E8EEF2;border-top:none;border-radius:0 0 18px 18px;padding:28px;">
       <h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;"><span style="color:#078EAD;">−3€</span> για τον φίλο σου.<br/><span style="color:#078EAD;">−3€</span> για σένα.</h1>
-      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Στείλε τον σύνδεσμό σου. Ο φίλος σου παίρνει −3€ στο πρώτο του πλύσιμο. Μόλις το κλείσει, παίρνεις κι εσύ −3€.</p>
+      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Στείλε τον σύνδεσμό σου. Ο φίλος σου παίρνει −3€ στο πρώτο του πλύσιμο. Μόλις ολοκληρωθεί το πλύσιμό του, παίρνεις κι εσύ −3€.</p>
       <div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 20px;">
         <p style="margin:0 0 6px;color:#6F7785;font-size:12px;font-weight:600;">Ο σύνδεσμός σου</p>
         <p style="margin:0;color:#078EAD;font-size:16px;font-weight:800;word-break:break-all;">${link.replace('https://', '')}</p>
         <p style="margin:6px 0 0;color:#6F7785;font-size:12px;">Κωδικός: <strong style="color:#10182A;letter-spacing:1px;">${code}</strong></p>
       </div>
-      <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Αντέγραψε τον σύνδεσμό σου →</a>
-      <a href="${wa}" style="display:block;margin-top:10px;background:#FFFFFF;border:1px solid #D7DEE4;color:#10182A;text-align:center;padding:14px;border-radius:14px;text-decoration:none;font-size:15px;font-weight:600;">Στείλ' το στο WhatsApp</a>
+      <a href="${copyUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Αντέγραψε τον σύνδεσμό σου →</a>
+      <a href="${shareUrl}" style="display:block;margin-top:10px;background:#FFFFFF;border:1px solid #D7DEE4;color:#10182A;text-align:center;padding:14px;border-radius:14px;text-decoration:none;font-size:15px;font-weight:600;">Κοινοποίηση</a>
       <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 0;border-collapse:collapse;">
         ${row('1', 'Στέλνεις τον σύνδεσμο σε έναν φίλο')}
         ${row('2', 'Κλείνει το πρώτο του πλύσιμο με −3€')}
-        ${row('3', 'Παίρνεις −3€ για το επόμενο δικό σου')}
+        ${row('3', 'Μόλις ολοκληρωθεί το πλύσιμο, παίρνεις κι εσύ −3€')}
       </table>
       <p style="margin:18px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;">Ισχύει για έως 2 φίλους (έως −6€ για σένα). Σε πλύσιμο από 12€ · ένα κουπόνι ανά πλύσιμο · κάρτα ή μετρητά.</p>
     </div>
@@ -137,6 +137,20 @@ async function personalLink(email: string, audience: Audience = 'all'): Promise<
     const next = nextFor(audience)
     return `https://www.washio.gr/auth/link?token_hash=${encodeURIComponent(th)}&next=${encodeURIComponent(next)}`
   } catch { return fallback }
+}
+
+// Referral: ΕΝΑ token (κάθε νέο magic link ακυρώνει το προηγούμενο), δύο κουμπιά με
+// διαφορετικό «do». Όποιο πατηθεί πρώτο κάνει login· μετά η σελίδα δουλεύει έτσι κι αλλιώς.
+async function referralLinks(email: string): Promise<{ copy: string; share: string }> {
+  const nx = (d: string) => `${nextFor('referral')}&do=${d}`
+  const fb = { copy: `https://www.washio.gr${nx('copy')}`, share: `https://www.washio.gr${nx('share')}` }
+  try {
+    const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
+    const th = data?.properties?.hashed_token
+    if (error || !th) return fb
+    const u = (d: string) => `https://www.washio.gr/auth/link?token_hash=${encodeURIComponent(th)}&next=${encodeURIComponent(nx(d))}`
+    return { copy: u('copy'), share: u('share') }
+  } catch { return fb }
 }
 
 // Τρέξε async δουλειές με όριο ταυτόχρονων (για να μη «χτυπήσουμε» το Auth API).
@@ -301,20 +315,20 @@ export async function POST(req: NextRequest) {
         const code = String(me?.referral_code || 'WASHIO')
         const { error } = await resend.emails.send({
           from: 'Washio <noreply@washio.gr>', to: user.email!, subject: '[ΔΟΚΙΜΗ] ' + SUBJ,
-          html: referralHtml(code, await personalLink(user.email!, audience)),
+          html: await (async () => { const l = await referralLinks(user.email!); return referralHtml(code, l.copy, l.share) })(),
         })
         if (error) return NextResponse.json({ error: error.message }, { status: 500 })
         return NextResponse.json({ ok: true, sentTo: user.email })
       }
       if (mode === 'send') {
-        const links = await mapLimit(list, 10, r => personalLink(r.email, audience))
+        const links = await mapLimit(list, 10, r => referralLinks(r.email))
         let sent = 0
         const errors: string[] = []
         for (let i = 0; i < list.length; i += 100) {
           const chunk = list.slice(i, i + 100)
           const { error } = await resend.batch.send(chunk.map((r, k) => ({
             from: 'Washio <noreply@washio.gr>', to: r.email, subject: SUBJ,
-            html: referralHtml(r.code, links[i + k] || ctaFor(audience)),
+            html: referralHtml(r.code, links[i + k].copy, links[i + k].share),
             headers: { 'List-Unsubscribe': '<mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio>' },
             tags: [{ name: 'campaign', value: CAMP }],
           })))

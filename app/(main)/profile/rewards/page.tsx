@@ -17,8 +17,9 @@ const T = {
     welcome: 'Καλωσόρισμα', referral_reward: 'Επιβράβευση παραπομπής', redeem: 'Χρήση σε κράτηση', refund: 'Επιστροφή (ακύρωση κράτησης)', expired: 'Λήξη κουπονιού',
     referTitle: 'Φέρε φίλους, κερδίστε και οι δύο',
     referSub: (a: number, b: number, n: number) =>
-      `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση — κι εσύ −${b}€ για κάθε φίλο που κλείνει. Έως ${n} φίλοι.`,
+      `Κάθε φίλος παίρνει −${a}€ στην πρώτη του κράτηση — κι εσύ −${b}€ μόλις ολοκληρωθεί το πλύσιμό του. Έως ${n} φίλοι.`,
     yourCode: 'Ο κωδικός σου', yourLink: 'Ο σύνδεσμός σου',
+    hintShare: 'Πάτα «Κοινοποίηση» και διάλεξε πού θα το στείλεις', hintCopy: 'Πάτα για να αντιγράψεις τον σύνδεσμό σου',
     copy: 'Αντιγραφή', copied: 'Αντιγράφηκε!', share: 'Κοινοποίηση',
     used: (x: number, n: number) => `${x} από ${n} φίλους έκλεισαν μέσω σου`,
     shareMsg: (code: string) => `Κλείσε πλύσιμο αυτοκινήτου με το Washio και πάρε −${WELCOME_DISCOUNT}€ στην πρώτη σου κράτηση με τον κωδικό μου: ${code}`,
@@ -32,8 +33,9 @@ const T = {
     welcome: 'Welcome', referral_reward: 'Referral reward', redeem: 'Used on a booking', refund: 'Returned (booking cancelled)', expired: 'Coupon expired',
     referTitle: 'Invite friends, both win',
     referSub: (a: number, b: number, n: number) =>
-      `Each friend gets −€${a} on their first booking — and you get −€${b} for each friend who books. Up to ${n} friends.`,
+      `Each friend gets −€${a} on their first booking — and you get −€${b} once their wash is completed. Up to ${n} friends.`,
     yourCode: 'Your code', yourLink: 'Your link',
+    hintShare: 'Tap “Share” and pick where to send it', hintCopy: 'Tap to copy your link',
     copy: 'Copy', copied: 'Copied!', share: 'Share',
     used: (x: number, n: number) => `${x} of ${n} friends booked through you`,
     shareMsg: (code: string) => `Book a car wash with Washio and get −€${WELCOME_DISCOUNT} on your first booking with my code: ${code}`,
@@ -53,6 +55,8 @@ export default function RewardsPage() {
   const [ledger, setLedger] = useState<Ledger[]>([])
   const [completedRefs, setCompletedRefs] = useState(0)
   const [copied, setCopied] = useState('')
+  // ?do=share | copy (από το email παραπομπής) → επισημαίνει το αντίστοιχο κουμπί.
+  const [focus, setFocus] = useState<'' | 'share' | 'copy'>('')
 
   useEffect(() => {
     const load = async () => {
@@ -71,7 +75,12 @@ export default function RewardsPage() {
       setLedger((led as Ledger[]) || [])
       setCompletedRefs(count || 0)
       // ?tab=referral (π.χ. από το email «3€ + 3€») → ανοίγει κατευθείαν στο «Κάλεσε φίλους».
-      try { if (new URLSearchParams(window.location.search).get('tab') === 'referral') setTab('referral') } catch { /* ignore */ }
+      try {
+        const q = new URLSearchParams(window.location.search)
+        if (q.get('tab') === 'referral') setTab('referral')
+        const d = q.get('do')
+        if (d === 'share' || d === 'copy') setFocus(d)
+      } catch { /* ignore */ }
       setLoading(false)
     }
     load()
@@ -170,10 +179,15 @@ export default function RewardsPage() {
               </div>
             </div>
 
-            <button onClick={doShare} className="w-full bg-gray-900 text-white rounded-2xl py-4 text-[15px] font-semibold inline-flex items-center justify-center gap-2">
+            {focus && (
+              <p className="text-[13px] font-semibold text-[#078EAD] text-center -mb-1">
+                {focus === 'share' ? t.hintShare : t.hintCopy}
+              </p>
+            )}
+            <button onClick={() => { setFocus(''); doShare() }} className={`w-full bg-gray-900 text-white rounded-2xl py-4 text-[15px] font-semibold inline-flex items-center justify-center gap-2 ${focus === 'share' ? 'ring-4 ring-[#19A8C7]/40 animate-pulse' : ''}`}>
               <Share2 size={18} /> {t.share}
             </button>
-            <button onClick={() => doCopy(link, 'link')} className="w-full bg-white border border-gray-200 text-gray-700 rounded-2xl py-3 text-[13px] font-medium inline-flex items-center justify-center gap-2">
+            <button onClick={() => { setFocus(''); doCopy(link, 'link') }} className={`w-full rounded-2xl text-[13px] font-medium inline-flex items-center justify-center gap-2 ${focus === 'copy' ? 'bg-[#19A8C7] text-white py-4 text-[15px] font-semibold ring-4 ring-[#19A8C7]/30 animate-pulse' : 'bg-white border border-gray-200 text-gray-700 py-3'}`}>
               {copied === 'link' ? <><Check size={15} className="text-green-600" /> {t.copied}</> : <><Copy size={15} /> {t.yourLink}</>}
             </button>
 
