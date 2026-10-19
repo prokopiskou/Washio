@@ -70,6 +70,8 @@ export default function RewardsPage() {
       setCredit(Number(prof?.referral_credit) || 0)
       setLedger((led as Ledger[]) || [])
       setCompletedRefs(count || 0)
+      // ?tab=referral (π.χ. από το email «3€ + 3€») → ανοίγει κατευθείαν στο «Κάλεσε φίλους».
+      try { if (new URLSearchParams(window.location.search).get('tab') === 'referral') setTab('referral') } catch { /* ignore */ }
       setLoading(false)
     }
     load()

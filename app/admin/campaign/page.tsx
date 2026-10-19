@@ -13,7 +13,7 @@ type Preview = { subject: string; total: number; withCoupon: number; willGetCoup
 // 1) Βλέπεις πόσους αφορά  2) Στέλνεις δοκιμή στον εαυτό σου  3) Αποστολή σε όλους.
 export default function CampaignPage() {
   // 'new' = υπενθύμιση σε όσους ΔΕΝ έλαβαν κανένα email (χωρίς ημερομηνία λήξης) · 'all' = «λήγει 12/10»
-  const [audience, setAudience] = useState<'new' | 'all'>('new')
+  const [audience, setAudience] = useState<'new' | 'all' | 'referral'>('referral')
   const [preview, setPreview] = useState<Preview | null>(null)
   const [busy, setBusy] = useState<'' | 'test' | 'send'>('')
   const [msg, setMsg] = useState('')
@@ -65,7 +65,7 @@ export default function CampaignPage() {
         <Link href="/admin" className="text-[13px] text-gray-500">← Admin</Link>
         <h1 className="text-[22px] font-bold text-gray-900 mt-3">Καμπάνια email</h1>
         <div className="inline-flex bg-white border border-gray-200 rounded-xl p-1 mt-4">
-          {([['new', 'Νέοι (υπενθύμιση)'], ['all', '«Λήγει 12/10»']] as const).map(([k, label]) => (
+          {([['referral', '3€ + 3€ φίλος'], ['new', 'Νέοι (υπενθύμιση)'], ['all', '«Λήγει 12/10»']] as const).map(([k, label]) => (
             <button key={k} onClick={() => setAudience(k)}
               className={`px-3 py-1.5 rounded-lg text-[13px] font-semibold ${audience === k ? 'bg-gray-900 text-white' : 'text-gray-500'}`}>
               {label}
@@ -73,7 +73,9 @@ export default function CampaignPage() {
           ))}
         </div>
         <p className="text-[13px] text-gray-500 mt-2">
-          {audience === 'new'
+          {audience === 'referral'
+            ? '«3€ για σένα, 3€ για έναν φίλο σου» σε ΟΛΟΥΣ τους χρήστες (και με κράτηση), με τον προσωπικό σύνδεσμο του καθενός. Το κουμπί ανοίγει το «Κάλεσε φίλους» συνδεδεμένο. Ποτέ δεύτερη φορά στον ίδιο.'
+            : audience === 'new'
             ? '«Ξέχασες το −3€ σου;» σε όσους ΔΕΝ έχουν κάνει κράτηση ΚΑΙ δεν έχουν λάβει κανένα email καμπάνιας. Χωρίς ημερομηνία λήξης.'
             : '«Η έκπτωσή σου λήγει σύντομα» (3€ φθηνότερο μέχρι Δευτέρα 12/10) σε όσους δεν έχουν κάνει κράτηση.'}
         </p>
@@ -86,16 +88,18 @@ export default function CampaignPage() {
               <p className="text-[14px] font-semibold text-gray-900">{preview.subject}</p>
               <div className="flex gap-6 mt-4">
                 <div><p className="text-[26px] font-bold text-gray-900">{preview.total}</p><p className="text-[11px] text-gray-400">παραλήπτες</p></div>
-                <div><p className="text-[26px] font-bold text-green-600">{preview.withCoupon}</p><p className="text-[11px] text-gray-400">με κουπόνι −3€</p></div>
+                <div><p className="text-[26px] font-bold text-green-600">{preview.withCoupon}</p><p className="text-[11px] text-gray-400">{audience === 'referral' ? 'έχουν κάνει κράτηση' : 'με κουπόνι −3€'}</p></div>
               </div>
               {preview.willGetCoupon > 0 && (
                 <p className="text-[12px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-3">
                   {preview.willGetCoupon} δεν έχουν ακόμα −3€ — θα τους δοθεί αυτόματα πριν φύγει το email, ώστε να ισχύει για όλους.
                 </p>
               )}
-              {audience === 'new' && (
+              {audience !== 'all' && (
                 <p className="text-[12px] text-gray-500 bg-gray-50 rounded-lg px-3 py-2 mt-3">
-                  Εξαιρέθηκαν {preview.excludedAlreadyEmailed ?? 0} διευθύνσεις που έχουν λάβει ήδη κάποιο προωθητικό email (καμπάνιες, «δεν ολοκλήρωσες», waitlist).
+                  {audience === 'referral'
+                    ? `Εξαιρέθηκαν ${preview.excludedAlreadyEmailed ?? 0} που έχουν λάβει ήδη αυτό το email. Εξαιρούνται επίσης πλυντήρια, admins και λογαριασμοί ομάδας/δοκιμών.`
+                    : `Εξαιρέθηκαν ${preview.excludedAlreadyEmailed ?? 0} διευθύνσεις που έχουν λάβει ήδη κάποιο προωθητικό email (καμπάνιες, «δεν ολοκλήρωσες», waitlist).`}
                 </p>
               )}
               <p className="text-[11px] text-gray-400 mt-3">Δείγμα: {preview.sample.join(', ')}</p>
