@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { mediumTap, errorHaptic, selectionHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
+import { funnel } from '@/lib/funnel'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
@@ -505,6 +506,7 @@ function BookingPageContent() {
       if (!user) {
         let fromMapLanding = false
         try { fromMapLanding = document.cookie.includes('ws_lp=map') || Capacitor.isNativePlatform() } catch { /* ignore */ }
+        funnel('login_wall', { locationId, meta: { maplp: fromMapLanding } })
         router.replace(`/login?redirect=${encodeURIComponent(window.location.href)}${fromMapLanding ? '&welcome=1' : ''}`)
         return
       }
@@ -512,6 +514,7 @@ function BookingPageContent() {
       track('checkout_started')
       // Άφιξη στο booking = πρόθεση κράτησης (book intent).
       trackEvent('AddToCart', { content_type: 'wash', content_ids: [locationId || serviceId] })
+      funnel('booking_page', { locationId })
 
       // ΟΛΑ τα queries ΠΑΡΑΛΛΗΛΑ (πριν: 5 διαδοχικά round-trips).
       const none = Promise.resolve({ data: null as any })
@@ -662,6 +665,7 @@ function BookingPageContent() {
     setShowPayment(true)
     // Έφτασε στην οθόνη πληρωμής (κάρτα).
     trackEvent('InitiateCheckout', { value: total, currency: 'EUR', content_ids: [locationId || serviceId] })
+    funnel('pay_click', { locationId, meta: { method: 'card', total } })
   }
 
   const handleCashBooking = async () => {
@@ -671,6 +675,7 @@ function BookingPageContent() {
     try {
       try { await saveContact() } catch { /* best-effort — δεν μπλοκάρει την κράτηση */ }
       trackEvent('InitiateCheckout', { value: total - previewCredit, currency: 'EUR', content_ids: [locationId || serviceId] })
+      funnel('pay_click', { locationId, meta: { method: 'cash', total } })
       const res = await fetch('/api/bookings/create-cash', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

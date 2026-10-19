@@ -13,6 +13,7 @@ import { WashioLoader } from '@/components/WashioLoader'
 import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
+import { funnel } from '@/lib/funnel'
 
 const T = {
   el: {
@@ -174,6 +175,7 @@ export default function LocationPage() {
 
       const loc = locationData as any
       setLocation({ id: loc.id, name: loc.name, address: loc.address, city: loc.city, photos: loc.photos, capacity: loc.capacity })
+      funnel('washer_page', { locationId: loc.id })
 
       const svc = ((loc.services || []) as Service[])
         .filter(s => s.is_active !== false)
@@ -470,7 +472,7 @@ export default function LocationPage() {
               return (
                 <button
                   key={s.id}
-                  onClick={() => { setSelectedServiceId(s.id); lightTap() }}
+                  onClick={() => { setSelectedServiceId(s.id); lightTap(); funnel('service_select', { locationId: location?.id, meta: { src: 'page' } }) }}
                   className={`flex items-center gap-3.5 p-3.5 min-h-[72px] rounded-[20px] border transition-all text-left ${
                     selected
                       ? 'border-washio-navy text-white'
@@ -601,7 +603,7 @@ export default function LocationPage() {
                 return (
                   <button
                     key={slot.id}
-                    onClick={() => { setSelectedSlot(slot.id); lightTap() }}
+                    onClick={() => { setSelectedSlot(slot.id); lightTap(); funnel('slot_select', { locationId: location?.id, meta: { src: 'page' } }) }}
                     className={`h-11 rounded-xl border text-[14px] font-semibold transition-all ${
                       selected
                         ? 'bg-washio-cyan border-washio-cyan text-white shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
@@ -626,7 +628,7 @@ export default function LocationPage() {
         >
           {canBook ? (
             <button
-              onClick={() => router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`)}
+              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page' } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`) }}
               className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
               style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.38)' }}
             >

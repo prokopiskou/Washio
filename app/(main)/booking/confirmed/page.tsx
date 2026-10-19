@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { successHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
+import { funnel } from '@/lib/funnel'
 import { PushReminderPrompt } from '@/components/PushReminderPrompt'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT } from '@/lib/i18n'
@@ -152,7 +153,7 @@ function ConfirmedContent() {
         setPayState('ok')
         successHaptic()
         track('booking_paid')
-        trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: refParam })
+        trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: refParam }); funnel('booked')
         // Στοιχεία πλυντηρίου (best-effort, session-independent μέσω server).
         try {
           if (intentId) {
@@ -186,7 +187,7 @@ function ConfirmedContent() {
             successHaptic()
             track('booking_paid')
             // eventId = booking_ref → dedup με το server-side CAPI (webhook).
-            trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: found.ref })
+            trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: found.ref }); funnel('booked')
             return
           }
           await new Promise(r => setTimeout(r, 2500))
@@ -196,7 +197,7 @@ function ConfirmedContent() {
         setPayState('slow')
         successHaptic()
         track('booking_paid')
-        trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: intentId })
+        trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: intentId }); funnel('booked')
         return
       }
 

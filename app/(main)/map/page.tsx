@@ -12,6 +12,7 @@ import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } from '@/lib/availability'
 import { getCurrentPosition, getFastPosition } from '@/lib/geo'
 import { startMapOpenLog } from '@/lib/map-open-log'
+import { funnel } from '@/lib/funnel'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService, compareServices } from '@/lib/services-catalog'
@@ -480,6 +481,7 @@ function MapPageContent() {
   useEffect(() => {
     track('map_viewed')
     trackEvent('ViewContent', { content_type: 'map' }) // browse signal (Pixel/GA4)
+    funnel('map_open')
     // Φόρτωσε τα πλυντήρια ΑΜΕΣΩΣ — χωρίς να περιμένεις το geolocation.
     // Από τοπική διαφήμιση (?area=): ταξινόμηση από το κέντρο της περιοχής.
     const areaC = AREA_CENTERS[(params.get('area') || '').toLowerCase()]
@@ -818,6 +820,7 @@ function MapPageContent() {
     mapInstanceRef.current?.panTo({ lat: loc.lat, lng: loc.lng })
     // Δυνατότερο intent signal: είδε συγκεκριμένο πλυντήριο (χτίζει retargeting pool).
     trackEvent('ViewContent', { content_type: 'wash', content_ids: [loc.slug || loc.id], content_name: loc.name })
+    funnel('washer_open', { locationId: loc.id, meta: { avail: !!loc.hasAvailability, km: loc.distance ?? -1, timing } })
   }
 
   const visibleSlots = (() => {
@@ -834,6 +837,16 @@ function MapPageContent() {
     return available
   })()
 
+  // Μέτρηση: διάλεξε πλυντήριο + υπηρεσία αλλά δεν βγαίνει καμία ώρα.
+  const noSlotsKey = selectedLocation && selectedService && !findingNext && visibleSlots.length === 0
+    ? `${selectedLocation.id}|${selectedService}` : ''
+  useEffect(() => {
+    if (!noSlotsKey) return
+    const tm = window.setTimeout(() => funnel('no_slots', { locationId: noSlotsKey.split('|')[0], meta: { src: 'map', timing } }), 1500)
+    return () => window.clearTimeout(tm)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noSlotsKey])
+
   // «Σήμερα» / «Αύριο» / «Πέμ 2 Οκτ»
   const dayLabel = (ymd: string) => {
     const today = getTodayValue()
@@ -847,6 +860,7 @@ function MapPageContent() {
 
   const handleBookingAttempt = () => {
     if (!canBook || !selectedLocation) return
+    funnel('book_click', { locationId: selectedLocation.id, meta: { src: 'map' } })
 
     const bookDate = sheetDate || activeDate
     const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${bookDate}&vehicleType=${encodeURIComponent(vehicleType)}`
@@ -1410,7 +1424,7 @@ function MapPageContent() {
                   const price = priceLabel(s)
                   const isSelected = selectedService === s.id
                   return (
-                    <button key={s.id} onClick={() => setSelectedService(s.id)}
+                    <button key={s.id} onClick={() => { setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map' } }) }}
                       className={`flex-1 py-2.5 rounded-[14px] border text-center transition-all ${
                         isSelected ? 'border-washio-navy' : 'bg-white border-washio-border'
                       }`}
@@ -1436,7 +1450,7 @@ function MapPageContent() {
                     visibleSlots.map(slot => {
                       const isSelected = selectedSlot === slot.time
                       return (
-                        <button key={slot.time} onClick={() => setSelectedSlot(slot.time)}
+                        <button key={slot.time} onClick={() => { setSelectedSlot(slot.time); funnel('slot_select', { locationId: selectedLocation?.id, meta: { src: 'map' } }) }}
                           className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
                             isSelected
                               ? 'bg-washio-cyan border-washio-cyan text-white shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
