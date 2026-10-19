@@ -12,7 +12,6 @@ import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { redeemCredit } from '@/lib/referral'
-import { grantReferrerRewardIfFirst } from '@/lib/referral-server'
 import { couponWaivesCommission } from '@/lib/commission'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
@@ -188,11 +187,10 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
       } catch { /* μη-κρίσιμο */ }
     }
 
-    // Referral/wallet: αφαίρεσε την πίστωση που εξαργυρώθηκε (μετά την επιτυχία)
-    // και επιβράβευσε τον referrer αν είναι η πρώτη κράτηση του παραπεμπόμενου.
+    // Referral/wallet: αφαίρεσε την πίστωση που εξαργυρώθηκε (μετά την επιτυχία).
+    // Το +3€ του referrer ΔΕΝ δίνεται εδώ — μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards).
     const appliedCredit = parseFloat(m.appliedCredit || '0')
     if (m.userId && appliedCredit > 0) await redeemCredit(supabase, m.userId, appliedCredit, inserted.id)
-    if (m.userId) await grantReferrerRewardIfFirst(supabase, m.userId, inserted.id)
 
     // Meta CAPI Purchase (server-side, dedup με event_id = booking_ref).
     await sendPurchaseCapi({

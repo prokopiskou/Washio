@@ -11,7 +11,6 @@ import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
-import { grantReferrerRewardIfFirst } from '@/lib/referral-server'
 import { couponWaivesCommission } from '@/lib/commission'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
@@ -253,9 +252,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: inserted.message }, { status: 500 })
     }
 
-    // Referral: αν αυτός που κλείνει είναι παραπεμπόμενος, επιβράβευσε τον referrer
-    // (και σε μετρητά — το reward είναι πίστωση στον referrer, όχι έκπτωση εδώ).
-    if (user.id) await grantReferrerRewardIfFirst(admin, user.id, inserted.id)
+    // Referral: το +3€ του referrer μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards), όχι εδώ.
     // Εξαργύρωση κουπονιού (μετά την επιτυχή δημιουργία).
     if (couponAmount > 0) await redeemCredit(admin, user.id, couponAmount, inserted.id)
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendPush } from '@/lib/push'
 import { alertCritical } from '@/lib/alert'
+import { processReferralRewards } from '@/lib/referral-server'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -227,5 +228,8 @@ export async function GET(req: Request) {
     }
   })
 
-  return NextResponse.json(stats)
+  // ── Referral: +3€ στον referrer όταν ολοκληρωθεί το πρώτο πλύσιμο του φίλου ──
+  const referralRewards = await processReferralRewards(supabase)
+
+  return NextResponse.json({ ...stats, referralRewards })
 }
