@@ -273,6 +273,8 @@ export default function DashboardPage() {
   const [chartPeriod, setChartPeriod] = useState<Period>('6M')
   const [chartMetric, setChartMetric] = useState<Metric>('revenue')
   const locationIdRef = useRef<string | null>(null)
+  // Όλα τα πλυντήρια του ιδιοκτήτη (αν >1 → επιλογέας πάνω-πάνω, ένα-ένα).
+  const [myLocations, setMyLocations] = useState<{ id: string; name: string; city: string }[]>([])
   const calendarDateRef = useRef<Date>(calendarDate)
   // Cleanup του realtime channel + polling interval (ορίζεται μέσα στο loadDashboard).
   const cleanupRef = useRef<(() => void) | null>(null)
@@ -427,32 +429,26 @@ export default function DashboardPage() {
       const isSupport = isAdminEmail(user.email) && !!supportLocationId
       setSupportMode(isSupport)
 
-      const locationLoad = isSupport
-        ? await supabase
-            .from('locations')
-            .select('*')
-            .eq('id', supportLocationId)
-            .maybeSingle()
-        : await supabase
-            .from('locations')
-            .select('*')
-            .eq('owner_id', user.id)
-            .maybeSingle()
-
-      if (locationLoad.error) console.error('Dashboard location load error')
-      let ownerLocation = locationLoad.data
-
-      // Fallback με EMAIL: αν δεν βρέθηκε πρατήριο με owner_id, δοκίμασε να το
-      // δέσεις μέσω του email onboarding (self-heal), και ξαναφόρτωσε.
-      if (!isSupport && !ownerLocation?.id) {
-        try {
-          const res = await fetch('/api/dashboard/claim', { method: 'POST' })
-          const j = await res.json()
-          if (j?.locationId) {
-            const re = await supabase.from('locations').select('*').eq('id', j.locationId).maybeSingle()
-            if (re.data) ownerLocation = re.data
-          }
-        } catch { /* best-effort */ }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let ownerLocation: any = null
+      if (isSupport) {
+        const locationLoad = await supabase.from('locations').select('*').eq('id', supportLocationId).maybeSingle()
+        if (locationLoad.error) console.error('Dashboard location load error')
+        ownerLocation = locationLoad.data
+      } else {
+        // Self-heal: δένει ΟΛΑ τα πλυντήρια του email (αιτήσεις onboarding) που δεν έχουν owner.
+        try { await fetch('/api/dashboard/claim', { method: 'POST' }) } catch { /* best-effort */ }
+        // Ένας ιδιοκτήτης μπορεί να έχει ΠΟΛΛΑ πλυντήρια → φόρτωσε όλα, δείξε ένα-ένα.
+        const { data: mine, error: mineErr } = await supabase
+          .from('locations').select('*').eq('owner_id', user.id).order('created_at', { ascending: true })
+        if (mineErr) console.error('Dashboard location load error')
+        const list = mine || []
+        setMyLocations(list.map(l => ({ id: l.id as string, name: String(l.name || ''), city: String(l.city || '') })))
+        // Επιλογή: ?loc=<id> → τελευταίο που άνοιξε (localStorage) → το πρώτο.
+        let wanted = new URLSearchParams(window.location.search).get('loc')
+        if (!wanted) { try { wanted = localStorage.getItem('ws_dash_loc') } catch { /* ignore */ } }
+        ownerLocation = list.find(l => l.id === wanted) || list[0] || null
+        if (ownerLocation?.id) { try { localStorage.setItem('ws_dash_loc', ownerLocation.id) } catch { /* ignore */ } }
       }
 
       setLocation(ownerLocation)
@@ -1077,6 +1073,34 @@ export default function DashboardPage() {
               <span className="text-[12px] font-semibold">{t('Εφαρμογή')}</span>
             </button>
           </div>
+
+          {/* Πολλά πλυντήρια στον ίδιο λογαριασμό → επιλογή ένα-ένα */}
+          {!supportMode && myLocations.length > 1 && (
+            <div className="mt-3">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+                {t('Τα πλυντήριά σου')} ({myLocations.length})
+              </p>
+              <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-0.5" style={{ scrollbarWidth: 'none' }}>
+                {myLocations.map(l => {
+                  const active = l.id === location.id
+                  return (
+                    <button
+                      key={l.id}
+                      onClick={() => {
+                        if (active) return
+                        try { localStorage.setItem('ws_dash_loc', l.id) } catch { /* ignore */ }
+                        window.location.href = `/dashboard?loc=${l.id}`
+                      }}
+                      className={`shrink-0 max-w-[220px] text-left px-3 py-2 rounded-xl border ${active ? 'bg-gray-900 border-gray-900 text-white' : 'bg-white border-gray-200 text-gray-700 active:bg-gray-50'}`}
+                    >
+                      <span className="block text-[13px] font-semibold truncate">{l.name}</span>
+                      {l.city && <span className={`block text-[11px] truncate ${active ? 'text-white/60' : 'text-gray-400'}`}>{l.city}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {notifPermission === 'granted' ? (
             <div className="inline-flex items-center gap-1.5 mt-3 px-2.5 py-1 rounded-lg" style={{ background: '#E7F6EF', color: '#0F7A5C' }}>
