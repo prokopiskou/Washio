@@ -12,7 +12,8 @@ import { isInternalEmail } from '@/lib/internal'
 // POST { mode: 'stats' }    → ανοίγματα / κλικ / κρατήσεις της καμπάνιας (από Resend + Supabase)
 // Παραλήπτες: χρήστες ΧΩΡΙΣ καμία ενεργή κράτηση. ΕΞΑΙΡΟΥΝΤΑΙ: ιδιοκτήτες πλυντηρίων,
 // όσοι έκαναν αίτηση/onboarding ως πλυντήριο (κατά email) και οι admins.
-export const maxDuration = 60
+// Vercel Pro: έως 300'' — 600+ παραλήπτες × προσωπικό link χωρούν άνετα σε μία κλήση.
+export const maxDuration = 300
 
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 const resend = new Resend(process.env.RESEND_API_KEY)
