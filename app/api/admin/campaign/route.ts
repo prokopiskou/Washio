@@ -4,6 +4,7 @@ import { Resend } from 'resend'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail, ADMIN_EMAILS } from '@/lib/admins'
 import { isInternalEmail } from '@/lib/internal'
+import { unsubHeaders, unsubFooterLink, isOptedOut } from '@/lib/unsubscribe'
 
 // Καμπάνια email (τρέχουσα: «Το −3€ σου λήγει τη Δευτέρα 12/10»).
 // POST { mode: 'preview' }  → πόσοι παραλήπτες + δείγμα (δεν στέλνει τίποτα)
@@ -62,7 +63,7 @@ const ctaFor = (a: Audience) => `https://www.washio.gr${nextFor(a)}`
 // ── Email παραπομπής (3€ + 3€) ──
 // copyUrl / shareUrl: ίδιο προσωπικό login, διαφορετικό «do" → η σελίδα επισημαίνει το αντίστοιχο κουμπί.
 // (Μέσα σε email δεν ανοίγει το μενού κοινοποίησης του κινητού — ανοίγει με ένα πάτημα στη σελίδα.)
-function referralHtml(code: string, copyUrl: string, shareUrl: string): string {
+function referralHtml(code: string, copyUrl: string, shareUrl: string, userId: string): string {
   const link = `https://washio.gr/?ref=${code}`
   const row = (n: string, t: string) => `<tr><td style="padding:6px 0;vertical-align:top;width:30px;"><span style="display:inline-block;width:22px;height:22px;border-radius:11px;background:#10182A;color:#fff;font-size:12px;line-height:22px;text-align:center;font-weight:700;">${n}</span></td><td style="padding:6px 0;color:#374151;font-size:14px;line-height:1.5;">${t}</td></tr>`
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
@@ -89,11 +90,11 @@ function referralHtml(code: string, copyUrl: string, shareUrl: string): string {
       </table>
       <p style="margin:18px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;">Ισχύει για έως 2 φίλους (έως −6€ για σένα). Σε πλύσιμο από 12€ · ένα κουπόνι ανά πλύσιμο · κάρτα ή μετρητά.</p>
     </div>
-    <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; <a href="mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio" style="color:#9AA3AF;">Διαγραφή</a>.</p>
+    <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; ${unsubFooterLink(userId)}.</p>
   </div></body></html>`
 }
 
-function html(hasCoupon: boolean, ctaUrl: string = URL_CTA, audience: Audience = 'all'): string {
+function html(hasCoupon: boolean, ctaUrl: string = URL_CTA, audience: Audience = 'all', userId = ''): string {
   const isNew = audience === 'new'
   const row = (t: string) => `<tr><td style="padding:5px 0;vertical-align:top;width:26px;"><span style="display:inline-block;width:18px;height:18px;border-radius:9px;background:#19A8C7;color:#fff;font-size:12px;line-height:18px;text-align:center;font-weight:700;">✓</span></td><td style="padding:5px 0;color:#374151;font-size:14px;line-height:1.5;">${t}</td></tr>`
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
@@ -121,7 +122,7 @@ function html(hasCoupon: boolean, ctaUrl: string = URL_CTA, audience: Audience =
       <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε το ραντεβού σου →</a>
       <p style="margin:20px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;text-align:center;">📍 Αργυρούπολη · Άλιμος · Άγ. Δημήτριος · Ηλιούπολη · Βύρωνας · Ζωγράφου</p>
     </div>
-    <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; <a href="mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio" style="color:#9AA3AF;">Διαγραφή</a>.</p>
+    <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; ${unsubFooterLink(userId)}.</p>
   </div></body></html>`
 }
 
@@ -173,7 +174,7 @@ async function recipients(audience: Audience = 'all') {
     // Μόνο ΟΛΟΚΛΗΡΩΜΕΝΟΙ λογαριασμοί (επαλήθευσαν email / συνδέθηκαν τουλάχιστον μία φορά).
     // Όσοι ζήτησαν κωδικό και δεν τον έβαλαν ποτέ συχνά έχουν λάθος email (π.χ. «gmail.con")
     // → bounce → χαλάει η φήμη του washio.gr και κινδυνεύουν να πάνε στα spam και τα OTP.
-    for (const u of data.users) if (u.email && (u.last_sign_in_at || u.email_confirmed_at)) users.push({ id: u.id, email: u.email.toLowerCase() })
+    for (const u of data.users) if (u.email && (u.last_sign_in_at || u.email_confirmed_at) && !isOptedOut(u.app_metadata as Record<string, unknown>)) users.push({ id: u.id, email: u.email.toLowerCase() })
     if (data.users.length < 1000) break
   }
   const [{ data: booked }, { data: owners }, { data: profs }, { data: apps }, { data: onb }] = await Promise.all([
@@ -316,7 +317,7 @@ export async function POST(req: NextRequest) {
         const code = String(me?.referral_code || 'WASHIO')
         const { error } = await resend.emails.send({
           from: 'Washio <noreply@washio.gr>', to: user.email!, subject: '[ΔΟΚΙΜΗ] ' + SUBJ,
-          html: await (async () => { const l = await referralLinks(user.email!); return referralHtml(code, l.copy, l.share) })(),
+          html: await (async () => { const l = await referralLinks(user.email!); return referralHtml(code, l.copy, l.share, user.id) })(),
         })
         if (error) return NextResponse.json({ error: error.message }, { status: 500 })
         return NextResponse.json({ ok: true, sentTo: user.email })
@@ -329,8 +330,8 @@ export async function POST(req: NextRequest) {
           const chunk = list.slice(i, i + 100)
           const { error } = await resend.batch.send(chunk.map((r, k) => ({
             from: 'Washio <noreply@washio.gr>', to: r.email, subject: SUBJ,
-            html: referralHtml(r.code, links[i + k].copy, links[i + k].share),
-            headers: { 'List-Unsubscribe': '<mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio>' },
+            html: referralHtml(r.code, links[i + k].copy, links[i + k].share, r.id),
+            headers: unsubHeaders(r.id),
             tags: [{ name: 'campaign', value: CAMP }],
           })))
           if (error) errors.push(error.message)
@@ -357,7 +358,7 @@ export async function POST(req: NextRequest) {
         from: 'Washio <noreply@washio.gr>',
         to: user.email!,
         subject: '[ΔΟΚΙΜΗ] ' + SUBJ,
-        html: html(true, await personalLink(user.email!, audience), audience),
+        html: html(true, await personalLink(user.email!, audience), audience, user.id),
       })
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
       return NextResponse.json({ ok: true, sentTo: user.email })
@@ -394,8 +395,8 @@ export async function POST(req: NextRequest) {
           from: 'Washio <noreply@washio.gr>',
           to: r.email,
           subject: SUBJ,
-          html: html(true, linkByEmail.get(r.email) || ctaFor(audience), audience),
-          headers: { 'List-Unsubscribe': '<mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio>' },
+          html: html(true, linkByEmail.get(r.email) || ctaFor(audience), audience, r.id),
+          headers: unsubHeaders(r.id),
           tags: [{ name: 'campaign', value: CAMP }],
         })))
         if (error) errors.push(error.message)

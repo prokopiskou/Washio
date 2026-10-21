@@ -4,6 +4,7 @@ import { Resend } from 'resend'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail, ADMIN_EMAILS } from '@/lib/admins'
 import { processCouponExpiry, expiryForSignup, greekDate } from '@/lib/coupon-expiry'
+import { unsubHeaders, unsubFooterLink, isOptedOut } from '@/lib/unsubscribe'
 
 // Welcome nudge: όποιος γράφτηκε πριν 1–24 ώρες και ΔΕΝ έχει κάνει κράτηση (ούτε έφτασε
 // στην πληρωμή) παίρνει ΕΝΑ email «Το −3€ σου σε περιμένει» με τα πλυντήρια και προσωπικό link.
@@ -57,7 +58,7 @@ async function washers(): Promise<Washer[]> {
   }).sort((a, b) => a.area.localeCompare(b.area, 'el'))
 }
 
-function html(link: string, list: Washer[], expiresIso?: string): string {
+function html(link: string, list: Washer[], expiresIso?: string, userId = ''): string {
   const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]!))
   const rows = list.map(w => `<tr>
       <td style="padding:10px 0;border-bottom:1px solid #F0F3F6;">
@@ -88,7 +89,7 @@ function html(link: string, list: Washer[], expiresIso?: string): string {
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">${rows}</table>` : ''}
       <p style="margin:18px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;text-align:center;">Δωρεάν ακύρωση έως 2 ώρες πριν.</p>
     </div>
-    <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έφτιαξες λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; <a href="mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio" style="color:#9AA3AF;">Διαγραφή</a>.</p>
+    <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έφτιαξες λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; ${unsubFooterLink(userId)}.</p>
   </div></body></html>`
 }
 
@@ -119,6 +120,7 @@ async function candidates(now = Date.now()): Promise<Candidate[]> {
       if (!(u.last_sign_in_at || u.email_confirmed_at)) continue // μόνο ολοκληρωμένες εγγραφές (όχι bounce)
       if (email.includes('+test') || ADMIN_EMAILS.includes(email)) continue
       if ((u.app_metadata as Record<string, unknown> | undefined)?.welcome_nudge_at) continue
+      if (isOptedOut(u.app_metadata as Record<string, unknown>)) continue // διαγράφηκε από τα emails
       fresh.push({ id: u.id, email, createdAt: u.created_at, exp: (u.app_metadata as Record<string, unknown> | undefined)?.coupon_expires_at as string | undefined })
     }
     if (data.users.length < 1000) break
@@ -184,8 +186,8 @@ export async function GET(req: NextRequest) {
         from: 'Washio <noreply@washio.gr>',
         to: c.email,
         subject: SUBJECT,
-        html: html(await personalLink(c.email), ws, exp),
-        headers: { 'List-Unsubscribe': '<mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio>' },
+        html: html(await personalLink(c.email), ws, exp, c.id),
+        headers: unsubHeaders(c.id),
         tags: [{ name: 'campaign', value: CAMPAIGN }],
       })
       if (error) { errors.push(error.message); await mark(c.id, null) } // retry στο επόμενο run
@@ -251,7 +253,7 @@ export async function POST(req: NextRequest) {
       from: 'Washio <noreply@washio.gr>',
       to: user.email!,
       subject: '[ΔΟΚΙΜΗ] ' + SUBJECT,
-      html: html(await personalLink(user.email!), await washers(), expiryForSignup(new Date())),
+      html: html(await personalLink(user.email!), await washers(), expiryForSignup(new Date()), user.id),
     })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true, sentTo: user.email })

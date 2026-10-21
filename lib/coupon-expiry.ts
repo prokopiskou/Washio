@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Resend } from 'resend'
+import { unsubHeaders, unsubFooterLink, isOptedOut } from '@/lib/unsubscribe'
 
 // Πραγματική λήξη του −3€ καλωσορίσματος: ισχύει έως το τέλος (23:59 Ελλάδας) της 7ης μέρας
 // μετά την εγγραφή. Την ημέρα της λήξης, 13:00–21:59, φεύγει ΕΝΑ email «λήγει σήμερα».
@@ -68,7 +69,7 @@ async function allUsers(admin: SupabaseClient): Promise<U[]> {
   return out
 }
 
-function reminderHtml(link: string, expiresIso: string): string {
+function reminderHtml(link: string, expiresIso: string, userId = ''): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">Κλείσε σήμερα για όποια μέρα θες — η έκπτωση κλειδώνει.</div>
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px 16px;">
@@ -85,7 +86,7 @@ function reminderHtml(link: string, expiresIso: string): string {
       </div>
       <a href="${link}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε ραντεβού τώρα →</a>
     </div>
-    <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; <a href="mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio" style="color:#9AA3AF;">Διαγραφή</a>.</p>
+    <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; ${unsubFooterLink(userId)}.</p>
   </div></body></html>`
 }
 
@@ -156,7 +157,7 @@ export async function processCouponExpiry(admin: SupabaseClient, resend: Resend,
     const isExpiryDay = athensDate(new Date()) === athensDate(new Date(expMs))
     // Email μόνο σε επαληθευμένους (όχι bounce σε λάθος διευθύνσεις → φήμη του washio.gr).
     const verified = !!(u.last_sign_in_at || u.email_confirmed_at)
-    if (isExpiryDay && hour >= REMIND_FROM_H && hour <= REMIND_TO_H && !meta.coupon_reminder_at && u.email && verified
+    if (isExpiryDay && hour >= REMIND_FROM_H && hour <= REMIND_TO_H && !meta.coupon_reminder_at && !isOptedOut(meta) && u.email && verified
         && !String(u.email).toLowerCase().includes('+test')) {
       stats.toRemindNow++
       if (opts.dryRun || stats.reminded >= 40) continue // όριο ανά run (60″ εκτέλεση) — τα υπόλοιπα στο επόμενο run (15')
@@ -165,8 +166,8 @@ export async function processCouponExpiry(admin: SupabaseClient, resend: Resend,
         from: 'Washio <noreply@washio.gr>',
         to: u.email,
         subject: SUBJECT,
-        html: reminderHtml(await personalLink(admin, u.email), exp),
-        headers: { 'List-Unsubscribe': '<mailto:withinsuccess@gmail.com?subject=Unsubscribe%20Washio>' },
+        html: reminderHtml(await personalLink(admin, u.email), exp, u.id),
+        headers: unsubHeaders(u.id),
         tags: [{ name: 'campaign', value: 'coupon_expiry_today' }],
       })
       if (error) {
