@@ -112,13 +112,17 @@ async function candidates(now = Date.now()): Promise<Candidate[]> {
   }
 
   const since = new Date(now - MAX_DAYS * DAY).toISOString().slice(0, 10)
-  const [{ data: bks }, { data: owners }, { data: profs }] = await Promise.all([
+  const [{ data: bks }, { data: owners }, { data: profs }, { data: recent }] = await Promise.all([
     admin.from('bookings')
       .select('id, user_id, status, slot_date, slot_start_time, source, location_id, service_id, locations(name, slug)')
       .not('user_id', 'is', null).gte('slot_date', since).in('status', ['confirmed', 'completed']),
     admin.from('locations').select('owner_id').not('owner_id', 'is', null),
     admin.from('profiles').select('id, full_name, referral_credit'),
+    // Πρόσφατη δραστηριότητα (ΟΠΟΙΑΔΗΠΟΤΕ κατάσταση — και ακυρωμένη / no-show): όποιος έκανε κράτηση
+    // τις τελευταίες 14 μέρες δεν χρειάζεται «ώρα για το επόμενο».
+    admin.from('bookings').select('user_id').not('user_id', 'is', null).gte('created_at', new Date(now - AFTER_DAYS * DAY).toISOString()),
   ])
+  const recentSet = new Set((recent || []).map(r => r.user_id as string))
   const ownerSet = new Set((owners || []).map(o => o.owner_id as string))
   const prof = new Map((profs || []).map(p => [p.id as string, p]))
 
@@ -138,7 +142,7 @@ async function candidates(now = Date.now()): Promise<Candidate[]> {
 
   const out: Candidate[] = []
   for (const [uid, b] of last) {
-    if (upcoming.has(uid) || ownerSet.has(uid)) continue
+    if (upcoming.has(uid) || ownerSet.has(uid) || recentSet.has(uid)) continue
     const u = users.get(uid)
     if (!u) continue
     const days = Math.floor((now - b.at) / DAY)
