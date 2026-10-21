@@ -15,6 +15,7 @@ const T = {
     reviewsCount: (n: number) => `(${n} ${n === 1 ? 'κριτική' : 'κριτικές'})`,
     empty: 'Καμία κριτική ακόμα',
     emptySub: 'Γίνε ο πρώτος που θα αφήσει κριτική.',
+    customer: 'Πελάτης Washio',
     continue: 'Συνέχεια',
   },
   en: {
@@ -23,6 +24,7 @@ const T = {
     reviewsCount: (n: number) => `(${n} ${n === 1 ? 'review' : 'reviews'})`,
     empty: 'No reviews yet',
     emptySub: 'Be the first to leave a review.',
+    customer: 'Washio customer',
     continue: 'Continue',
   },
 }
@@ -38,7 +40,7 @@ function formatDate(dateStr: string, locale: Locale) {
 }
 
 type Location = { id: string; name: string; slug: string }
-type Review = { id: string; rating: number; comment: string | null; created_at: string }
+type Review = { id: string; rating: number; comment: string | null; created_at: string; name?: string }
 
 function Stars({ rating, size = 16 }: { rating: number; size?: number }) {
   return (
@@ -83,13 +85,18 @@ export default function ReviewsPage() {
 
       setLocation(locationData)
 
-      const { data: reviewsData } = await supabase
-        .from('reviews')
-        .select('id, rating, comment, created_at')
-        .eq('location_id', locationData.id)
-        .order('created_at', { ascending: false })
+      // Μέσω API: φέρνει και το όνομα του πελάτη («Γιώργος Π.»).
+      let reviewsData: Review[] = []
+      try {
+        const res = await fetch(`/api/reviews?location=${locationData.id}`)
+        reviewsData = ((await res.json()).reviews as Review[]) || []
+      } catch {
+        const { data } = await supabase.from('reviews').select('id, rating, comment, created_at')
+          .eq('location_id', locationData.id).order('created_at', { ascending: false })
+        reviewsData = (data as Review[]) || []
+      }
 
-      setReviews((reviewsData as Review[]) || [])
+      setReviews(reviewsData)
       setLoading(false)
     }
 
@@ -149,9 +156,15 @@ export default function ReviewsPage() {
             <div className="flex flex-col gap-2.5">
               {reviews.map(r => (
                 <div key={r.id} className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex flex-col gap-2" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                  <div className="flex items-center justify-between">
-                    <Stars rating={r.rating} size={15} />
-                    <span className="text-[12px] text-gray-400">{formatDate(r.created_at, locale)}</span>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center text-[14px] font-semibold shrink-0">
+                      {(r.name || t.customer).charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[14px] font-semibold text-gray-900 truncate">{r.name || t.customer}</p>
+                      <p className="text-[12px] text-gray-400">{formatDate(r.created_at, locale)}</p>
+                    </div>
+                    <Stars rating={r.rating} size={14} />
                   </div>
                   {r.comment && (
                     <p className="text-[14px] text-gray-900 leading-relaxed">{r.comment}</p>

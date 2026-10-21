@@ -56,7 +56,7 @@ const T = {
     refundNote3: '• Η ενέργεια είναι μη αναστρέψιμη',
     keepIt: 'Όχι, κράτα την', yesCancel: 'Ναι, ακύρωσε', cancelling: 'Ακύρωση...',
     rateTitle: 'Βαθμολόγησε την εμπειρία σου',
-    rateComment: 'Προσθέσε ένα σχόλιο (προαιρετικά)',
+    rateComment: 'Πώς ήταν το πλύσιμο; Τι σου άρεσε;', rateExpLabel: 'Γράψε την εμπειρία σου', rateNameNote: 'Η κριτική εμφανίζεται με το μικρό σου όνομα και το αρχικό του επωνύμου.',
     rateSubmit: 'Υποβολή',
     rateSubmitting: 'Υποβολή...',
     rateThanks: 'Ευχαριστούμε!',
@@ -105,7 +105,7 @@ const T = {
     refundNote3: '• This action is irreversible',
     keepIt: 'No, keep it', yesCancel: 'Yes, cancel', cancelling: 'Cancelling...',
     rateTitle: 'Rate your experience',
-    rateComment: 'Add a comment (optional)',
+    rateComment: 'How was the wash? What did you like?', rateExpLabel: 'Tell us about your experience', rateNameNote: 'Your review is shown with your first name and last initial.',
     rateSubmit: 'Submit',
     rateSubmitting: 'Submitting...',
     rateThanks: 'Thank you!',
@@ -968,13 +968,19 @@ export default function BookingDetailPage() {
             </div>
 
             <div className="mb-5">
+              <p className="text-[13px] font-semibold text-gray-900 mb-2">{t.rateExpLabel}</p>
               <textarea
                 value={ratingComment}
-                onChange={e => setRatingComment(e.target.value)}
+                onChange={e => setRatingComment(e.target.value.slice(0, 600))}
                 placeholder={t.rateComment}
-                rows={3}
+                rows={4}
+                maxLength={600}
                 className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400"
               />
+              <div className="flex justify-between mt-1.5">
+                <p className="text-[11px] text-gray-400 leading-snug pr-3">{t.rateNameNote}</p>
+                <p className="text-[11px] text-gray-400 shrink-0">{ratingComment.length}/600</p>
+              </div>
             </div>
 
             <button

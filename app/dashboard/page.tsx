@@ -104,6 +104,7 @@ type Review = {
   rating: number
   comment: string
   created_at: string
+  name?: string
 }
 
 const DAYS = ['Δευτέρα', 'Τρίτη', 'Τετάρτη', 'Πέμπτη', 'Παρασκευή', 'Σάββατο', 'Κυριακή']
@@ -520,6 +521,8 @@ export default function DashboardPage() {
 
       setStaff((staffRes.data as StaffMember[]) || [])
       setReviews((reviewsRes.data as Review[]) || [])
+      // Με το όνομα του πελάτη («Γιώργος Π.») — best-effort, μένουν οι κριτικές χωρίς όνομα αν αποτύχει.
+      fetch(`/api/reviews?location=${locationId}`).then(r => r.json()).then(j => { if (!disposed && Array.isArray(j?.reviews)) setReviews(j.reviews as Review[]) }).catch(() => {})
       if ((hoursRes.data as any[] | null)?.length) {
         const normalizedHours = (hoursRes.data as any[]).map(h => ({
           id: h.id,
@@ -2849,8 +2852,9 @@ export default function DashboardPage() {
                                 })}
                               </p>
                             </div>
+                            <p className="text-[13px] font-semibold text-gray-900 mt-2">{review.name || t('Πελάτης Washio')}</p>
                             {review.comment && (
-                              <p className="text-[14px] text-gray-900 mt-2.5 leading-relaxed">
+                              <p className="text-[14px] text-gray-900 mt-1 leading-relaxed">
                                 {review.comment}
                               </p>
                             )}

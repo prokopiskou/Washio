@@ -69,6 +69,7 @@ export const DASH_EN: Record<string, string> = {
   'Εφαρμογή': 'App',
   'Λειτουργία υποστήριξης': 'Support mode',
   'Τα πλυντήριά σου': 'Your car washes',
+  'Πελάτης Washio': 'Washio customer',
   'πλυντήριο': 'car wash',
   'Έξοδος': 'Exit',
   'Κρατήσεις': 'Bookings',
