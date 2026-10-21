@@ -13,6 +13,7 @@ import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } f
 import { getCurrentPosition, getFastPosition } from '@/lib/geo'
 import { startMapOpenLog } from '@/lib/map-open-log'
 import { funnel } from '@/lib/funnel'
+import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService, compareServices } from '@/lib/services-catalog'
@@ -62,6 +63,7 @@ const T = {
     closedCount: 'κλειστά', allClosedNow: 'Κλειστά τώρα · κλείσε για αργότερα',
     closedNow: 'Κλειστό τώρα', notAvailAt: 'Μη διαθέσιμο στις', closedChip: 'Κλειστό',
     firstFree: 'Πρώτο διαθέσιμο', today: 'Σήμερα', tomorrow: 'Αύριο',
+    couponGuest: 'Τιμές με −3€ για την 1η σου κράτηση', couponUser: 'Τιμές με το κουπόνι σου',
     timesFor: 'Ώρες για', noFree14: 'Δεν υπάρχουν ελεύθερες ώρες τις επόμενες 2 εβδομάδες.',
     finding: 'Βρίσκουμε το πρώτο διαθέσιμο…',
   },
@@ -91,6 +93,7 @@ const T = {
     closedCount: 'closed', allClosedNow: 'Closed right now · book for later',
     closedNow: 'Closed now', notAvailAt: 'Not available at', closedChip: 'Closed',
     firstFree: 'First available', today: 'Today', tomorrow: 'Tomorrow',
+    couponGuest: 'Prices include −€3 on your first booking', couponUser: 'Prices include your coupon',
     timesFor: 'Times for', noFree14: 'No free times in the next 2 weeks.',
     finding: 'Finding the first free time…',
   },
@@ -327,6 +330,9 @@ function MapPageContent() {
     if (s.is_range) { const [a, b] = rangeFor(s); return `€${a}–${b}` }
     return `€${priceFor(s)}`
   }
+  // Κουπόνι ήδη μέσα στην τιμή (~~15€~~ 12€) — ίδιοι κανόνες με το checkout.
+  const coupon = useCouponCredit()
+  const discFor = (s: Service) => couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range)
 
   const visibleServices = locationServices.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
@@ -860,7 +866,7 @@ function MapPageContent() {
 
   const handleBookingAttempt = () => {
     if (!canBook || !selectedLocation) return
-    funnel('book_click', { locationId: selectedLocation.id, meta: { src: 'map' } })
+    funnel('book_click', { locationId: selectedLocation.id, meta: { src: 'map', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest } })
 
     const bookDate = sheetDate || activeDate
     const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${bookDate}&vehicleType=${encodeURIComponent(vehicleType)}`
@@ -1419,18 +1425,30 @@ function MapPageContent() {
               )}
 
               {/* Services */}
+              {visibleServices.some(s => discFor(s) > 0) && (
+                <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}</p>
+              )}
               <div className="flex gap-2 mb-3">
                 {visibleServices.map(s => {
                   const price = priceLabel(s)
+                  const base = Number(priceFor(s)) || 0
+                  const disc = discFor(s)
                   const isSelected = selectedService === s.id
                   return (
-                    <button key={s.id} onClick={() => { setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map' } }) }}
+                    <button key={s.id} onClick={() => { setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
                       className={`flex-1 py-2.5 rounded-[14px] border text-center transition-all ${
                         isSelected ? 'border-washio-navy' : 'bg-white border-washio-border'
                       }`}
                       style={isSelected ? { background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 6px 16px rgba(16,24,42,0.20)' } : undefined}>
                       <p className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-washio-navy'}`}>{translateCatalogName(s.name, locale)}</p>
-                      <p className={`text-xs mt-0.5 font-semibold ${isSelected ? 'text-washio-cyan' : 'text-gray-500'}`}>{price}</p>
+                      {disc > 0 ? (
+                        <p className="text-xs mt-0.5 font-semibold">
+                          <span className={`line-through mr-1 font-medium ${isSelected ? 'text-white/50' : 'text-gray-400'}`}>€{eur(base)}</span>
+                          <span className={isSelected ? 'text-washio-cyan' : 'text-washio-cyan-dark'}>€{eur(base - disc)}</span>
+                        </p>
+                      ) : (
+                        <p className={`text-xs mt-0.5 font-semibold ${isSelected ? 'text-washio-cyan' : 'text-gray-500'}`}>{price}</p>
+                      )}
                     </button>
                   )
                 })}

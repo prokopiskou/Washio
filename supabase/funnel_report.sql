@@ -11,3 +11,18 @@ order by array_position(array['map_open','washer_open','washer_page','no_slots',
 -- Πλυντήρια που ανοίγουν αλλά δεν έχουν ώρες (no_slots) — ποια και πόσες φορές:
 -- select l.name, count(*) from funnel_events f join locations l on l.id=f.location_id
 -- where f.step='no_slots' and f.created_at > now() - interval '3 days' group by 1 order by 2 desc;
+
+-- ── Τιμή: φεύγουν οι ακριβότερες επιλογές; (από 21/10: service_select / book_click έχουν price/disc) ──
+-- Ανά επίπεδο τιμής που διάλεξαν: πόσες συνεδρίες διάλεξαν υπηρεσία → πόσες πάτησαν «Κλείσε» → πόσες έκλεισαν.
+-- with f as (
+--   select e.* from funnel_events e left join auth.users u on u.id=e.user_id
+--   where e.created_at > now() - interval '7 days' and coalesce(u.raw_app_meta_data->>'internal','') <> 'true'
+-- ), sel as (
+--   select distinct on (session_id) session_id, (meta->>'price')::numeric price, (meta->>'disc')::numeric disc, meta->>'svc' svc
+--   from f where step='service_select' and meta ? 'price' order by session_id, created_at
+-- )
+-- select case when price < 12 then 'α <12€' when price < 15 then 'β 12–14€' when price < 18 then 'γ 15–17€' else 'δ 18€+' end band,
+--        count(*) chose, count(*) filter (where exists (select 1 from f where f.session_id=sel.session_id and step='book_click')) book_click,
+--        count(*) filter (where exists (select 1 from f where f.session_id=sel.session_id and step='booked')) booked,
+--        round(avg(disc),2) avg_disc
+-- from sel group by 1 order by 1;

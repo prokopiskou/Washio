@@ -14,6 +14,7 @@ import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { funnel } from '@/lib/funnel'
+import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
 
 const T = {
   el: {
@@ -23,6 +24,7 @@ const T = {
     car: 'ΙΧ',
     moto: 'Μοτο',
     service: 'Υπηρεσία',
+    couponGuest: 'Τιμές με −3€ για την 1η σου κράτηση', couponUser: 'Τιμές με το κουπόνι σου',
     date: 'Ημερομηνία',
     time: 'Ώρα',
     loadingHours: 'Φόρτωση ωρών...',
@@ -37,6 +39,7 @@ const T = {
     car: 'Car',
     moto: 'Moto',
     service: 'Service',
+    couponGuest: 'Prices include −€3 on your first booking', couponUser: 'Prices include your coupon',
     date: 'Date',
     time: 'Time',
     loadingHours: 'Loading times...',
@@ -290,6 +293,9 @@ export default function LocationPage() {
     if (s.is_range) { const [a, b] = rangeFor(s); return `€${a}–${b}` }
     return `€${priceFor(s)}`
   }
+  // Κουπόνι ήδη μέσα στην τιμή (~~15€~~ 12€) — ίδιοι κανόνες με το checkout.
+  const coupon = useCouponCredit()
+  const discFor = (s: Service) => couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range)
 
   const visibleServices = services.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
@@ -465,14 +471,19 @@ export default function LocationPage() {
           <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-6 mb-2.5">
             {t.service}
           </p>
+          {visibleServices.some(s => discFor(s) > 0) && (
+            <p className="text-[12px] font-semibold text-washio-cyan-dark -mt-1 mb-2.5">{coupon.guest ? t.couponGuest : t.couponUser}</p>
+          )}
           <div className="flex flex-col gap-2.5">
             {visibleServices.map(s => {
               const selected = selectedServiceId === s.id
               const price = priceLabel(s)
+              const base = Number(priceFor(s)) || 0
+              const disc = discFor(s)
               return (
                 <button
                   key={s.id}
-                  onClick={() => { setSelectedServiceId(s.id); lightTap(); funnel('service_select', { locationId: location?.id, meta: { src: 'page' } }) }}
+                  onClick={() => { setSelectedServiceId(s.id); lightTap(); funnel('service_select', { locationId: location?.id, meta: { src: 'page', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
                   className={`flex items-center gap-3.5 p-3.5 min-h-[72px] rounded-[20px] border transition-all text-left ${
                     selected
                       ? 'border-washio-navy text-white'
@@ -512,9 +523,16 @@ export default function LocationPage() {
                       </p>
                     )}
                   </div>
-                  <p className={`text-[17px] font-bold tracking-tight ${selected ? 'text-washio-cyan' : 'text-washio-navy'}`}>
-                    {price}
-                  </p>
+                  {disc > 0 ? (
+                    <div className="text-right shrink-0">
+                      <p className={`text-[12px] font-medium line-through leading-none ${selected ? 'text-white/50' : 'text-gray-400'}`}>€{eur(base)}</p>
+                      <p className={`text-[17px] font-bold tracking-tight mt-0.5 ${selected ? 'text-washio-cyan' : 'text-washio-cyan-dark'}`}>€{eur(base - disc)}</p>
+                    </div>
+                  ) : (
+                    <p className={`text-[17px] font-bold tracking-tight ${selected ? 'text-washio-cyan' : 'text-washio-navy'}`}>
+                      {price}
+                    </p>
+                  )}
                 </button>
               )
             })}
@@ -628,13 +646,13 @@ export default function LocationPage() {
         >
           {canBook ? (
             <button
-              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page' } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`) }}
+              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`) }}
               className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
               style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.38)' }}
             >
               <span>{t.book}</span>
               <span className="w-px h-4 bg-white/25" />
-              <span>{service ? priceLabel(service) : `€${selectedServicePrice}`}</span>
+              <span>{service && discFor(service) > 0 ? `€${eur((Number(priceFor(service)) || 0) - discFor(service))}` : service ? priceLabel(service) : `€${selectedServicePrice}`}</span>
             </button>
           ) : (
             <div className="w-full h-14 rounded-2xl bg-white border border-washio-border text-gray-400 text-[14px] font-medium flex items-center justify-center">
