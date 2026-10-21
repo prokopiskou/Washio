@@ -25,3 +25,8 @@ jobs:
         run: |
           curl -fsS -X GET "https://www.washio.gr/api/cron/welcome-nudge" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: Rebook («Ώρα για το επόμενο πλύσιμο» — 14+ μέρες μετά το τελευταίο πλύσιμο)
+        if: always()
+        run: |
+          curl -fsS -X GET "https://www.washio.gr/api/cron/rebook" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

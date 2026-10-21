@@ -21,6 +21,16 @@ export default function CampaignPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [statsBusy, setStatsBusy] = useState(false)
   const [statsErr, setStatsErr] = useState('')
+  // Αυτόματο email «Ώρα για το επόμενο πλύσιμο» (/api/cron/rebook) — προεπισκόπηση & δοκιμή.
+  const [rebook, setRebook] = useState<{ total: number; sendingNow: boolean; sample: { email: string; washer: string; days: number }[] } | null>(null)
+  const [rebookMsg, setRebookMsg] = useState('')
+  const rebookCall = async (mode: 'preview' | 'test') => {
+    const res = await fetch('/api/cron/rebook', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) })
+    const j = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(j.error || 'Σφάλμα')
+    return j
+  }
+  useEffect(() => { rebookCall('preview').then(setRebook).catch(e => setRebookMsg((e as Error).message)) }, [])
 
   const call = async (mode: 'preview' | 'test' | 'send' | 'stats') => {
     const res = await fetch('/api/admin/campaign', {
@@ -118,6 +128,21 @@ export default function CampaignPage() {
 
         {msg && <p className="text-[13px] text-green-700 mt-4">{msg}</p>}
         {err && <p className="text-[13px] text-red-600 mt-4">{err}</p>}
+
+        {/* ── Αυτόματο: Ώρα για το επόμενο πλύσιμο ── */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-4 mt-8">
+          <p className="text-[12px] text-gray-400">Αυτόματο email · κάθε 15 λεπτά (10:00–20:59)</p>
+          <p className="text-[14px] font-semibold text-gray-900">Ώρα για το επόμενο πλύσιμο</p>
+          <p className="text-[12px] text-gray-500 mt-1 leading-snug">Σε πελάτες με ολοκληρωμένο πλύσιμο πριν από 14+ μέρες, χωρίς επόμενη κράτηση. Ένα ανά πλύσιμο, το πολύ ένα τον μήνα.</p>
+          {rebook && (
+            <p className="text-[13px] text-gray-900 mt-3"><span className="text-[22px] font-bold">{rebook.total}</span> πελάτες το δικαιούνται τώρα{rebook.sample?.length ? ` · π.χ. ${rebook.sample.slice(0, 3).map(x => `${x.washer} (${x.days} μ.)`).join(', ')}` : ''}</p>
+          )}
+          <button onClick={async () => { setRebookMsg(''); try { const r = await rebookCall('test'); setRebookMsg(`Η δοκιμή στάλθηκε στο ${r.sentTo}.`) } catch (e) { setRebookMsg((e as Error).message) } }}
+            className="w-full mt-3 bg-white border border-gray-200 text-gray-900 text-[14px] font-semibold py-3 rounded-xl">
+            Στείλε δοκιμή σε μένα
+          </button>
+          {rebookMsg && <p className="text-[12px] text-gray-600 mt-2">{rebookMsg}</p>}
+        </div>
 
         {/* ── Αποτελέσματα ── */}
         <div className="flex items-center justify-between mt-8">
