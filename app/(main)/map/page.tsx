@@ -32,6 +32,7 @@ const AREA_CENTERS: Record<string, { lat: number; lng: number }> = {
   argyroupoli: { lat: 37.9050, lng: 23.7480 },
   alimos: { lat: 37.9110, lng: 23.7180 },
   'agios-dimitrios': { lat: 37.9340, lng: 23.7310 },
+  'palaio-faliro': { lat: 37.9300, lng: 23.7020 },
   anatolika: { lat: 37.9550, lng: 23.7600 },
   notia: { lat: 37.9150, lng: 23.7330 },
 }

@@ -14,9 +14,11 @@ const nextConfig: NextConfig = {
       { source: '/yt', destination: '/?utm_source=youtube&utm_medium=bio&utm_campaign=launch', permanent: false },
       { source: '/fb', destination: '/?ref=WASHIO&utm_source=facebook&utm_medium=page&utm_campaign=welcome3', permanent: false },
       // Flyers: το QR δείχνει ΕΔΩ (όχι απευθείας σε σελίδα) → αλλάζουμε προορισμό χωρίς ξανατύπωμα.
-      // Προορισμός: ορίζεται από το FLYER_DEST στο app/page.tsx (τώρα: εγγραφή). ref=FLYER (−3€). permanent:false → ποτέ cache στον browser.
+      // Προορισμός: ορίζεται από το FLYER_DEST στο app/page.tsx (τώρα: χάρτης). ref=FLYER (−3€). permanent:false → ποτέ cache στον browser.
+      // /f/<περιοχή>: ο χάρτης ανοίγει πάνω στην περιοχή (vyronas, zografou, ilioupoli, argyroupoli, alimos, agios-dimitrios).
+      // Άγνωστη περιοχή (π.χ. /f/fanari) → απλώς γενικός χάρτης, η μέτρηση FLYER_<ΟΝΟΜΑ> ισχύει κανονικά.
       { source: '/f', destination: '/?ref=FLYER&utm_source=flyer&utm_medium=print&utm_campaign=flyer1', permanent: false },
-      { source: '/f/:area', destination: '/?ref=FLYER&utm_source=flyer&utm_medium=print&utm_campaign=:area', permanent: false },
+      { source: '/f/:area', destination: '/?ref=FLYER&utm_source=flyer&utm_medium=print&utm_campaign=:area&area=:area', permanent: false },
     ]
   },
 }
