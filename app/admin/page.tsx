@@ -23,10 +23,23 @@ const statusColors: Record<string, string> = {
 }
 
 const statusLabels: Record<string, string> = {
-  confirmed: 'Ολοκληρωμένη',
+  completed: 'Ολοκληρωμένη',
+  confirmed: 'Εκκρεμεί',
   pending: 'Εκκρεμεί',
   cancelled: 'Ακυρώθηκε',
   no_show: 'Δεν εμφανίστηκε',
+}
+
+// Εμφάνιση στο admin: μια (επιβεβαιωμένη) κράτηση είναι «Εκκρεμεί» μέχρι να περάσουν
+// 15' από την ώρα έναρξης — μετά «Ολοκληρωμένη». Ακυρωμένη / no-show μένουν ως έχουν.
+const DONE_AFTER_MIN = 15
+function displayStatus(b: { status?: string; slot_date?: string; slot_start_time?: string | null }): string {
+  const s = String(b.status || '')
+  if (s !== 'confirmed' && s !== 'completed') return s
+  if (!b.slot_date) return s === 'completed' ? 'completed' : 'pending'
+  const start = new Date(`${b.slot_date}T${String(b.slot_start_time || '00:00').slice(0, 5)}:00`).getTime()
+  if (isNaN(start)) return s === 'completed' ? 'completed' : 'pending'
+  return Date.now() >= start + DONE_AFTER_MIN * 60_000 ? 'completed' : 'pending'
 }
 
 export default function AdminPage() {
@@ -142,8 +155,9 @@ export default function AdminPage() {
   const totalRevenue = platformBookings.reduce((sum, b) => sum + netAmt(b), 0)
   const totalCommission = platformBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
   // Μετρητές: ΜΟΝΟ κρατήσεις της πλατφόρμας (όχι τα χειροκίνητα ραντεβού των πλυντηρίων).
-  const completedBookings = platformBookings.filter(b => b.status === 'completed').length
-  const confirmedBookings = platformBookings.filter(b => b.status === 'confirmed').length
+  // «Ολοκλ.» = πέρασαν 15' από την έναρξη (displayStatus) · «Εκκρεμ.» = δεν ήρθε ακόμα η ώρα.
+  const completedBookings = platformBookings.filter(b => displayStatus(b) === 'completed').length
+  const upcomingBookings = platformBookings.filter(b => displayStatus(b) === 'pending').length
   const cancelledBookings = platformBookings.filter(b => b.status === 'cancelled').length
   const pendingApplications = applications.filter(a => a.status === 'pending').length
   const pendingOnboardings = onboardings.filter(o => o.status !== 'active').length
@@ -194,7 +208,7 @@ export default function AdminPage() {
   })).sort((a, b) => b.bookingCount - a.bookingCount)
 
   const filteredBookings = bookings.filter(b => {
-    if (bookingFilter.status && b.status !== bookingFilter.status) return false
+    if (bookingFilter.status && displayStatus(b) !== bookingFilter.status) return false
     if (bookingFilter.location && b.locations?.name !== bookingFilter.location) return false
     if (bookingFilter.dateFrom && (b.slot_date || '') < bookingFilter.dateFrom) return false
     if (bookingFilter.dateTo && (b.slot_date || '') > bookingFilter.dateTo) return false
@@ -481,7 +495,7 @@ export default function AdminPage() {
       b.slot_start_time?.slice(0, 5),
       b.total_amount,
       b.platform_fee,
-      statusLabels[b.status] || b.status,
+      statusLabels[displayStatus(b)] || b.status,
     ])
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -596,11 +610,12 @@ export default function AdminPage() {
                 <div className="space-y-3">
 
                   {/* Dense 4-col stat grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-1.5">
                     {[
                       { label: 'Έσοδα', value: `€${totalRevenue.toFixed(0)}` },
                       { label: 'Προμήθεια', value: `€${totalCommission.toFixed(0)}` },
-                      { label: 'Ολοκλ.', value: confirmedBookings + completedBookings },
+                      { label: 'Ολοκλ.', value: completedBookings },
+                      { label: 'Εκκρεμ.', value: upcomingBookings },
                       { label: 'Ακυρώσεις', value: cancelledBookings },
                     ].map(s => (
                       <div key={s.label} className="bg-white rounded-[11px] p-2.5 border border-gray-100">
@@ -653,7 +668,7 @@ export default function AdminPage() {
                       </button>
                     </div>
                     {bookings.slice(0, 5).map((b, i) => {
-                      const pill = statusColors[b.status]
+                      const pill = statusColors[displayStatus(b)]
                       return (
                         <div key={b.id} className={`px-3.5 py-3 flex items-center gap-2.5 ${i < 4 ? 'border-t border-gray-100' : 'border-t border-gray-100'}`}>
                           <div className="flex-1 min-w-0">
@@ -667,7 +682,7 @@ export default function AdminPage() {
                             {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
                           </p>
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${pill || 'bg-gray-50 text-gray-500'}`}>
-                            {statusLabels[b.status] || b.status}
+                            {statusLabels[displayStatus(b)] || b.status}
                           </span>
                         </div>
                       )
@@ -723,7 +738,7 @@ export default function AdminPage() {
                           className="h-9 px-3 rounded-[9px] bg-white border border-gray-200 text-[12px] font-semibold text-gray-700 focus:outline-none focus:border-gray-400"
                         >
                           <option value="">Όλα τα status</option>
-                          {Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                          {([['pending', 'Εκκρεμεί'], ['completed', 'Ολοκληρωμένη'], ['cancelled', 'Ακυρώθηκε'], ['no_show', 'Δεν εμφανίστηκε']] as const).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                         </select>
 
                         <select
@@ -792,7 +807,7 @@ export default function AdminPage() {
                     {/* Booking cards */}
                     <div className="space-y-2">
                       {filteredBookings.map(b => {
-                        const pill = statusPillConfig(b.status)
+                        const pill = statusPillConfig(displayStatus(b))
                         const dateStr = b.slot_date
                           ? new Date(b.slot_date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })
                           : '—'
@@ -1119,7 +1134,7 @@ export default function AdminPage() {
 
                           <div className="px-2 pb-2">
                             {userBookings.map((b, i) => {
-                              const pill = statusPillConfig(b.status)
+                              const pill = statusPillConfig(displayStatus(b))
                               const dateStr = b.slot_date
                                 ? new Date(b.slot_date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })
                                 : '—'
