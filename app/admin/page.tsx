@@ -32,6 +32,13 @@ const statusLabels: Record<string, string> = {
 
 // Εμφάνιση στο admin: μια (επιβεβαιωμένη) κράτηση είναι «Εκκρεμεί» μέχρι να περάσουν
 // 15' από την ώρα έναρξης — μετά «Ολοκληρωμένη». Ακυρωμένη / no-show μένουν ως έχουν.
+// Ποιος ακύρωσε: cancelled_by (server, από 22/10) — αλλιώς από το cancellation_reason (παλιές).
+function cancelBy(b: { status?: string; cancelled_by?: string | null; cancellation_reason?: string | null }): string {
+  if (b.status !== 'cancelled') return ''
+  const by = b.cancelled_by || (b.cancellation_reason === 'owner_cancelled' ? 'partner' : b.cancellation_reason === 'admin_refund' ? 'admin' : 'customer')
+  return by === 'partner' ? 'από συνεργάτη' : by === 'admin' ? 'από admin' : 'από χρήστη'
+}
+
 const DONE_AFTER_MIN = 15
 function displayStatus(b: { status?: string; slot_date?: string; slot_start_time?: string | null }): string {
   const s = String(b.status || '')
@@ -495,7 +502,7 @@ export default function AdminPage() {
       b.slot_start_time?.slice(0, 5),
       b.total_amount,
       b.platform_fee,
-      statusLabels[displayStatus(b)] || b.status,
+      (statusLabels[displayStatus(b)] || b.status) + (cancelBy(b) ? ` (${cancelBy(b)})` : ''),
     ])
     const csv = [headers, ...rows].map(r => r.join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -682,7 +689,7 @@ export default function AdminPage() {
                             {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
                           </p>
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${pill || 'bg-gray-50 text-gray-500'}`}>
-                            {statusLabels[displayStatus(b)] || b.status}
+                            {statusLabels[displayStatus(b)] || b.status}{cancelBy(b) && ` · ${cancelBy(b)}`}
                           </span>
                         </div>
                       )
@@ -832,7 +839,7 @@ export default function AdminPage() {
                                     style={{ background: pill.bg, color: pill.fg }}
                                   >
                                     <span className="w-1.5 h-1.5 rounded-full" style={{ background: pill.fg }} />
-                                    {pill.label}
+                                    {pill.label}{cancelBy(b) && ` · ${cancelBy(b)}`}
                                   </span>
                                   {b.source === 'manual' && (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-tight shrink-0 bg-gray-100 text-gray-500">
@@ -1161,7 +1168,7 @@ export default function AdminPage() {
                                     style={{ background: pill.bg, color: pill.fg }}
                                   >
                                     <span className="w-1 h-1 rounded-full" style={{ background: pill.fg }} />
-                                    {pill.label}
+                                    {pill.label}{cancelBy(b) && ` · ${cancelBy(b)}`}
                                   </span>
                                 </div>
                               )

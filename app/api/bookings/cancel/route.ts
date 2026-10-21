@@ -167,6 +167,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Booking already cancelled' }, { status: 409 })
     }
 
+    // ΠΟΙΟΣ ακύρωσε — από τον server (όχι από το reason που στέλνει ο client):
+    // πελάτης → 'customer' · ιδιοκτήτης πλυντηρίου → 'partner' · admin (π.χ. support mode) → 'admin'.
+    // Ξεχωριστό update, best-effort: αν δεν έχει τρέξει ακόμα το supabase/bookings_cancelled_by.sql
+    // (στήλη cancelled_by), η ακύρωση ΔΕΝ χαλάει.
+    try {
+      const by = isCustomer ? 'customer' : isOwner ? 'partner' : 'admin'
+      await supabase.from('bookings').update({ cancelled_by: by }).eq('id', bookingId)
+    } catch { /* best-effort */ }
+
     // Stripe refund (μόνο για κάρτα). Αν αποτύχει, ΕΠΑΝΑΦΕΡΟΥΜΕ την κράτηση.
     if (isCardPaid && finalRefundAmount > 0) {
       try {
