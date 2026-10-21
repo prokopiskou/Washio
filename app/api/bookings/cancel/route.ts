@@ -116,11 +116,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Η κράτηση δεν μπορεί να ακυρωθεί (έχει ολοκληρωθεί ή ακυρωθεί ήδη).' }, { status: 409 })
     }
 
-    // Όριο πελάτη: όχι ακύρωση < 2 ώρες πριν (server-side — το UI μόνο δεν φτάνει).
+    // Όριο πελάτη (server-side — το UI μόνο δεν φτάνει):
+    //  • πληρωμή στο πλυντήριο (μετρητά) → ακύρωση έως 1 ώρα πριν (δεν υπάρχει επιστροφή χρημάτων),
+    //  • κάρτα → έως 2 ώρες πριν.
     if (isCustomer && !admin && !isOwner) {
+      const payAtVenue = String(booking.stripe_payment_status) === 'pay_at_venue' || !booking.stripe_payment_intent_id
+      const limitH = payAtVenue ? 1 : 2
       const slotMs = athensEpoch(String(booking.slot_date), String(booking.slot_start_time || '00:00'))
-      if (slotMs - Date.now() < 2 * 60 * 60 * 1000) {
-        return NextResponse.json({ error: 'Δεν γίνεται ακύρωση λιγότερο από 2 ώρες πριν το ραντεβού.' }, { status: 409 })
+      if (slotMs - Date.now() < limitH * 60 * 60 * 1000) {
+        return NextResponse.json({ error: payAtVenue
+          ? 'Δεν γίνεται ακύρωση λιγότερο από 1 ώρα πριν το ραντεβού.'
+          : 'Δεν γίνεται ακύρωση λιγότερο από 2 ώρες πριν το ραντεβού.' }, { status: 409 })
       }
     }
 

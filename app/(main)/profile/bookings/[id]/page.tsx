@@ -28,7 +28,7 @@ const T = {
     reason5: 'Άλλος λόγος',
     cancelNotPossible: 'Δεν είναι δυνατή η ακύρωση',
     cancelNotPossibleSub1: 'Δεν επιτρέπεται ακύρωση για κρατήσεις που ξεκινούν τις επόμενες ',
-    hours2: '2 ώρες',
+    hours2: '2 ώρες', hours1: '1 ώρα',
     cancelNotPossibleSub2: '.',
     supportNote1: 'Για οποιοδήποτε άλλο θέμα, επικοινώνησε με το support στο ',
     understood: 'Κατάλαβα',
@@ -77,7 +77,7 @@ const T = {
     reason5: 'Other reason',
     cancelNotPossible: 'Cancellation not possible',
     cancelNotPossibleSub1: 'Cancellation is not allowed for bookings starting within the next ',
-    hours2: '2 hours',
+    hours2: '2 hours', hours1: '1 hour',
     cancelNotPossibleSub2: '.',
     supportNote1: 'For any other issue, contact support at ',
     understood: 'Got it',
@@ -250,7 +250,7 @@ export default function BookingDetailPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, coupon_amount, car_plate, stripe_payment_intent_id, created_at, location_id, service_id, duration_minutes, locations(id, slug, name, address, city, lat, lng), services(name)')
+        .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, coupon_amount, car_plate, stripe_payment_intent_id, stripe_payment_status, created_at, location_id, service_id, duration_minutes, locations(id, slug, name, address, city, lat, lng), services(name)')
         .eq('id', bookingId)
         .single()
 
@@ -304,12 +304,15 @@ export default function BookingDetailPage() {
   }
 
   // === CANCEL ===
+  // Πληρωμή στο πλυντήριο (μετρητά) → ακύρωση έως 1 ώρα πριν · κάρτα → έως 2 ώρες (ίδιο με τον server).
+  const payAtVenue = !!booking && ((booking as { stripe_payment_status?: string | null }).stripe_payment_status === 'pay_at_venue' || !booking.stripe_payment_intent_id)
+  const cancelLimitH = payAtVenue ? 1 : 2
   const handleCancelClick = () => {
     if (!booking) return
     if (booking.status === 'cancelled' || booking.status === 'completed') return
 
     const hoursLeft = getHoursUntilSlot()
-    if (hoursLeft < 2) {
+    if (hoursLeft < cancelLimitH) {
       setShowCancelLate(true)
     } else {
       setShowCancelFlow(true)
@@ -659,7 +662,7 @@ export default function BookingDetailPage() {
                 {t.cancelNotPossible}
               </p>
               <p className="text-sm text-gray-500 leading-relaxed">
-                {t.cancelNotPossibleSub1}<strong>{t.hours2}</strong>{t.cancelNotPossibleSub2}
+                {t.cancelNotPossibleSub1}<strong>{cancelLimitH === 1 ? t.hours1 : t.hours2}</strong>{t.cancelNotPossibleSub2}
               </p>
             </div>
 
