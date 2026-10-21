@@ -184,6 +184,11 @@ export default function LocationPage() {
         .filter(s => s.is_active !== false)
         .sort(compareServices)
       setServices(svc)
+      // «Κλείσε ξανά» (email επαναληπτικής κράτησης): ?service=<id> → η ίδια υπηρεσία με την προηγούμενη φορά, ήδη επιλεγμένη.
+      try {
+        const want = new URLSearchParams(window.location.search).get('service')
+        if (want && svc.some(s => s.id === want)) setSelectedServiceId(want)
+      } catch { /* ignore */ }
       setLocationHours(loc.location_hours || [])
 
       const reviews = (loc.reviews as { rating: number }[]) || []

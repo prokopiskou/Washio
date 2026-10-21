@@ -49,7 +49,7 @@ const esc = (s: string) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;
 
 type Candidate = {
   id: string; email: string; firstName: string
-  bookingId: string; washer: string; slug: string; days: number; credit: number
+  bookingId: string; washer: string; slug: string; serviceId: string; days: number; credit: number
 }
 
 // Χωρίς όνομα στον τίτλο: στα ελληνικά θα ήθελε κλητική («Γιώργο») — το «Γιώργος, πάνε…» ακούγεται λάθος.
@@ -81,9 +81,10 @@ function html(c: Pick<Candidate, 'washer' | 'days' | 'credit'>, link: string, us
   </div></body></html>`
 }
 
-// Προσωπικό link: συνδέει αυτόματα → σελίδα του πλυντηρίου του (έτοιμος να διαλέξει ώρα).
-async function personalLink(email: string, slug: string): Promise<string> {
-  const next = slug ? `/locations/${slug}?${UTM}` : `/map?${UTM}`
+// Προσωπικό link: συνδέει αυτόματα → σελίδα του ΙΔΙΟΥ πλυντηρίου με την ΙΔΙΑ υπηρεσία ήδη επιλεγμένη
+// (μένει μόνο να διαλέξει ώρα — «Κλείσε ξανά»).
+async function personalLink(email: string, slug: string, serviceId = ''): Promise<string> {
+  const next = slug ? `/locations/${slug}?${serviceId ? `service=${serviceId}&` : ''}${UTM}` : `/map?${UTM}`
   const fallback = `https://www.washio.gr${next}`
   try {
     const { data, error } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
@@ -113,7 +114,7 @@ async function candidates(now = Date.now()): Promise<Candidate[]> {
   const since = new Date(now - MAX_DAYS * DAY).toISOString().slice(0, 10)
   const [{ data: bks }, { data: owners }, { data: profs }] = await Promise.all([
     admin.from('bookings')
-      .select('id, user_id, status, slot_date, slot_start_time, source, location_id, locations(name, slug)')
+      .select('id, user_id, status, slot_date, slot_start_time, source, location_id, service_id, locations(name, slug)')
       .not('user_id', 'is', null).gte('slot_date', since).in('status', ['confirmed', 'completed']),
     admin.from('locations').select('owner_id').not('owner_id', 'is', null),
     admin.from('profiles').select('id, full_name, referral_credit'),
@@ -122,7 +123,7 @@ async function candidates(now = Date.now()): Promise<Candidate[]> {
   const prof = new Map((profs || []).map(p => [p.id as string, p]))
 
   // Ανά χρήστη: τελευταίο ολοκληρωμένο πλύσιμο + αν έχει επόμενη κράτηση.
-  type B = { id: string; at: number; washer: string; slug: string }
+  type B = { id: string; at: number; washer: string; slug: string; serviceId: string }
   const last = new Map<string, B>()
   const upcoming = new Set<string>()
   for (const b of bks || []) {
@@ -132,7 +133,7 @@ async function candidates(now = Date.now()): Promise<Candidate[]> {
     if (at + NO_SHOW_UNTIL_MIN * 60_000 > now) { upcoming.add(uid); continue }
     const loc = (b.locations || {}) as { name?: string; slug?: string }
     const cur = last.get(uid)
-    if (!cur || at > cur.at) last.set(uid, { id: b.id as string, at, washer: String(loc.name || 'πλυντήριο').trim(), slug: String(loc.slug || '') })
+    if (!cur || at > cur.at) last.set(uid, { id: b.id as string, at, washer: String(loc.name || 'πλυντήριο').trim(), slug: String(loc.slug || ''), serviceId: String(b.service_id || '') })
   }
 
   const out: Candidate[] = []
@@ -149,7 +150,7 @@ async function candidates(now = Date.now()): Promise<Candidate[]> {
     const full = String(p?.full_name || u.name || '').trim()
     out.push({
       id: uid, email: u.email, firstName: full.split(/\s+/)[0] || '',
-      bookingId: b.id, washer: b.washer, slug: b.slug, days, credit: Number(p?.referral_credit) || 0,
+      bookingId: b.id, washer: b.washer, slug: b.slug, serviceId: b.serviceId, days, credit: Number(p?.referral_credit) || 0,
     })
   }
   return out.sort((a, b) => a.days - b.days)
@@ -177,7 +178,7 @@ export async function GET(req: NextRequest) {
         from: 'Washio <noreply@washio.gr>',
         to: c.email,
         subject: REBOOK_SUBJECT,
-        html: html(c, await personalLink(c.email, c.slug), c.id),
+        html: html(c, await personalLink(c.email, c.slug, c.serviceId), c.id),
         headers: unsubHeaders(c.id),
         tags: [{ name: 'campaign', value: CAMPAIGN }],
       })
