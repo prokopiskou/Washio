@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getSessionResilient } from '@/lib/auth-session'
-import { NO_COMMISSION_ON_COUPON_LOCATION_IDS } from '@/lib/commission'
+import { couponWaivesCommission, addonsTotalOf } from '@/lib/commission'
 import { ChevronRight, Download, RefreshCw, Check, X, Power } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { ADMIN_EMAILS } from '@/lib/admins'
@@ -245,7 +245,7 @@ export default function AdminPage() {
     })
 
     let onlineKept = 0   // online που κράτησε η Washio (μείον refunds) — incl. no-show
-    let couponFree = 0   // online αξία κρατήσεων με κουπόνι 3€ σε πλυντήριο χωρίς προμήθεια (lib/commission)
+    let couponFree = 0   // αξία ΠΛΥΣΙΜΑΤΟΣ χωρίς προμήθεια (κουπόνι 3€ σε πλυντήριο με συμφωνία) — τα extras μετράνε κανονικά
     let cashGross = 0    // μετρητά σε ολοκληρωμένο πλύσιμο (τα κρατά το πλυντήριο)
     let cashCoupon = 0   // κουπόνια σε «πλήρωσε εκεί» — μόνο ενημερωτικά (ΔΕΝ επιστρέφονται στο πλυντήριο)
     let refunded = 0
@@ -262,11 +262,13 @@ export default function AdminPage() {
       const paidNet = Math.max(0, amt - cpOnline)
       if (ps === 'paid') onlineKept += paidNet
       else if (ps === 'partially_refunded') onlineKept += Math.max(0, paidNet - refund)
-      // Κουπόνι 3€ σε πλυντήριο με συμφωνία → καμία προμήθεια γι' αυτή την κράτηση
-      // (το webhook γράφει platform_fee = 0 μόνο σε αυτή την περίπτωση).
-      if ((ps === 'paid' || ps === 'partially_refunded') && b.source !== 'manual'
-          && NO_COMMISSION_ON_COUPON_LOCATION_IDS.has(loc.id) && Number(b.platform_fee) === 0) {
-        couponFree += ps === 'paid' ? paidNet : Math.max(0, paidNet - refund)
+      // Κουπόνι 3€ σε πλυντήριο με συμφωνία → καμία προμήθεια ΜΟΝΟ στο πλύσιμο·
+      // τα extras (πρόσθετα) έχουν κανονική προμήθεια (lib/commission).
+      const waived = couponWaivesCommission(loc.id, cpOnline)
+      const extras = addonsTotalOf(b.addons)
+      if ((ps === 'paid' || ps === 'partially_refunded') && b.source !== 'manual' && waived) {
+        const kept = ps === 'paid' ? paidNet : Math.max(0, paidNet - refund)
+        couponFree += Math.max(0, kept - extras)
       }
       // 'refunded' → 0
       if (refund > 0) refunded += refund
@@ -276,8 +278,8 @@ export default function AdminPage() {
         const collected = Math.max(0, amt - cp)
         cashGross += collected
         cashCoupon += cp
-        // Συμφωνία «χωρίς προμήθεια με κουπόνι» ισχύει και στα μετρητά.
-        if (cp > 0 && NO_COMMISSION_ON_COUPON_LOCATION_IDS.has(loc.id) && Number(b.platform_fee) === 0) couponFree += collected
+        // Συμφωνία «χωρίς προμήθεια με κουπόνι» ισχύει και στα μετρητά — μόνο στο πλύσιμο, όχι στα extras.
+        if (waived) couponFree += Math.max(0, collected - extras)
       }
       if (done) completed++
       else if (b.status === 'no_show') noShow++

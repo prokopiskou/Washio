@@ -12,7 +12,7 @@ import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { redeemCredit } from '@/lib/referral'
-import { couponWaivesCommission } from '@/lib/commission'
+import { platformFeeFor, addonsTotalOf } from '@/lib/commission'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -112,15 +112,18 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
       .from('services').select('duration_minutes').eq('id', m.serviceId).maybeSingle()
     const bookingDuration = Math.max(30, Number(svcRow?.duration_minutes) || 30)
 
-    // Προμήθεια: ποσοστό του πλυντηρίου (locations.commission_rate). ΜΗΔΕΝ όταν ο πελάτης
-    // χρησιμοποίησε κουπόνι 3€ σε πλυντήριο με αυτή τη συμφωνία (lib/commission).
+    // Προμήθεια: ποσοστό του πλυντηρίου (locations.commission_rate). Με κουπόνι 3€ σε πλυντήριο
+    // με συμφωνία (lib/commission): μηδέν ΜΟΝΟ στο πλύσιμο — τα extras έχουν κανονική προμήθεια.
     const { data: locRow } = await supabase
       .from('locations').select('commission_rate').eq('id', m.locationId).maybeSingle()
-    const commissionRate = Number(locRow?.commission_rate ?? 10) / 100
-    const platformFee = couponWaivesCommission(m.locationId, parseFloat(m.appliedCredit || '0'))
-      ? 0
+    const platformFee = platformFeeFor({
+      locationId: m.locationId,
+      appliedCredit: parseFloat(m.appliedCredit || '0') || 0,
       // Επί του ποσού που ΠΛΗΡΩΣΕ ο πελάτης (τιμή − κουπόνι), όπως και στα μετρητά.
-      : +(Math.max(0, parseFloat(m.amount) - (parseFloat(m.appliedCredit || '0') || 0)) * commissionRate).toFixed(2)
+      payable: Math.max(0, parseFloat(m.amount) - (parseFloat(m.appliedCredit || '0') || 0)),
+      addonsTotal: (() => { try { return addonsTotalOf(JSON.parse(m.addons || '[]')) } catch { return 0 } })(),
+      ratePct: Number(locRow?.commission_rate ?? 10),
+    })
 
     // ΑΤΟΜΙΚΟ insert (κλειδαριά + έλεγχος πληρότητας στη βάση). Αν το slot
     // γέμισε όσο ο πελάτης πλήρωνε (π.χ. μετρητά από άλλον), ΔΕΝ γράφουμε

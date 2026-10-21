@@ -11,7 +11,7 @@ import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
-import { couponWaivesCommission } from '@/lib/commission'
+import { platformFeeFor, addonsTotalOf } from '@/lib/commission'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -211,10 +211,13 @@ export async function POST(req: NextRequest) {
     }
     const payable = +(amount - couponAmount).toFixed(2)
 
-    // Προμήθεια: ποσοστό του πλυντηρίου (όπως η κάρτα), μηδέν όπου ισχύει η συμφωνία κουπονιού.
+    // Προμήθεια: ποσοστό του πλυντηρίου (όπως η κάρτα). Με τη συμφωνία κουπονιού (lib/commission)
+    // μηδέν ΜΟΝΟ στο πλύσιμο — τα extras έχουν κανονική προμήθεια.
     const { data: locRate } = await admin.from('locations').select('commission_rate').eq('id', locationId).maybeSingle()
-    const cashRate = Number(locRate?.commission_rate ?? 10) / 100
-    const cashFee = couponWaivesCommission(locationId, couponAmount) ? 0 : +(payable * cashRate).toFixed(2)
+    const cashFee = platformFeeFor({
+      locationId, appliedCredit: couponAmount, payable,
+      addonsTotal: addonsTotalOf(addonLines), ratePct: Number(locRate?.commission_rate ?? 10),
+    })
 
     // ΑΤΟΜΙΚΟ insert: κλειδαριά ανά (πλυντήριο, μέρα) + έλεγχος πληρότητας
     // μέσα στη βάση — δύο ταυτόχρονες κρατήσεις δεν χωράνε πια στο ίδιο slot.

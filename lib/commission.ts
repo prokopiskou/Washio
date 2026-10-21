@@ -14,3 +14,30 @@ export function couponWaivesCommission(locationId: string | null | undefined, ap
     && NO_COMMISSION_ON_COUPON_LOCATION_IDS.has(locationId)
     && Math.abs((Number(appliedCredit) || 0) - COUPON_EUR) < 0.005
 }
+
+/** Σύνολο extras (πρόσθετα) μιας κράτησης — δέχεται [{name, price}] ή [{n, p}]. */
+export function addonsTotalOf(addons: unknown): number {
+  if (!Array.isArray(addons)) return 0
+  return +addons.reduce((s: number, a) => {
+    const o = (a || {}) as { price?: unknown; p?: unknown }
+    return s + (Number(o.price ?? o.p) || 0)
+  }, 0).toFixed(2)
+}
+
+// Προμήθεια Washio για μια κράτηση.
+//  • Κανονικά: ποσοστό επί του ποσού που πληρώνει ο πελάτης (τιμή − κουπόνι).
+//  • Συμφωνία «χωρίς προμήθεια με κουπόνι» (AS, Ranacar): το μηδέν ισχύει ΜΟΝΟ για το πλύσιμο.
+//    Κάθε extra προϊόν/υπηρεσία έχει κανονική προμήθεια επί της τιμής του.
+export function platformFeeFor(o: {
+  locationId: string | null | undefined
+  appliedCredit: number
+  payable: number
+  addonsTotal: number
+  ratePct: number
+}): number {
+  const r = (Number(o.ratePct) || 0) / 100
+  const base = couponWaivesCommission(o.locationId, o.appliedCredit)
+    ? Math.max(0, Number(o.addonsTotal) || 0)
+    : Math.max(0, Number(o.payable) || 0)
+  return +(base * r).toFixed(2)
+}
