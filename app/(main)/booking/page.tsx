@@ -64,6 +64,7 @@ const T = {
     name: 'Όνομα', namePh: 'Το όνομά σου', emailPh: 'Το email σου',
     guestNote: 'Με το email σου φτιάχνεται αυτόματα ο λογαριασμός σου, χωρίς κωδικό. Εκεί έρχεται και η επιβεβαίωση.',
     fillContact: 'Συμπλήρωσε όνομα, κινητό και email',
+    checkingEmail: 'Έλεγχος email…', enterCodeFirst: 'Γράψε πρώτα τον κωδικό από το email',
     codeTitle: 'Έχεις ήδη λογαριασμό με αυτό το email',
     codeSub: (e: string) => `Σου στείλαμε κωδικό στο ${e}. Γράψ' τον για να ολοκληρωθεί η κράτηση.`,
     codePh: 'Κωδικός από το email', codeVerify: 'Επιβεβαίωση & κράτηση', wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
@@ -101,6 +102,7 @@ const T = {
     name: 'Name', namePh: 'Your name', emailPh: 'Your email',
     guestNote: 'Your account is created automatically with your email, no code needed. Your confirmation goes there too.',
     fillContact: 'Fill in name, phone and email',
+    checkingEmail: 'Checking email…', enterCodeFirst: 'Enter the code from your email first',
     codeTitle: 'You already have an account with this email',
     codeSub: (e: string) => `We sent a code to ${e}. Enter it to complete your booking.`,
     codePh: 'Code from your email', codeVerify: 'Verify & book', wrongCode: 'Wrong code. Please try again.',
@@ -423,6 +425,7 @@ function BookingPageContent() {
   const [otpCode, setOtpCode] = useState('')
   const [otpBusy, setOtpBusy] = useState(false)
   const [otpError, setOtpError] = useState('')
+  const [emailChecking, setEmailChecking] = useState(false)
   const pendingRef = useRef<'cash' | 'card' | null>(null)
   const paymentAnchorRef = useRef<HTMLDivElement>(null)
 
@@ -645,7 +648,9 @@ function BookingPageContent() {
   const previewCredit = !isRange && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
   // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())
-  const canProceed = !!(phone.trim() && email.trim() && service) &&
+  // Όσο ελέγχεται το email ή περιμένουμε κωδικό (υπάρχων λογαριασμός) → ΟΧΙ κράτηση.
+  const awaitingCode = isGuest && (otpStep || emailChecking)
+  const canProceed = !!(phone.trim() && email.trim() && service) && !awaitingCode &&
     (!isGuest || (name.trim().length >= 2 && emailOk && phone.replace(/\D/g, '').length >= 10))
 
   // Επισκέπτης → φτιάξε λογαριασμό + σύνδεση ΤΩΡΑ (πριν την κράτηση). true = συνδεδεμένος.
@@ -694,8 +699,10 @@ function BookingPageContent() {
     const e = email.trim().toLowerCase()
     if (!guestRef.current || !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(e) || lastCheckedRef.current === e) return
     lastCheckedRef.current = e
+    setEmailChecking(true)
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({ email: e, options: { shouldCreateUser: false } })
+    setEmailChecking(false)
     if (error) {
       // Rate limit = ο λογαριασμός υπάρχει (μόλις στάλθηκε κωδικός) → δείξε το πεδίο κωδικού.
       const rate = (error as { status?: number }).status === 429 || /security purposes|rate limit/i.test(error.message)
@@ -724,12 +731,10 @@ function BookingPageContent() {
       setWalletCredit(Number((prof as { referral_credit?: number } | null)?.referral_credit) || 0)
     } catch { /* ignore */ }
     setOtpBusy(false)
-    const next = pendingRef.current
     pendingRef.current = null
-    if (next === 'card') handleProceedToPayment()
-    else if (next === 'cash') handleCashBooking()
-    // Συνδέθηκε πριν πατήσει «Κλείσε» → ξαναφόρτωσε ως συνδεδεμένος (κινητό/οχήματα από το προφίλ του).
-    else window.location.reload()
+    // Συνδέθηκε → ξαναφόρτωσε ως συνδεδεμένος (κινητό/οχήματα/κουπόνια από το προφίλ του)
+    // και πατάει «Κλείσε» με τα σωστά στοιχεία.
+    window.location.reload()
   }
 
   // Αποθήκευση οχήματος + κινητού στο προφίλ — ΚΑΙ για κάρτα ΚΑΙ για «πλήρωσε εκεί»
@@ -1001,7 +1006,14 @@ function BookingPageContent() {
                   placeholder={t.emailPh}
                   className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
                 />
-                <p className="text-[11px] text-gray-400 mt-1.5">{t.guestNote}</p>
+                {emailChecking ? (
+                  <p className="text-[11px] text-washio-cyan-dark mt-1.5 flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded-full border-2 border-washio-cyan border-t-transparent animate-spin" />
+                    {t.checkingEmail}
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-gray-400 mt-1.5">{t.guestNote}</p>
+                )}
               </>
             ) : (
               <div className="bg-white rounded-[14px] h-[52px] border border-washio-border px-4 flex items-center gap-2.5">
@@ -1237,7 +1249,7 @@ function BookingPageContent() {
           >
             {!canProceed ? (
               <div className="w-full h-14 bg-gray-100 text-gray-400 text-[14px] font-medium rounded-xl flex items-center justify-center">
-                {isGuest ? t.fillContact : t.fillPlatePhone}
+                {isGuest && otpStep ? t.enterCodeFirst : isGuest && emailChecking ? t.checkingEmail : isGuest ? t.fillContact : t.fillPlatePhone}
               </div>
             ) : isRange ? (
               <button
