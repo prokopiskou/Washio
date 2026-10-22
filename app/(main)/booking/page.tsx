@@ -1004,6 +1004,9 @@ function BookingPageContent() {
                   placeholder={vehicleType === 'Μοτοσικλέτα' ? t.plateExampleMoto : t.plateExampleCar}
                   className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] font-mono tracking-wider text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
                 />
+                {couponBlock === 'plate' && !isRange && isCreditEligible(total) && walletCredit > 0 && (
+                  <p className="text-[11px] text-amber-700 -mt-1 leading-snug">{t.plateCouponUsed}</p>
+                )}
 
                 {vehicles.length > 0 && (
                   <button
@@ -1111,9 +1114,9 @@ function BookingPageContent() {
             />
             {phone.replace(/\D/g, '').length >= 10 && !phoneValid ? (
               <p className="text-[11px] text-red-600 mt-1.5 leading-snug">{t.phoneInvalid}</p>
-            ) : couponBlock && couponBlock !== 'phone_invalid' && !isRange && isCreditEligible(total) && walletCredit > 0 ? (
+            ) : (couponBlock === 'phone' || couponBlock === 'device') && !isRange && isCreditEligible(total) && walletCredit > 0 ? (
               <p className="text-[11px] text-amber-700 mt-1.5 leading-snug">
-                {couponBlock === 'phone' ? t.phoneCouponUsed : couponBlock === 'plate' ? t.plateCouponUsed : t.deviceCouponUsed}
+                {couponBlock === 'phone' ? t.phoneCouponUsed : t.deviceCouponUsed}
               </p>
             ) : null}
           </div>
