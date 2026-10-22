@@ -640,6 +640,15 @@ function BookingPageContent() {
     loadData()
   }, [])
 
+  // Έλεγχος email ΚΑΙ χωρίς blur: αυτόματη συμπλήρωση (autofill) ή όταν σταματήσει να
+  // πληκτρολογεί (0,9''). Το onBlur μένει για άμεσο έλεγχο. Ίδιο email → μία φορά (lastCheckedRef).
+  useEffect(() => {
+    if (!isGuest || !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())) return
+    const tm = setTimeout(() => { checkExistingEmail() }, 900)
+    return () => clearTimeout(tm)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email, isGuest])
+
   // Ζωντανός έλεγχος κινητού (μόλις έχει 10+ ψηφία): ίδιος κανόνας με τον server στην κράτηση.
   useEffect(() => {
     if (sessionLoading) return
