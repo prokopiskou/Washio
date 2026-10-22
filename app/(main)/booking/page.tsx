@@ -66,8 +66,8 @@ const T = {
     fillContact: 'Συμπλήρωσε όνομα, κινητό και email',
     checkingEmail: 'Έλεγχος email…', enterCodeFirst: 'Γράψε πρώτα τον κωδικό από το email',
     codeTitle: 'Έχεις ήδη λογαριασμό με αυτό το email',
-    codeSub: (e: string) => `Σου στείλαμε κωδικό στο ${e}. Γράψ' τον για να ολοκληρωθεί η κράτηση.`,
-    codePh: 'Κωδικός από το email', codeVerify: 'Επιβεβαίωση & κράτηση', wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
+    codeSub: (e: string) => `Σου στείλαμε κωδικό στο ${e}. Γράψ' τον για να συνδεθείς.`,
+    codePh: 'Κωδικός από το email', codeVerify: 'Επιβεβαίωση', wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
   },
   en: {
     paymentSystemNotReady: 'The payment system is not ready. Please try again.',
@@ -104,8 +104,8 @@ const T = {
     fillContact: 'Fill in name, phone and email',
     checkingEmail: 'Checking email…', enterCodeFirst: 'Enter the code from your email first',
     codeTitle: 'You already have an account with this email',
-    codeSub: (e: string) => `We sent a code to ${e}. Enter it to complete your booking.`,
-    codePh: 'Code from your email', codeVerify: 'Verify & book', wrongCode: 'Wrong code. Please try again.',
+    codeSub: (e: string) => `We sent a code to ${e}. Enter it to sign in.`,
+    codePh: 'Code from your email', codeVerify: 'Verify', wrongCode: 'Wrong code. Please try again.',
   },
 }
 
