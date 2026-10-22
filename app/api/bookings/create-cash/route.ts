@@ -10,7 +10,7 @@ import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
-import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
+import { computeRedeemable, isCreditEligible, redeemCredit, welcomeUsedByPhone } from '@/lib/referral'
 import { platformFeeFor, addonsTotalOf } from '@/lib/commission'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
     //     πλυντήριο — ΤΕΛΟΣ. Η έκπτωση ΔΕΝ επιστρέφεται στο πλυντήριο· η προμήθεια υπολογίζεται
     //     στο ποσό που όντως εισπράττει (payable).
     let couponAmount = 0
-    if (!isRange && isCreditEligible(amount)) {
+    if (!isRange && isCreditEligible(amount) && !(await welcomeUsedByPhone(admin, user.id))) {
       const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
       couponAmount = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
     }

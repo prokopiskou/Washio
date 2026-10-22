@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ipFrom, isThrottled } from '@/lib/throttle'
-import { linkReferral } from '@/lib/referral'
+import { linkReferral, phoneKey } from '@/lib/referral'
 
 // Κράτηση ΧΩΡΙΣ σελίδα εγγραφής (guest checkout).
 // Ο επισκέπτης γράφει όνομα + κινητό + email ΜΕΣΑ στο checkout. Εδώ:
@@ -71,9 +71,10 @@ export async function POST(req: NextRequest) {
     // −3€: ένα ανά κινητό (τελευταία 10 ψηφία).
     let phoneUsed = false
     try {
-      const last10 = digits.slice(-10)
-      const { data: same } = await admin.from('profiles').select('id').ilike('phone', `%${last10}%`).neq('id', userId).limit(10)
-      const ids = (same || []).map(p => p.id as string)
+      // Ίδιο κινητό σε ΟΠΟΙΑΔΗΠΟΤΕ μορφή (+30 / κενά / παύλες) — σύγκριση στα 10 τελευταία ψηφία.
+      const key = phoneKey(phone)
+      const { data: all } = await admin.from('profiles').select('id, phone').not('phone', 'is', null).neq('id', userId).limit(10000)
+      const ids = (all || []).filter(p => phoneKey(p.phone as string) === key).map(p => p.id as string)
       if (ids.length) {
         const [{ count: welcomes }, { count: bookings }] = await Promise.all([
           admin.from('credit_ledger').select('id', { count: 'exact', head: true }).in('user_id', ids).eq('kind', 'welcome'),

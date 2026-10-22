@@ -6,7 +6,7 @@ import { alertCritical } from '@/lib/alert'
 import { checkSlotAvailability } from '@/lib/availability-server'
 import { ipFrom } from '@/lib/throttle'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
-import { computeRedeemable, isCreditEligible } from '@/lib/referral'
+import { computeRedeemable, isCreditEligible, welcomeUsedByPhone } from '@/lib/referral'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest) {
     let appliedCredit = 0
     try {
       // Μόνο σε πλήρες πλύσιμο (Μέσα-Έξω) ≥12€ — αλλιώς κανένα κουπόνι.
-      if (isCreditEligible(amount)) {
+      if (isCreditEligible(amount) && !(await welcomeUsedByPhone(admin, user.id))) {
         const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
         appliedCredit = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
       }

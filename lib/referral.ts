@@ -36,6 +36,35 @@ export function computeRedeemable(balance: number, baseAmount: number): number {
   return Math.max(0, Math.min(Number(balance) || 0, cap))
 }
 
+// Κινητό → σταθερό κλειδί: τα 10 τελευταία ψηφία. «+30 698 615 0513», «00306986150513»,
+// «6986150513» → «6986150513». null αν δεν μοιάζει με αριθμό.
+export function phoneKey(raw: string | null | undefined): string | null {
+  const d = String(raw || '').replace(/\D/g, '')
+  return d.length >= 10 ? d.slice(-10) : null
+}
+
+// ΕΝΑ κουπόνι καλωσορίσματος ανά ΚΙΝΗΤΟ (όχι ανά email): αν ο χρήστης δεν έχει καμία
+// κράτηση ακόμα (= το υπόλοιπό του είναι το −3€ καλωσορίσματος) και ΑΛΛΟΣ λογαριασμός με
+// το ίδιο κινητό έχει ήδη χρησιμοποιήσει κουπόνι → true (= χωρίς κουπόνι σε αυτή την κράτηση).
+export async function welcomeUsedByPhone(db: SupabaseClient, userId: string): Promise<boolean> {
+  try {
+    const { data: me } = await db.from('profiles').select('phone').eq('id', userId).maybeSingle()
+    const key = phoneKey(me?.phone as string | null)
+    if (!key) return false
+    // Έχει ήδη δικές του κρατήσεις → δεν είναι «πρώτο πλύσιμο», τα κουπόνια του είναι δικά του.
+    const { count: mine } = await db.from('bookings').select('id', { count: 'exact', head: true })
+      .eq('user_id', userId).neq('status', 'cancelled')
+    if ((mine || 0) > 0) return false
+    // Άλλοι λογαριασμοί με το ίδιο κινητό (σε οποιαδήποτε μορφή γράφτηκε).
+    const { data: profs } = await db.from('profiles').select('id, phone').not('phone', 'is', null).neq('id', userId).limit(10000)
+    const ids = (profs || []).filter(p => phoneKey(p.phone as string) === key).map(p => p.id as string)
+    if (!ids.length) return false
+    const { count: used } = await db.from('bookings').select('id', { count: 'exact', head: true })
+      .in('user_id', ids).gt('coupon_amount', 0).neq('status', 'cancelled')
+    return (used || 0) > 0
+  } catch { return false }
+}
+
 // Σύνδεση νέου χρήστη με τον κωδικό του referrer. Δίνει και το welcome credit.
 export async function linkReferral(
   db: SupabaseClient, newUserId: string, rawCode: string | null | undefined
