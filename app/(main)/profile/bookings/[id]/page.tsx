@@ -244,7 +244,7 @@ export default function BookingDetailPage() {
       const supabase = createClient()
       const { data: sessionData } = await supabase.auth.getSession()
       if (!sessionData.session?.user) {
-        router.push('/login')
+        router.replace('/login')
         return
       }
 

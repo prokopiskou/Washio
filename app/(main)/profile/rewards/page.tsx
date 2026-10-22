@@ -63,7 +63,7 @@ export default function RewardsPage() {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user
-      if (!user) { router.push('/login'); return }
+      if (!user) { router.replace('/login'); return }
 
       const [{ data: prof }, { data: led }, { count }] = await Promise.all([
         supabase.from('profiles').select('referral_code, referral_credit').eq('id', user.id).maybeSingle(),

@@ -125,7 +125,7 @@ export default function ProfilePage() {
       const supabase = createClient()
       const { data } = await supabase.auth.getSession()
       const user = data.session?.user
-      if (!user) { router.push('/login'); setAuthLoading(false); return }
+      if (!user) { router.replace('/login?redirect=%2Fprofile'); setAuthLoading(false); return }
       const email = user?.email || ''
       setUserEmail(email)
       setUserInitial(email ? email[0].toUpperCase() : '?')
@@ -224,7 +224,7 @@ export default function ProfilePage() {
     try { localStorage.removeItem('washio_mode') } catch { /* ignore */ }
     clearPageCache()
     await supabase.auth.signOut()
-    router.push('/login')
+    router.replace('/login')
   }
 
   const handleDeleteAccount = async () => {
