@@ -46,6 +46,12 @@ export function RegistrationTracker() {
       // Ομάδα / δοκιμές: σημείωσε τη συσκευή και ΜΗΝ στείλεις τίποτα στο Meta/GA.
       if (isInternalUser(u)) markInternalDevice()
 
+      // Λογαριασμός από guest checkout (email όχι επιβεβαιωμένο από τον κάτοχο): σε κανονική
+      // σύνδεση από άλλο session ο server αποσυνδέει τα υπόλοιπα (βλ. /api/auth/verified).
+      if ((u.app_metadata as { guest_unverified?: boolean } | undefined)?.guest_unverified) {
+        fetch('/api/auth/verified', { method: 'POST', keepalive: true }).catch(() => {})
+      }
+
       // −3€ καλωσορίσματος: ΜΙΑ φορά ανά χρήστη/συσκευή, ανεξαρτήτως πότε έκανε verify.
       // Ο server αποφασίζει (μόνο αν δεν έχει καμία κράτηση & δεν έχει ξαναπάρει welcome).
       try {

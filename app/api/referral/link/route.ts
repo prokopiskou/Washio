@@ -22,7 +22,9 @@ export async function POST(req: NextRequest) {
     // γιατί το −3€ στο πρώτο πλύσιμο το υποσχόμαστε παντού. Το linkReferral δίνει
     // welcome ΜΟΝΟ σε χρήστη χωρίς καμία κράτηση και χωρίς προηγούμενο welcome.
     const code = req.cookies.get('ws_ref')?.value || 'WELCOME'
-    await linkReferral(admin, user.id, code)
+    // Guest checkout με κινητό που έχει ήδη πάρει −3€ σε άλλο λογαριασμό → όχι ξανά.
+    const noWelcome = (user.app_metadata as { no_welcome?: boolean } | undefined)?.no_welcome === true
+    if (!noWelcome) await linkReferral(admin, user.id, code)
 
     // A/B τεστ landing: server-side backup της καταγραφής παραλλαγής (acq_lp).
     // Ο client (RegistrationTracker) το γράφει ήδη, αλλά μόνο μέσα σε 60' από τη

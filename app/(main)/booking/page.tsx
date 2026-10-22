@@ -1,6 +1,5 @@
 'use client'
 
-import { Capacitor } from '@capacitor/core'
 import { formatDuration } from '@/lib/duration'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -18,7 +17,7 @@ import { translateCatalogName } from '@/lib/catalog-i18n'
 import { AddonIcon, addonMeta } from '@/components/AddonIcon'
 import { athensToday } from '@/lib/time'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
-import { computeRedeemable, isCreditEligible } from '@/lib/referral'
+import { computeRedeemable, isCreditEligible, WELCOME_DISCOUNT } from '@/lib/referral'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -62,6 +61,12 @@ const T = {
     fillPlatePhone: 'Συμπλήρωσε το τηλέφωνό σου', optional: 'προαιρετικό',
     estimateRange: 'Εκτιμώμενο εύρος', estimateNote: 'Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.',
     bookCash: 'Κράτηση — πληρωμή με μετρητά', cashOnlyHint: 'Πληρώνεις μετρητά στο κατάστημα μετά την εκτίμηση.',
+    name: 'Όνομα', namePh: 'Το όνομά σου', emailPh: 'Το email σου',
+    guestNote: 'Χωρίς εγγραφή: η επιβεβαίωση έρχεται στο email σου.',
+    fillContact: 'Συμπλήρωσε όνομα, κινητό και email',
+    codeTitle: 'Έχεις ήδη λογαριασμό με αυτό το email',
+    codeSub: (e: string) => `Σου στείλαμε κωδικό στο ${e}. Γράψ' τον για να ολοκληρωθεί η κράτηση.`,
+    codePh: 'Κωδικός από το email', codeVerify: 'Επιβεβαίωση & κράτηση', wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
   },
   en: {
     paymentSystemNotReady: 'The payment system is not ready. Please try again.',
@@ -93,6 +98,12 @@ const T = {
     fillPlatePhone: 'Fill in your phone', optional: 'optional',
     estimateRange: 'Estimated range', estimateNote: 'The final price is set after the on-site estimate.',
     bookCash: 'Book — pay with cash', cashOnlyHint: 'You pay cash at the store after the estimate.',
+    name: 'Name', namePh: 'Your name', emailPh: 'Your email',
+    guestNote: 'No sign-up needed: your confirmation goes to your email.',
+    fillContact: 'Fill in name, phone and email',
+    codeTitle: 'You already have an account with this email',
+    codeSub: (e: string) => `We sent a code to ${e}. Enter it to complete your booking.`,
+    codePh: 'Code from your email', codeVerify: 'Verify & book', wrongCode: 'Wrong code. Please try again.',
   },
 }
 
@@ -403,6 +414,16 @@ function BookingPageContent() {
   const [payMethod, setPayMethod] = useState<'venue' | 'card'>('venue')
   const [bookingRef, setBookingRef] = useState('')
   const [cashLoading, setCashLoading] = useState(false)
+  // Guest checkout: χωρίς σελίδα εγγραφής. Ο λογαριασμός φτιάχνεται τη στιγμή της κράτησης
+  // (/api/auth/guest) και ο χρήστης συνδέεται αυτόματα. Email που υπάρχει → κωδικός εδώ μέσα.
+  const [isGuest, setIsGuest] = useState(false)
+  const guestRef = useRef(false)
+  const [name, setName] = useState('')
+  const [otpStep, setOtpStep] = useState(false)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpBusy, setOtpBusy] = useState(false)
+  const [otpError, setOtpError] = useState('')
+  const pendingRef = useRef<'cash' | 'card' | null>(null)
   const paymentAnchorRef = useRef<HTMLDivElement>(null)
 
   // Με το που εμφανίζεται το payment (πρώτο tap), κατεβάζουμε την οθόνη στο σημείο της κάρτας.
@@ -490,11 +511,12 @@ function BookingPageContent() {
   // δημιουργούσε ΝΕΟ PaymentIntent (ορφανά στο Stripe, γραμμές checkout_attempts).
   // Στο «Πληρωμή» ζητείται intent με την τελική πινακίδα (το πολύ 1 επιπλέον).
   useEffect(() => {
-    if (!service || sessionLoading || showPayment) return
+    // Επισκέπτης: δεν υπάρχει ακόμα λογαριασμός → το intent φτιάχνεται μετά τη σύνδεση.
+    if (!service || sessionLoading || showPayment || isGuest) return
     const t = setTimeout(() => { fetchIntent(service, plate, selectedAddons) }, 800)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service, selectedAddons, sessionLoading, showPayment])
+  }, [service, selectedAddons, sessionLoading, showPayment, isGuest])
   // ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -503,18 +525,20 @@ function BookingPageContent() {
       const { data } = await supabase.auth.getSession()
       const user = data.session?.user
 
+      // Χωρίς λογαριασμό: ΔΕΝ πάμε πια στη σελίδα εγγραφής — μένει εδώ ως επισκέπτης
+      // (όνομα + κινητό + email) και ο λογαριασμός φτιάχνεται τη στιγμή της κράτησης.
       if (!user) {
-        let fromMapLanding = false
-        try { fromMapLanding = document.cookie.includes('ws_lp=map') || Capacitor.isNativePlatform() } catch { /* ignore */ }
-        funnel('login_wall', { locationId, meta: { maplp: fromMapLanding } })
-        router.replace(`/login?redirect=${encodeURIComponent(window.location.href)}${fromMapLanding ? '&welcome=1' : ''}`)
-        return
+        guestRef.current = true
+        setIsGuest(true)
+        setWalletCredit(WELCOME_DISCOUNT) // το −3€ καλωσορίσματος ήδη στη σύνοψη
+        setSelectedVehicleId('new')
+        setVehicleFormType(vehicleType)
       }
 
       track('checkout_started')
       // Άφιξη στο booking = πρόθεση κράτησης (book intent).
       trackEvent('AddToCart', { content_type: 'wash', content_ids: [locationId || serviceId] })
-      funnel('booking_page', { locationId })
+      funnel('booking_page', { locationId, meta: { guest: !user } })
 
       // ΟΛΑ τα queries ΠΑΡΑΛΛΗΛΑ (πριν: 5 διαδοχικά round-trips).
       const none = Promise.resolve({ data: null as any })
@@ -535,8 +559,8 @@ function BookingPageContent() {
         locationId
           ? supabase.from('location_addons').select('addon_id, price_override, addons(name, price, sort_order)').eq('location_id', locationId)
           : none,
-        supabase.from('profiles').select('phone, referral_credit').eq('id', user.id).single(),
-        supabase.from('vehicles').select('id, plate, type').eq('user_id', user.id).order('created_at', { ascending: false }),
+        user ? supabase.from('profiles').select('phone, referral_credit').eq('id', user.id).single() : none,
+        user ? supabase.from('vehicles').select('id, plate, type').eq('user_id', user.id).order('created_at', { ascending: false }) : none,
       ])
 
       {
@@ -570,6 +594,8 @@ function BookingPageContent() {
         .filter((a: any) => Number(a.price) > 0)
         .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)))
       }
+
+      if (!user) { setSessionLoading(false); return }
 
       if (user.email) setEmail(user.email)
 
@@ -618,7 +644,70 @@ function BookingPageContent() {
   // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: ≥12€, έως 3€ — κάρτα ΚΑΙ μετρητά).
   const previewCredit = !isRange && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
   // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
-  const canProceed = !!(phone.trim() && email.trim() && service)
+  const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())
+  const canProceed = !!(phone.trim() && email.trim() && service) &&
+    (!isGuest || (name.trim().length >= 2 && emailOk && phone.replace(/\D/g, '').length >= 10))
+
+  // Επισκέπτης → φτιάξε λογαριασμό + σύνδεση ΤΩΡΑ (πριν την κράτηση). true = συνδεδεμένος.
+  // Email που υπάρχει ήδη → στέλνουμε κωδικό και περιμένουμε (false).
+  const ensureAccount = async (action: 'cash' | 'card'): Promise<boolean> => {
+    if (!guestRef.current) return true
+    const res = await fetch('/api/auth/guest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim().toLowerCase(), name: name.trim(), phone: phone.trim() }),
+    }).catch(() => null)
+    const data = res ? await res.json().catch(() => ({})) : {}
+    if (data.exists) {
+      const supabase = createClient()
+      pendingRef.current = action
+      setOtpCode(''); setOtpError('')
+      setOtpStep(true)
+      funnel('login_wall', { locationId, meta: { guest_exists: true } })
+      await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: false } }).catch(() => {})
+      return false
+    }
+    if (!res || !res.ok || !data.tokenHash) {
+      errorHaptic()
+      alert(data.error || t.somethingWrong)
+      return false
+    }
+    const supabase = createClient()
+    const { error } = await supabase.auth.verifyOtp({ token_hash: data.tokenHash, type: 'email' })
+    if (error) { errorHaptic(); alert(t.somethingWrong); return false }
+    // «Αυτό είναι το guest session» — αν αργότερα συνδεθεί ο πραγματικός κάτοχος του email
+    // από αλλού, αυτό το session αποσυνδέεται (προστασία από ξένο email).
+    fetch('/api/auth/verified', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bind: true }),
+    }).catch(() => {})
+    guestRef.current = false
+    setIsGuest(false)
+    if (data.welcome === false) setWalletCredit(0) // το κινητό έχει ήδη πάρει −3€
+    return true
+  }
+
+  // Υπάρχων λογαριασμός: κωδικός από το email → σύνδεση → συνεχίζει η κράτηση.
+  const handleVerifyCode = async () => {
+    const code = otpCode.replace(/\D/g, '')
+    if (code.length < 6 || otpBusy) return
+    setOtpBusy(true); setOtpError('')
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code, type: 'email' })
+    if (error || !data.session) { setOtpBusy(false); setOtpError(t.wrongCode); errorHaptic(); return }
+    guestRef.current = false
+    setIsGuest(false)
+    setOtpStep(false)
+    // Πραγματικό υπόλοιπο κουπονιών του λογαριασμού (μπορεί να μην έχει −3€).
+    try {
+      const { data: prof } = await supabase.from('profiles').select('referral_credit').eq('id', data.session.user.id).single()
+      setWalletCredit(Number((prof as { referral_credit?: number } | null)?.referral_credit) || 0)
+    } catch { /* ignore */ }
+    setOtpBusy(false)
+    const next = pendingRef.current
+    pendingRef.current = null
+    if (next === 'card') handleProceedToPayment()
+    else handleCashBooking()
+  }
 
   // Αποθήκευση οχήματος + κινητού στο προφίλ — ΚΑΙ για κάρτα ΚΑΙ για «πλήρωσε εκεί»
   // (το πλυντήριο βλέπει το κινητό από το προφίλ για να καλέσει τον πελάτη).
@@ -644,6 +733,13 @@ function BookingPageContent() {
 
   const handleProceedToPayment = async () => {
     if (!canProceed || !service) return
+    if (guestRef.current) {
+      setCashLoading(true)
+      const ok = await ensureAccount('card')
+      setCashLoading(false)
+      if (!ok) return
+      intentCacheRef.current = null
+    }
     await saveContact()
 
     // Χρησιμοποίησε το ΗΔΗ προετοιμασμένο intent (prefetch) — αλλιώς φτιάξ' το τώρα.
@@ -673,6 +769,10 @@ function BookingPageContent() {
     mediumTap()
     setCashLoading(true)
     try {
+      if (guestRef.current) {
+        const ok = await ensureAccount('cash')
+        if (!ok) { setCashLoading(false); return }
+      }
       try { await saveContact() } catch { /* best-effort — δεν μπλοκάρει την κράτηση */ }
       trackEvent('InitiateCheckout', { value: total - previewCredit, currency: 'EUR', content_ids: [locationId || serviceId] })
       funnel('pay_click', { locationId, meta: { method: 'cash', total } })
@@ -843,16 +943,76 @@ function BookingPageContent() {
             )}
           </div>
 
+          {/* Επισκέπτης: όνομα (το βλέπει το πλυντήριο) */}
+          {isGuest && (
+            <div>
+              <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
+                {t.name}
+              </p>
+              <input
+                type="text"
+                autoComplete="name"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder={t.namePh}
+                className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
+              />
+            </div>
+          )}
+
           {/* Email */}
           <div>
             <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
               Email
             </p>
-            <div className="bg-white rounded-[14px] h-[52px] border border-washio-border px-4 flex items-center gap-2.5">
-              <Mail size={16} className="text-washio-cyan-dark" />
-              <span className="text-[15px] text-gray-900">{email}</span>
-            </div>
+            {isGuest ? (
+              <>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value.trim()); setOtpStep(false) }}
+                  placeholder={t.emailPh}
+                  className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
+                />
+                <p className="text-[11px] text-gray-400 mt-1.5">{t.guestNote}</p>
+              </>
+            ) : (
+              <div className="bg-white rounded-[14px] h-[52px] border border-washio-border px-4 flex items-center gap-2.5">
+                <Mail size={16} className="text-washio-cyan-dark" />
+                <span className="text-[15px] text-gray-900">{email}</span>
+              </div>
+            )}
           </div>
+
+          {/* Υπάρχων λογαριασμός με αυτό το email → κωδικός εδώ, χωρίς να φύγει από τη σελίδα */}
+          {otpStep && (
+            <div className="bg-washio-cyan-light border border-washio-cyan/30 rounded-[16px] px-4 py-3.5">
+              <p className="text-[14px] font-bold text-washio-navy">{t.codeTitle}</p>
+              <p className="text-[12px] text-gray-600 mt-1 leading-snug">{t.codeSub(email)}</p>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={8}
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                placeholder={t.codePh}
+                className="w-full mt-3 bg-white border border-washio-border rounded-[12px] h-[48px] px-4 text-[18px] tracking-[4px] text-center text-gray-900 placeholder-gray-300 placeholder:tracking-normal placeholder:text-[14px] focus:outline-none focus:border-washio-cyan"
+              />
+              {otpError && <p className="text-[12px] text-red-600 mt-1.5">{otpError}</p>}
+              <button
+                onClick={handleVerifyCode}
+                disabled={otpBusy || otpCode.length < 6}
+                className="w-full h-12 mt-2.5 rounded-xl text-white text-[14px] font-semibold disabled:opacity-40"
+                style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)' }}
+              >
+                {otpBusy ? t.confirming : t.codeVerify}
+              </button>
+            </div>
+          )}
 
           {/* Phone */}
           <div>
@@ -861,6 +1021,7 @@ function BookingPageContent() {
             </p>
             <input
               type="tel"
+              autoComplete="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
               placeholder="69x xxx xxxx"
@@ -1052,7 +1213,7 @@ function BookingPageContent() {
           >
             {!canProceed ? (
               <div className="w-full h-14 bg-gray-100 text-gray-400 text-[14px] font-medium rounded-xl flex items-center justify-center">
-                {t.fillPlatePhone}
+                {isGuest ? t.fillContact : t.fillPlatePhone}
               </div>
             ) : isRange ? (
               <button
