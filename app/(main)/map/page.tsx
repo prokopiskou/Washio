@@ -45,6 +45,7 @@ const T = {
     tryScheduleLater: 'Δοκίμασε να προγραμματίσεις για αργότερα',
     moto: 'Μοτο', noTimes: 'Δεν υπάρχουν διαθέσιμες ώρες.',
     book: 'Κράτηση', pickService: 'Επίλεξε υπηρεσία', otherDay: 'Άλλη μέρα',
+    reassure: 'Πληρώνεις στο πλυντήριο · Ακυρώνεις δωρεάν',
     appointmentIn: 'Το ραντεβού είναι σε', minutes: 'λεπτά',
     lateWarning: 'Αν καθυστερήσεις, το πλύσιμο ενδέχεται να ακυρωθεί από το σημείο.',
     pickOtherTime: 'Επίλεξε άλλη ώρα', understandContinue: 'Κατανοώ, συνέχεια',
@@ -75,6 +76,7 @@ const T = {
     tryScheduleLater: 'Try scheduling for later',
     moto: 'Moto', noTimes: 'No available times.',
     book: 'Book', pickService: 'Select a service', otherDay: 'Other day',
+    reassure: 'Pay at the car wash · Free cancellation',
     appointmentIn: 'Your appointment is in', minutes: 'minutes',
     lateWarning: 'If you are late, the wash may be cancelled by the location.',
     pickOtherTime: 'Pick another time', understandContinue: 'I understand, continue',
@@ -276,6 +278,8 @@ function MapPageContent() {
   const [findingNext, setFindingNext] = useState(false)
   const nextCacheRef = useRef<Record<string, NextCache>>({})
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
+  // Η πρώτη ελεύθερη ώρα μπαίνει αυτόματα· true μόνο αν ο χρήστης πάτησε ο ίδιος ώρα (μέτρηση).
+  const userPickedSlotRef = useRef(false)
   const [search, setSearch] = useState('')
   const [suggestions, setSuggestions] = useState<any[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -867,7 +871,7 @@ function MapPageContent() {
 
   const handleBookingAttempt = () => {
     if (!canBook || !selectedLocation) return
-    funnel('book_click', { locationId: selectedLocation.id, meta: { src: 'map', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest } })
+    funnel('book_click', { locationId: selectedLocation.id, meta: { src: 'map', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } })
 
     const bookDate = sheetDate || activeDate
     const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${bookDate}&vehicleType=${encodeURIComponent(vehicleType)}`
@@ -1436,7 +1440,7 @@ function MapPageContent() {
                   const disc = discFor(s)
                   const isSelected = selectedService === s.id
                   return (
-                    <button key={s.id} onClick={() => { setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
+                    <button key={s.id} onClick={() => { userPickedSlotRef.current = false; setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
                       className={`flex-1 py-2.5 rounded-[14px] border text-center transition-all ${
                         isSelected ? 'border-washio-navy' : 'bg-white border-washio-border'
                       }`}
@@ -1469,7 +1473,7 @@ function MapPageContent() {
                     visibleSlots.map(slot => {
                       const isSelected = selectedSlot === slot.time
                       return (
-                        <button key={slot.time} onClick={() => { setSelectedSlot(slot.time); funnel('slot_select', { locationId: selectedLocation?.id, meta: { src: 'map' } }) }}
+                        <button key={slot.time} onClick={() => { userPickedSlotRef.current = true; setSelectedSlot(slot.time); funnel('slot_select', { locationId: selectedLocation?.id, meta: { src: 'map' } }) }}
                           className={`shrink-0 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
                             isSelected
                               ? 'bg-washio-cyan border-washio-cyan text-white shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
@@ -1490,9 +1494,10 @@ function MapPageContent() {
                     onClick={handleBookingAttempt}
                     className="flex-1 text-white text-sm font-semibold py-3.5 rounded-[14px] flex items-center justify-center gap-1.5 active:scale-[0.99] transition-transform"
                     style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 8px 20px rgba(25,168,199,0.35)' }}>
-                    <span>{t.book}</span>
+                    <span className="whitespace-nowrap">{t.book} · {(sheetDate || activeDate) === getTodayValue() ? '' : `${dayLabel(sheetDate || activeDate)} `}{selectedSlot}</span>
                     <span className="w-px h-4 bg-white/25" />
-                    <span>{service ? priceLabel(service) : `€${selectedServicePrice}`}</span>
+                    {/* Ίδια τιμή με την κάρτα υπηρεσίας: με το −3€ ήδη μέσα. */}
+                    <span>{service && discFor(service) > 0 ? `€${eur((Number(priceFor(service)) || 0) - discFor(service))}` : service ? priceLabel(service) : `€${selectedServicePrice}`}</span>
                   </button>
                 ) : (
                   <div className="flex-1 bg-gray-100 text-gray-400 text-sm font-medium py-3.5 rounded-[14px] flex items-center justify-center">
@@ -1505,6 +1510,7 @@ function MapPageContent() {
                   {t.otherDay}
                 </button>
               </div>
+              <p className="text-center text-[12px] text-gray-500 mt-2">{t.reassure}</p>
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { formatDuration } from '@/lib/duration'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -31,6 +31,8 @@ const T = {
     noSlots: 'Δεν υπάρχουν διαθέσιμα slots για αυτή την ημέρα.',
     book: 'Κράτηση',
     selectPrompt: 'Επίλεξε υπηρεσία, ημερομηνία και ώρα',
+    today: 'Σήμερα', tomorrow: 'Αύριο',
+    reassure: 'Πληρώνεις στο πλυντήριο · Ακυρώνεις δωρεάν',
   },
   en: {
     loading: 'Loading...',
@@ -46,6 +48,8 @@ const T = {
     noSlots: 'No available slots for this day.',
     book: 'Book',
     selectPrompt: 'Choose a service, date and time',
+    today: 'Today', tomorrow: 'Tomorrow',
+    reassure: 'Pay at the car wash · Free cancellation',
   },
 }
 
@@ -139,6 +143,12 @@ export default function LocationPage() {
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'SUV' | 'Μοτοσικλέτα'>('ΙΧ')
+  // Πρώτη ελεύθερη ώρα ΗΔΗ επιλεγμένη (ένα πάτημα για κράτηση). Αν η μέρα δεν έχει
+  // ελεύθερη ώρα, πάμε αυτόματα στην επόμενη (έως 7 μέρες) — μόνο αν ο χρήστης
+  // δεν έχει διαλέξει ο ίδιος μέρα.
+  const userPickedDateRef = useRef(false)
+  const autoAdvanceRef = useRef(0)
+  const userPickedSlotRef = useRef(false)
 
   useEffect(() => {
     track('location_viewed')
@@ -243,6 +253,18 @@ export default function LocationPage() {
     })
 
     setSlots(computed.map(s => ({ id: s.time, time: s.time, available: s.available })))
+    const first = computed.find(s => s.available)
+    if (first) {
+      // Κράτα την ώρα του χρήστη αν ισχύει ακόμα· αλλιώς η πρώτη ελεύθερη.
+      setSelectedSlot(prev => (prev && computed.some(s => s.time === prev && s.available)) ? prev : first.time)
+    } else if (!userPickedDateRef.current && autoAdvanceRef.current < 7) {
+      autoAdvanceRef.current += 1
+      const next = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1)
+      setViewMonth(next.getMonth())
+      setViewYear(next.getFullYear())
+      setSelectedDate(next)
+      return
+    }
     setSlotsLoading(false)
   }, [locationHours, location?.capacity])
 
@@ -253,8 +275,9 @@ export default function LocationPage() {
 
   useEffect(() => {
     if (location && locationHours.length > 0) {
-      loadSlots(selectedDate, location.id, selectedServiceDuration)
       setSelectedSlot(null)
+      userPickedSlotRef.current = false
+      loadSlots(selectedDate, location.id, selectedServiceDuration)
     }
   }, [selectedDate, location, locationHours, selectedServiceDuration])
 
@@ -332,6 +355,13 @@ export default function LocationPage() {
   }
 
   const isToday = (d: Date) => d.toDateString() === today.toDateString()
+  // «Σήμερα» / «Αύριο» / «Παρ 24» — για το κουμπί κράτησης.
+  const dayWord = (d: Date) => {
+    if (isToday(d)) return t.today
+    const tm = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+    if (d.toDateString() === tm.toDateString()) return t.tomorrow
+    return `${DAYS_JS_L[locale][d.getDay()]} ${d.getDate()}`
+  }
   const isSelectedDate = (d: Date) => d.toDateString() === selectedDate.toDateString()
   const isPast = viewMonth === today.getMonth() && viewYear === today.getFullYear()
 
@@ -575,7 +605,7 @@ export default function LocationPage() {
               return (
                 <button
                   key={i}
-                  onClick={() => { setSelectedDate(d); setSelectedSlot(null); lightTap() }}
+                  onClick={() => { userPickedDateRef.current = true; setSelectedDate(d); setSelectedSlot(null); lightTap() }}
                   className={`shrink-0 w-14 h-[72px] rounded-[14px] border flex flex-col items-center justify-center gap-1 transition-all ${
                     selected
                       ? 'border-washio-cyan text-white'
@@ -626,7 +656,7 @@ export default function LocationPage() {
                 return (
                   <button
                     key={slot.id}
-                    onClick={() => { setSelectedSlot(slot.id); lightTap(); funnel('slot_select', { locationId: location?.id, meta: { src: 'page' } }) }}
+                    onClick={() => { userPickedSlotRef.current = true; setSelectedSlot(slot.id); lightTap(); funnel('slot_select', { locationId: location?.id, meta: { src: 'page' } }) }}
                     className={`h-11 rounded-xl border text-[14px] font-semibold transition-all ${
                       selected
                         ? 'bg-washio-cyan border-washio-cyan text-white shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
@@ -651,11 +681,11 @@ export default function LocationPage() {
         >
           {canBook ? (
             <button
-              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`) }}
+              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`) }}
               className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
               style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.38)' }}
             >
-              <span>{t.book}</span>
+              <span>{t.book} · {dayWord(selectedDate)} {selectedSlot}</span>
               <span className="w-px h-4 bg-white/25" />
               <span>{service && discFor(service) > 0 ? `€${eur((Number(priceFor(service)) || 0) - discFor(service))}` : service ? priceLabel(service) : `€${selectedServicePrice}`}</span>
             </button>
@@ -664,6 +694,7 @@ export default function LocationPage() {
               {t.selectPrompt}
             </div>
           )}
+          <p className="text-center text-[12px] text-gray-500 mt-2">{t.reassure}</p>
         </div>
 
       </div>
