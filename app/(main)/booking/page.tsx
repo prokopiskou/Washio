@@ -686,6 +686,27 @@ function BookingPageContent() {
     return true
   }
 
+  // Μόλις γράψει email (blur): αν υπάρχει ήδη λογαριασμός → κωδικός στο email ΑΜΕΣΩΣ
+  // (shouldCreateUser:false = στέλνει μόνο σε υπάρχοντα· για νέο email επιστρέφει σφάλμα
+  // και συνεχίζει κανονικά ως επισκέπτης, χωρίς κανένα email).
+  const lastCheckedRef = useRef('')
+  const checkExistingEmail = async () => {
+    const e = email.trim().toLowerCase()
+    if (!guestRef.current || !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(e) || lastCheckedRef.current === e) return
+    lastCheckedRef.current = e
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithOtp({ email: e, options: { shouldCreateUser: false } })
+    if (error) {
+      // Rate limit = ο λογαριασμός υπάρχει (μόλις στάλθηκε κωδικός) → δείξε το πεδίο κωδικού.
+      const rate = (error as { status?: number }).status === 429 || /security purposes|rate limit/i.test(error.message)
+      if (!rate) return
+    }
+    pendingRef.current = null
+    setOtpCode(''); setOtpError('')
+    setOtpStep(true)
+    funnel('login_wall', { locationId, meta: { guest_exists: true, on: 'blur' } })
+  }
+
   // Υπάρχων λογαριασμός: κωδικός από το email → σύνδεση → συνεχίζει η κράτηση.
   const handleVerifyCode = async () => {
     const code = otpCode.replace(/\D/g, '')
@@ -706,7 +727,9 @@ function BookingPageContent() {
     const next = pendingRef.current
     pendingRef.current = null
     if (next === 'card') handleProceedToPayment()
-    else handleCashBooking()
+    else if (next === 'cash') handleCashBooking()
+    // Συνδέθηκε πριν πατήσει «Κλείσε» → ξαναφόρτωσε ως συνδεδεμένος (κινητό/οχήματα από το προφίλ του).
+    else window.location.reload()
   }
 
   // Αποθήκευση οχήματος + κινητού στο προφίλ — ΚΑΙ για κάρτα ΚΑΙ για «πλήρωσε εκεί»
@@ -974,6 +997,7 @@ function BookingPageContent() {
                   autoCapitalize="none"
                   value={email}
                   onChange={e => { setEmail(e.target.value.trim()); setOtpStep(false) }}
+                  onBlur={checkExistingEmail}
                   placeholder={t.emailPh}
                   className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
                 />
