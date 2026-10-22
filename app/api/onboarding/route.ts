@@ -81,8 +81,6 @@ export async function POST(req: Request) {
       !afm ||
       !doy ||
       !address ||
-      !ibanHolder ||
-      !iban ||
       !contactName ||
       !phone ||
       !email ||
@@ -95,8 +93,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid AFM' }, { status: 400 })
     }
 
-    const cleanIban = normalizeIban(iban)
-    if (!isValidIban(cleanIban)) {
+    // IBAN προαιρετικό — αν δοθεί, πρέπει να είναι έγκυρο. Κενό = '' (η στήλη είναι NOT NULL).
+    const cleanIban = iban ? normalizeIban(String(iban)) : ''
+    if (cleanIban && !isValidIban(cleanIban)) {
       return NextResponse.json({ error: 'Invalid IBAN' }, { status: 400 })
     }
 
@@ -105,7 +104,7 @@ export async function POST(req: Request) {
       afm: String(afm).trim(),
       doy: String(doy).trim(),
       address: String(address).trim(),
-      iban_holder: String(ibanHolder).trim(),
+      iban_holder: String(ibanHolder || '').trim(),
       iban: cleanIban,
       contact_name: String(contactName).trim(),
       phone: String(phone).trim(),
@@ -125,8 +124,8 @@ export async function POST(req: Request) {
       ['ΑΦΜ', String(afm)],
       ['ΔΟΥ', String(doy)],
       ['Διεύθυνση έδρας', String(address)],
-      ['Δικαιούχος λογαριασμού', String(ibanHolder)],
-      ['IBAN', INCLUDE_FULL_IBAN_IN_EMAIL ? cleanIban : maskIban(cleanIban)],
+      ['Δικαιούχος λογαριασμού', String(ibanHolder || '').trim() || '—'],
+      ['IBAN', !cleanIban ? '— (δεν δόθηκε)' : INCLUDE_FULL_IBAN_IN_EMAIL ? cleanIban : maskIban(cleanIban)],
       ['Υπεύθυνος', String(contactName)],
       ['Τηλέφωνο', String(phone)],
       ['Email', String(email)],

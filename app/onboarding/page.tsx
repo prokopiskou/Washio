@@ -85,10 +85,8 @@ export default function OnboardingPage() {
 
     if (!values.doy.trim()) e.doy = 'Συμπλήρωσε τη ΔΟΥ.'
     if (!values.address.trim()) e.address = 'Συμπλήρωσε τη διεύθυνση έδρας.'
-    if (!values.ibanHolder.trim()) e.ibanHolder = 'Συμπλήρωσε τον δικαιούχο του λογαριασμού.'
-
-    if (!values.iban.trim()) e.iban = 'Συμπλήρωσε το IBAN.'
-    else if (!isValidIban(values.iban)) e.iban = 'Το IBAN δεν είναι έγκυρο. Έλεγξέ το ξανά.'
+    // IBAN προαιρετικό: αν το γράψει, πρέπει να είναι έγκυρο.
+    if (values.iban.trim() && !isValidIban(values.iban)) e.iban = 'Το IBAN δεν είναι έγκυρο. Έλεγξέ το ξανά ή άφησέ το κενό.'
 
     if (!values.contactName.trim()) e.contactName = 'Συμπλήρωσε το ονοματεπώνυμο υπεύθυνου.'
     if (!values.phone.trim()) e.phone = 'Συμπλήρωσε τηλέφωνο.'
@@ -205,7 +203,7 @@ export default function OnboardingPage() {
 
           <section>
             <h2 className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">
-              Λογαριασμός πληρωμής
+              Λογαριασμός πληρωμής <span className="normal-case tracking-normal">(προαιρετικό)</span>
             </h2>
             <div className="space-y-2">
               <div>
@@ -231,7 +229,7 @@ export default function OnboardingPage() {
               </div>
             </div>
             <p className="text-xs text-gray-400 mt-2 leading-relaxed">
-              Ο δικαιούχος πρέπει να είναι η επιχείρηση ή ο νόμιμος εκπρόσωπός της.
+              Μπορείς να το συμπληρώσεις και αργότερα. Ο δικαιούχος πρέπει να είναι η επιχείρηση ή ο νόμιμος εκπρόσωπός της.
             </p>
           </section>
 
