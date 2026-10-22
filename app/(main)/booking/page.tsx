@@ -18,6 +18,8 @@ import { AddonIcon, addonMeta } from '@/components/AddonIcon'
 import { athensToday } from '@/lib/time'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
 import { computeRedeemable, isCreditEligible, WELCOME_DISCOUNT } from '@/lib/referral'
+import { phoneOk } from '@/lib/phone'
+import { ensureDeviceId } from '@/lib/device'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -73,6 +75,9 @@ const T = {
     fillContact: 'Συμπλήρωσε όνομα, κινητό και email',
     checkingEmail: 'Έλεγχος email…', enterCodeFirst: 'Γράψε πρώτα τον κωδικό που έλαβες στο email',
     phoneCouponUsed: 'Αυτό το κινητό έχει ήδη πάρει την έκπτωση −3 € του πρώτου πλυσίματος.',
+    plateCouponUsed: 'Αυτή η πινακίδα έχει ήδη πάρει την έκπτωση −3 € του πρώτου πλυσίματος.',
+    deviceCouponUsed: 'Η έκπτωση −3 € του πρώτου πλυσίματος έχει ήδη χρησιμοποιηθεί από αυτή τη συσκευή.',
+    phoneInvalid: 'Γράψε σωστό κινητό (69x xxx xxxx).',
     codeTitle: 'Έχεις ήδη λογαριασμό με αυτό το email',
     codeSub: (e: string) => `Σου στείλαμε κωδικό στο ${e}. Γράψ' τον για να συνδεθείς.`,
     codePh: 'Κωδικός από το email', codeVerify: 'Επιβεβαίωση', wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
@@ -112,6 +117,9 @@ const T = {
     fillContact: 'Fill in name, phone and email',
     checkingEmail: 'Checking email…', enterCodeFirst: 'First enter the code you received by email',
     phoneCouponUsed: 'This phone number has already used the −€3 first-wash discount.',
+    plateCouponUsed: 'This plate has already used the −€3 first-wash discount.',
+    deviceCouponUsed: 'The −€3 first-wash discount has already been used on this device.',
+    phoneInvalid: 'Enter a valid mobile number (69x xxx xxxx, or +country code).',
     codeTitle: 'You already have an account with this email',
     codeSub: (e: string) => `We sent a code to ${e}. Enter it to sign in.`,
     codePh: 'Code from your email', codeVerify: 'Verify', wrongCode: 'Wrong code. Please try again.',
@@ -435,8 +443,9 @@ function BookingPageContent() {
   const [otpBusy, setOtpBusy] = useState(false)
   const [otpError, setOtpError] = useState('')
   const [emailChecking, setEmailChecking] = useState(false)
-  // Το κινητό έχει ήδη πάρει το −3€ πρώτου πλυσίματος σε άλλο λογαριασμό → εκτός σύνοψης ΑΜΕΣΩΣ.
-  const [phoneCouponUsed, setPhoneCouponUsed] = useState(false)
+  // Το −3€ πρώτου πλυσίματος έχει ήδη δοθεί (ίδιο κινητό / συσκευή / πινακίδα) ή το κινητό δεν
+  // είναι ελληνικό κινητό → εκτός σύνοψης ΑΜΕΣΩΣ (ίδιος κανόνας με τον server: lib/coupon-guard).
+  const [couponBlock, setCouponBlock] = useState<null | 'phone' | 'device' | 'plate' | 'phone_invalid'>(null)
   const pendingRef = useRef<'cash' | 'card' | null>(null)
   const paymentAnchorRef = useRef<HTMLDivElement>(null)
 
@@ -649,19 +658,20 @@ function BookingPageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email, isGuest])
 
-  // Ζωντανός έλεγχος κινητού (μόλις έχει 10+ ψηφία): ίδιος κανόνας με τον server στην κράτηση.
+  // Ζωντανός έλεγχος κουπονιού: συσκευή αμέσως, κινητό μόλις έχει 10+ ψηφία, πινακίδα όταν γραφτεί.
   useEffect(() => {
     if (sessionLoading) return
+    ensureDeviceId()
     const digits = phone.replace(/\D/g, '')
-    if (digits.length < 10) { setPhoneCouponUsed(false); return }
     let alive = true
     const tm = setTimeout(() => {
-      fetch('/api/coupon/phone', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }),
-      }).then(r => r.json()).then(d => { if (alive) setPhoneCouponUsed(!!d?.used) }).catch(() => {})
+      fetch('/api/coupon/check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: digits.length >= 10 ? phone : '', plate }),
+      }).then(r => r.json()).then(d => { if (alive) setCouponBlock(d?.blocked || null) }).catch(() => {})
     }, 500)
     return () => { alive = false; clearTimeout(tm) }
-  }, [phone, sessionLoading])
+  }, [phone, plate, sessionLoading])
 
   const toggleAddon = (id: string) => {
     setSelectedAddons(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id])
@@ -679,13 +689,15 @@ function BookingPageContent() {
   // create-intent (ισχύει μόνο σε Μέσα-Έξω ≥12€) — 0 μέχρι να απαντήσει.
   const cardTotal = Math.max(0, total - appliedCredit) + SERVICE_FEE_EUR
   // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: ≥12€, έως 3€ — κάρτα ΚΑΙ μετρητά).
-  const previewCredit = !isRange && !phoneCouponUsed && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
+  const previewCredit = !isRange && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
   // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())
   // Όσο ελέγχεται το email ή περιμένουμε κωδικό (υπάρχων λογαριασμός) → ΟΧΙ κράτηση.
   const awaitingCode = isGuest && (otpStep || emailChecking)
-  const canProceed = !!(phone.trim() && email.trim() && service) && !awaitingCode &&
-    (!isGuest || (name.trim().length >= 2 && emailOk && phone.replace(/\D/g, '').length >= 10))
+  // Κινητό: ελληνικό 69xxxxxxxx (ή ξένο με +). «1234567890», σταθερά κλπ → όχι.
+  const phoneValid = phoneOk(phone)
+  const canProceed = !!(phone.trim() && email.trim() && service) && !awaitingCode && phoneValid &&
+    (!isGuest || (name.trim().length >= 2 && emailOk))
 
   // Επισκέπτης → φτιάξε λογαριασμό + σύνδεση ΤΩΡΑ (πριν την κράτηση). true = συνδεδεμένος.
   // Email που υπάρχει ήδη → στέλνουμε κωδικό και περιμένουμε (false).
@@ -1097,9 +1109,13 @@ function BookingPageContent() {
               placeholder="69x xxx xxxx"
               className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
             />
-            {phoneCouponUsed && !isRange && isCreditEligible(total) && walletCredit > 0 && (
-              <p className="text-[11px] text-amber-700 mt-1.5 leading-snug">{t.phoneCouponUsed}</p>
-            )}
+            {phone.replace(/\D/g, '').length >= 10 && !phoneValid ? (
+              <p className="text-[11px] text-red-600 mt-1.5 leading-snug">{t.phoneInvalid}</p>
+            ) : couponBlock && couponBlock !== 'phone_invalid' && !isRange && isCreditEligible(total) && walletCredit > 0 ? (
+              <p className="text-[11px] text-amber-700 mt-1.5 leading-snug">
+                {couponBlock === 'phone' ? t.phoneCouponUsed : couponBlock === 'plate' ? t.plateCouponUsed : t.deviceCouponUsed}
+              </p>
+            ) : null}
           </div>
 
           {/* Addons — όχι σε υπηρεσία εύρους (τιμή επιτόπου). Δύο ομάδες: υπηρεσίες / προϊόντα. */}

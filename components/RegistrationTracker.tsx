@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { track } from '@/lib/analytics'
 import { flyerRef, cleanAd } from '@/lib/acq'
 import { isInternalUser, isInternalDevice, markInternalDevice } from '@/lib/internal'
+import { ensureDeviceId } from '@/lib/device'
 
 // Πυροδοτεί CompleteRegistration (Meta) / sign_up (GA4) ΜΙΑ φορά ανά ΝΕΑ εγγραφή,
 // ανεξαρτήτως μεθόδου: OTP, Google, Apple, Facebook ή email/password.
@@ -18,6 +19,8 @@ const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID
 export function RegistrationTracker() {
   useEffect(() => {
     const supabase = createClient()
+    // Αναγνωριστικό συσκευής (ένα −3€ ανά συσκευή) — σε κάθε σελίδα.
+    ensureDeviceId()
 
     // Πιάσε τον κωδικό παραπομπής από το URL (?ref=ΚΩΔΙΚΟΣ) και κράτα τον σε
     // cookie 30 ημερών — θα διαβαστεί στο sign-up για να συνδεθεί ο νέος χρήστης.

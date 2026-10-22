@@ -10,7 +10,8 @@ import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
-import { computeRedeemable, isCreditEligible, redeemCredit, welcomeUsedByPhone } from '@/lib/referral'
+import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
+import { couponBlockReason } from '@/lib/coupon-guard'
 import { platformFeeFor, addonsTotalOf } from '@/lib/commission'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
@@ -205,7 +206,9 @@ export async function POST(req: NextRequest) {
     //     πλυντήριο — ΤΕΛΟΣ. Η έκπτωση ΔΕΝ επιστρέφεται στο πλυντήριο· η προμήθεια υπολογίζεται
     //     στο ποσό που όντως εισπράττει (payable).
     let couponAmount = 0
-    if (!isRange && isCreditEligible(amount) && !(await welcomeUsedByPhone(admin, user.id))) {
+    // Συσκευή (cookie ws_dev) — για το «ένα −3€ ανά συσκευή/κινητό/πινακίδα» (lib/coupon-guard).
+    const deviceId = (req.cookies.get('ws_dev')?.value || '').slice(0, 64) || null
+    if (!isRange && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
       const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
       couponAmount = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
     }
@@ -258,6 +261,10 @@ export async function POST(req: NextRequest) {
     // Referral: το +3€ του referrer μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards), όχι εδώ.
     // Εξαργύρωση κουπονιού (μετά την επιτυχή δημιουργία).
     if (couponAmount > 0) await redeemCredit(admin, user.id, couponAmount, inserted.id)
+
+    // Συσκευή + IP στην κράτηση (για τον έλεγχο κουπονιού & το εβδομαδιαίο report). Best-effort:
+    // αν δεν έχουν μπει ακόμα οι στήλες (supabase/coupon_guard.sql), απλώς αγνοείται.
+    try { await admin.from('bookings').update({ device_id: deviceId, client_ip: ipFrom(req) || null }).eq('id', inserted.id) } catch { /* ignore */ }
 
     // Push στον πρατηριούχο: νέα κράτηση (μετρητά).
     // ΜΟΝΟ αν είναι για σήμερα ΚΑΙ το πλυντήριο είναι ανοιχτό τώρα.

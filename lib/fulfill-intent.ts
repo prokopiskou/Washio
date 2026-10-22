@@ -190,6 +190,21 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
       } catch { /* μη-κρίσιμο */ }
     }
 
+    // Συσκευή / IP / αποτύπωμα κάρτας στην κράτηση — για τον έλεγχο «ένα −3€ ανά άνθρωπο»
+    // και το εβδομαδιαίο report ύποπτων κουπονιών. Best-effort (στήλες: supabase/coupon_guard.sql).
+    try {
+      let cardFp: string | null = null
+      if (typeof intent.payment_method === 'string') {
+        const pm = await stripe.paymentMethods.retrieve(intent.payment_method)
+        cardFp = pm.card?.fingerprint || null
+      }
+      await supabase.from('bookings').update({
+        device_id: (m.deviceId || '').slice(0, 64) || null,
+        client_ip: m.clientIp || null,
+        card_fingerprint: cardFp,
+      }).eq('id', inserted.id)
+    } catch { /* ignore */ }
+
     // Referral/wallet: αφαίρεσε την πίστωση που εξαργυρώθηκε (μετά την επιτυχία).
     // Το +3€ του referrer ΔΕΝ δίνεται εδώ — μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards).
     const appliedCredit = parseFloat(m.appliedCredit || '0')

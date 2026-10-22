@@ -30,3 +30,8 @@ jobs:
         run: |
           curl -fsS -X GET "https://www.washio.gr/api/cron/rebook" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: Coupon report (εβδομαδιαίο — στέλνει μόνο Δευτέρα 09:00)
+        if: always()
+        run: |
+          curl -fsS -X GET "https://www.washio.gr/api/cron/coupon-report" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

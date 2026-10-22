@@ -6,7 +6,8 @@ import { alertCritical } from '@/lib/alert'
 import { checkSlotAvailability } from '@/lib/availability-server'
 import { ipFrom } from '@/lib/throttle'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
-import { computeRedeemable, isCreditEligible, welcomeUsedByPhone } from '@/lib/referral'
+import { computeRedeemable, isCreditEligible } from '@/lib/referral'
+import { couponBlockReason } from '@/lib/coupon-guard'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -156,9 +157,10 @@ export async function POST(req: NextRequest) {
     // το ΠΛΥΝΤΗΡΙΟ (εκκαθάριση = τιμή − κουπόνι − προμήθεια), ίδια πολιτική με τα μετρητά. Αφαιρείται από το wallet στο webhook (μετά
     // την επιτυχή πληρωμή), όχι εδώ — για να μη χαθεί αν δεν ολοκληρωθεί.
     let appliedCredit = 0
+    const deviceId = (req.cookies.get('ws_dev')?.value || '').slice(0, 64)
     try {
       // Μόνο σε πλήρες πλύσιμο (Μέσα-Έξω) ≥12€ — αλλιώς κανένα κουπόνι.
-      if (isCreditEligible(amount) && !(await welcomeUsedByPhone(admin, user.id))) {
+      if (isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
         const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
         appliedCredit = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
       }
@@ -189,6 +191,7 @@ export async function POST(req: NextRequest) {
         servicePrice: servicePrice.toString(),
         addons: JSON.stringify(addonLines).slice(0, 490), // Stripe metadata ≤500 χαρ.
         fbp, fbc, clientIp, clientUa,
+        deviceId,
       },
     })
 

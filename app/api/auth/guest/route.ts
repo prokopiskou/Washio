@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 import { linkReferral, phoneKey } from '@/lib/referral'
+import { phoneOk } from '@/lib/phone'
 
 // Κράτηση ΧΩΡΙΣ σελίδα εγγραφής (guest checkout).
 // Ο επισκέπτης γράφει όνομα + κινητό + email ΜΕΣΑ στο checkout. Εδώ:
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     if (!EMAIL_RE.test(email)) return NextResponse.json({ error: 'Το email δεν είναι σωστό.' }, { status: 400 })
     if (name.length < 2) return NextResponse.json({ error: 'Γράψε το όνομά σου.' }, { status: 400 })
-    if (digits.length < 10) return NextResponse.json({ error: 'Γράψε σωστό κινητό.' }, { status: 400 })
+    if (digits.length < 8 || !phoneOk(phone)) return NextResponse.json({ error: 'Γράψε σωστό κινητό (69x xxx xxxx).' }, { status: 400 })
 
     // Απόδοση (ίδια κλειδιά με την κανονική εγγραφή) — από τα cookies του browser.
     const jar = req.cookies
