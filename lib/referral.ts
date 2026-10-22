@@ -55,8 +55,16 @@ export async function welcomeUsedByPhone(db: SupabaseClient, userId: string): Pr
     const { count: mine } = await db.from('bookings').select('id', { count: 'exact', head: true })
       .eq('user_id', userId).neq('status', 'cancelled')
     if ((mine || 0) > 0) return false
-    // Άλλοι λογαριασμοί με το ίδιο κινητό (σε οποιαδήποτε μορφή γράφτηκε).
-    const { data: profs } = await db.from('profiles').select('id, phone').not('phone', 'is', null).neq('id', userId).limit(10000)
+    return await phoneCouponUsedElsewhere(db, key, userId)
+  } catch { return false }
+}
+
+// Έχει ΑΛΛΟΣ λογαριασμός με αυτό το κινητό (οποιαδήποτε μορφή) ήδη χρησιμοποιήσει κουπόνι;
+export async function phoneCouponUsedElsewhere(db: SupabaseClient, key: string, excludeUserId?: string | null): Promise<boolean> {
+  try {
+    let q = db.from('profiles').select('id, phone').not('phone', 'is', null).limit(10000)
+    if (excludeUserId) q = q.neq('id', excludeUserId)
+    const { data: profs } = await q
     const ids = (profs || []).filter(p => phoneKey(p.phone as string) === key).map(p => p.id as string)
     if (!ids.length) return false
     const { count: used } = await db.from('bookings').select('id', { count: 'exact', head: true })

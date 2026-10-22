@@ -21,6 +21,13 @@ import { computeRedeemable, isCreditEligible, WELCOME_DISCOUNT } from '@/lib/ref
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
+// Ποσά όπως γράφονται στα ελληνικά: «12,00 €» (κόμμα, € δεξιά).
+const eur2 = (n: number) => `${(Number(n) || 0).toFixed(2).replace('.', ',')} €`
+const eurN = (n: number) => {
+  const v = Number(n) || 0
+  return `${Number.isInteger(v) ? v : v.toFixed(2).replace('.', ',')} €`
+}
+
 const MONTHS_SHORT: Record<Locale, string[]> = {
   el: ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ'],
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
@@ -65,6 +72,7 @@ const T = {
     guestNote: 'Με το email σου φτιάχνεται αυτόματα ο λογαριασμός σου, χωρίς κωδικό. Εκεί έρχεται και η επιβεβαίωση.',
     fillContact: 'Συμπλήρωσε όνομα, κινητό και email',
     checkingEmail: 'Έλεγχος email…', enterCodeFirst: 'Γράψε πρώτα τον κωδικό από το email',
+    phoneCouponUsed: 'Αυτό το κινητό έχει ήδη πάρει την έκπτωση −3 € του πρώτου πλυσίματος.',
     codeTitle: 'Έχεις ήδη λογαριασμό με αυτό το email',
     codeSub: (e: string) => `Σου στείλαμε κωδικό στο ${e}. Γράψ' τον για να συνδεθείς.`,
     codePh: 'Κωδικός από το email', codeVerify: 'Επιβεβαίωση', wrongCode: 'Λάθος κωδικός. Δοκίμασε ξανά.',
@@ -103,6 +111,7 @@ const T = {
     guestNote: 'Your account is created automatically with your email, no code needed. Your confirmation goes there too.',
     fillContact: 'Fill in name, phone and email',
     checkingEmail: 'Checking email…', enterCodeFirst: 'Enter the code from your email first',
+    phoneCouponUsed: 'This phone number has already used the −€3 first-wash discount.',
     codeTitle: 'You already have an account with this email',
     codeSub: (e: string) => `We sent a code to ${e}. Enter it to sign in.`,
     codePh: 'Code from your email', codeVerify: 'Verify', wrongCode: 'Wrong code. Please try again.',
@@ -349,21 +358,21 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
       <div className="rounded-[14px] bg-washio-cyan-light/60 border border-washio-border px-3.5 py-2.5 mb-3">
         <div className="flex justify-between items-center text-[12px] text-gray-500">
           <span>{translateCatalogName(service.name, cLocale)}</span>
-          <span>€{baseTotal.toFixed(2)}</span>
+          <span>{eur2(baseTotal)}</span>
         </div>
         {appliedCredit > 0 && (
           <div className="flex justify-between items-center text-[12px] font-medium text-green-600 mt-1">
             <span>{t.coupon}</span>
-            <span>−€{appliedCredit.toFixed(2)}</span>
+            <span>−{eur2(appliedCredit)}</span>
           </div>
         )}
         <div className="flex justify-between items-center text-[12px] text-gray-500 mt-1">
           <span>{t.serviceFee}</span>
-          <span>€{SERVICE_FEE_EUR.toFixed(2)}</span>
+          <span>{eur2(SERVICE_FEE_EUR)}</span>
         </div>
         <div className="flex justify-between items-center text-[13px] font-bold text-washio-navy mt-1.5 pt-1.5 border-t border-washio-border">
           <span>{t.total}</span>
-          <span>€{total.toFixed(2)}</span>
+          <span>{eur2(total)}</span>
         </div>
       </div>
 
@@ -378,7 +387,7 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
           <>
             <span>{t.pay}</span>
             <span className="w-px h-4 bg-white/25" />
-            <span>€{total.toFixed(2)}</span>
+            <span>{eur2(total)}</span>
           </>
         )}
       </button>
@@ -426,6 +435,8 @@ function BookingPageContent() {
   const [otpBusy, setOtpBusy] = useState(false)
   const [otpError, setOtpError] = useState('')
   const [emailChecking, setEmailChecking] = useState(false)
+  // Το κινητό έχει ήδη πάρει το −3€ πρώτου πλυσίματος σε άλλο λογαριασμό → εκτός σύνοψης ΑΜΕΣΩΣ.
+  const [phoneCouponUsed, setPhoneCouponUsed] = useState(false)
   const pendingRef = useRef<'cash' | 'card' | null>(null)
   const paymentAnchorRef = useRef<HTMLDivElement>(null)
 
@@ -629,6 +640,20 @@ function BookingPageContent() {
     loadData()
   }, [])
 
+  // Ζωντανός έλεγχος κινητού (μόλις έχει 10+ ψηφία): ίδιος κανόνας με τον server στην κράτηση.
+  useEffect(() => {
+    if (sessionLoading) return
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length < 10) { setPhoneCouponUsed(false); return }
+    let alive = true
+    const tm = setTimeout(() => {
+      fetch('/api/coupon/phone', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }),
+      }).then(r => r.json()).then(d => { if (alive) setPhoneCouponUsed(!!d?.used) }).catch(() => {})
+    }, 500)
+    return () => { alive = false; clearTimeout(tm) }
+  }, [phone, sessionLoading])
+
   const toggleAddon = (id: string) => {
     setSelectedAddons(prev => prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id])
   }
@@ -645,7 +670,7 @@ function BookingPageContent() {
   // create-intent (ισχύει μόνο σε Μέσα-Έξω ≥12€) — 0 μέχρι να απαντήσει.
   const cardTotal = Math.max(0, total - appliedCredit) + SERVICE_FEE_EUR
   // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: ≥12€, έως 3€ — κάρτα ΚΑΙ μετρητά).
-  const previewCredit = !isRange && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
+  const previewCredit = !isRange && !phoneCouponUsed && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
   // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())
   // Όσο ελέγχεται το email ή περιμένουμε κωδικό (υπάρχων λογαριασμός) → ΟΧΙ κράτηση.
@@ -1063,6 +1088,9 @@ function BookingPageContent() {
               placeholder="69x xxx xxxx"
               className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
             />
+            {phoneCouponUsed && !isRange && isCreditEligible(total) && walletCredit > 0 && (
+              <p className="text-[11px] text-amber-700 mt-1.5 leading-snug">{t.phoneCouponUsed}</p>
+            )}
           </div>
 
           {/* Addons — όχι σε υπηρεσία εύρους (τιμή επιτόπου). Δύο ομάδες: υπηρεσίες / προϊόντα. */}
@@ -1095,8 +1123,8 @@ function BookingPageContent() {
                             {/* Επιλεγμένο: ✓ + τιμή (όχι «−€4», που διαβαζόταν σαν έκπτωση). */}
                             <span className={`inline-flex items-center gap-1.5 text-[14px] font-bold shrink-0 ${selected ? 'text-washio-cyan-dark' : 'text-washio-navy'}`}>
                               {selected
-                                ? <><Check size={15} strokeWidth={3} />€{addon.price}</>
-                                : <>+ €{addon.price}</>}
+                                ? <><Check size={15} strokeWidth={3} />{eurN(addon.price)}</>
+                                : <>+ {eurN(addon.price)}</>}
                             </span>
                           </button>
                         )
@@ -1118,7 +1146,7 @@ function BookingPageContent() {
                 <div className="flex justify-between items-center py-3.5">
                   <span className="text-[15px] font-bold text-washio-navy">{t.estimateRange}</span>
                   <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">
-                    €{rangeMin.toFixed(0)}–€{rangeMax.toFixed(0)}
+                    {rangeMin.toFixed(0)}–{rangeMax.toFixed(0)} €
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-400 pb-3 leading-snug">{t.estimateNote}</p>
@@ -1127,23 +1155,23 @@ function BookingPageContent() {
               <>
                 <div className="flex justify-between items-center py-3 border-b border-washio-border">
                   <span className="text-[13px] text-gray-500">{translateCatalogName(service.name, locale)}</span>
-                  <span className="text-[14px] font-medium text-gray-900">€{servicePrice.toFixed(2)}</span>
+                  <span className="text-[14px] font-medium text-gray-900">{eur2(servicePrice)}</span>
                 </div>
                 {selectedAddons.length > 0 && (
                   <div className="flex justify-between items-center py-3 border-b border-washio-border">
                     <span className="text-[13px] text-gray-500">{t.addonsShort}</span>
-                    <span className="text-[14px] font-medium text-gray-900">€{addonTotal.toFixed(2)}</span>
+                    <span className="text-[14px] font-medium text-gray-900">{eur2(addonTotal)}</span>
                   </div>
                 )}
                 {previewCredit > 0 && (
                   <div className="flex justify-between items-center py-3 border-b border-washio-border">
                     <span className="text-[13px] font-semibold text-green-600">{t.couponCard}</span>
-                    <span className="text-[14px] font-semibold text-green-600">−€{previewCredit.toFixed(2)}</span>
+                    <span className="text-[14px] font-semibold text-green-600">−{eur2(previewCredit)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center py-3.5">
                   <span className="text-[15px] font-bold text-washio-navy">{previewCredit > 0 ? t.totalWithCoupon : t.total}</span>
-                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">€{(total - previewCredit).toFixed(2)}</span>
+                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">{eur2(total - previewCredit)}</span>
                 </div>
                 {previewCredit > 0 && (
                   <p className="text-[11px] text-gray-400 -mt-2 pb-3 leading-snug">{t.couponNote(total.toFixed(2))}</p>
@@ -1232,7 +1260,7 @@ function BookingPageContent() {
               disabled={cashLoading}
               className="w-full h-12 rounded-xl border-[1.5px] border-[#078EAD] bg-white text-[14px] font-semibold text-[#078EAD] flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.99] transition-transform"
             >
-              {cashLoading ? t.confirming : `${t.switchToVenue}${previewCredit > 0 ? ` · €${(total - previewCredit).toFixed(2)}` : ''}`}
+              {cashLoading ? t.confirming : `${t.switchToVenue}${previewCredit > 0 ? ` · ${eur2(total - previewCredit)}` : ''}`}
             </button>
             <p className="text-[10px] text-gray-400 text-center mt-2 leading-snug">
               {t.cashHint}
@@ -1271,7 +1299,7 @@ function BookingPageContent() {
                   <>
                     <span>{payMethod === 'venue' ? t.bookPayThere : t.continueCard}</span>
                     <span className="w-px h-4 bg-white/25" />
-                    <span>€{(payMethod === 'venue' ? +(total - previewCredit) : +(total - previewCredit + SERVICE_FEE_EUR)).toFixed(2)}</span>
+                    <span>{eur2(payMethod === "venue" ? total - previewCredit : total - previewCredit + SERVICE_FEE_EUR)}</span>
                   </>
                 )}
               </button>
