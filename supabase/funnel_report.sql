@@ -26,3 +26,16 @@ order by array_position(array['map_open','washer_open','washer_page','no_slots',
 --        count(*) filter (where exists (select 1 from f where f.session_id=sel.session_id and step='booked')) booked,
 --        round(avg(disc),2) avg_disc
 -- from sel group by 1 order by 1;
+
+-- ── Ακυρώσεις vs αλλαγή ώρας (από 23/10) ──
+-- opened = άνοιξαν την ακύρωση · saved_click = πάτησαν «Αλλαγή ώρας» μέσα στην ακύρωση
+-- saved = έκαναν τελικά αλλαγή ώρας από εκεί · cancelled = ακύρωσαν (ανά λόγο: meta->>'r')
+-- select count(*) filter (where step='cancel_open') opened,
+--        count(*) filter (where step='cancel_save_click') saved_click,
+--        count(*) filter (where step='rescheduled' and meta->>'from'='cancel') saved,
+--        count(*) filter (where step='rescheduled' and meta->>'from'='direct') resched_direct,
+--        count(*) filter (where step='cancelled') cancelled
+-- from funnel_events where created_at > now() - interval '7 days';
+-- Λόγοι ακύρωσης:
+-- select meta->>'r' reason, count(*) from funnel_events
+-- where step='cancelled' and created_at > now() - interval '30 days' group by 1 order by 2 desc;

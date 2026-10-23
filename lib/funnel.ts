@@ -5,6 +5,8 @@ import { isInternalDevice } from '@/lib/internal'
 export type FunnelStep =
   | 'map_open' | 'washer_open' | 'washer_page' | 'no_slots' | 'service_select' | 'slot_select'
   | 'book_click' | 'login_wall' | 'booking_page' | 'pay_click' | 'booked'
+  // Μετά την κράτηση: ακύρωση vs αλλαγή ώρας.
+  | 'cancel_open' | 'cancel_save_click' | 'rescheduled' | 'cancelled'
 
 function storageId(store: 'local' | 'session', key: string): string {
   try {

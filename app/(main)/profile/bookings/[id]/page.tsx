@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { ChevronLeft, MapPin, Calendar, Clock, Car, CreditCard, AlertTriangle, X, ChevronRight, ExternalLink, CalendarClock, Droplet, Star, RotateCw } from 'lucide-react'
 import { useT, useLocale } from '@/lib/i18n'
+import { funnel } from '@/lib/funnel'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { WashioLoader } from '@/components/WashioLoader'
 import { openDirections, directionsWebUrl } from '@/lib/open-directions'
@@ -228,6 +229,12 @@ export default function BookingDetailPage() {
   const [details, setDetails] = useState('')
   const [acknowledged, setAcknowledged] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  // Funnel: η αλλαγή ώρας ξεκίνησε από την πρόταση μέσα στην ακύρωση;
+  const fromCancelRef = useRef(false)
+  // Σταθερός κωδικός λόγου (ανεξάρτητος γλώσσας) για το funnel.
+  const reasonCode = (r: string) => (
+    { [t.reason1]: 'plans', [t.reason2]: 'cheaper', [t.reasonReviews]: 'reviews', [t.reason3]: 'time', [t.reason4]: 'wrong', [t.reason5]: 'other' } as Record<string, string>
+  )[r] || 'unknown'
   // «Άλλος λόγος» → σχόλιο υποχρεωτικό (αλλιώς δεν μαθαίνουμε τίποτα).
   const otherNeedsText = reason === t.reason5 && details.trim().length < 3
 
@@ -329,6 +336,7 @@ export default function BookingDetailPage() {
     } else {
       setShowCancelFlow(true)
       setStep(1)
+      funnel('cancel_open', { locationId: booking.location_id, meta: { ref: booking.booking_ref } })
     }
   }
 
@@ -351,6 +359,7 @@ export default function BookingDetailPage() {
         alert(json.error || 'Η ακύρωση δεν ολοκληρώθηκε. Δοκίμασε ξανά ή επικοινώνησε μαζί μας.')
         return
       }
+      funnel('cancelled', { locationId: booking.location_id, meta: { ref: booking.booking_ref, r: reasonCode(reason) } })
       setBooking({ ...booking, status: 'cancelled', cancellation_reason: reason } as typeof booking)
       setShowCancelFlow(false)
     } catch (e) {
@@ -444,6 +453,9 @@ export default function BookingDetailPage() {
         alert(json.error || 'Η αλλαγή δεν έγινε. Δοκίμασε άλλη ώρα.')
         return
       }
+      // from: 'cancel' = ήρθε από την πρόταση μέσα στην ακύρωση (σωσμένη κράτηση) · 'direct' = από το κουμπί.
+      funnel('rescheduled', { locationId: booking.location_id, once: false, meta: { ref: booking.booking_ref, from: fromCancelRef.current ? 'cancel' : 'direct' } })
+      fromCancelRef.current = false
       setShowReschedule(false)
       setBooking({ ...booking, slot_date: newDate, slot_start_time: newTime + ':00' })
     } catch {
@@ -834,7 +846,11 @@ export default function BookingDetailPage() {
                     <p className="text-sm font-semibold text-gray-900 mb-1">{t.saveTitle}</p>
                     <p className="text-xs text-gray-500 leading-relaxed mb-3">{t.saveSub}</p>
                     <button
-                      onClick={() => { setShowCancelFlow(false); setReason(''); setDetails(''); handleRescheduleClick() }}
+                      onClick={() => {
+                        funnel('cancel_save_click', { locationId: booking.location_id, meta: { ref: booking.booking_ref, r: reasonCode(reason) } })
+                        fromCancelRef.current = true
+                        setShowCancelFlow(false); setReason(''); setDetails(''); handleRescheduleClick()
+                      }}
                       className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl inline-flex items-center justify-center gap-1.5"
                     >
                       <CalendarClock size={15} strokeWidth={1.8} />
