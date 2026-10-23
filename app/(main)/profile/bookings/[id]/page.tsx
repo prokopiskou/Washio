@@ -26,6 +26,11 @@ const T = {
     reason3: 'Δεν είμαι σίγουρος για την ώρα',
     reason4: 'Λάθος κράτηση',
     reason5: 'Άλλος λόγος',
+    reasonReviews: 'Δεν με έπεισαν οι κριτικές',
+    saveTitle: 'Άλλαξε ώρα αντί να ακυρώσεις',
+    saveSub: 'Κράτα την κράτησή σου και διάλεξε άλλη μέρα ή ώρα. Χωρίς χρέωση.',
+    saveBtn: 'Αλλαγή ώρας',
+    commentsRequired: 'Πες μας τον λόγο (υποχρεωτικό)',
     cancelNotPossible: 'Δεν είναι δυνατή η ακύρωση',
     cancelNotPossibleSub1: 'Δεν επιτρέπεται ακύρωση για κρατήσεις που ξεκινούν τις επόμενες ',
     hours2: '2 ώρες', cancelStarted: 'Η ώρα του ραντεβού έχει περάσει.',
@@ -75,6 +80,11 @@ const T = {
     reason3: "I'm not sure about the time",
     reason4: 'Wrong booking',
     reason5: 'Other reason',
+    reasonReviews: "The reviews didn't convince me",
+    saveTitle: 'Change the time instead of cancelling',
+    saveSub: 'Keep your booking and pick another day or time. No charge.',
+    saveBtn: 'Change time',
+    commentsRequired: 'Tell us the reason (required)',
     cancelNotPossible: 'Cancellation not possible',
     cancelNotPossibleSub1: 'Cancellation is not allowed for bookings starting within the next ',
     hours2: '2 hours', cancelStarted: 'The appointment time has passed.',
@@ -205,7 +215,7 @@ export default function BookingDetailPage() {
   const bookingId = params.id as string
   const t = useT(T)
   const { locale } = useLocale()
-  const CANCELLATION_REASONS = [t.reason1, t.reason2, t.reason3, t.reason4, t.reason5]
+  const CANCELLATION_REASONS = [t.reason1, t.reason2, t.reasonReviews, t.reason3, t.reason4, t.reason5]
 
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
@@ -218,6 +228,8 @@ export default function BookingDetailPage() {
   const [details, setDetails] = useState('')
   const [acknowledged, setAcknowledged] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  // «Άλλος λόγος» → σχόλιο υποχρεωτικό (αλλιώς δεν μαθαίνουμε τίποτα).
+  const otherNeedsText = reason === t.reason5 && details.trim().length < 3
 
   // Reschedule state
   const [showRescheduleLate, setShowRescheduleLate] = useState(false)
@@ -321,7 +333,7 @@ export default function BookingDetailPage() {
   }
 
   const handleConfirmCancel = async () => {
-    if (!booking || !reason || !acknowledged) return
+    if (!booking || !reason || !acknowledged || otherNeedsText) return
     setCancelling(true)
 
     // ΜΟΝΟ το API αλλάζει status: κάνει το Stripe refund, γράφει cancelled,
@@ -816,14 +828,31 @@ export default function BookingDetailPage() {
                   ))}
                 </div>
 
+                {/* Ώρα / λάθος κράτηση → πρόταση αλλαγής ώρας αντί για ακύρωση. */}
+                {(reason === t.reason3 || reason === t.reason4) && (
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 mb-5">
+                    <p className="text-sm font-semibold text-gray-900 mb-1">{t.saveTitle}</p>
+                    <p className="text-xs text-gray-500 leading-relaxed mb-3">{t.saveSub}</p>
+                    <button
+                      onClick={() => { setShowCancelFlow(false); setReason(''); setDetails(''); handleRescheduleClick() }}
+                      className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl inline-flex items-center justify-center gap-1.5"
+                    >
+                      <CalendarClock size={15} strokeWidth={1.8} />
+                      {t.saveBtn}
+                    </button>
+                  </div>
+                )}
+
                 <div className="mb-5">
-                  <p className="text-xs text-gray-400 mb-1.5">{t.comments}</p>
+                  <p className={`text-xs mb-1.5 ${otherNeedsText ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
+                    {reason === t.reason5 ? t.commentsRequired : t.comments}
+                  </p>
                   <textarea
                     value={details}
                     onChange={e => setDetails(e.target.value)}
                     placeholder={t.tellMore}
                     rows={3}
-                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400"
+                    className={`w-full border rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400 ${otherNeedsText ? 'border-gray-900' : 'border-gray-200'}`}
                   />
                 </div>
 
@@ -836,7 +865,7 @@ export default function BookingDetailPage() {
                   </button>
                   <button
                     onClick={() => setStep(2)}
-                    disabled={!reason}
+                    disabled={!reason || otherNeedsText}
                     className="flex-1 bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
                   >
                     {t.continue}
