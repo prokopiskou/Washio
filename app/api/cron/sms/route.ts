@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendSms, smsConfigured, toMsisdn } from '@/lib/sms'
+import { sendSms, smsConfigured, toMsisdn, greekToGsm } from '@/lib/sms'
 import { alertCritical } from '@/lib/alert'
 
 // SMS υπενθύμιση πριν το ραντεβού — κόβει τα «Δεν ήρθε».
@@ -8,7 +8,7 @@ import { alertCritical } from '@/lib/alert'
 //  • Πρωινά ραντεβού (πριν τις 10:00): το προηγούμενο βράδυ, 20:00–20:59 («αύριο»).
 //  • Μόνο κρατήσεις πλατφόρμας, confirmed, ελληνικό κινητό, φτιαγμένες πριν από 30'+.
 //  • Scope: SMS_SCOPE=all → όλοι · αλλιώς ΜΟΝΟ επισκέπτες (guest checkout) — εκεί ξεκινάμε.
-//  • Κείμενο έως 2 SMS: ώρα + πλυντήριο + link Google Maps (washio.gr/m/<κωδικός>) + αλλαγή (washio.gr/k).
+//  • 1 SMS (160 χαρ., ελληνικά κεφαλαία GSM-7): πλυντήριο + ώρα + link Google Maps (washio.gr/m/<κωδικός>). Χωρίς αλλαγή ώρας.
 //  • Μία φορά ανά κράτηση (bookings.sms_reminder_sent — supabase/sms_reminders.sql).
 // GET (Bearer CRON_SECRET), κάθε 15' από το GitHub workflow.
 //   ?dry=1  → ποιοι ΘΑ έπαιρναν SMS τώρα (χωρίς αποστολή)
@@ -23,16 +23,26 @@ function athensParts(d: Date) {
   return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}`, hour: Number(p.hour) }
 }
 
-/** Κείμενο έως 2 SMS (ελληνικά: 2 × 67 = 134 χαρ.) με link χάρτη + αλλαγής. Κόβει το όνομα αν χρειάζεται. */
+/** Κείμενο 1 SMS (≤160, ελληνικά κεφαλαία σε GSM-7). Χωρίς αλλαγή ώρας — μόνο link χάρτη.
+ *  Πρώτα η πλήρης διατύπωση· αν δεν χωράει το όνομα του πλυντηρίου, πιο σύντομη. */
 function reminderText(day: 'σήμερα' | 'αύριο', time: string, place: string, ref: string): string {
   const code = String(ref || '').replace(/^WS-/i, '')
-  const head = `Washio: Ραντεβού ${day} ${time}, `
-  const tail = `.\nΔες στον χάρτη το πλυντήριο εδώ: washio.gr/m/${code}\nΑλλαγή: washio.gr/k`
-  const MAX = 134
-  const room = MAX - head.length - tail.length
-  let name = (place || 'το πλυντήριο').trim().replace(/\s+/g, ' ')
-  if (name.length > room) name = name.slice(0, Math.max(3, room - 1)).trimEnd() + '…'
-  return (head + name + tail).slice(0, MAX)
+  const when = day === 'σήμερα' ? 'ΕΙΝΑΙ ΣΕ ΔΥΟ ΩΡΕΣ, ΣΤΙΣ' : 'ΕΙΝΑΙ ΑΥΡΙΟ ΣΤΙΣ'
+  const link = `washio.gr/m/${code}`
+  const MAX = 160
+  const name = greekToGsm((place || 'ΠΛΥΝΤΗΡΙΟ').trim().replace(/\s+/g, ' ').toUpperCase()).replace(/[^\x20-\x7EΓΔΘΛΞΠΣΦΨΩ]/g, '')
+  const variants: [string, string][] = [
+    ['ΤΟ ΡΑΝΤΕΒΟΥ ΣΟΥ ΓΙΑ ΠΛΥΣΙΜΟ ΤΟΥ ΑΥΤΟΚΙΝΗΤΟΥ ΣΟΥ ΣΤΟ ', ` ${when} ${time}. ΠΑΤΗΣΕ ΕΔΩ ΓΙΑ ΝΑ ΔΕΙΣ ΤΟ ΠΛΥΝΤΗΡΙΟ ΣΤΟΝ ΧΑΡΤΗ: `],
+    ['ΤΟ ΡΑΝΤΕΒΟΥ ΣΟΥ ΓΙΑ ΠΛΥΣΙΜΟ ΣΤΟ ', ` ${when} ${time}. ΠΑΤΗΣΕ ΕΔΩ ΓΙΑ ΝΑ ΔΕΙΣ ΤΟ ΠΛΥΝΤΗΡΙΟ ΣΤΟΝ ΧΑΡΤΗ: `],
+    ['ΤΟ ΡΑΝΤΕΒΟΥ ΣΟΥ ΓΙΑ ΠΛΥΣΙΜΟ ΣΤΟ ', ` ${when} ${time}. ΔΕΣ ΤΟ ΣΤΟΝ ΧΑΡΤΗ: `],
+  ]
+  for (const [h, m] of variants) {
+    const head = greekToGsm(h), mid = greekToGsm(m)
+    if (head.length + name.length + mid.length + link.length <= MAX) return head + name + mid + link
+  }
+  const [h, m] = variants[variants.length - 1]
+  const head = greekToGsm(h), mid = greekToGsm(m)
+  return head + name.slice(0, MAX - head.length - mid.length - link.length).trimEnd() + mid + link
 }
 
 type Row = {

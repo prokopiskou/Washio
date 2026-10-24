@@ -1,8 +1,9 @@
 // Αποστολή SMS — ανεξάρτητο από πάροχο. Ενεργοποιείται ΜΟΝΟ όταν υπάρχουν τα env:
-//   SMS_PROVIDER = 'yuboto'           (προς το παρόν μόνο αυτός)
-//   SMS_API_KEY  = κλειδί API του παρόχου (Yuboto/Octapush: ήδη base64)
-//   SMS_SENDER   = εγκεκριμένο όνομα αποστολέα (προεπιλογή «Washio»)
-//   SMS_BASE_URL = προαιρετικό override (προεπιλογή https://api.yuboto.com/omni/v1)
+//   SMS_PROVIDER = 'bulkgate' | 'yuboto'
+//   SMS_API_KEY  = BulkGate: application_token · Yuboto: κλειδί API (ήδη base64)
+//   SMS_APP_ID   = BulkGate: application_id (μόνο για BulkGate)
+//   SMS_SENDER   = όνομα αποστολέα (προεπιλογή «Washio»)
+//   SMS_BASE_URL = προαιρετικό override URL
 // Χωρίς αυτά → { ok:false, skipped:'not_configured' } και ΔΕΝ στέλνεται τίποτα.
 //
 // ⚠️ Το σχήμα του Yuboto Omni «Send» πρέπει να επιβεβαιωθεί με το Swagger του λογαριασμού
@@ -18,7 +19,25 @@ export const isGsm7 = (t: string) => GSM7.test(t)
 export const smsLimit = (t: string) => (isGsm7(t) ? 160 : 70)
 
 export function smsConfigured(): boolean {
-  return !!process.env.SMS_PROVIDER && !!process.env.SMS_API_KEY
+  const p = String(process.env.SMS_PROVIDER || '').toLowerCase()
+  if (!p || !process.env.SMS_API_KEY) return false
+  if (p === 'bulkgate' && !process.env.SMS_APP_ID) return false
+  return true
+}
+
+// Ελληνικά ΚΕΦΑΛΑΙΑ χωρίς τόνους χωράνε στο GSM-7 (160 χαρ. ανά SMS αντί για 70):
+// όσα μοιάζουν με λατινικά γίνονται λατινικά (Α→A, Β→B …) και τα υπόλοιπα (Γ Δ Θ Λ Ξ Π Σ Φ Ψ Ω)
+// υπάρχουν ήδη στο GSM-7. Τα λατινικά (ονόματα, link) μένουν όπως είναι.
+const GR_TO_LAT: Record<string, string> = {
+  'Α': 'A', 'Β': 'B', 'Ε': 'E', 'Ζ': 'Z', 'Η': 'H', 'Ι': 'I', 'Κ': 'K', 'Μ': 'M', 'Ν': 'N',
+  'Ο': 'O', 'Ρ': 'P', 'Τ': 'T', 'Υ': 'Y', 'Χ': 'X',
+}
+export function greekToGsm(t: string): string {
+  return t.split('').map(ch => {
+    if (!/[\u0370-\u03FF\u1F00-\u1FFF]/.test(ch)) return ch
+    const up = ch.normalize('NFD').replace(/[\u0300-\u036f\u0342-\u0345]/g, '').toUpperCase()
+    return GR_TO_LAT[up] || up
+  }).join('')
 }
 
 /** Ελληνικό κινητό → «3069xxxxxxxx» (μορφή παρόχου), αλλιώς null. */
@@ -32,8 +51,42 @@ export async function sendSms(rawPhone: string, text: string): Promise<SmsResult
   const to = toMsisdn(rawPhone)
   if (!to) return { ok: false, skipped: 'not_greek_mobile' }
   const provider = String(process.env.SMS_PROVIDER).toLowerCase()
+  if (provider === 'bulkgate') return sendBulkGate(to, text)
   if (provider === 'yuboto') return sendYuboto(to, text)
   return { ok: false, skipped: 'unknown_provider' }
+}
+
+// BulkGate Simple Transactional API (docs: bulkgate.com/en/docs/simple-api/simple-transactional/)
+async function sendBulkGate(to: string, text: string): Promise<SmsResult> {
+  const url = process.env.SMS_BASE_URL || 'https://portal.bulkgate.com/api/1.0/simple/transactional'
+  const payload = JSON.stringify({
+    application_id: Number(process.env.SMS_APP_ID) || process.env.SMS_APP_ID,
+    application_token: process.env.SMS_API_KEY,
+    number: to,
+    text,
+    unicode: !isGsm7(text),
+    sender_id: 'gText',
+    sender_id_value: process.env.SMS_SENDER || 'Washio',
+    duplicates_check: 'on',
+  })
+  const attempt = async (u: string): Promise<SmsResult> => {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 10_000)
+    try {
+      const res = await fetch(u, { method: 'POST', signal: ctrl.signal, headers: { 'Content-Type': 'application/json' }, body: payload })
+      const body = await res.json().catch(() => ({})) as { data?: { status?: string; sms_id?: string }; type?: string; error?: string }
+      if (res.ok && body.data?.status === 'accepted') return { ok: true, id: body.data.sms_id }
+      return { ok: false, error: `${res.status} ${body.type || ''} ${body.error || body.data?.status || ''}`.trim() }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'network' }
+    } finally { clearTimeout(timer) }
+  }
+  const r = await attempt(url)
+  // Δεν έφτασε (δίκτυο) → backup server, όπως λέει η τεκμηρίωση. Το duplicates_check αποτρέπει διπλό.
+  if (!r.ok && /abort|network|fetch/i.test(r.error || '') && !process.env.SMS_BASE_URL) {
+    return attempt(url.replace('portal.bulkgate.com', 'backup1.bulkgate.com'))
+  }
+  return r
 }
 
 async function sendYuboto(to: string, text: string): Promise<SmsResult> {
