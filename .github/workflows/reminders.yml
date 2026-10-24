@@ -35,3 +35,8 @@ jobs:
         run: |
           curl -fsS -X GET "https://www.washio.gr/api/cron/coupon-report" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+      - name: SMS υπενθύμιση (~2h πριν · πρωινά ραντεβού το προηγούμενο βράδυ)
+        if: always()
+        run: |
+          curl -fsS -X GET "https://www.washio.gr/api/cron/sms" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
