@@ -59,3 +59,30 @@ export function useSwipeToClose<T extends HTMLElement>(onClose: () => void) {
 
   return { ref, handlers: { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd } }
 }
+
+// Swipe προς τα πάνω (π.χ. στη λαβή του μαζεμένου sheet) → άνοιγμα. Οριζόντιο scroll ανέγγιχτο.
+export function useSwipeToOpen(onOpen: () => void) {
+  const st = useRef<{ x: number; y: number; axis: '' | 'x' | 'y'; dy: number } | null>(null)
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    const tch = e.touches[0]
+    st.current = { x: tch.clientX, y: tch.clientY, axis: '', dy: 0 }
+  }, [])
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    const s = st.current
+    if (!s) return
+    const tch = e.touches[0]
+    const dx = tch.clientX - s.x
+    const dy = s.y - tch.clientY // θετικό = προς τα πάνω
+    if (!s.axis) {
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+      s.axis = Math.abs(dy) > Math.abs(dx) && dy > 0 ? 'y' : 'x'
+    }
+    if (s.axis === 'y') s.dy = dy
+  }, [])
+  const onTouchEnd = useCallback(() => {
+    const s = st.current
+    st.current = null
+    if (s && s.axis === 'y' && s.dy > 40) onOpen()
+  }, [onOpen])
+  return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd }
+}

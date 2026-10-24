@@ -7,6 +7,8 @@ export type FunnelStep =
   | 'book_click' | 'login_wall' | 'booking_page' | 'pay_click' | 'booked'
   // Μετά την κράτηση: ακύρωση vs αλλαγή ώρας.
   | 'cancel_open' | 'cancel_save_click' | 'rescheduled' | 'cancelled'
+  // Χάρτης: άνοιξε τη λίστα όλων των πλυντηρίων (swipe up).
+  | 'list_open'
 
 function storageId(store: 'local' | 'session', key: string): string {
   try {

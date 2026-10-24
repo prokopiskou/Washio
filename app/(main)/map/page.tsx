@@ -22,7 +22,7 @@ import { isNativeApp } from '@/lib/native-auth'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
-import { useSwipeToClose } from '@/lib/useSwipeToClose'
+import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
 
 // Κέντρα περιοχών για τοπικές διαφημίσεις: /map?area=vyronas → ο χάρτης ανοίγει εκεί
 // και η λίστα ταξινομείται από εκεί (μέχρι να έρθει η πραγματική θέση του χρήστη).
@@ -53,6 +53,7 @@ const T = {
     whenTitle: 'Πότε θέλεις;', dateLabel: 'Ημερομηνία', timeLabel: 'Ώρα',
     pickTime: 'Επίλεξε ώρα', apply: 'Εφαρμογή', loading: 'Φόρτωση...',
     passed: 'πέρασε', newRating: 'Νέο',
+    allWashers: 'Όλα τα πλυντήρια', seeList: 'Λίστα', fromPrice: 'από', closedToday: 'Κλειστό σήμερα', laterToday: 'Αργότερα',
     waitTitle: 'Δεν έχουμε ακόμα πλυντήριο εδώ',
     waitSub: 'Άσε το email σου και σε ειδοποιούμε μόλις έρθει το Washio στην περιοχή σου.',
     waitEmail: 'Το email σου',
@@ -84,6 +85,7 @@ const T = {
     whenTitle: 'When do you want it?', dateLabel: 'Date', timeLabel: 'Time',
     pickTime: 'Select a time', apply: 'Apply', loading: 'Loading...',
     passed: 'passed', newRating: 'New',
+    allWashers: 'All car washes', seeList: 'List', fromPrice: 'from', closedToday: 'Closed today', laterToday: 'Later',
     waitTitle: 'No car wash here yet',
     waitSub: "Leave your email and we'll notify you the moment Washio arrives in your area.",
     waitEmail: 'Your email',
@@ -266,6 +268,16 @@ function MapPageContent() {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   // Swipe κάτω στο sheet του πλυντηρίου → κλείνει, φαίνεται όλος ο χάρτης.
   const sheetSwipe = useSwipeToClose<HTMLDivElement>(useCallback(() => setSelectedLocation(null), []))
+  // Swipe πάνω στη λίστα (μαζεμένη) → όλα τα πλυντήρια σε κάθετη λίστα · swipe κάτω → μαζεύει.
+  const [listExpanded, setListExpanded] = useState(false)
+  const listExpandedRef = useRef(false)
+  listExpandedRef.current = listExpanded
+  const openList = useCallback(() => {
+    if (!listExpandedRef.current) funnel('list_open', { once: false })
+    setListExpanded(true)
+  }, [])
+  const peekSwipe = useSwipeToOpen(openList)
+  const listSwipe = useSwipeToClose<HTMLDivElement>(useCallback(() => setListExpanded(false), []))
   const [locationServices, setLocationServices] = useState<Service[]>([])
   // Προφορτωμένα δεδομένα ανά πλυντήριο (από το ίδιο query με τον χάρτη) →
   // στο tap σε σημείο υπηρεσίες/βαθμολογία/ώρες εμφανίζονται ΑΜΕΣΑ, χωρίς νέο round-trip.
@@ -354,6 +366,21 @@ function MapPageContent() {
     if (vehicleType === 'Μοτοσικλέτα') return isMotoService(s.name)
     return true
   })
+
+  // Λίστα: «από X €» = φθηνότερη υπηρεσία για τον τύπο οχήματος, με το κουπόνι ήδη μέσα.
+  const fromPrice = (locId: string): number | null => {
+    let best: number | null = null
+    for (const s of servicesByLocRef.current[locId] || []) {
+      if (s.is_range) continue
+      const p = Number(priceFor(s)) || 0
+      if (!(p > 0)) continue
+      const moto = isMotoService(s.name)
+      if (vehicleType === 'Μοτοσικλέτα' ? !moto : moto) continue
+      const v = p - discFor(s)
+      if (best === null || v < best) best = v
+    }
+    return best
+  }
 
   const service = visibleServices.find(s => s.id === selectedService)
   const selectedServicePrice = service ? priceFor(service) : undefined
@@ -827,14 +854,15 @@ function MapPageContent() {
     return () => { cancelled = true }
   }, [selectedLocation, timing, selectedDate, selectedTime, selectedService, locationServices, refreshTick])
 
-  const selectLocation = (loc: Location) => {
+  const selectLocation = (loc: Location, src: 'map' | 'list' = 'map') => {
+    setListExpanded(false)
     setSelectedLocation(loc)
     setSelectedService(null)
     setSelectedSlot(null)
     mapInstanceRef.current?.panTo({ lat: loc.lat, lng: loc.lng })
     // Δυνατότερο intent signal: είδε συγκεκριμένο πλυντήριο (χτίζει retargeting pool).
     trackEvent('ViewContent', { content_type: 'wash', content_ids: [loc.slug || loc.id], content_name: loc.name })
-    funnel('washer_open', { locationId: loc.id, meta: { avail: !!loc.hasAvailability, km: loc.distance ?? -1, timing } })
+    funnel('washer_open', { locationId: loc.id, meta: { avail: !!loc.hasAvailability, km: loc.distance ?? -1, timing, src } })
   }
 
   const visibleSlots = (() => {
@@ -1273,10 +1301,88 @@ function MapPageContent() {
         <div className="fixed left-0 right-0 z-20 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-full md:max-w-lg" style={{ bottom: 'calc(74px + env(safe-area-inset-bottom))' }}>
 
           {/* Collapsed peek — list of locations */}
-          {!selectedLocation && filteredLocations.length > 0 && (
-            <div className="rounded-t-[26px] pt-2.5 border-t border-washio-border"
+          {/* Ανοιχτή λίστα — όλα τα πλυντήρια κάθετα (swipe up στη μαζεμένη λίστα). */}
+          {!selectedLocation && listExpanded && filteredLocations.length > 0 && (
+            <div ref={listSwipe.ref} {...listSwipe.handlers}
+                 className="rounded-t-[26px] pt-2.5 border-t border-washio-border flex flex-col"
+                 style={{ height: 'calc(100dvh - 74px - env(safe-area-inset-bottom) - 150px)', background: 'linear-gradient(180deg, #EAF8FB 0%, #FFFFFF 70px)', boxShadow: '0 -10px 30px rgba(16,24,42,0.14)' }}>
+              <button onClick={() => setListExpanded(false)} aria-label="close" className="w-full pb-2.5 shrink-0">
+                <div className="w-10 h-1 rounded-full bg-washio-cyan/30 mx-auto" />
+              </button>
+              <div className="flex justify-between items-center px-5 pb-2.5 shrink-0">
+                <p className="text-[15px] font-bold tracking-tight text-washio-navy">{t.allWashers} · {filteredLocations.length}</p>
+                <button onClick={() => setListExpanded(false)} className="w-8 h-8 rounded-full bg-white border border-washio-border text-gray-500 flex items-center justify-center">
+                  <ChevronDown size={16} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 space-y-2.5">
+                {[...filteredLocations]
+                  .sort((a, b) => (a.hasAvailability ? 0 : a.laterSlot ? 1 : 2) - (b.hasAvailability ? 0 : b.laterSlot ? 1 : 2))
+                  .map(loc => {
+                    const r = ratingByLocRef.current[loc.id]
+                    const from = fromPrice(loc.id)
+                    const open = !!loc.hasAvailability || !!loc.laterSlot
+                    return (
+                      <button
+                        key={loc.id}
+                        onClick={() => selectLocation(loc, 'list')}
+                        className="w-full bg-white rounded-[18px] p-2.5 border border-washio-border flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
+                        style={{ boxShadow: '0 4px 14px rgba(16,24,42,0.06)' }}
+                      >
+                        <div className="w-[72px] h-[72px] rounded-[14px] overflow-hidden shrink-0 bg-washio-navy flex items-center justify-center">
+                          {loc.photos && loc.photos.length > 0 ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={loc.photos[0]} alt="" loading="lazy" decoding="async" className={`w-full h-full object-cover ${open ? '' : 'grayscale opacity-70'}`} />
+                          ) : (
+                            <span className="text-white text-[20px] font-semibold">{loc.name?.charAt(0)}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 flex flex-col gap-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-[14px] font-semibold tracking-tight text-washio-navy leading-tight truncate">{loc.name}</p>
+                            <span className="shrink-0 inline-flex items-center gap-0.5 text-[12px] font-semibold text-washio-navy">
+                              <Star size={12} className={r && r.count > 0 ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} />
+                              {r && r.count > 0 ? <>{r.avg.toFixed(1)}<span className="font-normal text-gray-400">({r.count})</span></> : <span className="font-normal text-gray-400">{t.newRating}</span>}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0 text-[12px] text-gray-500">
+                            <span className="truncate">{loc.city}</span>
+                            {loc.distance !== undefined && (<><span className="w-[3px] h-[3px] rounded-full bg-gray-300 shrink-0" /><span className="shrink-0">{formatDistance(loc.distance, locale)}</span></>)}
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            {loc.hasAvailability ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-washio-success-bg text-[11px] font-semibold text-green-700">
+                                <span className="w-1.5 h-1.5 rounded-full bg-washio-success" />{timing === 'now' ? `${t.today} ${loc.nextSlot || ''}` : (loc.nextSlot || '')}
+                              </span>
+                            ) : loc.laterSlot ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[11px] font-semibold text-gray-600">
+                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />{t.today} {loc.laterSlot}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-[11px] font-semibold text-gray-500">
+                                <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />{timing === 'now' ? t.closedToday : t.closedChip}
+                              </span>
+                            )}
+                            {from !== null && (
+                              <span className="text-[12px] text-gray-500 shrink-0">{t.fromPrice} <span className="text-[14px] font-bold text-washio-navy">{eur(from)} €</span></span>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Collapsed peek — list of locations */}
+          {!selectedLocation && !listExpanded && filteredLocations.length > 0 && (
+            <div {...peekSwipe} className="rounded-t-[26px] pt-2.5 border-t border-washio-border"
                  style={{ background: 'linear-gradient(180deg, #EAF8FB 0%, #FFFFFF 70px)', boxShadow: '0 -10px 30px rgba(16,24,42,0.10)' }}>
-              <div className="w-10 h-1 rounded-full bg-washio-cyan/30 mx-auto mb-2.5" />
+              {/* Swipe up οπουδήποτε (ή tap στη λαβή / «Λίστα») → όλα τα πλυντήρια. Το οριζόντιο scroll των καρτών μένει. */}
+              <button onClick={openList} aria-label={t.allWashers} className="w-full pb-2.5 -mt-2.5 pt-2.5">
+                <div className="w-10 h-1 rounded-full bg-washio-cyan/30 mx-auto" />
+              </button>
               {/* Header */}
               <div className="flex justify-between items-center px-5 pb-2.5">
                 {availableCount > 0 ? (
@@ -1295,6 +1401,9 @@ function MapPageContent() {
                     {t.allClosedNow}
                   </p>
                 )}
+                <button onClick={openList} className="shrink-0 inline-flex items-center gap-0.5 text-[12px] font-semibold text-washio-cyan-dark">
+                  {t.seeList} <ChevronRight size={14} />
+                </button>
               </div>
 
               {/* Horizontal compact cards */}
