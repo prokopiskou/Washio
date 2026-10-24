@@ -669,14 +669,19 @@ export default function DashboardPage() {
 
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
   const monthlyBookings = bookings.filter(b => b.slot_date && new Date(b.slot_date) >= monthStart)
-  const monthlyRevenue = monthlyBookings.filter(b => b.status === 'completed').reduce((sum, b) => sum + Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)), 0)
+  // Έσοδα μήνα = κρατήσεις που έγιναν (όχι ακυρωμένες / no-show) και πέρασε η ώρα τους.
+  // (Πριν: status === 'completed' — δεν υπάρχει στη βάση → έδειχνε πάντα €0.)
+  const monthlyRevenue = monthlyBookings.filter(b => b.status !== 'cancelled' && b.status !== 'no_show'
+    && !!b.slot_date && !!b.slot_start_time
+    && Date.now() >= athensEpoch(b.slot_date, b.slot_start_time) + (Number(b.duration_minutes) || 30) * 60_000).reduce((sum, b) => sum + Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)), 0)
   const todayBookings = bookings.filter(b => b.slot_date === ymdFromLocalDate(new Date()))
 
   const statusClass = (status?: string) => {
     if (status === 'pending') return 'bg-amber-50 text-amber-600'
     if (status === 'confirmed') return 'bg-blue-50 text-blue-600'
     if (status === 'completed') return 'bg-green-50 text-green-600'
-    if (status === 'cancelled') return 'bg-red-50 text-red-500'
+    if (status === 'cancelled') return 'bg-gray-100 text-gray-500'
+    if (status === 'no_show') return 'bg-red-50 text-red-500'
     return 'bg-gray-50 text-gray-500'
   }
 
@@ -685,6 +690,7 @@ export default function DashboardPage() {
     if (status === 'confirmed') return t('Επιβεβαιώθηκε')
     if (status === 'completed') return t('Ολοκληρώθηκε')
     if (status === 'cancelled') return t('Ακυρώθηκε')
+    if (status === 'no_show') return t('Δεν ήρθε')
     return status || '—'
   }
 
@@ -890,6 +896,20 @@ export default function DashboardPage() {
     if (!b.slot_date || !b.slot_start_time) return false
     const start = athensEpoch(b.slot_date, b.slot_start_time)
     return nowTick >= start + NO_SHOW_FROM_MIN * 60_000 && nowTick <= start + NO_SHOW_UNTIL_MIN * 60_000
+  }
+
+  // Πολύ αχνό φόντο γραμμής: πράσινο = ολοκληρώθηκε · κόκκινο = δεν ήρθε.
+  const rowBg = (es: string) => es === 'completed' ? '#F3FBF6' : es === 'no_show' ? '#FDF4F4' : undefined
+
+  // Κατάσταση προς εμφάνιση: ενεργή κράτηση της οποίας πέρασε η ώρα λήξης → «Ολοκληρώθηκε».
+  // (Στη βάση μένει confirmed· το «Δεν εμφανίστηκε» μένει διαθέσιμο μέχρι το όριο των 5 ωρών.)
+  const effStatus = (b: Booking): string => {
+    const st = String(b.status || '')
+    if ((st === 'confirmed' || st === 'pending') && b.slot_date && b.slot_start_time) {
+      const end = athensEpoch(b.slot_date, b.slot_start_time) + (Number(b.duration_minutes) || 30) * 60_000
+      if (nowTick >= end) return 'completed'
+    }
+    return st
   }
 
   const openManualForm = () => {
@@ -1197,12 +1217,12 @@ export default function DashboardPage() {
                   </div>
                   <div className="divide-y divide-gray-50">
                     {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => (
-                      <div key={b.id} className="px-4 py-3 flex items-center justify-between">
+                      <div key={b.id} className="px-4 py-3 flex items-center justify-between" style={{ background: rowBg(effStatus(b)) }}>
                         <div>
                           <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · <span className="font-mono text-[12px] text-gray-500">{b.booking_ref || '—'}</span></p>
                           <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(effStatus(b))}`}>{statusLabel(effStatus(b))}</span>
                       </div>
                     ))}
                   </div>
@@ -1217,14 +1237,14 @@ export default function DashboardPage() {
                 </div>
                 <div className="divide-y divide-gray-50">
                   {bookings.slice(0, 5).map(b => (
-                    <div key={b.id} className="px-4 py-3 flex items-center justify-between">
+                    <div key={b.id} className="px-4 py-3 flex items-center justify-between" style={{ background: rowBg(effStatus(b)) }}>
                       <div>
                         <p className="text-sm text-gray-900">{b.slot_date} · <span className="font-mono text-[12px] text-gray-500">{b.booking_ref || '—'}</span></p>
                         <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-900">€{Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)).toFixed(0)}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(b.status)}`}>{statusLabel(b.status)}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(effStatus(b))}`}>{statusLabel(effStatus(b))}</span>
                       </div>
                     </div>
                   ))}
@@ -1295,7 +1315,7 @@ export default function DashboardPage() {
 
           {activeTab === 'bookings' && (() => {
             const filtered = [...bookings]
-              .filter(b => filterStatus === 'all' || b.status === filterStatus)
+              .filter(b => filterStatus === 'all' || effStatus(b) === filterStatus)
               .sort((a, b) => {
                 if (sortBy === 'created_at') {
                   return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
@@ -1305,8 +1325,8 @@ export default function DashboardPage() {
 
             const statusCounts = {
               all: bookings.length,
-              confirmed: bookings.filter(b => b.status === 'confirmed').length,
-              completed: bookings.filter(b => b.status === 'completed').length,
+              confirmed: bookings.filter(b => effStatus(b) === 'confirmed').length,
+              completed: bookings.filter(b => effStatus(b) === 'completed').length,
               cancelled: bookings.filter(b => b.status === 'cancelled').length,
               pending: bookings.filter(b => b.status === 'pending').length,
               no_show: bookings.filter(b => b.status === 'no_show').length,
@@ -1315,9 +1335,9 @@ export default function DashboardPage() {
             const statusPillConfig = (status?: string) => {
               if (status === 'pending') return { bg: '#FEF3C7', fg: '#92400E', label: t('Εκκρεμεί') }
               if (status === 'confirmed') return null // «Επιβεβαιωμένη» = κανονική κατάσταση, χωρίς σήμανση.
-              if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('Ολοκλ.') }
-              if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B43C3C', label: t('Ακυρ.') }
-              if (status === 'no_show') return { bg: '#F3E8FF', fg: '#7E22CE', label: t('Δεν ήρθε') }
+              if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('Ολοκληρώθηκε') }
+              if (status === 'cancelled') return { bg: '#F3F4F6', fg: '#6B7280', label: t('Ακυρ.') }
+              if (status === 'no_show') return { bg: '#FCEAEA', fg: '#B43C3C', label: t('Δεν ήρθε') }
               return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
             }
 
@@ -1391,7 +1411,11 @@ export default function DashboardPage() {
                 {/* Booking cards */}
                 <div className="space-y-2">
                   {filtered.map(b => {
-                    const pill = statusPillConfig(b.status)
+                    const es = effStatus(b)
+                    const pill = statusPillConfig(es)
+                    // Πολύ αχνό φόντο: πράσινο = ολοκληρώθηκε · κόκκινο = δεν ήρθε.
+                    const cardBg = es === 'completed' ? '#F3FBF6' : es === 'no_show' ? '#FDF4F4' : '#FFFFFF'
+                    const cardBorder = es === 'completed' ? '#DDF1E5' : es === 'no_show' ? '#F6DEDE' : undefined
                     // Κρατήσεις Washio: το πλυντήριο ΔΕΝ ακυρώνει (μόνο «Δεν εμφανίστηκε»). Ακύρωση μόνο στις δικές του (εκτός πλατφόρμας).
                     const canCancel = (b.status === 'pending' || b.status === 'confirmed') && b.source === 'manual'
                     const slotDate = b.slot_date ? new Date(b.slot_date).toLocaleDateString(dl, {
@@ -1406,8 +1430,8 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={b.id}
-                        className="bg-white border border-gray-100 rounded-xl p-3 flex items-start gap-3"
-                        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}
+                        className="border border-gray-100 rounded-xl p-3 flex items-start gap-3"
+                        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)', background: cardBg, ...(cardBorder ? { borderColor: cardBorder } : {}) }}
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-[14px] font-semibold tracking-tight text-gray-900">
@@ -1693,8 +1717,8 @@ export default function DashboardPage() {
                   const laneCount = Math.max(1, laneEnds.length)
 
                   const blockStyle = (bk: Booking) => {
-                    if (bk.status === 'no_show') return { bg: '#F3E8FF', border: '#C084FC', fg: '#7E22CE' }
-                    if (bk.status === 'completed') return { bg: '#E7F6EF', border: '#34C79A', fg: '#0F7A5C' }
+                    if (bk.status === 'no_show') return { bg: '#FDF4F4', border: '#F2B8B8', fg: '#B43C3C' }
+                    if (effStatus(bk) === 'completed') return { bg: '#F3FBF6', border: '#9FDCBC', fg: '#0F7A5C' }
                     if (bk.source === 'manual') return { bg: '#F3F4F6', border: '#9CA3AF', fg: '#374151' }
                     if (bk.stripe_payment_status === 'pay_at_venue') return { bg: '#FFEDD5', border: '#FB923C', fg: '#C2410C' }
                     return { bg: '#EAF2FD', border: '#5C9CE6', fg: '#1A6FD4' }
