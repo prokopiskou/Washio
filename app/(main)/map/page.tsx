@@ -22,6 +22,7 @@ import { isNativeApp } from '@/lib/native-auth'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
+import { useSwipeToClose } from '@/lib/useSwipeToClose'
 
 // Κέντρα περιοχών για τοπικές διαφημίσεις: /map?area=vyronas → ο χάρτης ανοίγει εκεί
 // και η λίστα ταξινομείται από εκεί (μέχρι να έρθει η πραγματική θέση του χρήστη).
@@ -263,6 +264,8 @@ function MapPageContent() {
   const [allLocations, setAllLocations] = useState<Location[]>([])
   const [filteredLocations, setFilteredLocations] = useState<Location[]>([])
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
+  // Swipe κάτω στο sheet του πλυντηρίου → κλείνει, φαίνεται όλος ο χάρτης.
+  const sheetSwipe = useSwipeToClose<HTMLDivElement>(useCallback(() => setSelectedLocation(null), []))
   const [locationServices, setLocationServices] = useState<Service[]>([])
   // Προφορτωμένα δεδομένα ανά πλυντήριο (από το ίδιο query με τον χάρτη) →
   // στο tap σε σημείο υπηρεσίες/βαθμολογία/ώρες εμφανίζονται ΑΜΕΣΑ, χωρίς νέο round-trip.
@@ -1343,9 +1346,13 @@ function MapPageContent() {
 
           {/* Selected location — booking flow */}
           {selectedLocation && (
-            <div className="rounded-t-[26px] px-5 pt-2.5 pb-5 border-t border-washio-border"
+            <div ref={sheetSwipe.ref} {...sheetSwipe.handlers}
+                 className="rounded-t-[26px] px-5 pt-2.5 pb-5 border-t border-washio-border"
                  style={{ background: 'linear-gradient(180deg, #EAF8FB 0%, #FFFFFF 90px)', boxShadow: '0 -10px 30px rgba(16,24,42,0.12)' }}>
-              <div className="w-10 h-1 bg-washio-cyan/30 rounded-full mx-auto mb-3.5" />
+              {/* Λαβή — swipe προς τα κάτω κλείνει το πλυντήριο και ανοίγει ο χάρτης. */}
+              <div className="-mt-2.5 pt-2.5 pb-3.5 -mx-5 cursor-grab">
+                <div className="w-10 h-1 bg-washio-cyan/30 rounded-full mx-auto" />
+              </div>
 
               {/* Γραμμή 1: όνομα/απόσταση · κριτικές + κλείσιμο */}
               <div className="flex items-start justify-between gap-3 mb-3">
