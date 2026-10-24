@@ -50,6 +50,8 @@ const T = {
     partnerBannerTitle: 'Η επιχείρησή σου είναι live',
     partnerBannerSub: 'Δες κρατήσεις, τιμές και ωράριο',
     partnerBannerCta: 'Άνοιξε το dashboard',
+    guestTitle: 'Σύνδεση ή εγγραφή',
+    guestSub: 'Δες τις κρατήσεις σου · −3€ στο πρώτο πλύσιμο',
   },
   en: {
     loading: 'Loading...',
@@ -73,6 +75,8 @@ const T = {
     partnerBannerTitle: 'Your business is live',
     partnerBannerSub: 'See bookings, prices and hours',
     partnerBannerCta: 'Open dashboard',
+    guestTitle: 'Log in or sign up',
+    guestSub: 'See your bookings · −3€ off your first wash',
   },
 }
 
@@ -124,6 +128,8 @@ export default function HomePage() {
   const [lastBooking, setLastBooking] = useState<Booking | null>(null)
   const [activeLocationsCount, setActiveLocationsCount] = useState(0)
   const [isPartner, setIsPartner] = useState(false)
+  // Native επισκέπτης (χωρίς σύνδεση) που πάτησε «Αρχική»: ίδια αρχική, χωρίς προσωπικά δεδομένα.
+  const [isGuestHome, setIsGuestHome] = useState(false)
   // Αν ο server (Supabase) δεν απαντά, ΜΗΝ μένεις για πάντα στο loader:
   // μετά από 10″ δείξε μήνυμα + «Δοκίμασε ξανά».
   const [connFailed, setConnFailed] = useState(false)
@@ -179,23 +185,33 @@ export default function HomePage() {
         }
         // Native app: μπες στη ροή της εφαρμογής. Browser επισκέπτης: δείξε το landing.
         if (Capacitor.isNativePlatform()) {
-          // Η εφαρμογή ανοίγει κατευθείαν στον χάρτη (πραγματικά πλυντήρια, −3€ banner).
-          // Εγγραφή μόνο όταν πατήσει «Συνέχεια» σε ώρα — όχι πριν δει τίποτα.
-          router.replace('/map')
+          // Η εφαρμογή ανοίγει κατευθείαν στον χάρτη (πραγματικά πλυντήρια, −3€ banner) — ΜΟΝΟ
+          // στο άνοιγμα της εφαρμογής. Αν μετά πατήσει «Αρχική», βλέπει την αρχική ως επισκέπτης
+          // (πριν: ξανά redirect στον χάρτη → το κουμπί «Αρχική» έμοιαζε να μη δουλεύει).
+          let booted = false
+          try { booted = sessionStorage.getItem('ws_booted') === '1'; sessionStorage.setItem('ws_booted', '1') } catch { /* ignore */ }
+          if (!booted) { router.replace('/map'); return }
+          setIsGuestHome(true)
         } else {
           setShowLanding(true)
           setAuthChecking(false)
+          return
         }
-        return
+      } else {
+        try { sessionStorage.setItem('ws_booted', '1') } catch { /* ignore */ }
+        setIsGuestHome(false)
       }
 
-      const user = sessionData.session.user
+      const user = sessionData.session?.user ?? null
+      const uid = user?.id ?? ''
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const none = Promise.resolve({ data: null as any })
 
       // «Θυμήσου την τελευταία όψη»: αν ο ιδιοκτήτης ήταν τελευταία στο dashboard,
       // πήγαινέ τον ΚΑΤΕΥΘΕΙΑΝ εκεί (γρήγορη είσοδος, χωρίς να περνά από την εφαρμογή πελάτη).
       // Το flag τίθεται μόνο μέσα στο dashboard (verified partner), άρα είναι ασφαλές.
       try {
-        if (Capacitor.isNativePlatform() && localStorage.getItem('washio_mode') === 'partner') {
+        if (user && Capacitor.isNativePlatform() && localStorage.getItem('washio_mode') === 'partner') {
           router.replace('/dashboard')
           return
         }
@@ -211,7 +227,7 @@ export default function HomePage() {
         setActiveLocationsCount(c.openCount ?? 0)
         setIsPartner(c.partner)
       }
-      const cached = readPageCache<HomeCache>('home', user.id)
+      const cached = readPageCache<HomeCache>('home', uid || 'guest')
       if (cached) { applyHome(cached); setAuthChecking(false) }
 
       // Προφόρτωσε τις πιο πιθανές επόμενες οθόνες (κώδικας έτοιμος πριν το tap).
@@ -225,8 +241,8 @@ export default function HomePage() {
         supabase.from('location_hours').select('location_id, open_time, close_time, open_time2, close_time2, is_closed')
           .eq('day_of_week', weekdayMon1FromYmd(today)),
         supabase.from('location_hours_exceptions').select('location_id, is_closed').eq('exception_date', today),
-        supabase.from('bookings').select('location_id').eq('user_id', user.id)
-          .order('created_at', { ascending: false }).limit(20),
+        uid ? supabase.from('bookings').select('location_id').eq('user_id', uid)
+          .order('created_at', { ascending: false }).limit(20) : none,
       ])
 
       const [
@@ -237,10 +253,10 @@ export default function HomePage() {
         { data: ownedLocation },
       ] = await Promise.all([
         // Επόμενη κράτηση
-        supabase
+        !uid ? none : supabase
           .from('bookings')
           .select('id, booking_ref, slot_date, slot_start_time, locations(name, slug)')
-          .eq('user_id', user.id)
+          .eq('user_id', uid)
           .eq('status', 'confirmed')
           .gte('slot_date', today)
           .order('slot_date', { ascending: true })
@@ -248,19 +264,19 @@ export default function HomePage() {
           .limit(1)
           .maybeSingle(),
         // Τελευταία ολοκληρωμένη
-        supabase
+        !uid ? none : supabase
           .from('bookings')
           .select('id, booking_ref, slot_date, slot_start_time, locations(name, slug)')
-          .eq('user_id', user.id)
+          .eq('user_id', uid)
           .in('status', ['completed', 'confirmed'])
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
         // Αγαπημένα
-        supabase
+        !uid ? none : supabase
           .from('favorites')
           .select('id, locations(id, name, slug)')
-          .eq('user_id', user.id)
+          .eq('user_id', uid)
           .limit(5),
         // ΟΛΑ τα ενεργά σημεία — ίδια πηγή με τον χάρτη (is_active).
         supabase
@@ -268,10 +284,10 @@ export default function HomePage() {
           .select('id, name, city, slug, photos, services(price, is_active, is_range, price_min, duration_minutes, display_duration_minutes), reviews(rating)')
           .eq('is_active', true),
         // Partner check — έχει ο χρήστης δικό του πλυντήριο;
-        supabase
+        !uid ? none : supabase
           .from('locations')
           .select('id')
-          .eq('owner_id', user.id)
+          .eq('owner_id', uid)
           .limit(1)
           .maybeSingle(),
       ])
@@ -322,7 +338,7 @@ export default function HomePage() {
         partner: !!(ownedLocation as { id?: string } | null)?.id,
       }
       applyHome(fresh)
-      writePageCache('home', user.id, fresh)
+      writePageCache('home', uid || 'guest', fresh)
 
       setAuthChecking(false)
     }
@@ -370,7 +386,7 @@ export default function HomePage() {
     const supabase = createClient()
     const { data: s } = await supabase.auth.getSession()
     const uid = s.session?.user?.id
-    if (!uid) return
+    if (!uid) { router.push('/login?redirect=%2F'); return }
     const existing = favorites.find(f => f.locations?.id === loc.id)
     if (existing) {
       setFavorites(prev => prev.filter(f => f.id !== existing.id))
@@ -426,6 +442,21 @@ export default function HomePage() {
               {t.heading}
             </h1>
           </div>
+
+          {/* Επισκέπτης: σύνδεση / εγγραφή (−3€ στο πρώτο πλύσιμο) */}
+          {isGuestHome && (
+            <button
+              onClick={() => router.push('/login?redirect=%2F')}
+              className="w-full rounded-[22px] px-4 py-3.5 flex items-center gap-3 text-left bg-white border border-washio-border active:scale-[0.99] transition-transform"
+              style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-semibold text-washio-navy leading-tight">{t.guestTitle}</p>
+                <p className="text-[12px] text-gray-500 mt-1">{t.guestSub}</p>
+              </div>
+              <ChevronRight size={20} className="text-gray-400 shrink-0" />
+            </button>
+          )}
 
           {/* Hero CTA */}
           <button
