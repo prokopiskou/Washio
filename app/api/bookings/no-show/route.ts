@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Η κράτηση δεν μπορεί να σημειωθεί ως μη εμφάνιση' }, { status: 409 })
     }
 
-    // Παράθυρο 15'–45' μετά την ώρα του ραντεβού (εκτός admin). Μετά → θεωρείται ολοκληρωμένη.
+    // Παράθυρο 15' – 4 ώρες μετά την ώρα του ραντεβού (εκτός admin). Μετά → θεωρείται ολοκληρωμένη.
     if (!isAdminEmail(user.email) && booking.slot_date && booking.slot_start_time) {
       const start = athensEpoch(booking.slot_date as string, booking.slot_start_time as string)
       const now = Date.now()

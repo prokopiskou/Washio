@@ -3,7 +3,7 @@ import { expiryForSignup } from '@/lib/coupon-expiry'
 
 // Referral + wallet — server-side, best-effort (ποτέ δεν μπλοκάρει booking/auth).
 //   • Νέος από link: −3€ welcome (πίστωση στο wallet).
-//   • Referrer: +3€ για κάθε φίλο ΟΤΑΝ ΟΛΟΚΛΗΡΩΘΕΙ το πρώτο του πλύσιμο (ώρα ραντεβού + 45',
+//   • Referrer: +3€ για κάθε φίλο ΟΤΑΝ ΟΛΟΚΛΗΡΩΘΕΙ το πρώτο του πλύσιμο (ώρα ραντεβού + 4h,
 //     χωρίς ακύρωση/no-show) — έως 2 φίλοι. Το δίνει το cron (processReferralRewards).
 //     Αν παρ' όλα αυτά αλλάξει αργότερα σε ακύρωση/no-show → αφαιρείται (revokeReferrerReward).
 //   • Πίστωση εξαργυρώνεται ΜΟΝΟ σε κράτηση, αφήνοντας ≥0.50€ πραγματική χρέωση

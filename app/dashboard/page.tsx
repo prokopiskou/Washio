@@ -859,7 +859,7 @@ export default function DashboardPage() {
     }
   }
 
-  // «Δεν εμφανίστηκε» — μόνο 15'–45' μετά την ώρα του ραντεβού (ο server το επιβάλλει).
+  // «Δεν εμφανίστηκε» — μόνο από 15' έως 4 ώρες μετά την ώρα του ραντεβού (ο server το επιβάλλει).
   const markNoShow = async (b: Booking) => {
     if (!confirm(t('Ο πελάτης δεν εμφανίστηκε; Η κράτηση θα σημανθεί ως no-show.'))) return
     const res = await fetch('/api/bookings/no-show', {
@@ -878,7 +878,7 @@ export default function DashboardPage() {
     }
   }
 
-  // «Δεν εμφανίστηκε»: ΜΟΝΟ από 15' έως 45' μετά την ώρα του ραντεβού (ώρα Ελλάδας).
+  // «Δεν εμφανίστηκε»: ΜΟΝΟ από 15' έως 4 ώρες μετά την ώρα του ραντεβού (ώρα Ελλάδας).
   // Αν δεν πατηθεί μέχρι τότε → η κράτηση θεωρείται ολοκληρωμένη (μετράει κανονικά).
   const [nowTick, setNowTick] = useState(() => Date.now())
   useEffect(() => {
