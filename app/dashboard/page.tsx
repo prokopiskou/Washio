@@ -859,7 +859,7 @@ export default function DashboardPage() {
     }
   }
 
-  // «Δεν εμφανίστηκε» — μόνο από 15' έως 4 ώρες μετά την ώρα του ραντεβού (ο server το επιβάλλει).
+  // «Δεν εμφανίστηκε» — μόνο από 15' έως 5 ώρες μετά την ώρα του ραντεβού (ο server το επιβάλλει).
   const markNoShow = async (b: Booking) => {
     if (!confirm(t('Ο πελάτης δεν εμφανίστηκε; Η κράτηση θα σημανθεί ως no-show.'))) return
     const res = await fetch('/api/bookings/no-show', {
@@ -878,7 +878,7 @@ export default function DashboardPage() {
     }
   }
 
-  // «Δεν εμφανίστηκε»: ΜΟΝΟ από 15' έως 4 ώρες μετά την ώρα του ραντεβού (ώρα Ελλάδας).
+  // «Δεν εμφανίστηκε»: ΜΟΝΟ από 15' έως 5 ώρες μετά την ώρα του ραντεβού (ώρα Ελλάδας).
   // Αν δεν πατηθεί μέχρι τότε → η κράτηση θεωρείται ολοκληρωμένη (μετράει κανονικά).
   const [nowTick, setNowTick] = useState(() => Date.now())
   useEffect(() => {
@@ -1392,7 +1392,8 @@ export default function DashboardPage() {
                 <div className="space-y-2">
                   {filtered.map(b => {
                     const pill = statusPillConfig(b.status)
-                    const canCancel = b.status === 'pending' || b.status === 'confirmed'
+                    // Κρατήσεις Washio: το πλυντήριο ΔΕΝ ακυρώνει (μόνο «Δεν εμφανίστηκε»). Ακύρωση μόνο στις δικές του (εκτός πλατφόρμας).
+                    const canCancel = (b.status === 'pending' || b.status === 'confirmed') && b.source === 'manual'
                     const slotDate = b.slot_date ? new Date(b.slot_date).toLocaleDateString(dl, {
                       day: 'numeric', month: 'short', timeZone: 'Europe/Athens'
                     }) : '—'

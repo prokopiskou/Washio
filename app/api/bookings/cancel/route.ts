@@ -111,6 +111,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Κράτηση εκτός πλατφόρμας — τη διαχειρίζεται μόνο το πλυντήριο.' }, { status: 403 })
     }
 
+    // Κράτηση Washio (πλατφόρμα): το πλυντήριο ΔΕΝ μπορεί να την ακυρώσει — μόνο «Δεν εμφανίστηκε»
+    // (15' – 5 ώρες μετά την ώρα). Ο πελάτης / admin ακυρώνουν κανονικά.
+    if (isOwner && !admin && !isCustomer && (booking as { source?: string | null }).source !== 'manual') {
+      return NextResponse.json({ error: 'Οι κρατήσεις του Washio δεν ακυρώνονται από το πλυντήριο. Για οποιοδήποτε θέμα επικοινώνησε με το support@washio.gr.' }, { status: 403 })
+    }
+
     // Μόνο ενεργές κρατήσεις ακυρώνονται — όχι ολοκληρωμένες / no-show / ήδη ακυρωμένες.
     if (!['confirmed', 'pending'].includes(String(booking.status))) {
       return NextResponse.json({ error: 'Η κράτηση δεν μπορεί να ακυρωθεί (έχει ολοκληρωθεί ή ακυρωθεί ήδη).' }, { status: 409 })
