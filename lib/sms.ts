@@ -55,7 +55,7 @@ async function sendYuboto(to: string, text: string): Promise<SmsResult> {
           text,
           validity: 120, // λεπτά — μετά το ραντεβού δεν έχει νόημα
           typesms: isGsm7(text) ? 'sms' : 'unicode',
-          longsms: false,
+          longsms: text.length > smsLimit(text), // >1 τμήμα (π.χ. 2 SMS με τα links)
         },
       }),
     })

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendSms, smsConfigured, smsLimit, toMsisdn } from '@/lib/sms'
+import { sendSms, smsConfigured, toMsisdn } from '@/lib/sms'
 import { alertCritical } from '@/lib/alert'
 
 // SMS υπενθύμιση πριν το ραντεβού — κόβει τα «Δεν ήρθε».
@@ -8,6 +8,7 @@ import { alertCritical } from '@/lib/alert'
 //  • Πρωινά ραντεβού (πριν τις 10:00): το προηγούμενο βράδυ, 20:00–20:59 («αύριο»).
 //  • Μόνο κρατήσεις πλατφόρμας, confirmed, ελληνικό κινητό, φτιαγμένες πριν από 30'+.
 //  • Scope: SMS_SCOPE=all → όλοι · αλλιώς ΜΟΝΟ επισκέπτες (guest checkout) — εκεί ξεκινάμε.
+//  • Κείμενο έως 2 SMS: ώρα + πλυντήριο + link Google Maps (washio.gr/m/<κωδικός>) + αλλαγή (washio.gr/k).
 //  • Μία φορά ανά κράτηση (bookings.sms_reminder_sent — supabase/sms_reminders.sql).
 // GET (Bearer CRON_SECRET), κάθε 15' από το GitHub workflow.
 //   ?dry=1  → ποιοι ΘΑ έπαιρναν SMS τώρα (χωρίς αποστολή)
@@ -22,15 +23,16 @@ function athensParts(d: Date) {
   return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}`, hour: Number(p.hour) }
 }
 
-/** Κείμενο ≤70 χαρακτήρες (1 SMS στα ελληνικά): κόβει το όνομα του πλυντηρίου αν χρειάζεται. */
-function reminderText(day: 'σήμερα' | 'αύριο', time: string, place: string): string {
+/** Κείμενο έως 2 SMS (ελληνικά: 2 × 67 = 134 χαρ.) με link χάρτη + αλλαγής. Κόβει το όνομα αν χρειάζεται. */
+function reminderText(day: 'σήμερα' | 'αύριο', time: string, place: string, ref: string): string {
+  const code = String(ref || '').replace(/^WS-/i, '')
   const head = `Washio: Ραντεβού ${day} ${time}, `
-  const tail = `. Αλλαγή: washio.gr/k`
-  const room = 70 - head.length - tail.length
+  const tail = `.\nΔες στον χάρτη το πλυντήριο εδώ: washio.gr/m/${code}\nΑλλαγή: washio.gr/k`
+  const MAX = 134
+  const room = MAX - head.length - tail.length
   let name = (place || 'το πλυντήριο').trim().replace(/\s+/g, ' ')
   if (name.length > room) name = name.slice(0, Math.max(3, room - 1)).trimEnd() + '…'
-  const text = head + name + tail
-  return text.length <= smsLimit(text) ? text : (head + tail.slice(2)).slice(0, 70)
+  return (head + name + tail).slice(0, MAX)
 }
 
 type Row = {
@@ -87,7 +89,7 @@ export async function GET(req: NextRequest) {
   if (sp.get('test') === '1') {
     const to = process.env.SMS_TEST_PHONE || ''
     if (!toMsisdn(to)) return NextResponse.json({ ok: false, error: 'SMS_TEST_PHONE λείπει ή δεν είναι ελληνικό κινητό' })
-    const text = reminderText('σήμερα', '16:00', 'Nitro wash')
+    const text = reminderText('σήμερα', '16:00', 'Nitro wash', 'WS-TEST0000')
     const r = await sendSms(to, text)
     return NextResponse.json({ ...r, text, length: text.length })
   }
@@ -108,7 +110,7 @@ export async function GET(req: NextRequest) {
       continue
     }
     const time = String(row.slot_start_time || '').slice(0, 5)
-    const text = reminderText(day, time, row.locations?.name || '')
+    const text = reminderText(day, time, row.locations?.name || '', row.booking_ref)
     if (dry) { preview.push({ ref: row.booking_ref, day, time, phone: `…${phone.replace(/\D/g, '').slice(-3)}`, guest, text }); continue }
 
     // Claim-first: μόνο ένα run παίρνει την κράτηση.
