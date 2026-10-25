@@ -1,6 +1,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { greekMobile } from '@/lib/phone'
 import { phoneKey } from '@/lib/referral'
+import { fetchAll } from '@/lib/fetch-all'
 
 // «Ένα −3€ πρώτου πλυσίματος ανά άνθρωπο» — χωρίς καμία τριβή στον πελάτη.
 // Ισχύει ΜΟΝΟ στην πρώτη κράτηση ενός λογαριασμού (τότε το υπόλοιπό του = το welcome).
@@ -32,14 +33,13 @@ export function plateKey(raw: string | null | undefined): string | null {
 type CouponRow = { user_id: string | null; car_plate: string | null; device_id?: string | null }
 
 async function couponRowsOfOthers(db: SupabaseClient, userId: string): Promise<CouponRow[]> {
-  const base = () => db.from('bookings').select('user_id, car_plate, device_id')
-    .gt('coupon_amount', 0).neq('status', 'cancelled').neq('user_id', userId).limit(20000)
-  const r = await base()
-  if (!r.error) return (r.data || []) as CouponRow[]
+  const r = await fetchAll<CouponRow>(() => db.from('bookings').select('id, user_id, car_plate, device_id')
+    .gt('coupon_amount', 0).neq('status', 'cancelled').neq('user_id', userId).order('id'))
+  if (!r.error) return r.data
   // Χωρίς στήλη device_id (πριν το SQL) → μόνο πινακίδα.
-  const r2 = await db.from('bookings').select('user_id, car_plate')
-    .gt('coupon_amount', 0).neq('status', 'cancelled').neq('user_id', userId).limit(20000)
-  return (r2.data || []) as CouponRow[]
+  const r2 = await fetchAll<CouponRow>(() => db.from('bookings').select('id, user_id, car_plate')
+    .gt('coupon_amount', 0).neq('status', 'cancelled').neq('user_id', userId).order('id'))
+  return r2.data
 }
 
 export async function couponBlockReason(
@@ -76,9 +76,11 @@ export async function couponBlockReason(
     // 3) Ίδιο κινητό σε άλλο λογαριασμό με κουπόνι.
     const key = phoneKey(phone)
     if (key) {
-      let q = db.from('profiles').select('id, phone').not('phone', 'is', null).limit(10000)
-      if (userId) q = q.neq('id', userId)
-      const { data: profs } = await q
+      const { data: profs } = await fetchAll<{ id: string; phone: string }>(() => {
+        let q = db.from('profiles').select('id, phone').not('phone', 'is', null).order('id')
+        if (userId) q = q.neq('id', userId)
+        return q
+      })
       const ids = (profs || []).filter(p => phoneKey(p.phone as string) === key).map(p => p.id as string)
       if (ids.length) {
         const { count: used } = await db.from('bookings').select('id', { count: 'exact', head: true })

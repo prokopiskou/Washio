@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { fetchAll } from '@/lib/fetch-all'
 import { expiryForSignup } from '@/lib/coupon-expiry'
 
 // Referral + wallet — server-side, best-effort (ποτέ δεν μπλοκάρει booking/auth).
@@ -62,9 +63,11 @@ export async function welcomeUsedByPhone(db: SupabaseClient, userId: string): Pr
 // Έχει ΑΛΛΟΣ λογαριασμός με αυτό το κινητό (οποιαδήποτε μορφή) ήδη χρησιμοποιήσει κουπόνι;
 export async function phoneCouponUsedElsewhere(db: SupabaseClient, key: string, excludeUserId?: string | null): Promise<boolean> {
   try {
-    let q = db.from('profiles').select('id, phone').not('phone', 'is', null).limit(10000)
-    if (excludeUserId) q = q.neq('id', excludeUserId)
-    const { data: profs } = await q
+    const { data: profs } = await fetchAll<{ id: string; phone: string }>(() => {
+      let q = db.from('profiles').select('id, phone').not('phone', 'is', null).order('id')
+      if (excludeUserId) q = q.neq('id', excludeUserId)
+      return q
+    })
     const ids = (profs || []).filter(p => phoneKey(p.phone as string) === key).map(p => p.id as string)
     if (!ids.length) return false
     const { count: used } = await db.from('bookings').select('id', { count: 'exact', head: true })

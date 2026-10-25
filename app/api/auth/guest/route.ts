@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 import { linkReferral, phoneKey } from '@/lib/referral'
 import { phoneOk } from '@/lib/phone'
+import { fetchAll } from '@/lib/fetch-all'
 
 // Κράτηση ΧΩΡΙΣ σελίδα εγγραφής (guest checkout).
 // Ο επισκέπτης γράφει όνομα + κινητό + email ΜΕΣΑ στο checkout. Εδώ:
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
     try {
       // Ίδιο κινητό σε ΟΠΟΙΑΔΗΠΟΤΕ μορφή (+30 / κενά / παύλες) — σύγκριση στα 10 τελευταία ψηφία.
       const key = phoneKey(phone)
-      const { data: all } = await admin.from('profiles').select('id, phone').not('phone', 'is', null).neq('id', userId).limit(10000)
+      const { data: all } = await fetchAll<{ id: string; phone: string }>(() => admin.from('profiles').select('id, phone').not('phone', 'is', null).neq('id', userId).order('id'))
       const ids = (all || []).filter(p => phoneKey(p.phone as string) === key).map(p => p.id as string)
       if (ids.length) {
         const [{ count: welcomes }, { count: bookings }] = await Promise.all([

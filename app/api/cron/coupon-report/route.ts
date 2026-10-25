@@ -4,6 +4,7 @@ import { Resend } from 'resend'
 import { phoneKey } from '@/lib/referral'
 import { plateKey } from '@/lib/coupon-guard'
 import { isThrottled } from '@/lib/throttle'
+import { fetchAll } from '@/lib/fetch-all'
 
 // Εβδομαδιαίο report ΥΠΟΠΤΩΝ κουπονιών (Δευτέρα 09:00 Αθήνα) → email στον admin.
 // «Ύποπτο» = κρατήσεις με κουπόνι από ΔΙΑΦΟΡΕΤΙΚΟΥΣ λογαριασμούς που μοιράζονται:
@@ -45,13 +46,13 @@ export async function GET(req: NextRequest) {
 
   // Κρατήσεις με κουπόνι (όχι ακυρωμένες). Με/χωρίς τις νέες στήλες (πριν το coupon_guard.sql).
   let rows: Row[] = []
-  const full = await admin.from('bookings')
+  const full = await fetchAll(() => admin.from('bookings')
     .select('id, booking_ref, user_id, created_at, coupon_amount, car_plate, device_id, client_ip, card_fingerprint, locations(name)')
-    .gt('coupon_amount', 0).neq('status', 'cancelled').not('user_id', 'is', null).limit(20000)
+    .gt('coupon_amount', 0).neq('status', 'cancelled').not('user_id', 'is', null).order('id'))
   if (!full.error) rows = (full.data || []).map(r => ({ ...(r as unknown as Row), location_name: (r as { locations?: { name?: string } }).locations?.name }))
   else {
-    const basic = await admin.from('bookings').select('id, booking_ref, user_id, created_at, coupon_amount, car_plate, locations(name)')
-      .gt('coupon_amount', 0).neq('status', 'cancelled').not('user_id', 'is', null).limit(20000)
+    const basic = await fetchAll(() => admin.from('bookings').select('id, booking_ref, user_id, created_at, coupon_amount, car_plate, locations(name)')
+      .gt('coupon_amount', 0).neq('status', 'cancelled').not('user_id', 'is', null).order('id'))
     rows = (basic.data || []).map(r => ({ ...(r as unknown as Row), location_name: (r as { locations?: { name?: string } }).locations?.name }))
   }
 

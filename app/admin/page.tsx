@@ -123,7 +123,18 @@ export default function AdminPage() {
         .or('source.is.null,source.neq.manual')
         .order('created_at', { ascending: false }).limit(200),
       supabase.from('locations_checklist').select('*').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+      // Supabase επιστρέφει έως 1000 γραμμές ανά αίτημα → σελίδες των 1000 (πριν «κόλλαγε» στους 1000 χρήστες).
+      (async () => {
+        const all: any[] = []
+        for (let from = 0; from < 50000; from += 1000) {
+          const { data, error } = await supabase.from('profiles').select('*')
+            .order('created_at', { ascending: false }).order('id', { ascending: true }).range(from, from + 999)
+          if (error) return { data: all.length ? all : null, error }
+          all.push(...(data || []))
+          if (!data || data.length < 1000) break
+        }
+        return { data: all, error: null }
+      })(),
       supabase.from('applications').select('*').order('created_at', { ascending: false }),
       supabase.from('addons').select('*').order('sort_order', { ascending: true }),
       supabase.from('payouts').select('*, locations(name)').order('created_at', { ascending: false }),

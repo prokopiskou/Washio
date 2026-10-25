@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchAll } from '@/lib/fetch-all'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { createClient as createServerClient } from '@/lib/supabase/server'
@@ -178,9 +179,9 @@ async function recipients(audience: Audience = 'all') {
     if (data.users.length < 1000) break
   }
   const [{ data: booked }, { data: owners }, { data: profs }, { data: apps }, { data: onb }] = await Promise.all([
-    admin.from('bookings').select('user_id').not('user_id', 'is', null).neq('status', 'cancelled'),
+    fetchAll<{ user_id: string }>(() => admin.from('bookings').select('id, user_id').not('user_id', 'is', null).neq('status', 'cancelled').order('id')),
     admin.from('locations').select('owner_id').not('owner_id', 'is', null),
-    admin.from('profiles').select('id, referral_credit, referral_code'),
+    fetchAll<{ id: string; referral_credit: number; referral_code: string }>(() => admin.from('profiles').select('id, referral_credit, referral_code').order('id')),
     // Πλυντήρια που έκαναν αίτηση / onboarding (ακόμα κι αν δεν έχουν ενεργό σημείο).
     admin.from('applications').select('email'),
     admin.from('partner_onboarding').select('email'),
