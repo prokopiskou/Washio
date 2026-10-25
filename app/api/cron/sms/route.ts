@@ -27,10 +27,14 @@ function athensParts(d: Date) {
 
 /** Κείμενο σε κανονικά ελληνικά (Unicode) — έως 2 SMS (2 × 67 = 134 χαρ.). Χωρίς αλλαγή ώρας.
  *  Πρώτα η πλήρης διατύπωση· αν δεν χωράει το όνομα του πλυντηρίου, πιο σύντομη. */
-function reminderText(day: 'σήμερα' | 'αύριο', time: string, place: string, ref: string): string {
+function reminderText(day: 'σήμερα' | 'αύριο', time: string, place: string, ref: string, mapsUrl?: string | null): string {
   const code = String(ref || '').replace(/^WS-/i, '')
   const when = day === 'σήμερα' ? `είναι σε 2 ώρες, στις ${time}` : `είναι αύριο στις ${time}`
-  const link = `washio.gr/m/${code}`
+  // Κατευθείαν το link Google Maps του πλυντηρίου (https — απαραίτητο για να ανοίξει η εφαρμογή):
+  // το tap από τα Μηνύματα ανοίγει την εφαρμογή Google Maps αν υπάρχει. Το redirect μέσω washio.gr
+  // άνοιγε πρώτα τον browser. Χωρίς link → washio.gr/m/<κωδικός> (οδηγίες προς τις συντεταγμένες).
+  const direct = String(mapsUrl || '').trim().replace(/^http:\/\//i, 'https://')
+  const link = /^https:\/\/maps\.app\.goo\.gl\/\w+$/i.test(direct) ? direct : `washio.gr/m/${code}`
   const MAX = 134
   const name = (place || 'το πλυντήριο').trim().replace(/\s+/g, ' ')
   const variants: [string, string][] = [
@@ -47,13 +51,13 @@ function reminderText(day: 'σήμερα' | 'αύριο', time: string, place: s
 
 type Row = {
   id: string; booking_ref: string; user_id: string | null; slot_date: string; slot_start_time: string
-  created_at: string; locations: { name?: string } | null; profiles: { phone?: string | null } | null
+  created_at: string; locations: { name?: string; google_maps_url?: string | null } | null; profiles: { phone?: string | null } | null
 }
 
 async function candidates(now: Date): Promise<{ row: Row; day: 'σήμερα' | 'αύριο' }[]> {
   const a = athensParts(now)
   const out: { row: Row; day: 'σήμερα' | 'αύριο' }[] = []
-  const sel = 'id, booking_ref, user_id, slot_date, slot_start_time, created_at, locations(name), profiles(phone)'
+  const sel = 'id, booking_ref, user_id, slot_date, slot_start_time, created_at, locations(name, google_maps_url), profiles(phone)'
   const recentCut = new Date(now.getTime() - 30 * 60 * 1000).toISOString()
   const base = () => admin.from('bookings').select(sel)
     .eq('status', 'confirmed').eq('source', 'platform').eq('sms_reminder_sent', false).lt('created_at', recentCut)
@@ -110,13 +114,16 @@ export async function GET(req: NextRequest) {
     const to = process.env.SMS_TEST_PHONE || ''
     if (!toMsisdn(to)) return NextResponse.json({ ok: false, error: 'SMS_TEST_PHONE λείπει ή δεν είναι ελληνικό κινητό' })
     // ?ref=WS-XXXX → δοκιμή με πραγματική κράτηση (όνομα + link χάρτη εκείνου του πλυντηρίου).
-    let place = 'Nitro wash', ref = 'WS-TEST0000'
+    let place = 'Nitro wash', ref = 'WS-TEST0000', maps: string | null = null
     const want = String(sp.get('ref') || '').toUpperCase().replace(/[^A-Z0-9-]/g, '')
     if (want) {
-      const { data } = await admin.from('bookings').select('booking_ref, locations(name)').eq('booking_ref', want).maybeSingle()
-      if (data) { ref = data.booking_ref as string; place = (data as { locations?: { name?: string } | null }).locations?.name || place }
+      const { data } = await admin.from('bookings').select('booking_ref, locations(name, google_maps_url)').eq('booking_ref', want).maybeSingle()
+      if (data) {
+        const l = (data as { locations?: { name?: string; google_maps_url?: string | null } | null }).locations
+        ref = data.booking_ref as string; place = l?.name || place; maps = l?.google_maps_url || null
+      }
     }
-    const text = reminderText('σήμερα', '16:00', place, ref)
+    const text = reminderText('σήμερα', '16:00', place, ref, maps)
     const r = await sendSms(to, text)
     return NextResponse.json({ ...r, text, length: text.length })
   }
@@ -137,7 +144,7 @@ export async function GET(req: NextRequest) {
       continue
     }
     const time = String(row.slot_start_time || '').slice(0, 5)
-    const text = reminderText(day, time, row.locations?.name || '', row.booking_ref)
+    const text = reminderText(day, time, row.locations?.name || '', row.booking_ref, row.locations?.google_maps_url)
     if (dry) { preview.push({ ref: row.booking_ref, day, time, phone: `…${phone.replace(/\D/g, '').slice(-3)}`, guest, text }); continue }
 
     // Claim-first: μόνο ένα run παίρνει την κράτηση.
