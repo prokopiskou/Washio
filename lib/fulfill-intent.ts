@@ -118,7 +118,8 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
       .from('locations').select('commission_rate').eq('id', m.locationId).maybeSingle()
     const platformFee = platformFeeFor({
       locationId: m.locationId,
-      appliedCredit: parseFloat(m.appliedCredit || '0') || 0,
+      // Washio Club (m.loyalty) → κανονική προμήθεια (η συμφωνία κουπονιού αφορά μόνο το καλωσόρισμα).
+      appliedCredit: m.loyalty === '1' ? 0 : (parseFloat(m.appliedCredit || '0') || 0),
       // Επί του ποσού που ΠΛΗΡΩΣΕ ο πελάτης (τιμή − κουπόνι), όπως και στα μετρητά.
       payable: Math.max(0, parseFloat(m.amount) - (parseFloat(m.appliedCredit || '0') || 0)),
       addonsTotal: (() => { try { return addonsTotalOf(JSON.parse(m.addons || '[]')) } catch { return 0 } })(),
@@ -208,7 +209,8 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
     // Referral/wallet: αφαίρεσε την πίστωση που εξαργυρώθηκε (μετά την επιτυχία).
     // Το +3€ του referrer ΔΕΝ δίνεται εδώ — μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards).
     const appliedCredit = parseFloat(m.appliedCredit || '0')
-    if (m.userId && appliedCredit > 0) await redeemCredit(supabase, m.userId, appliedCredit, inserted.id)
+    if (m.userId && appliedCredit > 0 && m.loyalty !== '1') await redeemCredit(supabase, m.userId, appliedCredit, inserted.id)
+    if (m.loyalty === '1' && appliedCredit > 0) { try { await supabase.from('bookings').update({ loyalty_discount: appliedCredit }).eq('id', inserted.id) } catch { /* στήλη: supabase/loyalty.sql */ } }
 
     // Meta CAPI Purchase (server-side, dedup με event_id = booking_ref).
     await sendPurchaseCapi({

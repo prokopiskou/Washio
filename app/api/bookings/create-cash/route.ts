@@ -12,6 +12,7 @@ import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
+import { loyaltyDiscountFor } from '@/lib/loyalty'
 import { platformFeeFor, addonsTotalOf } from '@/lib/commission'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
@@ -208,7 +209,10 @@ export async function POST(req: NextRequest) {
     let couponAmount = 0
     // Συσκευή (cookie ws_dev) — για το «ένα −3€ ανά συσκευή/κινητό/πινακίδα» (lib/coupon-guard).
     const deviceId = (req.cookies.get('ws_dev')?.value || '').slice(0, 64) || null
-    if (!isRange && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
+    // Washio Club: 4ο, 8ο… πλύσιμο στο ίδιο πλυντήριο → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
+    const loyalty = isRange ? 0 : await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount })
+    if (loyalty > 0) couponAmount = loyalty
+    else if (!isRange && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
       const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
       couponAmount = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
     }
@@ -218,7 +222,8 @@ export async function POST(req: NextRequest) {
     // μηδέν ΜΟΝΟ στο πλύσιμο — τα extras έχουν κανονική προμήθεια.
     const { data: locRate } = await admin.from('locations').select('commission_rate').eq('id', locationId).maybeSingle()
     const cashFee = platformFeeFor({
-      locationId, appliedCredit: couponAmount, payable,
+      // Η συμφωνία «χωρίς προμήθεια με κουπόνι» αφορά το κουπόνι καλωσορίσματος — όχι το Club.
+      locationId, appliedCredit: loyalty > 0 ? 0 : couponAmount, payable,
       addonsTotal: addonsTotalOf(addonLines), ratePct: Number(locRate?.commission_rate ?? 10),
     })
 
@@ -260,7 +265,8 @@ export async function POST(req: NextRequest) {
 
     // Referral: το +3€ του referrer μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards), όχι εδώ.
     // Εξαργύρωση κουπονιού (μετά την επιτυχή δημιουργία).
-    if (couponAmount > 0) await redeemCredit(admin, user.id, couponAmount, inserted.id)
+    if (couponAmount > 0 && loyalty === 0) await redeemCredit(admin, user.id, couponAmount, inserted.id)
+    if (loyalty > 0) { try { await admin.from('bookings').update({ loyalty_discount: loyalty }).eq('id', inserted.id) } catch { /* στήλη: supabase/loyalty.sql */ } }
 
     // Συσκευή + IP στην κράτηση (για τον έλεγχο κουπονιού & το εβδομαδιαίο report). Best-effort:
     // αν δεν έχουν μπει ακόμα οι στήλες (supabase/coupon_guard.sql), απλώς αγνοείται.

@@ -8,6 +8,7 @@ import { ipFrom } from '@/lib/throttle'
 import { SERVICE_FEE_EUR } from '@/lib/pricing'
 import { computeRedeemable, isCreditEligible } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
+import { loyaltyDiscountFor } from '@/lib/loyalty'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -158,7 +159,11 @@ export async function POST(req: NextRequest) {
     // την επιτυχή πληρωμή), όχι εδώ — για να μη χαθεί αν δεν ολοκληρωθεί.
     let appliedCredit = 0
     const deviceId = (req.cookies.get('ws_dev')?.value || '').slice(0, 64)
-    try {
+    // Washio Club: 4ο, 8ο… πλύσιμο στο ίδιο πλυντήριο → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
+    let loyalty = 0
+    try { loyalty = await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount }) } catch { loyalty = 0 }
+    if (loyalty > 0) appliedCredit = loyalty
+    else try {
       // Μόνο σε πλήρες πλύσιμο (Μέσα-Έξω) ≥12€ — αλλιώς κανένα κουπόνι.
       if (isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
         const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
@@ -188,6 +193,7 @@ export async function POST(req: NextRequest) {
         amount: amount.toString(),           // ΒΑΣΗ (booking + settlement)
         serviceFee: SERVICE_FEE_EUR.toString(),
         appliedCredit: appliedCredit.toString(),
+        loyalty: loyalty > 0 ? '1' : '',
         servicePrice: servicePrice.toString(),
         addons: JSON.stringify(addonLines).slice(0, 490), // Stripe metadata ≤500 χαρ.
         fbp, fbc, clientIp, clientUa,
