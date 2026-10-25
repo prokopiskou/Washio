@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { sendSms, smsConfigured, toMsisdn, greekToGsm } from '@/lib/sms'
 import { alertCritical } from '@/lib/alert'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+import { isAdminEmail } from '@/lib/admins'
 
 // SMS υπενθύμιση πριν το ραντεβού — κόβει τα «Δεν ήρθε».
 //  • ~2 ώρες πριν (slot σε 100–140'), μόνο 08:00–20:59 ώρα Ελλάδας.
@@ -90,10 +92,20 @@ async function isGuest(userId: string | null): Promise<boolean> {
 }
 
 export async function GET(req: NextRequest) {
-  if (!process.env.CRON_SECRET || req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
   const sp = req.nextUrl.searchParams
+  const cronOk = !!process.env.CRON_SECRET && req.headers.get('authorization') === `Bearer ${process.env.CRON_SECRET}`
+  if (!cronOk) {
+    // Admin συνδεδεμένος στον browser: ΜΟΝΟ ?test=1 (SMS στο SMS_TEST_PHONE) και ?dry=1 (λίστα, χωρίς αποστολή).
+    let isAdmin = false
+    try {
+      const sb = await createServerClient()
+      const { data: { user } } = await sb.auth.getUser()
+      isAdmin = isAdminEmail(user?.email)
+    } catch { /* όχι admin */ }
+    if (!isAdmin || (sp.get('test') !== '1' && sp.get('dry') !== '1')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+  }
   const now = new Date()
 
   if (sp.get('test') === '1') {
