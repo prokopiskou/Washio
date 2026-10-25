@@ -3,7 +3,7 @@
 import { formatDuration } from '@/lib/duration'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ChevronLeft, Lock, Calendar, Sparkles, Mail, Check } from 'lucide-react'
+import { ChevronLeft, Lock, Calendar, Sparkles, Mail, Check, Droplet } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { createClient } from '@/lib/supabase/client'
@@ -60,9 +60,9 @@ const T = {
     plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
     backToMyVehicles: '← Επιστροφή στα οχήματά μου',
     phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonProducts: 'Προϊόντα & εξαρτήματα', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
-    clubReward: (n: number) => `Washio Club · ${n}ο πλύσιμο`,
-    clubNote: 'Δώρο για κάθε 4ο πλύσιμο στο ίδιο πλυντήριο. Το κουπόνι σου μένει για την επόμενη.',
-    clubProgress: (done: number, every: number, amt: number) => `Washio Club: ${done}/${every} εδώ · το ${every}ο πλύσιμο −${amt} €`,
+    clubReward: '💧 3 σταγόνες · δώρο',
+    clubNote: 'Μάζεψες 3 σταγόνες σε αυτό το πλυντήριο. Το κουπόνι σου μένει για την επόμενη.',
+    clubProgress: (drops: number, need: number, amt: number) => `${drops}/${need} σταγόνες εδώ · μάζεψε ${need} για −${amt} € (μετράει μετά το πλύσιμο)`,
     couponCard: 'Κουπόνι Washio', totalWithCoupon: 'Πληρώνεις', couponNote: (_full: string) => `Το κουπόνι ισχύει είτε πληρώσεις στο πλυντήριο είτε με κάρτα. Με κάρτα προστίθεται τέλος υπηρεσίας.`,
     bookPayThere: 'Κλείσε τώρα · πλήρωσε εκεί', orPayCard: 'ή πλήρωσε τώρα με κάρτα', payThereHint: 'Πληρώνεις στο πλυντήριο κατά την επίσκεψη.',
     payMethod: 'Τρόπος πληρωμής', payAtVenue: 'Στο πλυντήριο', payAtVenueSub: 'Μετρητά ή κάρτα', payByCard: 'Κάρτα', payByCardSub: 'Τώρα, online',
@@ -105,9 +105,9 @@ const T = {
     plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
     backToMyVehicles: '← Back to my vehicles',
     phone: 'Phone', addons: 'Add-on services', addonProducts: 'Products & accessories', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
-    clubReward: (n: number) => `Washio Club · wash #${n}`,
-    clubNote: 'A gift for every 4th wash at the same car wash. Your coupon stays for next time.',
-    clubProgress: (done: number, every: number, amt: number) => `Washio Club: ${done}/${every} here · wash #${every} −${amt} €`,
+    clubReward: '💧 3 drops · gift',
+    clubNote: 'You collected 3 drops at this car wash. Your coupon stays for next time.',
+    clubProgress: (drops: number, need: number, amt: number) => `${drops}/${need} drops here · collect ${need} for −${amt} € (counted after the wash)`,
     couponCard: 'Washio coupon', totalWithCoupon: 'You pay', couponNote: (_full: string) => `The coupon applies whether you pay at the venue or by card. A service fee is added to card payments.`,
     bookPayThere: 'Book now · pay there', orPayCard: 'or pay now by card', payThereHint: 'You pay at the car wash during your visit.',
     payMethod: 'Payment method', payAtVenue: 'At the car wash', payAtVenueSub: 'Cash or card', payByCard: 'Card', payByCardSub: 'Now, online',
@@ -436,7 +436,7 @@ function BookingPageContent() {
   // Υπόλοιπο κουπονιών του χρήστη — για να φαίνεται το −3€ ΗΔΗ στη σύνοψη (πριν την κάρτα).
   const [walletCredit, setWalletCredit] = useState(0)
   // Washio Club — σφραγίδες σε αυτό το πλυντήριο (μόνο για συνδεδεμένους).
-  const [loyalty, setLoyalty] = useState<{ stamps: number; rewardNext: boolean; every: number; amount: number } | null>(null)
+  const [loyalty, setLoyalty] = useState<{ drops: number; need: number; rewardNext: boolean; amount: number } | null>(null)
   // Τρόπος πληρωμής: 'venue' (Κλείσε τώρα, πλήρωσε εκεί — default) ή 'card'.
   const [payMethod, setPayMethod] = useState<'venue' | 'card'>('venue')
   const [bookingRef, setBookingRef] = useState('')
@@ -476,7 +476,7 @@ function BookingPageContent() {
   useEffect(() => {
     if (!locationId) return
     let alive = true
-    fetch(`/api/loyalty?location=${encodeURIComponent(locationId)}`).then(r => r.json()).then(j => { if (alive && typeof j?.stamps === 'number') setLoyalty(j) }).catch(() => {})
+    fetch(`/api/loyalty?location=${encodeURIComponent(locationId)}`).then(r => r.json()).then(j => { if (alive && typeof j?.drops === 'number') setLoyalty(j) }).catch(() => {})
     return () => { alive = false }
   }, [locationId])
   const dateStr = params.get('date') || athensToday()
@@ -1210,7 +1210,7 @@ function BookingPageContent() {
                 )}
                 {previewCredit > 0 && (
                   <div className="flex justify-between items-center py-3 border-b border-washio-border">
-                    <span className="text-[13px] font-semibold text-green-600">{loyaltyNow ? t.clubReward(loyalty!.every) : t.couponCard}</span>
+                    <span className="text-[13px] font-semibold text-green-600">{loyaltyNow ? t.clubReward : t.couponCard}</span>
                     <span className="text-[14px] font-semibold text-green-600">−{eur2(previewCredit)}</span>
                   </div>
                 )}
@@ -1223,12 +1223,12 @@ function BookingPageContent() {
                 )}
                 {!loyaltyNow && loyalty && !isGuest && (
                   <div className="flex items-center gap-2 pb-3">
-                    <div className="flex gap-1">
-                      {Array.from({ length: loyalty.every }).map((_, i) => (
-                        <span key={i} className={`w-2.5 h-2.5 rounded-full ${i <= loyalty.stamps ? 'bg-washio-cyan' : 'bg-gray-200'}`} />
+                    <div className="flex gap-0.5">
+                      {Array.from({ length: loyalty.need }).map((_, i) => (
+                        <Droplet key={i} size={14} strokeWidth={2} className={i < loyalty.drops ? 'text-washio-cyan fill-washio-cyan' : 'text-gray-300'} />
                       ))}
                     </div>
-                    <span className="text-[11px] text-gray-500">{t.clubProgress(loyalty.stamps + 1, loyalty.every, loyalty.amount)}</span>
+                    <span className="text-[11px] text-gray-500">{t.clubProgress(loyalty.drops, loyalty.need, loyalty.amount)}</span>
                   </div>
                 )}
               </>

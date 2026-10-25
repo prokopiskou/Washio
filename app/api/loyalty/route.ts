@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
-import { loyaltyStatus, LOYALTY_EVERY, LOYALTY_EUR } from '@/lib/loyalty'
+import { loyaltyStatus, loyaltyFromRows, DROPS_FOR_REWARD, LOYALTY_EUR } from '@/lib/loyalty'
 
-// Washio Club — σφραγίδες του συνδεδεμένου χρήστη.
-//   GET ?location=<id> → { stamps, rewardNext, every, amount } για ένα πλυντήριο
+// Washio Club — σταγόνες του συνδεδεμένου χρήστη.
+//   GET ?location=<id> → { drops, need, rewardNext, amount } για ένα πλυντήριο
 //   GET               → λίστα ανά πλυντήριο (για το προφίλ)
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -16,22 +16,24 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await sb.auth.getUser()
     userId = user?.id || null
   } catch { /* επισκέπτης */ }
-  const empty = { stamps: 0, rewardNext: false, every: LOYALTY_EVERY, amount: LOYALTY_EUR }
+  const empty = { drops: 0, need: DROPS_FOR_REWARD, rewardNext: false, amount: LOYALTY_EUR }
   const loc = req.nextUrl.searchParams.get('location') || ''
   if (loc) {
     if (!userId || !UUID.test(loc)) return NextResponse.json(empty)
-    const s = await loyaltyStatus(admin, userId, loc)
-    return NextResponse.json({ stamps: s.stamps, rewardNext: s.rewardNext, every: s.every, amount: s.amount })
+    return NextResponse.json(await loyaltyStatus(admin, userId, loc))
   }
-  if (!userId) return NextResponse.json({ every: LOYALTY_EVERY, amount: LOYALTY_EUR, locations: [] })
-  const { data } = await admin.from('bookings').select('location_id, locations(name, slug)')
-    .eq('user_id', userId).not('status', 'in', '("cancelled","no_show")').or('source.is.null,source.eq.platform').limit(1000)
-  const by = new Map<string, { id: string; name: string; slug: string; count: number }>()
-  for (const b of (data || []) as unknown as { location_id: string; locations: { name?: string; slug?: string } | null }[]) {
-    const e = by.get(b.location_id) || { id: b.location_id, name: b.locations?.name || '', slug: b.locations?.slug || '', count: 0 }
-    e.count++; by.set(b.location_id, e)
+  if (!userId) return NextResponse.json({ need: DROPS_FOR_REWARD, amount: LOYALTY_EUR, locations: [] })
+  const q = (cols: string) => admin.from('bookings').select(cols)
+    .eq('user_id', userId).or('source.is.null,source.eq.platform').limit(1000)
+  let res = await q('location_id, status, slot_date, slot_start_time, loyalty_discount, locations(name, slug)')
+  if (res.error) res = await q('location_id, status, slot_date, slot_start_time, locations(name, slug)')
+  type R = { location_id: string; status: string; slot_date: string | null; slot_start_time: string | null; loyalty_discount?: number | null; locations: { name?: string; slug?: string } | null }
+  const by = new Map<string, { name: string; slug: string; rows: R[] }>()
+  for (const r of (res.data || []) as unknown as R[]) {
+    const e = by.get(r.location_id) || { name: r.locations?.name || '', slug: r.locations?.slug || '', rows: [] }
+    e.rows.push(r); by.set(r.location_id, e)
   }
-  const locations = [...by.values()].map(e => ({ ...e, stamps: e.count % LOYALTY_EVERY, rewardNext: (e.count + 1) % LOYALTY_EVERY === 0 }))
-    .sort((a, b) => b.stamps - a.stamps)
-  return NextResponse.json({ every: LOYALTY_EVERY, amount: LOYALTY_EUR, locations })
+  const locations = [...by.entries()].map(([id, e]) => ({ id, name: e.name, slug: e.slug, ...loyaltyFromRows(e.rows) }))
+    .sort((a, b) => Number(b.rewardNext) - Number(a.rewardNext) || b.drops - a.drops)
+  return NextResponse.json({ need: DROPS_FOR_REWARD, amount: LOYALTY_EUR, locations })
 }
