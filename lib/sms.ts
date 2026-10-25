@@ -3,6 +3,7 @@
 //   SMS_API_KEY  = BulkGate: application_token · Yuboto: κλειδί API (ήδη base64)
 //   SMS_APP_ID   = BulkGate: application_id (μόνο για BulkGate)
 //   SMS_SENDER   = όνομα αποστολέα (προεπιλογή «Washio»)
+//   SMS_SENDER_PROFILE = BulkGate: id προφίλ αποστολέα (Washio = 19780) — προτιμάται από το SMS_SENDER
 //   SMS_BASE_URL = προαιρετικό override URL
 // Χωρίς αυτά → { ok:false, skipped:'not_configured' } και ΔΕΝ στέλνεται τίποτα.
 //
@@ -65,8 +66,10 @@ async function sendBulkGate(to: string, text: string): Promise<SmsResult> {
     number: to,
     text,
     unicode: !isGsm7(text),
-    sender_id: 'gText',
-    sender_id_value: process.env.SMS_SENDER || 'Washio',
+    // Προφίλ αποστολέα στο BulkGate (Washio = 19780, Ελλάδα → «Washio») · αλλιώς απευθείας κείμενο.
+    ...(process.env.SMS_SENDER_PROFILE
+      ? { sender_id: 'gProfile', sender_id_value: process.env.SMS_SENDER_PROFILE }
+      : { sender_id: 'gText', sender_id_value: process.env.SMS_SENDER || 'Washio' }),
     duplicates_check: 'on',
   })
   const attempt = async (u: string): Promise<SmsResult> => {
