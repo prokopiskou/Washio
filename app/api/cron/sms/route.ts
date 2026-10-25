@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendSms, smsConfigured, toMsisdn, greekToGsm } from '@/lib/sms'
+import { sendSms, smsConfigured, toMsisdn } from '@/lib/sms'
 import { alertCritical } from '@/lib/alert'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
@@ -10,7 +10,7 @@ import { isAdminEmail } from '@/lib/admins'
 //  • Πρωινά ραντεβού (πριν τις 10:00): το προηγούμενο βράδυ, 20:00–20:59 («αύριο»).
 //  • Μόνο κρατήσεις πλατφόρμας, confirmed, ελληνικό κινητό, φτιαγμένες πριν από 30'+.
 //  • Scope: SMS_SCOPE=all → όλοι · αλλιώς ΜΟΝΟ επισκέπτες (guest checkout) — εκεί ξεκινάμε.
-//  • 1 SMS (160 χαρ., ελληνικά κεφαλαία GSM-7): πλυντήριο + ώρα + link Google Maps (washio.gr/m/<κωδικός>). Χωρίς αλλαγή ώρας.
+//  • Έως 2 SMS, κανονικά ελληνικά: πλυντήριο + ώρα + link χάρτη (washio.gr/m/<κωδικός> → Google Maps του πλυντηρίου). Χωρίς αλλαγή ώρας.
 //  • Μία φορά ανά κράτηση (bookings.sms_reminder_sent — supabase/sms_reminders.sql).
 // GET (Bearer CRON_SECRET), κάθε 15' από το GitHub workflow.
 //   ?dry=1  → ποιοι ΘΑ έπαιρναν SMS τώρα (χωρίς αποστολή)
@@ -25,26 +25,24 @@ function athensParts(d: Date) {
   return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}`, hour: Number(p.hour) }
 }
 
-/** Κείμενο 1 SMS (≤160, ελληνικά κεφαλαία σε GSM-7). Χωρίς αλλαγή ώρας — μόνο link χάρτη.
+/** Κείμενο σε κανονικά ελληνικά (Unicode) — έως 2 SMS (2 × 67 = 134 χαρ.). Χωρίς αλλαγή ώρας.
  *  Πρώτα η πλήρης διατύπωση· αν δεν χωράει το όνομα του πλυντηρίου, πιο σύντομη. */
 function reminderText(day: 'σήμερα' | 'αύριο', time: string, place: string, ref: string): string {
   const code = String(ref || '').replace(/^WS-/i, '')
-  const when = day === 'σήμερα' ? 'ΕΙΝΑΙ ΣΕ ΔΥΟ ΩΡΕΣ, ΣΤΙΣ' : 'ΕΙΝΑΙ ΑΥΡΙΟ ΣΤΙΣ'
+  const when = day === 'σήμερα' ? `είναι σε 2 ώρες, στις ${time}` : `είναι αύριο στις ${time}`
   const link = `washio.gr/m/${code}`
-  const MAX = 160
-  const name = greekToGsm((place || 'ΠΛΥΝΤΗΡΙΟ').trim().replace(/\s+/g, ' ').toUpperCase()).replace(/[^\x20-\x7EΓΔΘΛΞΠΣΦΨΩ]/g, '')
+  const MAX = 134
+  const name = (place || 'το πλυντήριο').trim().replace(/\s+/g, ' ')
   const variants: [string, string][] = [
-    ['ΤΟ ΡΑΝΤΕΒΟΥ ΣΟΥ ΓΙΑ ΠΛΥΣΙΜΟ ΤΟΥ ΑΥΤΟΚΙΝΗΤΟΥ ΣΟΥ ΣΤΟ ', ` ${when} ${time}. ΠΑΤΗΣΕ ΕΔΩ ΓΙΑ ΝΑ ΔΕΙΣ ΤΟ ΠΛΥΝΤΗΡΙΟ ΣΤΟΝ ΧΑΡΤΗ: `],
-    ['ΤΟ ΡΑΝΤΕΒΟΥ ΣΟΥ ΓΙΑ ΠΛΥΣΙΜΟ ΣΤΟ ', ` ${when} ${time}. ΠΑΤΗΣΕ ΕΔΩ ΓΙΑ ΝΑ ΔΕΙΣ ΤΟ ΠΛΥΝΤΗΡΙΟ ΣΤΟΝ ΧΑΡΤΗ: `],
-    ['ΤΟ ΡΑΝΤΕΒΟΥ ΣΟΥ ΓΙΑ ΠΛΥΣΙΜΟ ΣΤΟ ', ` ${when} ${time}. ΔΕΣ ΤΟ ΣΤΟΝ ΧΑΡΤΗ: `],
+    ['Το ραντεβού σου για πλύσιμο στο ', ` ${when}. Δες το πλυντήριο στον χάρτη: `],
+    ['Το ραντεβού σου στο ', ` ${when}. Δες το πλυντήριο στον χάρτη: `],
+    ['Το ραντεβού σου στο ', ` ${when}. Χάρτης: `],
   ]
   for (const [h, m] of variants) {
-    const head = greekToGsm(h), mid = greekToGsm(m)
-    if (head.length + name.length + mid.length + link.length <= MAX) return head + name + mid + link
+    if (h.length + name.length + m.length + link.length <= MAX) return h + name + m + link
   }
   const [h, m] = variants[variants.length - 1]
-  const head = greekToGsm(h), mid = greekToGsm(m)
-  return head + name.slice(0, MAX - head.length - mid.length - link.length).trimEnd() + mid + link
+  return h + name.slice(0, MAX - h.length - m.length - link.length - 1).trimEnd() + '…' + m + link
 }
 
 type Row = {
@@ -111,7 +109,14 @@ export async function GET(req: NextRequest) {
   if (sp.get('test') === '1') {
     const to = process.env.SMS_TEST_PHONE || ''
     if (!toMsisdn(to)) return NextResponse.json({ ok: false, error: 'SMS_TEST_PHONE λείπει ή δεν είναι ελληνικό κινητό' })
-    const text = reminderText('σήμερα', '16:00', 'Nitro wash', 'WS-TEST0000')
+    // ?ref=WS-XXXX → δοκιμή με πραγματική κράτηση (όνομα + link χάρτη εκείνου του πλυντηρίου).
+    let place = 'Nitro wash', ref = 'WS-TEST0000'
+    const want = String(sp.get('ref') || '').toUpperCase().replace(/[^A-Z0-9-]/g, '')
+    if (want) {
+      const { data } = await admin.from('bookings').select('booking_ref, locations(name)').eq('booking_ref', want).maybeSingle()
+      if (data) { ref = data.booking_ref as string; place = (data as { locations?: { name?: string } | null }).locations?.name || place }
+    }
+    const text = reminderText('σήμερα', '16:00', place, ref)
     const r = await sendSms(to, text)
     return NextResponse.json({ ...r, text, length: text.length })
   }

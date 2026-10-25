@@ -37,8 +37,10 @@ export default function EditLocationPage() {
     lng: '',
     capacity: '1',
     extra_instructions: '',
+    google_maps_url: '',
   })
   const [photos, setPhotos] = useState<string[]>([])
+  const hasMapsColRef = useRef(false)
 
   const handleChange = (key: string, value: string) =>
     setForm(prev => ({ ...prev, [key]: value }))
@@ -47,9 +49,15 @@ export default function EditLocationPage() {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient()
-      const { data } = await supabase.from('locations')
-        .select('name, address, city, postal_code, lat, lng, capacity, photos, extra_instructions')
+      let res = await supabase.from('locations')
+        .select('name, address, city, postal_code, lat, lng, capacity, photos, extra_instructions, google_maps_url')
         .eq('id', locationId).single()
+      // Χωρίς στήλη google_maps_url (πριν το SQL) → φόρτωσε τα υπόλοιπα κανονικά.
+      if (res.error) res = await supabase.from('locations')
+        .select('name, address, city, postal_code, lat, lng, capacity, photos, extra_instructions')
+        .eq('id', locationId).single() as typeof res
+      hasMapsColRef.current = !res.error && !!res.data && 'google_maps_url' in (res.data as object)
+      const data = res.data
       if (data) {
         setForm({
           name: data.name || '',
@@ -60,6 +68,7 @@ export default function EditLocationPage() {
           lng: data.lng != null ? String(data.lng) : '',
           capacity: data.capacity != null ? String(data.capacity) : '1',
           extra_instructions: (data as { extra_instructions?: string }).extra_instructions || '',
+          google_maps_url: (data as { google_maps_url?: string | null }).google_maps_url || '',
         })
         setPhotos(Array.isArray(data.photos) ? data.photos : [])
       }
@@ -143,6 +152,11 @@ export default function EditLocationPage() {
       setError('Χρειάζονται τουλάχιστον όνομα + συντεταγμένες (τοποθεσία).')
       return
     }
+    const gm = form.google_maps_url.trim()
+    if (gm && !/^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps)/i.test(gm)) {
+      setError('Το link Google Maps πρέπει να ξεκινά με https://maps.app.goo.gl/… ή https://www.google.com/maps/…')
+      return
+    }
     setLoading(true); setError('')
     const supabase = createClient()
     const { error: dbErr } = await supabase.from('locations').update({
@@ -155,6 +169,8 @@ export default function EditLocationPage() {
       capacity: Math.max(1, parseInt(form.capacity) || 1),
       photos,
       extra_instructions: form.extra_instructions.trim() || null,
+      // Η στήλη μπαίνει με supabase/location_maps_url.sql — χωρίς αυτήν δεν τη στέλνουμε (αλλιώς αποτυγχάνει η αποθήκευση).
+      ...(hasMapsColRef.current || gm ? { google_maps_url: gm || null } : {}),
     }).eq('id', locationId)
     setLoading(false)
     if (dbErr) { setError(dbErr.message); return }
@@ -215,6 +231,14 @@ export default function EditLocationPage() {
               <input type="number" min={1} value={form.capacity} onChange={e => handleChange('capacity', e.target.value)}
                 className="w-full border border-gray-200 rounded-xl px-3 py-3 text-sm focus:outline-none focus:border-gray-400" />
             </div>
+          </div>
+
+          {/* Link Google Maps (για το SMS υπενθύμισης / «Δες στον χάρτη») */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1 block">Link Google Maps <span className="text-blue-400">(Google Maps → πλυντήριο → Κοινοποίηση → Αντιγραφή συνδέσμου)</span></label>
+            <input value={form.google_maps_url} onChange={e => handleChange('google_maps_url', e.target.value)}
+              placeholder="https://maps.app.goo.gl/…"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400" />
           </div>
 
           {/* Συντεταγμένες manual fallback */}
