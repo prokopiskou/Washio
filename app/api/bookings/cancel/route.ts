@@ -223,8 +223,28 @@ export async function POST(req: NextRequest) {
     }
 
     // Το κουπόνι Washio επιστρέφει στον πελάτη (δεν «καίγεται» σε ακύρωση).
+    // Washio Club (σταγόνες): ΔΕΝ πάει στο wallet — το δώρο ξαναγίνεται διαθέσιμο αυτόματα (η κράτηση-δώρο ακυρώθηκε).
     const usedCoupon = Number((booking as { coupon_amount?: number }).coupon_amount) || 0
-    if (usedCoupon > 0 && booking.user_id) await refundCredit(supabase, booking.user_id, usedCoupon)
+    let loyaltyDisc = 0
+    try {
+      const { data: lr } = await supabase.from('bookings').select('loyalty_discount').eq('id', booking.id).maybeSingle()
+      loyaltyDisc = Number((lr as { loyalty_discount?: number } | null)?.loyalty_discount) || 0
+    } catch { /* στήλη: supabase/loyalty.sql */ }
+    if (usedCoupon > 0 && booking.user_id && loyaltyDisc === 0) {
+      await refundCredit(supabase, booking.user_id, usedCoupon)
+      // Μην «καεί» αμέσως: αν η λήξη του κουπονιού είναι σε <7 μέρες, δώσε 14 μέρες από σήμερα.
+      try {
+        const { data: au } = await supabase.auth.admin.getUserById(booking.user_id)
+        const meta = (au?.user?.app_metadata || {}) as { coupon_expires_at?: string }
+        const exp = meta.coupon_expires_at ? new Date(meta.coupon_expires_at).getTime() : 0
+        if (exp && exp < Date.now() + 7 * 24 * 3600 * 1000) {
+          await supabase.auth.admin.updateUserById(booking.user_id, { app_metadata: {
+            coupon_expires_at: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString(),
+            coupon_expired_at: null, coupon_reminder_at: null,
+          } })
+        }
+      } catch { /* best-effort */ }
+    }
     // Αν ήταν η κράτηση που επιβράβευσε referrer → αφαίρεσε το +3€ (θα δοθεί στην επόμενη).
     await revokeReferrerReward(supabase, booking.id)
 

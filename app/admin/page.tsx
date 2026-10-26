@@ -363,6 +363,22 @@ export default function AdminPage() {
   const getUserInitial = (profile: any) => (profile?.full_name || profile?.email || '?').charAt(0).toUpperCase()
 
 
+  // Κάρτα = πληρώθηκε online (υπάρχει payment intent, όχι «πληρωμή στο κατάστημα»). Μόνο εκεί υπάρχει refund.
+  const isCardBooking = (b: any) => !!b.stripe_payment_intent_id && !['pay_at_venue', 'external', 'refunded', 'partially_refunded'].includes(String(b.stripe_payment_status))
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // Μετρητά: απλή ακύρωση (καμία επιστροφή χρημάτων). Το κουπόνι επιστρέφει αυτόματα στον πελάτη.
+  const cancelCashBooking = async (b: any) => {
+    if (!confirm(`Ακύρωση ${b.booking_ref};\n\nΠληρωμή στο κατάστημα — δεν υπάρχει επιστροφή χρημάτων.${Number(b.coupon_amount) > 0 ? '\nΤο κουπόνι −' + Number(b.coupon_amount).toFixed(0) + '€ επιστρέφει στον πελάτη.' : ''}\nΟ πελάτης ενημερώνεται με email.`)) return
+    const res = await fetch('/api/bookings/cancel', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bookingId: b.id, reason: 'admin_cancelled' }),
+    })
+    const j = await res.json().catch(() => ({}))
+    if (res.ok) fetchData()
+    else alert(j.error || 'Σφάλμα ακύρωσης')
+  }
+
   const handleCancelBooking = (booking: any) => {
     setRefundModal({ booking })
     setRefundType('full')
@@ -869,6 +885,17 @@ export default function AdminPage() {
                                 <p className="text-[11px] text-gray-400 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   {dateStr} · {b.slot_start_time?.slice(0, 5)}
                                 </p>
+                                {b.profiles?.phone && (
+                                  <button
+                                    onClick={() => { navigator.clipboard?.writeText(String(b.profiles.phone).replace(/\s+/g, '')).then(() => { setCopiedId(b.id); setTimeout(() => setCopiedId(null), 1500) }).catch(() => {}) }}
+                                    className="mt-1 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-gray-50 border border-gray-100 text-[11px] font-semibold text-gray-700"
+                                    style={{ fontVariantNumeric: 'tabular-nums' }}
+                                    title="Αντιγραφή κινητού"
+                                  >
+                                    📞 {b.profiles.phone}
+                                    <span className="text-[10px] font-medium text-gray-400">{copiedId === b.id ? '✓ αντιγράφηκε' : 'αντιγραφή'}</span>
+                                  </button>
+                                )}
                               </div>
 
                               <div className="flex flex-col items-end gap-1 shrink-0">
@@ -878,14 +905,15 @@ export default function AdminPage() {
                                 {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
 
                                 <div className="flex flex-col gap-1 mt-1">
-                                  {/* Εκτός πλατφόρμας (manual): δεν περνάει από εμάς — ούτε refund ούτε ακύρωση από admin. */}
-                                  {b.status !== 'cancelled' && b.source !== 'manual' && (
+                                  {/* Εκτός πλατφόρμας (manual): δεν περνάει από εμάς — ούτε refund ούτε ακύρωση από admin.
+                                      Ενεργή: κάρτα → «Ακύρωση & refund» (επιλογή ποσού) · μετρητά → «Ακύρωση» (χωρίς refund). */}
+                                  {(b.status === 'confirmed' || b.status === 'pending') && b.source !== 'manual' && (
                                     <button
-                                      onClick={() => handleCancelBooking(b)}
+                                      onClick={() => isCardBooking(b) ? handleCancelBooking(b) : cancelCashBooking(b)}
                                       className="px-2.5 py-1 rounded-lg text-[10px] font-semibold"
                                       style={{ background: '#FCEAEA', color: '#B43C3C' }}
                                     >
-                                      Refund
+                                      {isCardBooking(b) ? 'Ακύρωση & refund' : 'Ακύρωση'}
                                     </button>
                                   )}
                                 </div>
