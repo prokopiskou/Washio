@@ -231,5 +231,18 @@ export async function GET(req: Request) {
   // ── Referral: +3€ στον referrer όταν ολοκληρωθεί το πρώτο πλύσιμο του φίλου ──
   const referralRewards = await processReferralRewards(supabase)
 
-  return NextResponse.json({ ...stats, referralRewards })
+  // SMS υπενθυμίσεις: τρέχουν μαζί με αυτό το cron (ό,τι χτυπά το /api/cron/emails κάθε 15' —
+  // το GitHub workflow είναι απενεργοποιημένο). Best-effort, δεν μπλοκάρει τα emails.
+  let sms: unknown = null
+  try {
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 25_000)
+    const r = await fetch(`${BASE_URL.replace('://washio.gr', '://www.washio.gr')}/api/cron/sms`, {
+      headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` }, signal: ctrl.signal,
+    })
+    clearTimeout(t)
+    sms = await r.json().catch(() => ({ status: r.status }))
+  } catch (e) { sms = { error: e instanceof Error ? e.message : 'fetch' } }
+
+  return NextResponse.json({ ...stats, referralRewards, sms })
 }
