@@ -122,7 +122,13 @@ function LoginPageContent() {
     setShowGoogleWeb(!isNativeApp() && !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
     try {
       const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor
-      setHideSocial(isNativeApp() && cap?.getPlatform?.() === 'android')
+      if (isNativeApp() && cap?.getPlatform?.() === 'android') {
+        // Από την έκδοση 1.0.5 (versionCode 6) το scheme είναι δηλωμένο → τα κουμπιά επιστρέφουν αυτόματα.
+        setHideSocial(true)
+        import('@capacitor/app').then(({ App }) => App.getInfo())
+          .then(info => { if ((Number(info.build) || 0) >= 6) setHideSocial(false) })
+          .catch(() => {})
+      }
     } catch { /* ignore */ }
   }, [])
 
