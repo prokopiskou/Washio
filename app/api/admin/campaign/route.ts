@@ -38,7 +38,13 @@ const PREHEADER_NEW = 'Δες ελεύθερες ώρες κοντά σου κα
 const CAMPAIGN_REF = 'referral_3plus3'
 const SUBJECT_REF = '3€ για σένα, 3€ για έναν φίλο σου'
 const PREHEADER_REF = 'Στείλε τον σύνδεσμό σου. Μόλις ο φίλος σου κλείσει, κερδίζετε και οι δύο.'
-type Audience = 'all' | 'new' | 'referral'
+// «Τέλος η βροχή»: όσοι ΔΕΝ έχουν κάνει κράτηση. Πριν φύγει: −3€ σε όλους (και σε όσους τους
+// έληξε) με νέα λήξη σε 7 μέρες — αλλιώς το email θα υποσχόταν κάτι που δεν ισχύει.
+const CAMPAIGN_RAIN = 'rain_end_oct'
+const SUBJECT_RAIN = 'Τέλος η βροχή ☀️ Το −3€ σου σε περιμένει'
+const PREHEADER_RAIN = 'Μετά από τόση βροχή, το αυτοκίνητό σου το ξέρει. Κλείσε ώρα κοντά σου σε 30″.'
+const RAIN_DAYS = 7
+type Audience = 'all' | 'new' | 'referral' | 'rainend'
 // ΟΛΑ τα προωθητικά emails που έχουμε στείλει ποτέ. Όποιος έλαβε ΕΣΤΩ ΕΝΑ, εξαιρείται από την
 // υπενθύμιση «new» (μαζικές καμπάνιες + αυτόματα «δεν ολοκλήρωσες» / waitlist).
 const PROMO_SUBJECTS = [
@@ -50,8 +56,11 @@ const PROMO_SUBJECTS = [
   'Δεν ολοκλήρωσες την κράτησή σου',                    // cron abandoned-checkout
   'Άνοιξε ώρα κοντά σου!',                              // ακύρωση → waitlist
   'Το Washio ήρθε στην περιοχή σου!',                   // waitlist-notify
+  SUBJECT_RAIN,                                          // rain_end_oct
 ]
-const cfg = (a: Audience) => a === 'referral'
+const cfg = (a: Audience) => a === 'rainend'
+  ? { campaign: CAMPAIGN_RAIN, subject: SUBJECT_RAIN, preheader: PREHEADER_RAIN }
+  : a === 'referral'
   ? { campaign: CAMPAIGN_REF, subject: SUBJECT_REF, preheader: PREHEADER_REF }
   : a === 'new'
   ? { campaign: CAMPAIGN_NEW, subject: SUBJECT_NEW, preheader: PREHEADER_NEW }
@@ -90,6 +99,41 @@ function referralHtml(code: string, copyUrl: string, shareUrl: string, userId: s
         ${row('3', 'Μόλις ολοκληρωθεί το πλύσιμο, παίρνεις κι εσύ −3€')}
       </table>
       <p style="margin:18px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;">Ισχύει για έως 2 φίλους (έως −6€ για σένα). Σε πλύσιμο από 12€ · ένα κουπόνι ανά πλύσιμο · κάρτα ή μετρητά.</p>
+    </div>
+    <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; ${unsubFooterLink(userId)}.</p>
+  </div></body></html>`
+}
+
+// Ημερομηνία λήξης για το «Τέλος η βροχή» (τέλος της ημέρας, ώρα Ελλάδας ≈ 21:59 UTC χειμώνα).
+function rainExpiry(): { iso: string; label: string } {
+  const d = new Date(Date.now() + RAIN_DAYS * 24 * 3600 * 1000)
+  const ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(d)
+  const [y, m, dd] = ymd.split('-')
+  return { iso: `${y}-${m}-${dd}T21:59:59.000Z`, label: `${Number(dd)}/${Number(m)}` }
+}
+
+function rainHtml(ctaUrl: string, userId: string, until: string): string {
+  const row = (t: string) => `<tr><td style="padding:5px 0;vertical-align:top;width:26px;"><span style="display:inline-block;width:18px;height:18px;border-radius:9px;background:#19A8C7;color:#fff;font-size:12px;line-height:18px;text-align:center;font-weight:700;">✓</span></td><td style="padding:5px 0;color:#374151;font-size:14px;line-height:1.5;">${t}</td></tr>`
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${PREHEADER_RAIN}</div>
+  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px 16px;">
+    <div style="background:#10182A;border-radius:18px 18px 0 0;padding:28px 28px 22px;text-align:center;">
+      <img src="https://washio.gr/logo.png" alt="Washio" width="120" style="display:block;margin:0 auto 6px;" />
+      <p style="margin:0;color:#19A8C7;font-size:12px;font-weight:700;letter-spacing:1.6px;">ΤΕΛΟΣ Η ΒΡΟΧΗ ☀️</p>
+    </div>
+    <div style="background:#FFFFFF;border:1px solid #E8EEF2;border-top:none;border-radius:0 0 18px 18px;padding:28px;">
+      <h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;">Τόσες μέρες βροχή. Το αυτοκίνητό σου <span style="color:#078EAD;">το ξέρει</span>.</h1>
+      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Ο καιρός ανοίγει. Βρες πλυντήριο κοντά σου, δες ελεύθερες ώρες και κλείσε σε 30″. Πληρώνεις στο πλυντήριο.</p>
+      <div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 20px;">
+        <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 −3€ στο πρώτο σου πλύσιμο</p>
+        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Είναι ήδη στον λογαριασμό σου · Ισχύει έως ${until} · Σε πλύσιμο από 12€.</p>
+      </div>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border-collapse:collapse;">
+        ${row('Ελεύθερες ώρες σε πραγματικό χρόνο')}
+        ${row('Πας στην ώρα σου, χωρίς ουρά')}
+        ${row('Δωρεάν ακύρωση')}
+      </table>
+      <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε το πλύσιμό σου →</a>
     </div>
     <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; ${unsubFooterLink(userId)}.</p>
   </div></body></html>`
@@ -290,7 +334,7 @@ export async function POST(req: NextRequest) {
     if (!user || !isAdminEmail(user.email)) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
 
     const { mode, audience: aud } = (await req.json().catch(() => ({}))) as { mode?: 'preview' | 'test' | 'send' | 'stats'; audience?: Audience }
-    const audience: Audience = aud === 'new' ? 'new' : aud === 'referral' ? 'referral' : 'all'
+    const audience: Audience = aud === 'new' ? 'new' : aud === 'referral' ? 'referral' : aud === 'rainend' ? 'rainend' : 'all'
     const { subject: SUBJ, campaign: CAMP } = cfg(audience)
     if (mode === 'stats') return NextResponse.json(await campaignStats(audience))
 
@@ -298,8 +342,8 @@ export async function POST(req: NextRequest) {
     // ούτε αυτό) — ποτέ δεύτερο email στον ίδιο. Η λίστα αποστολών έρχεται από το Resend.
     // «referral»: ποτέ δεύτερη φορά το ίδιο email παραπομπής στον ίδιο.
     let alreadySent = new Set<string>()
-    if (audience === 'new' || audience === 'referral') {
-      const prev = await listCampaignEmails(audience === 'new' ? PROMO_SUBJECTS : [SUBJECT_REF])
+    if (audience === 'new' || audience === 'referral' || audience === 'rainend') {
+      const prev = await listCampaignEmails(audience === 'new' ? PROMO_SUBJECTS : audience === 'rainend' ? [SUBJECT_RAIN] : [SUBJECT_REF])
       alreadySent = new Set(prev.flatMap(e => (e.to || []).map(x => x.toLowerCase())))
     }
     const list = (await recipients(audience)).filter(r => !alreadySent.has(r.email))
@@ -339,6 +383,62 @@ export async function POST(req: NextRequest) {
           else sent += chunk.length
         }
         return NextResponse.json({ ok: errors.length === 0, sent, skipped: 0, couponsGiven: 0, errors })
+      }
+    }
+
+    // ── Τέλος η βροχή ──
+    if (audience === 'rainend') {
+      const exp = rainExpiry()
+      if (mode === 'preview') {
+        return NextResponse.json({
+          subject: SUBJ, total: list.length, withCoupon: list.filter(r => r.hasCoupon).length,
+          willGetCoupon: list.filter(r => !r.hasCoupon).length, couponUntil: exp.label,
+          excludedAlreadyEmailed: alreadySent.size,
+          sample: list.slice(0, 5).map(r => r.email.replace(/^(.{2}).*(@.*)$/, '$1***$2')),
+        })
+      }
+      if (mode === 'test') {
+        const { error } = await resend.emails.send({
+          from: 'Washio <noreply@washio.gr>', to: user.email!, subject: '[ΔΟΚΙΜΗ] ' + SUBJ,
+          html: rainHtml(await personalLink(user.email!, audience), user.id, exp.label),
+        })
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+        return NextResponse.json({ ok: true, sentTo: user.email })
+      }
+      if (mode === 'send') {
+        // 1) −3€ σε όσους δεν το έχουν (πρώτη φορά → welcome · αλλιώς «επανενεργοποίηση»).
+        const missing = list.filter(r => !r.hasCoupon)
+        if (missing.length) {
+          const { data: hadWelcome } = await admin.from('credit_ledger')
+            .select('user_id').eq('kind', 'welcome').in('user_id', missing.map(m => m.id))
+          const had = new Set((hadWelcome || []).map(h => h.user_id as string))
+          for (const m of missing) {
+            await admin.rpc('apply_credit', had.has(m.id)
+              ? { p_user: m.id, p_delta: 3, p_kind: 'redeem', p_note: 'Δώρο: τέλος η βροχή' }
+              : { p_user: m.id, p_delta: 3, p_kind: 'welcome', p_note: 'Καλωσόρισμα' })
+          }
+        }
+        // 2) Νέα λήξη σε 7 μέρες για ΟΛΟΥΣ τους παραλήπτες (να μην «καεί» πριν προλάβουν).
+        await mapLimit(list, 10, async r => {
+          try { await admin.auth.admin.updateUserById(r.id, { app_metadata: { coupon_expires_at: exp.iso, coupon_expired_at: null, coupon_reminder_at: null } }) } catch { /* ignore */ }
+        })
+        // 3) Αποστολή — μόνο σε όσους ΟΝΤΩΣ έχουν −3€ τώρα.
+        const fresh = (await recipients(audience)).filter(r => !alreadySent.has(r.email) && r.hasCoupon)
+        const links = await mapLimit(fresh, 10, r => personalLink(r.email, audience))
+        let sent = 0
+        const errors: string[] = []
+        for (let i = 0; i < fresh.length; i += 100) {
+          const chunk = fresh.slice(i, i + 100)
+          const { error } = await resend.batch.send(chunk.map((r, k) => ({
+            from: 'Washio <noreply@washio.gr>', to: r.email, subject: SUBJ,
+            html: rainHtml(links[i + k] || ctaFor(audience), r.id, exp.label),
+            headers: unsubHeaders(r.id),
+            tags: [{ name: 'campaign', value: CAMP }],
+          })))
+          if (error) errors.push(error.message)
+          else sent += chunk.length
+        }
+        return NextResponse.json({ ok: errors.length === 0, sent, couponsGiven: missing.length, couponUntil: exp.label, errors })
       }
     }
 
