@@ -114,8 +114,16 @@ function LoginPageContent() {
   // Google web sign-in (GIS + signInWithIdToken) → όχι supabase στην οθόνη Google.
   // Μόνο σε browser (όχι native) και μόνο αν έχει οριστεί το client id (feature-flag).
   const [showGoogleWeb, setShowGoogleWeb] = useState(false)
+  // Android app: η επιστροφή από Google/Apple/Facebook (gr.washio.app://auth-callback) ΔΕΝ πιάνεται —
+  // το AndroidManifest δεν έχει δηλώσει το scheme → ο χρήστης κολλούσε σε λευκή σελίδα supabase.co.
+  // Μέχρι τη νέα έκδοση Android: μόνο email (κωδικός). iOS / web: όπως πριν.
+  const [hideSocial, setHideSocial] = useState(false)
   useEffect(() => {
     setShowGoogleWeb(!isNativeApp() && !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID)
+    try {
+      const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor
+      setHideSocial(isNativeApp() && cap?.getPlatform?.() === 'android')
+    } catch { /* ignore */ }
   }, [])
 
   // Demo λογαριασμός για το App Review (bypass OTP με σταθερό κωδικό).
@@ -321,6 +329,7 @@ function LoginPageContent() {
               </button>
             )}
 
+            {!hideSocial && (<>
             <div className="flex items-center gap-3 my-1">
               <div className="flex-1 h-px bg-gray-100" />
               <span className="text-xs text-gray-300">{t.or}</span>
@@ -363,6 +372,7 @@ function LoginPageContent() {
               </svg>
               {t.continueFacebook}
             </button>
+            </>)}
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">

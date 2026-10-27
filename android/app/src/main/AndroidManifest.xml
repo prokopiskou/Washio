@@ -19,6 +19,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Επιστροφή από Google/Apple/Facebook login (Supabase redirect → gr.washio.app://auth-callback). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="gr.washio.app" android:host="auth-callback" />
+            </intent-filter>
         </activity>
 
         <provider
