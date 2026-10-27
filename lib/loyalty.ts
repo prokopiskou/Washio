@@ -1,11 +1,10 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { isCreditEligible } from '@/lib/referral'
-import { NO_SHOW_UNTIL_MIN } from '@/lib/no-show'
-import { athensEpoch } from '@/lib/time'
+import { noShowDeadline } from '@/lib/no-show'
 
 // Washio Club — «Μάζεψε σταγόνες».
 //  • Κάθε ΟΛΟΚΛΗΡΩΜΕΝΟ πλύσιμο σε ένα πλυντήριο = 1 σταγόνα σε αυτό το πλυντήριο.
-//    Ολοκληρωμένο = όχι ακυρωμένο / no-show ΚΑΙ έκλεισε το παράθυρο «Δεν εμφανίστηκε» (ώρα + 5h).
+//    Ολοκληρωμένο = όχι ακυρωμένο / no-show ΚΑΙ έκλεισε το παράθυρο «Δεν εμφανίστηκε» (τέλος της ημέρας του ραντεβού).
 //  • 3 σταγόνες στο ίδιο πλυντήριο → το επόμενο πλύσιμο εκεί −3€ (δηλ. κάθε 4ο).
 //  • Το πλύσιμο με το δώρο δεν δίνει σταγόνα (ο κύκλος ξαναρχίζει).
 // Η έκπτωση αφαιρείται από το ποσό που εισπράττει το πλυντήριο (όπως το κουπόνι) και ΔΕΝ
@@ -28,7 +27,7 @@ export function loyaltyFromRows(rows: Row[], now = Date.now()): LoyaltyStatus {
     if (r.status === 'cancelled' || r.status === 'no_show') continue
     if ((Number(r.loyalty_discount) || 0) > 0) { rewardsUsed++; continue }
     if (!r.slot_date || !r.slot_start_time) continue
-    if (now >= athensEpoch(r.slot_date, r.slot_start_time) + NO_SHOW_UNTIL_MIN * 60_000) completed++
+    if (now >= noShowDeadline(r.slot_date, r.slot_start_time)) completed++
   }
   const earned = Math.floor(completed / DROPS_FOR_REWARD)
   const available = earned - rewardsUsed
