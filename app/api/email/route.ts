@@ -4,6 +4,7 @@ import { Resend } from 'resend'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
+import { checkinEmailBlock } from '@/lib/checkin'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -45,6 +46,7 @@ function confirmationEmail(data: {
             <tr><td style="color: #10182A; font-weight: 600; padding: 8px 0 0;">Σύνολο</td><td style="color: #10182A; font-weight: 700; text-align: right; padding: 8px 0 0; font-size: 15px;">€${data.total}</td></tr>
           </table>
         </div>
+        ${checkinEmailBlock(data.bookingRef)}
         <div style="background: #F0F7FF; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
           <p style="color: #1A6FD4; font-size: 12px; margin: 0; line-height: 1.6;">
             📍 Θα λάβεις υπενθύμιση <strong>1 ώρα πριν</strong> την κράτησή σου.<br/>

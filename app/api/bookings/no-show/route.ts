@@ -39,6 +39,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 })
     }
 
+    // Σκαναρίστηκε το QR στο πλυντήριο → ήρθε· δεν γίνεται «Δεν ήρθε» (εκτός admin).
+    if (!isAdminEmail(user.email)) {
+      const { data: ci, error: ciErr } = await admin.from('bookings').select('checked_in_at').eq('id', bookingId).maybeSingle()
+      if (!ciErr && (ci as { checked_in_at?: string | null } | null)?.checked_in_at) {
+        return NextResponse.json({ error: 'Ο πελάτης έχει σκαναριστεί — ήρθε κανονικά.' }, { status: 409 })
+      }
+    }
+
     if (booking.status === 'no_show') {
       return NextResponse.json({ ok: true, status: 'no_show' })
     }

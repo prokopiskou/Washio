@@ -20,6 +20,7 @@ const T = {
     loading: 'Φόρτωση...',
     notFound: 'Η κράτηση δεν βρέθηκε.', back: 'Επιστροφή',
     booking: 'Κράτηση', bookingRef: 'Κωδικός κράτησης', map: 'Χάρτης',
+    qrTitle: 'Δείξε το στο πλυντήριο', qrSub: 'Σκανάρεται όταν φτάσεις — και είσαι έτοιμος.',
     date: 'Ημερομηνία', time: 'Ώρα', service: 'Υπηρεσία', plate: 'Πινακίδα', total: 'Σύνολο',
     changeDate: 'Αλλαγή ημερομηνίας', cancelBooking: 'Ακύρωση κράτησης',
     reason1: 'Άλλαξαν τα σχέδιά μου',
@@ -74,6 +75,7 @@ const T = {
     loading: 'Loading...',
     notFound: 'Booking not found.', back: 'Back',
     booking: 'Booking', bookingRef: 'Booking reference', map: 'Map',
+    qrTitle: 'Show this at the car wash', qrSub: 'They scan it when you arrive — that’s it.',
     date: 'Date', time: 'Time', service: 'Service', plate: 'Plate', total: 'Total',
     changeDate: 'Change date', cancelBooking: 'Cancel booking',
     reason1: 'My plans changed',
@@ -257,6 +259,8 @@ export default function BookingDetailPage() {
   const [submittingRating, setSubmittingRating] = useState(false)
   const [ratingSubmitted, setRatingSubmitted] = useState(false)
   const [alreadyRated, setAlreadyRated] = useState(false)
+  // QR check-in: ο κωδικός που σκανάρει το πλυντήριο.
+  const [qrCode, setQrCode] = useState<string | null>(null)
 
   useEffect(() => {
     const loadBooking = async () => {
@@ -287,6 +291,14 @@ export default function BookingDetailPage() {
     }
     loadBooking()
   }, [bookingId, router])
+
+  useEffect(() => {
+    if (!booking?.id || booking.status === 'cancelled' || booking.status === 'no_show') return
+    let alive = true
+    fetch(`/api/bookings/checkin-code?id=${booking.id}`).then(r => r.ok ? r.json() : null)
+      .then(j => { if (alive && j?.code) setQrCode(j.code as string) }).catch(() => {})
+    return () => { alive = false }
+  }, [booking?.id, booking?.status])
 
   const handleSubmitRating = async () => {
     if (!booking || ratingValue < 1) return
@@ -537,6 +549,16 @@ export default function BookingDetailPage() {
               <StatusPill status={effStatus} />
             </div>
           </div>
+
+          {/* QR check-in — το δείχνεις στο πλυντήριο */}
+          {qrCode && booking.status !== 'cancelled' && String(booking.slot_date) >= minDateStr && (
+            <div className="rounded-2xl border border-gray-100 p-5 mb-3.5 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t.qrTitle}</p>
+              <p className="text-[12px] text-gray-500 mt-1">{t.qrSub}</p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`/api/qr/${qrCode}`} alt="QR" width={200} height={200} className="mx-auto mt-3.5 w-[200px] h-[200px]" />
+            </div>
+          )}
 
           {/* Location card — tappable */}
           {booking.locations && (

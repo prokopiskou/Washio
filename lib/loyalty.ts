@@ -4,7 +4,8 @@ import { noShowDeadline } from '@/lib/no-show'
 
 // Washio Club — «Μάζεψε σταγόνες».
 //  • Κάθε ΟΛΟΚΛΗΡΩΜΕΝΟ πλύσιμο σε ένα πλυντήριο = 1 σταγόνα σε αυτό το πλυντήριο.
-//    Ολοκληρωμένο = όχι ακυρωμένο / no-show ΚΑΙ έκλεισε το παράθυρο «Δεν εμφανίστηκε» (τέλος της ημέρας του ραντεβού).
+//    Ολοκληρωμένο = σκαναρίστηκε το QR στο πλυντήριο (αμέσως) Ή όχι ακυρωμένο / no-show ΚΑΙ έκλεισε το
+//    παράθυρο «Δεν εμφανίστηκε» (τέλος της ημέρας του ραντεβού).
 //  • 3 σταγόνες στο ίδιο πλυντήριο → το επόμενο πλύσιμο εκεί −3€ (δηλ. κάθε 4ο).
 //  • Το πλύσιμο με το δώρο δεν δίνει σταγόνα (ο κύκλος ξαναρχίζει).
 // Η έκπτωση αφαιρείται από το ποσό που εισπράττει το πλυντήριο (όπως το κουπόνι) και ΔΕΝ
@@ -19,13 +20,14 @@ export type LoyaltyStatus = {
   amount: number
 }
 
-type Row = { status: string; slot_date: string | null; slot_start_time: string | null; loyalty_discount?: number | null }
+type Row = { status: string; slot_date: string | null; slot_start_time: string | null; loyalty_discount?: number | null; checked_in_at?: string | null }
 
 export function loyaltyFromRows(rows: Row[], now = Date.now()): LoyaltyStatus {
   let completed = 0, rewardsUsed = 0
   for (const r of rows) {
     if (r.status === 'cancelled' || r.status === 'no_show') continue
     if ((Number(r.loyalty_discount) || 0) > 0) { rewardsUsed++; continue }
+    if (r.checked_in_at) { completed++; continue } // σκαναρίστηκε στο πλυντήριο → σταγόνα αμέσως
     if (!r.slot_date || !r.slot_start_time) continue
     if (now >= noShowDeadline(r.slot_date, r.slot_start_time)) completed++
   }
@@ -45,7 +47,8 @@ export async function loyaltyStatus(db: SupabaseClient, userId: string | null | 
   try {
     const q = (cols: string) => db.from('bookings').select(cols)
       .eq('user_id', userId).eq('location_id', locationId).or('source.is.null,source.eq.platform').limit(1000)
-    let res = await q('status, slot_date, slot_start_time, loyalty_discount')
+    let res = await q('status, slot_date, slot_start_time, loyalty_discount, checked_in_at')
+    if (res.error) res = await q('status, slot_date, slot_start_time, loyalty_discount') // πριν το supabase/checkin.sql
     if (res.error) res = await q('status, slot_date, slot_start_time') // πριν το supabase/loyalty.sql
     return loyaltyFromRows((res.data || []) as unknown as Row[])
   } catch { return base }

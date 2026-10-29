@@ -29,6 +29,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Η κάμερα χρησιμοποιείται για να σκανάρεις το QR της κράτησης του πελάτη στο πλυντήριο.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Το Washio χρησιμοποιεί την τοποθεσία σου για να βρίσκει κοντινά πλυντήρια αυτοκινήτων.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

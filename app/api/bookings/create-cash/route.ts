@@ -14,6 +14,7 @@ import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referra
 import { couponBlockReason } from '@/lib/coupon-guard'
 import { loyaltyDiscountFor } from '@/lib/loyalty'
 import { platformFeeFor, addonsTotalOf } from '@/lib/commission'
+import { checkinEmailBlock } from '@/lib/checkin'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -68,6 +69,7 @@ function cashEmailHtml(data: {
             ${payableRow}
           </table>
         </div>
+        ${checkinEmailBlock(data.bookingRef)}
         <div style="background: #FFF7ED; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
           <p style="color: #B45309; font-size: 12px; margin: 0; line-height: 1.6;">
             💵 Η πληρωμή γίνεται <strong>στο πλυντήριο</strong>.${data.coupon && data.coupon > 0 ? ` Η έκπτωση του κουπονιού έχει ήδη υπολογιστεί — πες απλώς τον κωδικό σου.` : ''}${data.isRange ? '<br/>Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.' : ''}<br/>

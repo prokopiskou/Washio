@@ -18,6 +18,7 @@ import { WashioLoader } from '@/components/WashioLoader'
 import { Capacitor } from '@capacitor/core'
 import { registerNativePush, nativePushGranted } from '@/lib/native-push'
 import PushInit from '@/components/PushInit'
+import CheckinScanner from '@/components/CheckinScanner'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
 type Period = '7D' | '30D' | '3M' | '6M' | '12M'
@@ -41,6 +42,7 @@ type Booking = {
   customer_name?: string | null
   customer_phone?: string | null
   duration_minutes?: number | null
+  checked_in_at?: string | null
   profiles?: { full_name?: string; phone?: string; email?: string } | null
   services?: { name?: string } | null
 }
@@ -469,12 +471,18 @@ export default function DashboardPage() {
       // έως 5000 γραμμές — πριν: ΟΛΕΣ οι κρατήσεις χωρίς όριο (Supabase κόβει
       // σιωπηλά στις 1000 → λάθος στατιστικά, βαρύ φορτίο κάθε 30'').
       const sinceYmd = (() => { const d = new Date(); d.setMonth(d.getMonth() - 12); return ymdFromLocalDate(d) })()
-      const loadBookings = () => supabase.from('bookings')
-        .select('id, booking_ref, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, addons, service_price, services(name), profiles(full_name, phone, email)')
+      const BK_COLS = 'id, booking_ref, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, addons, service_price, services(name), profiles(full_name, phone, email)'
+      const bkQuery = (cols: string) => supabase.from('bookings')
+        .select(cols)
         .eq('location_id', locationId)
         .gte('slot_date', sinceYmd)
         .order('created_at', { ascending: false })
         .range(0, 4999)
+      // checked_in_at (QR check-in) — αν δεν έχει τρέξει ακόμα το supabase/checkin.sql, χωρίς αυτό.
+      const loadBookings = async () => {
+        const r = await bkQuery(BK_COLS + ', checked_in_at')
+        return r.error ? await bkQuery(BK_COLS) : r
+      }
 
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
         loadBookings(),
@@ -486,7 +494,7 @@ export default function DashboardPage() {
         supabase.from('reviews').select('id, rating, comment, created_at').eq('location_id', locationId).order('created_at', { ascending: false }),
       ])
 
-      setBookings((bookingsRes.data as Booking[]) || [])
+      setBookings((bookingsRes.data as unknown as Booking[]) || [])
 
       const allAddons = (addonsRes.data as any[]) || []
       const locationAddonsMap: Record<string, any> = {}
@@ -600,7 +608,7 @@ export default function DashboardPage() {
         // ΙΔΙΟ select με το αρχικό — αλλιώς το auto-refresh έσβηνε τα πεδία
         // πληρωμής (μετρητά/κάρτα, source, customer_name) κάθε 30''.
         const { data } = await loadBookings()
-        if (data) setBookings(data as Booking[])
+        if (data) setBookings(data as unknown as Booking[])
       }, 30000)
 
       // Αν το component ξε-mount-άρισε όσο φορτώναμε, καθάρισε αμέσως.
@@ -887,11 +895,14 @@ export default function DashboardPage() {
   // «Δεν εμφανίστηκε»: από 15' μετά την ώρα μέχρι 23:59 της ημέρας του ραντεβού (ώρα Ελλάδας).
   // Αν δεν πατηθεί μέχρι τότε → η κράτηση θεωρείται ολοκληρωμένη (μετράει κανονικά).
   const [nowTick, setNowTick] = useState(() => Date.now())
+  // QR check-in: σκάνερ κάμερας (κουμπί πάνω δεξιά).
+  const [scanOpen, setScanOpen] = useState(false)
   useEffect(() => {
     const iv = setInterval(() => setNowTick(Date.now()), 30_000)
     return () => clearInterval(iv)
   }, [])
   const canMarkNoShow = (b: Booking): boolean => {
+    if (b.checked_in_at) return false // σκαναρίστηκε → ήρθε
     if (b.status !== 'confirmed' && b.status !== 'pending') return false
     if (!b.slot_date || !b.slot_start_time) return false
     const start = athensEpoch(b.slot_date, b.slot_start_time)
@@ -905,6 +916,7 @@ export default function DashboardPage() {
   // (Στη βάση μένει confirmed· το «Δεν εμφανίστηκε» μένει διαθέσιμο μέχρι το όριο των 5 ωρών.)
   const effStatus = (b: Booking): string => {
     const st = String(b.status || '')
+    if (b.checked_in_at && st !== 'cancelled') return 'completed' // σκαναρίστηκε το QR → ήρθε
     if ((st === 'confirmed' || st === 'pending') && b.slot_date && b.slot_start_time) {
       const end = athensEpoch(b.slot_date, b.slot_start_time) + (Number(b.duration_minutes) || 30) * 60_000
       if (nowTick >= end) return 'completed'
@@ -1071,6 +1083,12 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-gray-50">
       <PushInit />
+      {scanOpen && (
+        <CheckinScanner
+          onClose={() => setScanOpen(false)}
+          onCheckedIn={(cb) => setBookings(prev => prev.map(x => x.id === cb.bookingId ? { ...x, status: 'confirmed', checked_in_at: cb.checkedInAt || new Date().toISOString() } : x))}
+        />
+      )}
       <div className="max-w-3xl mx-auto">
 
         <div className="px-5 pt-[calc(var(--safe-top)+14px)] pb-4 bg-white">
@@ -1079,6 +1097,17 @@ export default function DashboardPage() {
               <h1 className="text-[22px] font-bold tracking-tight leading-[1.2] text-gray-900">{location.name}</h1>
               <p className="text-[12px] text-gray-500 mt-1">{location.address}, {location.city}</p>
             </div>
+            <button
+              onClick={() => { lightTap(); setScanOpen(true) }}
+              title={t('Σκανάρισμα QR πελάτη')}
+              aria-label={t('Σκανάρισμα QR πελάτη')}
+              className="h-[38px] w-[38px] rounded-full bg-gray-100 text-gray-900 flex items-center justify-center shrink-0 active:opacity-70"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                <circle cx="12" cy="13" r="3.5" />
+              </svg>
+            </button>
             <button
               onClick={() => {
                 try { localStorage.setItem('washio_mode', 'customer') } catch { /* ignore */ }
