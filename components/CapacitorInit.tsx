@@ -34,12 +34,31 @@ export function CapacitorInit() {
         const { App } = await import('@capacitor/app')
         App.addListener('appUrlOpen', async ({ url }) => {
           try {
+            // Universal Links / App Links: https://www.washio.gr/... άνοιξε την εφαρμογή → πήγαινε στο ίδιο path.
+            const m = /^https:\/\/(www\.)?washio\.gr(\/[^#]*)?(#.*)?$/i.exec(url || '')
+            if (m) {
+              const target = (m[2] || '/') + (m[3] || '')
+              if (target !== window.location.pathname + window.location.search + window.location.hash) window.location.href = target
+              return
+            }
             const { handleAuthDeepLink } = await import('@/lib/native-auth')
             await handleAuthDeepLink(url)
           } catch (e) {
             console.log('deep link handling failed:', e)
           }
         })
+        // Κρύα εκκίνηση από Universal/App Link (η εφαρμογή ήταν κλειστή): το URL εκκίνησης,
+        // μία φορά ανά URL (η σελίδα ξαναφορτώνει → χωρίς loop).
+        try {
+          const launch = await App.getLaunchUrl()
+          const lu = launch?.url || ''
+          const lm = /^https:\/\/(www\.)?washio\.gr(\/[^#]*)?(#.*)?$/i.exec(lu)
+          if (lm && sessionStorage.getItem('ws_launch_url') !== lu) {
+            sessionStorage.setItem('ws_launch_url', lu)
+            const target = (lm[2] || '/') + (lm[3] || '')
+            if (target !== window.location.pathname + window.location.search + window.location.hash) window.location.href = target
+          }
+        } catch { /* ignore */ }
       } catch (e) {
         console.log('Capacitor init skipped:', e)
       }

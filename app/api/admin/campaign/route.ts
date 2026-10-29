@@ -74,7 +74,7 @@ const ctaFor = (a: Audience) => `https://www.washio.gr${nextFor(a)}`
 // copyUrl / shareUrl: ίδιο προσωπικό login, διαφορετικό «do" → η σελίδα επισημαίνει το αντίστοιχο κουμπί.
 // (Μέσα σε email δεν ανοίγει το μενού κοινοποίησης του κινητού — ανοίγει με ένα πάτημα στη σελίδα.)
 function referralHtml(code: string, copyUrl: string, shareUrl: string, userId: string): string {
-  const link = `https://washio.gr/?ref=${code}`
+  const link = `https://www.washio.gr/?ref=${code}`
   const row = (n: string, t: string) => `<tr><td style="padding:6px 0;vertical-align:top;width:30px;"><span style="display:inline-block;width:22px;height:22px;border-radius:11px;background:#10182A;color:#fff;font-size:12px;line-height:22px;text-align:center;font-weight:700;">${n}</span></td><td style="padding:6px 0;color:#374151;font-size:14px;line-height:1.5;">${t}</td></tr>`
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${PREHEADER_REF}</div>

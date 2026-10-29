@@ -7,6 +7,13 @@ const nextConfig: NextConfig = {
     staleTimes: { dynamic: 30, static: 180 },
   },
   // Καθαρά vanity links για social bios — κρατούν UTM tracking πίσω.
+  // Universal Links (iOS): το AASA πρέπει να σερβίρεται ως JSON, χωρίς redirect.
+  async headers() {
+    return [
+      { source: '/.well-known/apple-app-site-association', headers: [{ key: 'Content-Type', value: 'application/json' }] },
+      { source: '/.well-known/assetlinks.json', headers: [{ key: 'Content-Type', value: 'application/json' }] },
+    ]
+  },
   async redirects() {
     return [
       { source: '/insta', destination: '/?ref=WASHIO&utm_source=instagram&utm_medium=bio&utm_campaign=welcome3', permanent: false },

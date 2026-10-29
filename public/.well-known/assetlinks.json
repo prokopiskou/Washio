@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "gr.washio.app",
+      "sha256_cert_fingerprints": ["7D:61:7C:5C:21:34:49:70:E1:90:2C:7F:CF:B9:CF:64:DB:A8:5F:FD:16:86:06:5C:47:53:65:ED:6F:91:A6:A6"]
+    }
+  }
+]

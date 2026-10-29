@@ -26,6 +26,27 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="gr.washio.app" android:host="auth-callback" />
             </intent-filter>
+            <!-- App Links: https://www.washio.gr/... ανοίγει την εφαρμογή (επαλήθευση: /.well-known/assetlinks.json).
+                 Όχι /m/ (χάρτης SMS → Google Maps), /api, /admin, /login, OAuth callback. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="www.washio.gr" />
+                <data android:path="/" />
+                <data android:pathPrefix="/aqua" />
+                <data android:pathPrefix="/c/" />
+                <data android:pathPrefix="/profile" />
+                <data android:pathPrefix="/booking" />
+                <data android:pathPrefix="/map" />
+                <data android:pathPrefix="/locations" />
+                <data android:pathPrefix="/auth/link" />
+                <data android:pathPrefix="/dashboard" />
+                <data android:pathPrefix="/k" />
+                <data android:pathPrefix="/f" />
+                <data android:pathPrefix="/review" />
+            </intent-filter>
         </activity>
 
         <provider

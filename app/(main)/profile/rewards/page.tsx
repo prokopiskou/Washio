@@ -87,7 +87,7 @@ export default function RewardsPage() {
     load()
   }, [router])
 
-  const link = code ? `https://washio.gr/?ref=${code}` : ''
+  const link = code ? `https://www.washio.gr/?ref=${code}` : ''
 
   const doCopy = useCallback(async (text: string, which: string) => {
     try {

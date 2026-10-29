@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   try {
     const { data: prof } = await admin.from('profiles').select('id, referral_code, full_name').ilike('email', email.replace(/[%_\\]/g, m => '\\' + m)).limit(1).maybeSingle()
     if (prof?.referral_code) {
-      const refLink = `https://washio.gr/?ref=${prof.referral_code}`
+      const refLink = `https://www.washio.gr/?ref=${prof.referral_code}`
       let loginLink = `https://www.washio.gr/login?redirect=${encodeURIComponent(NEXT)}`
       try {
         const { data } = await admin.auth.admin.generateLink({ type: 'magiclink', email })
