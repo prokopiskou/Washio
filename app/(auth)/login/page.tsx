@@ -7,6 +7,7 @@ import { ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { signInWithProvider, isNativeApp } from '@/lib/native-auth'
 import { GoogleWebButton } from '@/components/GoogleWebButton'
+import { readLastLogin, type LoginMethod } from '@/lib/last-login'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT } from '@/lib/i18n'
 
@@ -23,6 +24,7 @@ const T = {
     sendCode: 'Αποστολή κωδικού',
     continueGuest: 'Συνέχεια ως επισκέπτης',
     or: 'ή',
+    lastUsed: 'Τελευταία φορά',
     continueApple: 'Συνέχεια με Apple',
     continueGoogle: 'Συνέχεια με Google',
     continueFacebook: 'Συνέχεια με Facebook',
@@ -51,6 +53,7 @@ const T = {
     sendCode: 'Send code',
     continueGuest: 'Continue as guest',
     or: 'or',
+    lastUsed: 'Last used',
     continueApple: 'Continue with Apple',
     continueGoogle: 'Continue with Google',
     continueFacebook: 'Continue with Facebook',
@@ -89,6 +92,14 @@ function LoginPageContent() {
   const isWelcome = params.get('welcome') === '1'
 
   const [email, setEmail] = useState('')
+  // «Τελευταία φορά»: με ποιον τρόπο συνδέθηκε στην προηγούμενη σύνδεση (localStorage).
+  const [lastMethod, setLastMethod] = useState<LoginMethod | null>(null)
+  useEffect(() => {
+    const l = readLastLogin()
+    if (!l) return
+    setLastMethod(l.m)
+    if (l.m === 'email' && l.e) setEmail(prev => prev || l.e)
+  }, [])
   // Paste/autofill στο iOS WebView δεν πυροδοτεί πάντα onChange → διαβάζουμε και
   // απευθείας από το input. Καθαρίζουμε κενά/αόρατους χαρακτήρες από το copy-paste.
   const emailRef = useRef<HTMLInputElement>(null)
@@ -254,6 +265,12 @@ function LoginPageContent() {
     return `${base}${withAcq(path)}`
   }
 
+  const LastBadge = ({ m, dark }: { m: LoginMethod; dark?: boolean }) => lastMethod === m ? (
+    <span className={`pointer-events-none absolute -top-2 right-3 text-[10px] font-semibold px-2 py-0.5 rounded-full shadow-sm ${dark ? 'bg-white text-gray-900' : 'bg-[#19A8C7] text-white'}`}>
+      {t.lastUsed}
+    </span>
+  ) : null
+
   const handleGoogleLogin = () => signInWithProvider(createClient(), 'google', getOauthRedirect())
   const handleFacebookLogin = () => signInWithProvider(createClient(), 'facebook', getOauthRedirect())
   const handleAppleLogin = () => signInWithProvider(createClient(), 'apple', getOauthRedirect())
@@ -316,13 +333,16 @@ function LoginPageContent() {
 
             {error && <p className="text-xs text-red-500 text-center">{error}</p>}
 
-            <button
-              onClick={handleSendOtp}
-              disabled={loading}
-              className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
-            >
-              {loading ? t.sending : t.sendCode}
-            </button>
+            <div className="relative">
+              <button
+                onClick={handleSendOtp}
+                disabled={loading}
+                className="w-full bg-gray-900 text-white text-sm font-medium py-3 rounded-xl disabled:opacity-40"
+              >
+                {loading ? t.sending : t.sendCode}
+              </button>
+              <LastBadge m="email" />
+            </div>
 
             {/* Από checkout (redirect → /booking) ΔΕΝ δίνουμε «συνέχεια ως επισκέπτης»: η κράτηση
                 θέλει λογαριασμό, και το κουμπί τον έβγαζε από τη ροή χάνοντας την ώρα που διάλεξε. */}
@@ -342,16 +362,20 @@ function LoginPageContent() {
               <div className="flex-1 h-px bg-gray-100" />
             </div>
 
+            <div className="relative">
             <button
               onClick={handleAppleLogin}
-              className="w-full bg-black text-white text-sm py-3 rounded-xl flex items-center justify-center gap-2"
+              className={`w-full bg-black text-white text-sm py-3 rounded-xl flex items-center justify-center gap-2 ${lastMethod === 'apple' ? 'ring-2 ring-[#19A8C7] ring-offset-2' : ''}`}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="white">
                 <path d="M17.05 12.04c-.03-2.6 2.12-3.85 2.22-3.91-1.21-1.77-3.1-2.02-3.77-2.04-1.6-.16-3.13.94-3.94.94-.81 0-2.07-.92-3.41-.89-1.75.03-3.37 1.02-4.27 2.59-1.82 3.16-.47 7.84 1.31 10.41.87 1.26 1.9 2.67 3.25 2.62 1.3-.05 1.8-.84 3.37-.84 1.57 0 2.02.84 3.4.81 1.4-.02 2.29-1.28 3.15-2.55 1-1.46 1.41-2.88 1.43-2.95-.03-.01-2.74-1.05-2.77-4.17zM14.6 4.42c.72-.87 1.2-2.08 1.07-3.29-1.03.04-2.28.69-3.02 1.56-.66.77-1.24 2-1.08 3.18 1.15.09 2.32-.58 3.03-1.45z"/>
               </svg>
               {t.continueApple}
             </button>
+            <LastBadge m="apple" />
+            </div>
 
+            <div className={`relative ${lastMethod === 'google' ? 'rounded-xl ring-2 ring-[#19A8C7] ring-offset-2' : ''}`}>
             {showGoogleWeb ? (
               <GoogleWebButton redirectUrl={redirectUrl} label={t.continueGoogle} />
             ) : (
@@ -368,16 +392,21 @@ function LoginPageContent() {
                 {t.continueGoogle}
               </button>
             )}
+            <LastBadge m="google" />
+            </div>
 
+            <div className="relative">
             <button
               onClick={handleFacebookLogin}
-              className="w-full border border-gray-200 text-gray-700 text-sm py-3 rounded-xl flex items-center justify-center gap-2"
+              className={`w-full border border-gray-200 text-gray-700 text-sm py-3 rounded-xl flex items-center justify-center gap-2 ${lastMethod === 'facebook' ? 'ring-2 ring-[#19A8C7] ring-offset-2' : ''}`}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#1877F2">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
               </svg>
               {t.continueFacebook}
             </button>
+            <LastBadge m="facebook" />
+            </div>
             </>)}
           </div>
         ) : (
