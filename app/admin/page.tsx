@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recha
 import { ADMIN_EMAILS } from '@/lib/admins'
 import { bankFromIban } from '@/lib/greek-banks'
 import { WashioLoader } from '@/components/WashioLoader'
+import { rangeLabel, RANGE_SVC_COLS } from '@/lib/range-price'
 
 const MONTHS_SHORT = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαϊ', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
 
@@ -118,7 +119,7 @@ export default function AdminPage() {
       { data: hoursData },
     ] = await Promise.all([
       supabase.from('bookings')
-        .select('*, locations(name, city), services(name, price), profiles(full_name, phone, email)')
+        .select(`*, locations(name, city), services(name, price, ${RANGE_SVC_COLS}), profiles(full_name, phone, email)`)
         // Admin = μόνο κρατήσεις πλατφόρμας. Τα χειροκίνητα ραντεβού (source='manual') μένουν στο dashboard του πλυντηρίου.
         .or('source.is.null,source.neq.manual')
         .order('created_at', { ascending: false }).limit(200),
@@ -169,6 +170,9 @@ export default function AdminPage() {
   // (source='manual', εκτός πλατφόρμας) δεν προσμετρώνται στα δικά μας έσοδα.
   const platformBookings = bookings.filter(b => b.source !== 'manual')
   // Έσοδα = ό,τι πλήρωσε ο πελάτης για το πλύσιμο: τιμή − κουπόνι (π.χ. 20 − 3 = 17).
+  // Υπηρεσία εύρους (βιολογικός): δείχνουμε το εύρος, όχι τον μέσο όρο (πάνω στον οποίο μπαίνει η προμήθεια).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const amtLabel = (b: any) => { const rl = rangeLabel(b.total_amount, b.services); return rl ? `€${rl}` : `€${netAmt(b).toFixed(0)}` }
   const netAmt = (b: any) => Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0))
   const totalRevenue = platformBookings.reduce((sum, b) => sum + netAmt(b), 0)
   const totalCommission = platformBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)
@@ -714,7 +718,7 @@ export default function AdminPage() {
                             </p>
                           </div>
                           <p className="text-[13px] font-semibold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                            €{netAmt(b).toFixed(0)}
+                            {amtLabel(b)}
                             {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
                           </p>
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${pill || 'bg-gray-50 text-gray-500'}`}>
@@ -900,7 +904,7 @@ export default function AdminPage() {
 
                               <div className="flex flex-col items-end gap-1 shrink-0">
                                 <p className="text-[16px] font-bold tracking-tight text-gray-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                  €{netAmt(b).toFixed(0)}
+                                  {amtLabel(b)}
                                 </p>
                                 {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
 
@@ -1201,7 +1205,7 @@ export default function AdminPage() {
                                     </p>
                                   </div>
                                   <p className="text-[13px] font-bold text-gray-900 shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
-                                    €{netAmt(b).toFixed(0)}
+                                    {amtLabel(b)}
                                     {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
                                   </p>
                                   <span

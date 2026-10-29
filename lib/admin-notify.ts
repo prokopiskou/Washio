@@ -17,6 +17,7 @@ export async function notifyAdminNewBooking(b: {
   method: 'card' | 'venue'
   customerEmail?: string | null
   customerPhone?: string | null
+  rangeText?: string      // υπηρεσία εύρους: «50–80» (δείχνεται αντί για τον μέσο όρο)
 }): Promise<void> {
   const pay = b.method === 'card' ? '💳 Κάρτα (πληρωμένη)' : '💵 Στο πλυντήριο'
   const net = Math.max(0, b.total - (b.coupon || 0))
@@ -25,7 +26,7 @@ export async function notifyAdminNewBooking(b: {
   const coupon = b.coupon ? ` (−€${b.coupon.toFixed(0)} κουπόνι, τιμή €${b.total.toFixed(2)})` : ''
   const lines = [
     `📅 ${when} · ${b.locationName}`,
-    `${b.serviceName} · €${net.toFixed(2)}${coupon}`,
+    b.rangeText ? `${b.serviceName} · εύρος €${b.rangeText} (προμήθεια επί μ.ό. €${b.total.toFixed(2)})` : `${b.serviceName} · €${net.toFixed(2)}${coupon}`,
     `${pay} · ${b.bookingRef}`,
     `${b.customerEmail || '—'}${b.customerPhone ? ' · ' + b.customerPhone : ''}`,
   ]

@@ -19,6 +19,7 @@ import { Capacitor } from '@capacitor/core'
 import { registerNativePush, nativePushGranted } from '@/lib/native-push'
 import PushInit from '@/components/PushInit'
 import CheckinScanner from '@/components/CheckinScanner'
+import { rangeLabel, RANGE_SVC_COLS, type RangeSvc } from '@/lib/range-price'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
 type Period = '7D' | '30D' | '3M' | '6M' | '12M'
@@ -44,7 +45,7 @@ type Booking = {
   duration_minutes?: number | null
   checked_in_at?: string | null
   profiles?: { full_name?: string; phone?: string; email?: string } | null
-  services?: { name?: string } | null
+  services?: ({ name?: string } & NonNullable<RangeSvc>) | null
 }
 
 type BookableService = {
@@ -471,7 +472,7 @@ export default function DashboardPage() {
       // έως 5000 γραμμές — πριν: ΟΛΕΣ οι κρατήσεις χωρίς όριο (Supabase κόβει
       // σιωπηλά στις 1000 → λάθος στατιστικά, βαρύ φορτίο κάθε 30'').
       const sinceYmd = (() => { const d = new Date(); d.setMonth(d.getMonth() - 12); return ymdFromLocalDate(d) })()
-      const BK_COLS = 'id, booking_ref, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, addons, service_price, services(name), profiles(full_name, phone, email)'
+      const BK_COLS = `id, booking_ref, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, addons, service_price, services(name, ${RANGE_SVC_COLS}), profiles(full_name, phone, email)`
       const bkQuery = (cols: string) => supabase.from('bookings')
         .select(cols)
         .eq('location_id', locationId)
@@ -910,6 +911,11 @@ export default function DashboardPage() {
   }
 
   // Πολύ αχνό φόντο γραμμής: πράσινο = ολοκληρώθηκε · κόκκινο = δεν ήρθε.
+  // Ποσό προς εμφάνιση: υπηρεσία εύρους → «€50–80» (ΟΧΙ ο μέσος όρος· η προμήθεια υπολογίζεται στο backend).
+  const amountLabel = (b: Booking): string => {
+    const rl = rangeLabel(b.total_amount, b.services)
+    return rl ? `€${rl}` : `€${Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)).toFixed(0)}`
+  }
   const rowBg = (es: string) => es === 'completed' ? '#F3FBF6' : es === 'no_show' ? '#FDF4F4' : undefined
 
   // Κατάσταση προς εμφάνιση: ενεργή κράτηση της οποίας πέρασε η ώρα λήξης → «Ολοκληρώθηκε».
@@ -1274,7 +1280,7 @@ export default function DashboardPage() {
                         <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm text-gray-900">€{Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)).toFixed(0)}</p>
+                        <p className="text-sm text-gray-900">{amountLabel(b)}</p>
                         <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(effStatus(b))}`}>{statusLabel(effStatus(b))}</span>
                       </div>
                     </div>
@@ -1377,6 +1383,8 @@ export default function DashboardPage() {
               if (b.source === 'manual') return { bg: '#F3F4F6', fg: '#4B5563', label: t('Εκτός πλατφόρμας') }
               if (b.stripe_payment_status === 'pay_at_venue') {
                 // «Πλήρωσε εκεί» με κουπόνι Washio: εισπράττεις τιμή − κουπόνι (αυτό είναι το ποσό, χωρίς επιστροφή).
+                const rl = rangeLabel(b.total_amount, b.services)
+                if (rl) return { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εκτίμηση επιτόπου')} €${rl}` }
                 const cp = Number(b.coupon_amount) || 0
                 const collect = Math.max(0, Number(b.total_amount || 0) - cp)
                 // Μόνο το τελικό ποσό — καμία αναφορά σε κουπόνι.
@@ -1545,7 +1553,7 @@ export default function DashboardPage() {
 
                         <div className="flex flex-col items-end gap-1.5 shrink-0">
                           <p className="text-[16px] font-bold tracking-tight text-gray-900">
-                            €{Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)).toFixed(0)}
+                            {amountLabel(b)}
                           </p>
                           {pill && (
                             <span

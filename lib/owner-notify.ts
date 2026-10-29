@@ -46,12 +46,19 @@ function ownerEmailHtml(data: {
   isCash: boolean
   coupon?: number
   addons?: { name: string; price: number }[]
+  rangeText?: string
 }): string {
   const addonRows = (data.addons || []).map(a =>
     `<tr><td style="color:#999;padding:6px 0;border-bottom:1px solid #EFEFEF;">+ ${a.name}</td><td style="color:#0A0A0A;font-weight:500;text-align:right;padding:6px 0;border-bottom:1px solid #EFEFEF;">€${Number(a.price).toFixed(2)}</td></tr>`).join('')
   const coupon = Number(data.coupon || 0)
   const collect = (Number(data.total) - coupon).toFixed(2)
-  const payBox = data.isCash
+  const payBox = data.rangeText
+    ? `<div style="background:#FFF7ED;border-radius:10px;padding:14px 16px;margin-bottom:24px;">
+         <p style="color:#B45309;font-size:13px;margin:0;line-height:1.6;">
+           💵 <strong>Εκτίμηση επιτόπου: €${data.rangeText}.</strong> Η τελική τιμή ορίζεται από εσένα μετά τον έλεγχο του αυτοκινήτου· εισπράττεις στο κατάστημα.
+         </p>
+       </div>`
+    : data.isCash
     ? `<div style="background:#FFF7ED;border-radius:10px;padding:14px 16px;margin-bottom:24px;">
          <p style="color:#B45309;font-size:13px;margin:0;line-height:1.6;">
            💵 <strong>Μετρητά στο κατάστημα.</strong> Εισπράττεις εσύ <strong>€${collect}</strong> κατά την παράδοση.
@@ -110,6 +117,8 @@ export async function sendOwnerBookingEmail(
     addons?: { name: string; price: number }[]
     /** Κουπόνι Washio (€). Σε μετρητά ο πελάτης πληρώνει total − couponAmount στο πλυντήριο (χωρίς επιστροφή). */
     couponAmount?: number
+    /** Υπηρεσία εύρους (π.χ. «50–80»): δείχνουμε το εύρος, όχι τον μέσο όρο. */
+    rangeText?: string
   }
 ): Promise<void> {
   try {
@@ -148,6 +157,7 @@ export async function sendOwnerBookingEmail(
         isCash: args.isCash,
         coupon: args.couponAmount || 0,
         addons: args.addons || [],
+        rangeText: args.rangeText,
       }),
     })
   } catch (e) {

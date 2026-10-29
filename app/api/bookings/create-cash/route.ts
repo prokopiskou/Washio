@@ -302,6 +302,7 @@ export async function POST(req: NextRequest) {
       total: payable,
       isCash: true,
       addons: addonLines,
+      rangeText: isRange ? rangeText : undefined,
     })
 
     // Ειδοποίηση σε εσένα (admin): email + Telegram για κάθε νέα κράτηση.
@@ -312,6 +313,7 @@ export async function POST(req: NextRequest) {
         bookingRef, locationName: ln?.name || '—', serviceName: service.name || 'Υπηρεσία',
         slotDate, slotTime: slotStartTime as string, total: amount, coupon: couponAmount,
         method: 'venue', customerEmail: user.email, customerPhone: pf?.phone || null,
+        rangeText: isRange ? rangeText : undefined,
       })
     } catch { /* best-effort */ }
 

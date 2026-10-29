@@ -6,6 +6,7 @@ import { parseCheckin } from '@/lib/checkin'
 import { athensToday } from '@/lib/time'
 import { loyaltyStatus } from '@/lib/loyalty'
 import { sendPush } from '@/lib/push'
+import { rangeLabel, type RangeSvc } from '@/lib/range-price'
 
 // Check-in με QR: το πλυντήριο σκανάρει → η κράτηση περνάει ΑΜΕΣΩΣ «Ήρθε» (χωρίς κουμπί).
 // POST { code } — code = ό,τι διάβασε η κάμερα (URL / κωδικός) ή πληκτρολογημένο WS-XXXX.
@@ -19,11 +20,11 @@ type Row = {
   total_amount: number | null; coupon_amount: number | null; stripe_payment_status: string | null; source: string | null
   car_plate: string | null; car_model: string | null; customer_name: string | null; customer_phone: string | null
   addons: { name: string; price: number }[] | null; checked_in_at?: string | null
-  services: { name?: string } | null; locations: { owner_id?: string; name?: string } | null
+  services: ({ name?: string } & NonNullable<RangeSvc>) | null; locations: { owner_id?: string; name?: string } | null
   profiles: { full_name?: string; phone?: string } | null
 }
 
-const SEL = 'id, booking_ref, status, user_id, location_id, slot_date, slot_start_time, duration_minutes, total_amount, coupon_amount, stripe_payment_status, source, car_plate, car_model, customer_name, customer_phone, addons, services(name), locations(owner_id, name), profiles(full_name, phone)'
+const SEL = 'id, booking_ref, status, user_id, location_id, slot_date, slot_start_time, duration_minutes, total_amount, coupon_amount, stripe_payment_status, source, car_plate, car_model, customer_name, customer_phone, addons, services(name, is_range, price_min, price_max, price_min_suv, price_max_suv), locations(owner_id, name), profiles(full_name, phone)'
 
 function view(b: Row, extra: Record<string, unknown>) {
   const total = Number(b.total_amount) || 0
@@ -44,6 +45,7 @@ function view(b: Row, extra: Record<string, unknown>) {
     phone: b.customer_phone || b.profiles?.phone || '',
     pay,
     collect: pay === 'cash' ? Math.max(0, total - coupon) : 0,
+    range: rangeLabel(b.total_amount, b.services),
     location: b.locations?.name || '',
     ...extra,
   }

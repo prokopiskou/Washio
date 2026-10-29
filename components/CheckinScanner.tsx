@@ -11,7 +11,7 @@ import { successHaptic, errorHaptic } from '@/lib/haptics'
 export type CheckinBooking = {
   bookingId: string; ref: string; status: string; date: string; time: string; duration: number
   service: string; addons: string[]; plate: string; car: string; name: string; phone: string
-  pay: 'card' | 'cash' | 'manual' | 'other'; collect: number; location: string; checkedInAt?: string
+  pay: 'card' | 'cash' | 'manual' | 'other'; collect: number; range?: string | null; location: string; checkedInAt?: string
 }
 export type CheckinResult = { ok: boolean; already?: boolean; wasNoShow?: boolean; error?: string; booking?: CheckinBooking }
 
@@ -62,7 +62,7 @@ export function CheckinResultCard({ res, onNext, nextLabel = 'Σκάναρε ε�
           </div>
           {b.pay === 'cash' && (
             <div className="px-4 py-3" style={{ background: '#FFEDD5' }}>
-              <p className="text-[15px] font-bold" style={{ color: '#C2410C' }}>💵 Εισπράττεις €{b.collect.toFixed(2)}</p>
+              <p className="text-[15px] font-bold" style={{ color: '#C2410C' }}>{b.range ? `💵 Εκτίμηση επιτόπου €${b.range}` : `💵 Εισπράττεις €${b.collect.toFixed(2)}`}</p>
             </div>
           )}
           {b.pay === 'card' && (
