@@ -1101,12 +1101,14 @@ export default function DashboardPage() {
               onClick={() => { lightTap(); setScanOpen(true) }}
               title={t('Σκανάρισμα QR πελάτη')}
               aria-label={t('Σκανάρισμα QR πελάτη')}
-              className="h-[38px] w-[38px] rounded-full bg-gray-100 text-gray-900 flex items-center justify-center shrink-0 active:opacity-70"
+              className="h-[46px] pl-3.5 pr-4 rounded-2xl text-white flex items-center gap-2 shrink-0 active:scale-95 transition-transform"
+              style={{ background: '#1A6FD4', boxShadow: '0 4px 12px rgba(26,111,212,0.35)' }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
                 <circle cx="12" cy="13" r="3.5" />
               </svg>
+              <span className="text-[14px] font-bold">{t('Σκάναρε')}</span>
             </button>
             <button
               onClick={() => {
