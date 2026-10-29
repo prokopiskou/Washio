@@ -57,6 +57,14 @@ export async function handleAuthDeepLink(url: string): Promise<boolean> {
     const parsed = new URL(url)
     const code = parsed.searchParams.get('code')
 
+    // «Άνοιξε στην εφαρμογή» από web σελίδα (π.χ. /aqua): gr.washio.app://auth-callback?open=/path
+    // → η εφαρμογή ανοίγει το ίδιο path (μόνο εσωτερικά paths).
+    const open = parsed.searchParams.get('open')
+    if (!code && open && open.startsWith('/') && !open.startsWith('//') && !open.startsWith('/\\')) {
+      window.location.href = open
+      return true
+    }
+
     // Close the in-app browser (ignore if already closed).
     try {
       const { Browser } = await import('@capacitor/browser')
