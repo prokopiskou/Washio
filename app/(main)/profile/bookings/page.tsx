@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
+import { rangeLabel, RANGE_SVC_COLS, type RangeSvc } from '@/lib/range-price'
 
 const T = {
   el: {
@@ -53,7 +54,7 @@ type UserBooking = {
   coupon_amount?: number | null
   status: string
   locations?: { name?: string } | null
-  services?: { name?: string } | null
+  services?: ({ name?: string } & NonNullable<RangeSvc>) | null
 }
 
 type FilterKey = 'all' | 'upcoming' | 'completed' | 'cancelled'
@@ -159,7 +160,8 @@ function BookingCard({
         </p>
         <p className="text-[15px] font-bold tracking-tight text-gray-900">
           {/* Ό,τι ΠΛΗΡΩΝΕΙ ο πελάτης: τιμή − κουπόνι */}
-          €{Math.max(0, Number(booking.total_amount || 0) - (Number(booking.coupon_amount) || 0)).toFixed(2)}
+          {/* Υπηρεσία εύρους (βιολογικός): το εύρος, όχι ο μέσος όρος */}
+          {rangeLabel(booking.total_amount, booking.services) ? `€${rangeLabel(booking.total_amount, booking.services)}` : `€${Math.max(0, Number(booking.total_amount || 0) - (Number(booking.coupon_amount) || 0)).toFixed(2)}`}
         </p>
       </div>
     </button>
@@ -186,7 +188,7 @@ export default function ProfileBookingsPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select('id, booking_ref, slot_date, slot_start_time, total_amount, coupon_amount, status, locations(name), services(name)')
+        .select(`id, booking_ref, slot_date, slot_start_time, total_amount, coupon_amount, status, locations(name), services(name, ${RANGE_SVC_COLS})`)
         .eq('user_id', user.id)
         .order('slot_date', { ascending: false })
 
