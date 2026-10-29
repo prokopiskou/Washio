@@ -20,6 +20,7 @@ const T = {
     confirmedTitle1: 'Η κράτησή σου', confirmedTitle2: 'επιβεβαιώθηκε',
     cashSub: 'Πληρωμή με μετρητά στο κατάστημα', emailSub: 'Στείλαμε email επιβεβαίωσης',
     passCaption: 'Επιβεβαίωση Κράτησης', refLabel: 'Κωδικός',
+    qrHint: 'Δείξ\' το στο πλυντήριο όταν φτάσεις',
     usefulInstructions: 'Χρήσιμες οδηγίες',
     washroom: 'Πλυντήριο', dateLabel: 'Ημ/νία', timeLabel: 'Ώρα',
     serviceLabel: 'Υπηρεσία', plateLabel: 'Πινακίδα',
@@ -32,6 +33,7 @@ const T = {
     confirmedTitle1: 'Your booking is', confirmedTitle2: 'confirmed',
     cashSub: 'Pay with cash at the store', emailSub: 'We sent a confirmation email',
     passCaption: 'Booking Confirmation', refLabel: 'Code',
+    qrHint: 'Show this at the car wash when you arrive',
     usefulInstructions: 'Useful instructions',
     washroom: 'Car wash', dateLabel: 'Date', timeLabel: 'Time',
     serviceLabel: 'Service', plateLabel: 'Plate',
@@ -40,41 +42,6 @@ const T = {
     bookAnother: 'Book for another day', loading: 'Loading...',
     showOnMap: 'Show on map',
   },
-}
-
-function QRPlaceholder({ size = 80 }: { size?: number }) {
-  const cells = [
-    1, 1, 1, 0, 1, 1, 1,
-    1, 0, 1, 1, 0, 0, 1,
-    1, 0, 1, 0, 1, 0, 1,
-    0, 1, 0, 1, 1, 1, 0,
-    1, 0, 1, 1, 0, 1, 1,
-    1, 0, 0, 1, 1, 0, 1,
-    1, 1, 1, 0, 1, 1, 1,
-  ]
-  return (
-    <div
-      className="bg-white rounded-[10px]"
-      style={{
-        width: size,
-        height: size,
-        padding: 6,
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, 1fr)',
-        gap: 2,
-      }}
-    >
-      {cells.map((c, i) => (
-        <div
-          key={i}
-          style={{
-            background: c ? '#10182A' : 'transparent',
-            borderRadius: 1,
-          }}
-        />
-      ))}
-    </div>
-  )
 }
 
 function PassRow({ caption, value, mono }: { caption: string; value: string; mono?: boolean }) {
@@ -108,6 +75,24 @@ function ConfirmedContent() {
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [locationInstructions, setLocationInstructions] = useState('')
   const [show, setShow] = useState(false)
+  const [qrCode, setQrCode] = useState<string | null>(null)
+  // QR check-in της κράτησης (μόλις υπάρχει ref) — ο ίδιος με το email.
+  useEffect(() => {
+    if (!/^WS-[A-Z0-9]{4,16}$/i.test(bookingRef)) return
+    let alive = true, tries = 0
+    let timer: ReturnType<typeof setTimeout> | undefined
+    // Κάρτα: η κράτηση γράφεται από το webhook λίγα δευτερόλεπτα μετά → ξαναδοκιμάζει.
+    const load = () => {
+      fetch(`/api/bookings/checkin-code?ref=${encodeURIComponent(bookingRef)}`).then(r => r.ok ? r.json() : null)
+        .then(j => {
+          if (!alive) return
+          if (j?.code) setQrCode(j.code as string)
+          else if (++tries < 8) timer = setTimeout(load, 3000)
+        }).catch(() => { if (alive && ++tries < 8) timer = setTimeout(load, 3000) })
+    }
+    load()
+    return () => { alive = false; if (timer) clearTimeout(timer) }
+  }, [bookingRef])
 
   // Pull all booking details from query params
   const service = params.get('service') || ''
@@ -336,8 +321,18 @@ function ConfirmedContent() {
                 <PassRow caption={t.serviceLabel} value={tn(service) || '—'} />
                 {plate && <PassRow caption={t.plateLabel} value={plate} mono />}
               </div>
-              <QRPlaceholder />
             </div>
+
+            {/* QR check-in — το δείχνει στο πλυντήριο */}
+            {qrCode && (
+              <div className="mt-6 flex flex-col items-center">
+                <div className="bg-white rounded-2xl p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/api/qr/${qrCode}`} alt="QR" width={176} height={176} className="w-[176px] h-[176px] block" />
+                </div>
+                <p className="text-[12px] text-white/60 mt-2.5 text-center">{t.qrHint}</p>
+              </div>
+            )}
 
             {/* Dotted separator + total */}
             <div
