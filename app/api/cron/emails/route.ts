@@ -101,7 +101,7 @@ async function inChunks<T>(items: T[], n: number, fn: (t: T) => Promise<void>) {
 }
 
 // Vercel: default 10" — με 8+ κρατήσεις στο παράθυρο κοβόταν η λούπα.
-export const maxDuration = 60
+export const maxDuration = 120
 
 export async function GET(req: Request) {
   const authHeader = req.headers.get('authorization')
@@ -231,18 +231,27 @@ export async function GET(req: Request) {
   // ── Referral: +3€ στον referrer όταν ολοκληρωθεί το πρώτο πλύσιμο του φίλου ──
   const referralRewards = await processReferralRewards(supabase)
 
-  // SMS υπενθυμίσεις: τρέχουν μαζί με αυτό το cron (ό,τι χτυπά το /api/cron/emails κάθε 15' —
-  // το GitHub workflow είναι απενεργοποιημένο). Best-effort, δεν μπλοκάρει τα emails.
-  let sms: unknown = null
-  try {
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), 25_000)
-    const r = await fetch(`${BASE_URL.replace('://washio.gr', '://www.washio.gr')}/api/cron/sms`, {
-      headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` }, signal: ctrl.signal,
-    })
-    clearTimeout(t)
-    sms = await r.json().catch(() => ({ status: r.status }))
-  } catch (e) { sms = { error: e instanceof Error ? e.message : 'fetch' } }
+  // Τα υπόλοιπα crons τρέχουν μαζί με αυτό (ό,τι χτυπά το /api/cron/emails κάθε 15' —
+  // το GitHub workflow είναι απενεργοποιημένο, οπότε rebook / welcome-nudge / push δεν έτρεχαν ΠΟΤΕ).
+  // Παράλληλα, best-effort· το καθένα έχει δικούς του κανόνες (ώρες, 1 φορά ανά χρήστη, claim).
+  const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders'] as const
+  const athH = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Athens', hour: '2-digit', hourCycle: 'h23' }).format(new Date()))
+  const callSub = async (name: string) => {
+    // Push «ώρα για πλύσιμο»: μόνο 10:00–20:59 (δεν έχει δικό του έλεγχο ώρας).
+    if (name === 'wash-reminders' && (athH < 10 || athH > 20)) return { skipped: 'hours' }
+    try {
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 45_000)
+      const r = await fetch(`${BASE_URL.replace('://washio.gr', '://www.washio.gr')}/api/cron/${name}`, {
+        headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` }, signal: ctrl.signal,
+      })
+      clearTimeout(t)
+      return await r.json().catch(() => ({ status: r.status }))
+    } catch (e) { return { error: e instanceof Error ? e.message : 'fetch' } }
+  }
+  const subResults = await Promise.all(SUB.map(n => callSub(n)))
+  const sub = Object.fromEntries(SUB.map((n, i) => [n, subResults[i]]))
+  const sms = sub['sms']
 
-  return NextResponse.json({ ...stats, referralRewards, sms })
+  return NextResponse.json({ ...stats, referralRewards, sms, sub })
 }
