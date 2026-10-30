@@ -524,13 +524,15 @@ export default function AdminPage() {
   }
 
   const exportBookingsCSV = (list: any[], suffix: string) => {
-    const headers = ['Ref', 'Χρήστης', 'Email', 'Σημείο', 'Υπηρεσία', 'Ημερομηνία', 'Ώρα', 'Σύνολο', 'Προμήθεια', 'Status']
+    const headers = ['Ref', 'Χρήστης', 'Email', 'Σημείο', 'Υπηρεσία', 'Πρόσθετα', 'Ημερομηνία', 'Ώρα', 'Σύνολο', 'Προμήθεια', 'Status']
     const rows = list.map(b => [
       b.booking_ref,
       b.profiles?.full_name || '',
       b.profiles?.email || '',
       b.locations?.name || '',
       b.services?.name || '',
+      // Πρόσθετα: «Όνομα €τιμή» χωρισμένα με « | » (χωρίς κόμματα, για να μη σπάει το CSV)
+      (Array.isArray(b.addons) ? b.addons : []).map((a: { name?: string; price?: number }) => `${String(a.name || '').replace(/,/g, ' ')} €${Number(a.price || 0).toFixed(2)}`).join(' | '),
       b.slot_date,
       b.slot_start_time?.slice(0, 5),
       b.total_amount,
@@ -889,6 +891,17 @@ export default function AdminPage() {
                                 <p className="text-[11px] text-gray-400 mt-0.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   {dateStr} · {b.slot_start_time?.slice(0, 5)}
                                 </p>
+                                {/* Πρόσθετες υπηρεσίες που πλήρωσε ο πελάτης, με την τιμή της καθεμιάς */}
+                                {Array.isArray(b.addons) && b.addons.length > 0 && (
+                                  <div className="mt-1.5 rounded-lg bg-gray-50 px-2.5 py-1.5 space-y-0.5">
+                                    {b.addons.map((a: { name?: string; price?: number }, i: number) => (
+                                      <div key={i} className="flex justify-between gap-3 text-[11px]" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                        <span className="text-gray-600 truncate">+ {a.name}</span>
+                                        <span className="text-gray-700 shrink-0">€{Number(a.price || 0).toFixed(2)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                                 {b.profiles?.phone && (
                                   <button
                                     onClick={() => { navigator.clipboard?.writeText(String(b.profiles.phone).replace(/\s+/g, '')).then(() => { setCopiedId(b.id); setTimeout(() => setCopiedId(null), 1500) }).catch(() => {}) }}
