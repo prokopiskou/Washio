@@ -26,7 +26,7 @@ type Row = {
 
 const SEL = 'id, booking_ref, status, user_id, location_id, slot_date, slot_start_time, duration_minutes, total_amount, coupon_amount, stripe_payment_status, source, car_plate, car_model, customer_name, customer_phone, addons, services(name, is_range, price_min, price_max, price_min_suv, price_max_suv), locations(owner_id, name), profiles(full_name, phone)'
 
-function view(b: Row, extra: Record<string, unknown>) {
+function view(b: Row, extra: Record<string, unknown>, staff = false) {
   const total = Number(b.total_amount) || 0
   const coupon = Number(b.coupon_amount) || 0
   const pay = b.source === 'manual' ? 'manual' : b.stripe_payment_status === 'paid' ? 'card' : b.stripe_payment_status === 'pay_at_venue' ? 'cash' : 'other'
@@ -42,7 +42,7 @@ function view(b: Row, extra: Record<string, unknown>) {
     plate: b.car_plate || '',
     car: b.car_model || '',
     name: b.customer_name || b.profiles?.full_name || '',
-    phone: b.customer_phone || b.profiles?.phone || '',
+    phone: staff ? '' : (b.customer_phone || b.profiles?.phone || ''),
     pay,
     collect: pay === 'cash' ? Math.max(0, total - coupon) : 0,
     range: rangeLabel(b.total_amount, b.services),
@@ -53,13 +53,24 @@ function view(b: Row, extra: Record<string, unknown>) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { code, via } = await req.json().catch(() => ({}))
+    const { code, via, scanToken } = await req.json().catch(() => ({}))
     const p = parseCheckin(String(code || ''))
     if (!p) return NextResponse.json({ ok: false, error: 'Μη έγκυρος κωδικός QR' }, { status: 400 })
 
-    const sb = await createServerClient()
-    const { data: { user } } = await sb.auth.getUser()
-    if (!user) return NextResponse.json({ ok: false, error: 'Απαιτείται σύνδεση' }, { status: 401 })
+    // «Σκάνερ καταστήματος» (link ανά πλυντήριο, χωρίς login): μόνο κρατήσεις ΕΚΕΙΝΟΥ του πλυντηρίου.
+    let scanLocationId: string | null = null
+    let user: { id: string; email?: string | null } | null = null
+    if (scanToken) {
+      const tok = String(scanToken).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64)
+      const { data: loc } = tok.length >= 16 ? await admin.from('locations').select('id').eq('scan_token', tok).maybeSingle() : { data: null }
+      if (!loc) return NextResponse.json({ ok: false, error: 'Το link σκάνερ δεν ισχύει πια. Ζήτα νέο από τον υπεύθυνο.' }, { status: 401 })
+      scanLocationId = loc.id as string
+    } else {
+      const sb = await createServerClient()
+      const { data } = await sb.auth.getUser()
+      user = data.user
+      if (!user) return NextResponse.json({ ok: false, error: 'Απαιτείται σύνδεση' }, { status: 401 })
+    }
 
     let res = await admin.from('bookings').select(SEL + ', checked_in_at').eq('booking_ref', p.ref).maybeSingle()
     const hasCol = !res.error
@@ -68,20 +79,21 @@ export async function POST(req: NextRequest) {
     if (!b) return NextResponse.json({ ok: false, error: 'Η κράτηση δεν βρέθηκε' }, { status: 404 })
 
     // Από link (κάμερα κινητού → /c/...): ΜΟΝΟ ο ιδιοκτήτης — ο admin που ανοίγει QR πελάτη δεν κάνει check-in.
-    const isOwner = b.locations?.owner_id === user.id
-    if (!isOwner && (via === 'link' || !isAdminEmail(user.email))) {
+    if (scanLocationId) {
+      if (b.location_id !== scanLocationId) return NextResponse.json({ ok: false, error: 'Η κράτηση δεν είναι για αυτό το κατάστημα' }, { status: 403 })
+    } else if (user && b.locations?.owner_id !== user.id && (via === 'link' || !isAdminEmail(user.email))) {
       return NextResponse.json({ ok: false, error: 'Η κράτηση δεν είναι για το πλυντήριό σου' }, { status: 403 })
     }
     if (b.status === 'cancelled') {
-      return NextResponse.json({ ok: false, error: 'Η κράτηση έχει ακυρωθεί', booking: view(b, {}) }, { status: 409 })
+      return NextResponse.json({ ok: false, error: 'Η κράτηση έχει ακυρωθεί', booking: view(b, {}, !!scanLocationId) }, { status: 409 })
     }
     const today = athensToday()
     if (b.slot_date !== today) {
       const [y, m, d] = String(b.slot_date).split('-')
-      return NextResponse.json({ ok: false, error: `Η κράτηση είναι για ${d}/${m}/${y} — όχι για σήμερα`, booking: view(b, {}) }, { status: 409 })
+      return NextResponse.json({ ok: false, error: `Η κράτηση είναι για ${d}/${m}/${y} — όχι για σήμερα`, booking: view(b, {}, !!scanLocationId) }, { status: 409 })
     }
     if (hasCol && b.checked_in_at) {
-      return NextResponse.json({ ok: true, already: true, booking: view(b, { checkedInAt: b.checked_in_at }) })
+      return NextResponse.json({ ok: true, already: true, booking: view(b, { checkedInAt: b.checked_in_at }, !!scanLocationId) })
     }
     if (!hasCol) {
       return NextResponse.json({ ok: false, error: 'Το check-in δεν έχει ενεργοποιηθεί ακόμα (supabase/checkin.sql)' }, { status: 500 })
@@ -89,12 +101,12 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString()
     const { data: upd, error: updErr } = await admin.from('bookings')
-      .update({ checked_in_at: now, checked_in_by: user.id, status: 'confirmed' })
+      .update({ checked_in_at: now, checked_in_by: user?.id ?? null, status: 'confirmed' })
       .eq('id', b.id).is('checked_in_at', null).in('status', ['confirmed', 'pending', 'no_show'])
       .select('id')
     if (updErr) return NextResponse.json({ ok: false, error: updErr.message }, { status: 500 })
     if (!upd || upd.length === 0) {
-      return NextResponse.json({ ok: true, already: true, booking: view(b, { checkedInAt: now }) })
+      return NextResponse.json({ ok: true, already: true, booking: view(b, { checkedInAt: now }, !!scanLocationId) })
     }
 
     // Push στον πελάτη: καλωσόρισμα + σταγόνα Washio Club (best-effort).
@@ -109,7 +121,7 @@ export async function POST(req: NextRequest) {
       } catch { /* best-effort */ }
     }
 
-    return NextResponse.json({ ok: true, already: false, wasNoShow: b.status === 'no_show', booking: view(b, { checkedInAt: now, status: 'confirmed' }) })
+    return NextResponse.json({ ok: true, already: false, wasNoShow: b.status === 'no_show', booking: view(b, { checkedInAt: now, status: 'confirmed' }, !!scanLocationId) })
   } catch (e: unknown) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'Σφάλμα' }, { status: 500 })
   }

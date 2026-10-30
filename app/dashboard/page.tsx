@@ -19,6 +19,7 @@ import { Capacitor } from '@capacitor/core'
 import { registerNativePush, nativePushGranted } from '@/lib/native-push'
 import PushInit from '@/components/PushInit'
 import CheckinScanner from '@/components/CheckinScanner'
+import { StoreScannerLink } from '@/components/StoreScannerLink'
 import { rangeLabel, RANGE_SVC_COLS, type RangeSvc } from '@/lib/range-price'
 
 type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
@@ -2602,6 +2603,10 @@ export default function DashboardPage() {
 
           {activeTab === 'settings' && (
             <div className="space-y-5">
+              {/* Σκάνερ καταστήματος: για ιδιοκτήτες με πολλά πλυντήρια (υπάλληλοι σε άλλο κατάστημα) */}
+              {(myLocations.length > 1 || supportMode) && location?.id && (
+                <StoreScannerLink locationId={location.id} locationName={location.name} />
+              )}
               <div
                 className="bg-white border border-gray-100 rounded-[14px] p-4"
                 style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}

@@ -8,6 +8,7 @@
           { "/": "/api/*", "exclude": true },
           { "/": "/admin*", "exclude": true },
           { "/": "/login*", "exclude": true },
+          { "/": "/s/*", "exclude": true, "comment": "σκάνερ καταστήματος → πάντα browser (κάμερα)" },
           { "/": "/auth/link*", "comment": "magic link από email → σύνδεση μέσα στην εφαρμογή" },
           { "/": "/auth/*", "exclude": true, "comment": "OAuth callback του web (PKCE στον browser)" },
           { "/": "/.well-known/*", "exclude": true },

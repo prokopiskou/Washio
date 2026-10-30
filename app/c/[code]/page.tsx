@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { CheckinResultCard, type CheckinResult } from '@/components/CheckinScanner'
+import { CheckinResultCard, submitCheckin, type CheckinResult } from '@/components/CheckinScanner'
+import { SCAN_KEY } from '@/lib/scan-device'
 
 // Στόχος του QR κράτησης: https://www.washio.gr/c/<κωδικός>
 //  • Το πλυντήριο το σκανάρει με την κάμερα του κινητού (συνδεδεμένο) → check-in αμέσως.
@@ -11,6 +12,7 @@ export default function CheckinLinkPage() {
   const params = useParams<{ code: string }>()
   const code = String(params?.code || '')
   const [state, setState] = useState<'loading' | 'owner' | 'show'>('loading')
+  const [staffTok, setStaffTok] = useState('')
   const [res, setRes] = useState<CheckinResult | null>(null)
 
   useEffect(() => {
@@ -20,7 +22,17 @@ export default function CheckinLinkPage() {
     }).then(async r => {
       const j = await r.json().catch(() => ({})) as CheckinResult
       if (!alive) return
-      if (r.status === 401 || r.status === 403 || r.status === 400) { setState('show'); return }
+      if (r.status === 401 || r.status === 403 || r.status === 400) {
+        // Συσκευή καταστήματος (έχει ανοίξει το link σκάνερ) → check-in με αυτό.
+        let tok = ''
+        try { tok = localStorage.getItem(SCAN_KEY) || '' } catch { /* ignore */ }
+        if (tok && r.status !== 400) {
+          const j2 = await submitCheckin(code, tok)
+          if (!alive) return
+          if (j2.ok || j2.booking) { setRes(j2); setStaffTok(tok); setState('owner'); return }
+        }
+        setState('show'); return
+      }
       setRes(j); setState('owner')
     }).catch(() => { if (alive) setState('show') })
     return () => { alive = false }
@@ -33,7 +45,7 @@ export default function CheckinLinkPage() {
         {state === 'loading' && <p className="text-center text-[13px] text-gray-400 mt-16">Φόρτωση…</p>}
         {state === 'owner' && res && (
           <div className="mt-6">
-            <CheckinResultCard res={res} onNext={() => { window.location.href = '/dashboard' }} nextLabel="Στο dashboard" />
+            <CheckinResultCard res={res} onNext={() => { window.location.href = staffTok ? `/s/${staffTok}` : '/dashboard' }} nextLabel={staffTok ? 'Σκάνερ' : 'Στο dashboard'} />
           </div>
         )}
         {state === 'show' && (

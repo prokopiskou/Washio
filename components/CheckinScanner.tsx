@@ -30,10 +30,10 @@ async function cameraAllowedHere(): Promise<boolean> {
   } catch { return false }
 }
 
-export async function submitCheckin(code: string): Promise<CheckinResult> {
+export async function submitCheckin(code: string, scanToken?: string): Promise<CheckinResult> {
   try {
     const r = await fetch('/api/bookings/checkin', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(scanToken ? { code, scanToken } : { code }),
     })
     return await r.json() as CheckinResult
   } catch {
@@ -96,8 +96,13 @@ function Row({ label, value, strong }: { label: string; value: React.ReactNode; 
   )
 }
 
-export default function CheckinScanner({ onClose, onCheckedIn }: {
+export default function CheckinScanner({ onClose, onCheckedIn, scanToken, title = 'Σκανάρισμα πελάτη', embedded = false }: {
   onClose: () => void
+  /** Σκάνερ καταστήματος (link χωρίς login) */
+  scanToken?: string
+  title?: string
+  /** Ολόκληρη σελίδα αντί για pop-up */
+  embedded?: boolean
   onCheckedIn?: (b: CheckinBooking) => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -123,11 +128,11 @@ export default function CheckinScanner({ onClose, onCheckedIn }: {
     busyRef.current = true
     setBusy(true)
     stopCamera()
-    const res = await submitCheckin(code)
+    const res = await submitCheckin(code, scanToken)
     setResult(res)
     setBusy(false)
     if (res.ok) { successHaptic(); if (res.booking) onCheckedIn?.(res.booking) } else errorHaptic()
-  }, [onCheckedIn, stopCamera])
+  }, [onCheckedIn, stopCamera, scanToken])
 
   const startCamera = useCallback(async () => {
     setCamError('')
@@ -181,11 +186,11 @@ export default function CheckinScanner({ onClose, onCheckedIn }: {
   const next = () => { setResult(null); setManual(''); if (mode === 'camera' || !camError) startCamera() }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/70 flex items-end sm:items-center justify-center" onClick={() => { stopCamera(); onClose() }}>
-      <div className="w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 pb-[calc(var(--safe-bottom,0px)+20px)] max-h-[92vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+    <div className={embedded ? 'min-h-screen bg-white flex justify-center' : 'fixed inset-0 z-[100] bg-black/70 flex items-end sm:items-center justify-center'} onClick={() => { if (!embedded) { stopCamera(); onClose() } }}>
+      <div className={embedded ? 'w-full max-w-md p-5 pt-[calc(var(--safe-top,0px)+20px)]' : 'w-full max-w-md bg-white rounded-t-3xl sm:rounded-3xl p-5 pb-[calc(var(--safe-bottom,0px)+20px)] max-h-[92vh] overflow-y-auto'} onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <p className="text-[17px] font-bold text-gray-900">Σκανάρισμα πελάτη</p>
-          <button onClick={() => { stopCamera(); onClose() }} className="w-9 h-9 rounded-full bg-gray-100 text-gray-700 text-[18px] leading-none">×</button>
+          <p className="text-[17px] font-bold text-gray-900">{title}</p>
+          {!embedded && <button onClick={() => { stopCamera(); onClose() }} className="w-9 h-9 rounded-full bg-gray-100 text-gray-700 text-[18px] leading-none">×</button>}
         </div>
 
         {result ? (
