@@ -187,6 +187,13 @@ export default function ProfilePage() {
     setProfileSaving(true)
     const supabase = createClient()
     const { error } = await supabase.auth.updateUser({ data: { full_name: fullName.trim(), phone: phone.trim() } })
+    // Και στο profiles (αυτό βλέπουν πλυντήρια/admin).
+    if (!error && userId) {
+      const upd: Record<string, string> = {}
+      if (fullName.trim()) upd.full_name = fullName.trim()
+      if (phone.trim()) upd.phone = phone.trim()
+      if (Object.keys(upd).length) await supabase.from('profiles').update(upd).eq('id', userId).then(() => null, () => null)
+    }
     setProfileSaving(false)
     if (!error) { setSavedProfile(true); setTimeout(() => setSavedProfile(false), 2000); setShowProfileEdit(false) }
   }

@@ -446,6 +446,8 @@ function BookingPageContent() {
   const [isGuest, setIsGuest] = useState(false)
   const guestRef = useRef(false)
   const [name, setName] = useState('')
+  // Συνδεδεμένος χωρίς όνομα (π.χ. Apple / email κωδικός) → ζητάμε όνομα μία φορά.
+  const [needName, setNeedName] = useState(false)
   const [otpStep, setOtpStep] = useState(false)
   const [otpCode, setOtpCode] = useState('')
   const [otpBusy, setOtpBusy] = useState(false)
@@ -596,7 +598,7 @@ function BookingPageContent() {
         locationId
           ? supabase.from('location_addons').select('addon_id, price_override, addons(name, price, sort_order)').eq('location_id', locationId)
           : none,
-        user ? supabase.from('profiles').select('phone, referral_credit').eq('id', user.id).single() : none,
+        user ? supabase.from('profiles').select('phone, referral_credit, full_name').eq('id', user.id).single() : none,
         user ? supabase.from('vehicles').select('id, plate, type').eq('user_id', user.id).order('created_at', { ascending: false }) : none,
       ])
 
@@ -639,6 +641,13 @@ function BookingPageContent() {
       setWalletCredit(Number((profileData as { referral_credit?: number } | null)?.referral_credit) || 0)
       if (profileData?.phone) setPhone(profileData.phone)
       else if (user.user_metadata?.phone) setPhone(user.user_metadata.phone as string)
+      {
+        const m = user.user_metadata || {}
+        const known = String((profileData as { full_name?: string } | null)?.full_name || m.full_name || m.name ||
+          [m.given_name, m.family_name].filter(Boolean).join(' ') || '').trim()
+        if (known.length >= 2) setName(known)
+        else setNeedName(true)
+      }
 
       const vList = (vehiclesData as Vehicle[]) || []
       const filteredVehicles = vList.filter(v => {
@@ -714,7 +723,7 @@ function BookingPageContent() {
   // Κινητό: ελληνικό 69xxxxxxxx (ή ξένο με +). «1234567890», σταθερά κλπ → όχι.
   const phoneValid = phoneOk(phone)
   const canProceed = !!(phone.trim() && email.trim() && service) && !awaitingCode && phoneValid &&
-    (!isGuest || (name.trim().length >= 2 && emailOk))
+    (!isGuest || (name.trim().length >= 2 && emailOk)) && (!needName || name.trim().length >= 2)
 
   // Επισκέπτης → φτιάξε λογαριασμό + σύνδεση ΤΩΡΑ (πριν την κράτηση). true = συνδεδεμένος.
   // Email που υπάρχει ήδη → στέλνουμε κωδικό και περιμένουμε (false).
@@ -819,6 +828,11 @@ function BookingPageContent() {
 
     if (phone.trim() && session?.user?.id) {
       await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', session.user.id)
+    }
+    if (needName && name.trim().length >= 2 && session?.user?.id) {
+      const n = name.trim()
+      await supabase.from('profiles').update({ full_name: n }).eq('id', session.user.id).then(() => null, () => null)
+      await supabase.auth.updateUser({ data: { full_name: n } }).then(() => null, () => null)
     }
   }
 
@@ -1038,7 +1052,7 @@ function BookingPageContent() {
           </div>
 
           {/* Επισκέπτης: όνομα (το βλέπει το πλυντήριο) */}
-          {isGuest && (
+          {(isGuest || needName) && (
             <div>
               <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
                 {t.name}
