@@ -62,6 +62,10 @@ export default function AdminPage() {
   const [onboardings, setOnboardings] = useState<any[]>([])
   const [activatingId, setActivatingId] = useState<string | null>(null)
   const [locsWithHours, setLocsWithHours] = useState<Set<string>>(new Set())
+  // Κινητό ανά πλυντήριο (locations.phone → αλλιώς κινητό του owner) για εύκολη αντιγραφή.
+  const [locPhones, setLocPhones] = useState<Record<string, string>>({})
+  const [phoneEdit, setPhoneEdit] = useState<{ id: string; v: string } | null>(null)
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null)
   const [addons, setAddons] = useState<any[]>([])
   const [catalogItems, setCatalogItems] = useState<any[]>([])
   const [addingCatalog, setAddingCatalog] = useState(false)
@@ -117,6 +121,7 @@ export default function AdminPage() {
       { data: payoutsData },
       { data: catalogData },
       { data: hoursData },
+      { data: phonesData },
     ] = await Promise.all([
       supabase.from('bookings')
         .select(`*, locations(name, city), services(name, price, ${RANGE_SVC_COLS}), profiles(full_name, phone, email)`)
@@ -141,11 +146,18 @@ export default function AdminPage() {
       supabase.from('payouts').select('*, locations(name)').order('created_at', { ascending: false }),
       supabase.from('service_catalog').select('*').order('sort_order', { ascending: true }),
       supabase.from('location_hours').select('location_id'),
+      supabase.from('locations').select('id, phone, owner_id'),
     ])
 
     setBookings(bookingsData || [])
     setLocations(locationsData || [])
     setLocsWithHours(new Set((hoursData || []).map((h: any) => h.location_id)))
+    {
+      const ownerPhone = new Map((profilesData || []).map((p: any) => [p.id, p.phone || '']))
+      const m: Record<string, string> = {}
+      for (const r of (phonesData || []) as any[]) m[r.id] = (r.phone || ownerPhone.get(r.owner_id) || '').trim()
+      setLocPhones(m)
+    }
     setUsers(profilesData || [])
     setApplications(applicationsData || [])
     setAddons(addonsData || [])
@@ -361,6 +373,18 @@ export default function AdminPage() {
     const supabase = createClient()
     await supabase.from('locations').update({ [field]: value }).eq('id', id)
     if (field === 'iban') fetchData() // ξανα-ανίχνευση τράπεζας από το νέο IBAN
+  }
+
+  const saveLocationPhone = async (id: string, v: string) => {
+    const phone = v.trim()
+    const supabase = createClient()
+    await supabase.from('locations').update({ phone: phone || null }).eq('id', id)
+    setLocPhones(m => ({ ...m, [id]: phone }))
+    setPhoneEdit(null)
+  }
+  const copyPhone = async (id: string, phone: string) => {
+    try { await navigator.clipboard.writeText(phone.replace(/\s/g, '')) } catch { /* ignore */ }
+    setCopiedPhone(id); setTimeout(() => setCopiedPhone(c => (c === id ? null : c)), 1500)
   }
 
   const getUserDisplay = (profile: any) => profile?.full_name || profile?.email || 'Επισκέπτης'
@@ -994,6 +1018,34 @@ export default function AdminPage() {
                             <div className="flex-1 min-w-0">
                               <p className="text-[14px] font-semibold tracking-tight text-gray-900 truncate">{loc.name}</p>
                               <p className="text-[11px] text-gray-400 mt-0.5 truncate">{loc.city} · {loc.address}</p>
+                              {/* Κινητό: πάτα για αντιγραφή · ✎ για αλλαγή */}
+                              <div className="mt-1.5 flex items-center gap-1.5">
+                                {phoneEdit?.id === loc.id ? (
+                                  <>
+                                    <input autoFocus type="tel" inputMode="tel" value={phoneEdit!.v} placeholder="69xxxxxxxx"
+                                      onChange={e => setPhoneEdit({ id: loc.id, v: e.target.value })}
+                                      onKeyDown={e => { if (e.key === 'Enter') saveLocationPhone(loc.id, phoneEdit!.v); if (e.key === 'Escape') setPhoneEdit(null) }}
+                                      className="w-[130px] h-7 px-2 rounded-md border border-gray-300 text-[12px] font-mono" />
+                                    <button onClick={() => saveLocationPhone(loc.id, phoneEdit!.v)} className="h-7 px-2 rounded-md bg-gray-900 text-white text-[11px] font-semibold">OK</button>
+                                    <button onClick={() => setPhoneEdit(null)} className="h-7 px-1.5 text-[11px] text-gray-400">✕</button>
+                                  </>
+                                ) : locPhones[loc.id] ? (
+                                  <>
+                                    <button onClick={() => copyPhone(loc.id, locPhones[loc.id])}
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[12px] font-mono font-semibold"
+                                      style={{ background: copiedPhone === loc.id ? '#E7F6EF' : '#F4F4F5', color: copiedPhone === loc.id ? '#0F7A5C' : '#111827' }}>
+                                      📞 {locPhones[loc.id]} <span className="font-sans text-[10px] font-medium opacity-60">{copiedPhone === loc.id ? '✓ Αντιγράφηκε' : 'Αντιγραφή'}</span>
+                                    </button>
+                                    <a href={`tel:${locPhones[loc.id].replace(/\s/g, '')}`} className="px-1.5 py-1 rounded-md text-[11px] bg-gray-100">Κλήση</a>
+                                    <button onClick={() => setPhoneEdit({ id: loc.id, v: locPhones[loc.id] })} className="px-1.5 py-1 text-[11px] text-gray-400">✎</button>
+                                  </>
+                                ) : (
+                                  <button onClick={() => setPhoneEdit({ id: loc.id, v: '' })}
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold" style={{ background: '#FFF7ED', color: '#B45309' }}>
+                                    📞 Χωρίς κινητό · Πρόσθεσε
+                                  </button>
+                                )}
+                              </div>
                               {/* Support mode: άνοιγμα του dashboard του σημείου ως admin */}
                               <div className="flex flex-wrap gap-1.5 mt-1.5">
                                 <button
