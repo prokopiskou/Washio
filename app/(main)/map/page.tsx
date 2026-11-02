@@ -23,6 +23,7 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
+import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
 
 // Κέντρα περιοχών για τοπικές διαφημίσεις: /map?area=vyronas → ο χάρτης ανοίγει εκεί
 // και η λίστα ταξινομείται από εκεί (μέχρι να έρθει η πραγματική θέση του χρήστη).
@@ -51,6 +52,8 @@ const T = {
     lateWarning: 'Αν καθυστερήσεις, το πλύσιμο ενδέχεται να ακυρωθεί από το σημείο.',
     pickOtherTime: 'Επίλεξε άλλη ώρα', understandContinue: 'Κατανοώ, συνέχεια',
     whenTitle: 'Πότε θέλεις;', dateLabel: 'Ημερομηνία', timeLabel: 'Ώρα',
+    bestDay: 'Ιδανική', bestHint: 'Καλύτερη μέρα για πλύσιμο', bestWhy: 'χωρίς βροχή και την επόμενη μέρα', rainWarn: 'Πιθανή βροχή', rainTry: 'Δοκίμασε', pick: 'Επιλογή', moreDates: 'Άλλη',
+    wkd: ['Κυρ', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ'],
     pickTime: 'Επίλεξε ώρα', apply: 'Εφαρμογή', loading: 'Φόρτωση...',
     passed: 'πέρασε', newRating: 'Νέο',
     allWashers: 'Όλα τα πλυντήρια', seeList: 'Λίστα', fromPrice: 'από', closedToday: 'Κλειστό σήμερα', laterToday: 'Αργότερα',
@@ -83,6 +86,8 @@ const T = {
     lateWarning: 'If you are late, the wash may be cancelled by the location.',
     pickOtherTime: 'Pick another time', understandContinue: 'I understand, continue',
     whenTitle: 'When do you want it?', dateLabel: 'Date', timeLabel: 'Time',
+    bestDay: 'Best', bestHint: 'Best day to wash', bestWhy: 'no rain the day after either', rainWarn: 'Rain likely', rainTry: 'Try', pick: 'Pick', moreDates: 'More',
+    wkd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
     pickTime: 'Select a time', apply: 'Apply', loading: 'Loading...',
     passed: 'passed', newRating: 'New',
     allWashers: 'All car washes', seeList: 'List', fromPrice: 'from', closedToday: 'Closed today', laterToday: 'Later',
@@ -333,6 +338,30 @@ function MapPageContent() {
   const timePickerRef = useRef<HTMLDivElement>(null)
 
   const activeDate = timing === 'now' ? getTodayValue() : selectedDate
+
+  // Καιρός στο «Πότε θέλεις;» — φορτώνει όταν ανοίξει το sheet (θέση χρήστη ή Αθήνα).
+  const [wx, setWx] = useState<WxDay[]>([])
+  const wxLoadedRef = useRef(false)
+  useEffect(() => {
+    if (!showSchedule || wxLoadedRef.current) return
+    wxLoadedRef.current = true
+    const q = userLat && userLng ? `?lat=${userLat}&lng=${userLng}` : ''
+    fetch(`/api/weather${q}`).then(r => r.json()).then(j => setWx(Array.isArray(j?.days) ? j.days : [])).catch(() => { wxLoadedRef.current = false })
+  }, [showSchedule, userLat, userLng])
+  const stripDays = (() => {
+    const out: string[] = []
+    const [y, m, d] = getTodayValue().split('-').map(Number)
+    for (let i = 0; i < 14; i++) {
+      const dt = new Date(Date.UTC(y, m - 1, d + i))
+      out.push(dt.toISOString().slice(0, 10))
+    }
+    return out
+  })()
+  const wxBy = new Map(wx.map(d => [d.date, d]))
+  const dowOf = (ymd: string) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)).getUTCDay() }
+  // Κυριακή (τα περισσότερα κλειστά) και σήμερα μετά τις 17:00 δεν προτείνονται.
+  const bestYmd = bestWashDay(wx, ymd => dowOf(ymd) === 0 || (ymd === getTodayValue() && athensMinutesOfDay() >= 17 * 60))
+  const selWx = wxBy.get(selectedDate)
 
   // Τιμή ανά τύπο οχήματος: ΙΧ = βασική, SUV = price_suv, Μοτο = price_moto.
   // Υπηρεσία εύρους (βιολογικός): min–max ανά ΙΧ/SUV, όχι μοτο.
@@ -1744,16 +1773,53 @@ function MapPageContent() {
               <button onClick={() => { setShowSchedule(false); if (!selectedTime) setTiming('now') }} className="text-gray-400"><X size={18} /></button>
             </div>
 
-            <div className="mb-3">
+            <div className="mb-4">
               <p className="text-xs text-gray-400 mb-1.5">{t.dateLabel}</p>
-              <div className="relative">
-                <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-                  min={getTodayValue()} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 flex items-center justify-between bg-gray-50">
-                  <span>{new Date(selectedDate).toLocaleDateString(LOCALE_MAP[locale], { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-                  <ChevronDown size={14} className="text-gray-400" />
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-5 px-5 pt-2.5 pb-1">
+                {(stripDays.includes(selectedDate) ? stripDays : [...stripDays, selectedDate]).map(ymd => {
+                  const sel = ymd === selectedDate
+                  const w = wxBy.get(ymd)
+                  const best = ymd === bestYmd
+                  const sun = dowOf(ymd) === 0
+                  return (
+                    <button key={ymd} onClick={() => { setSelectedDate(ymd); selectionHaptic() }}
+                      className={`relative shrink-0 w-[50px] ${w ? 'h-[76px]' : 'h-[64px]'} rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all ${
+                        sel ? 'bg-gray-900 border-gray-900 text-white'
+                          : best ? 'bg-cyan-50/60 border-dashed border-cyan-500/60 text-gray-900'
+                          : sun ? 'bg-gray-50 border-gray-200 text-gray-400'
+                          : 'bg-white border-gray-200 text-gray-900'}`}>
+                      <span className={`text-[10px] uppercase tracking-wide ${sel ? 'text-white/70' : 'text-gray-400'}`}>{t.wkd[dowOf(ymd)]}</span>
+                      <span className="text-[17px] font-semibold leading-none">{Number(ymd.slice(8, 10))}</span>
+                      {w && <span className="text-[12px] leading-none mt-0.5">{wxEmoji(w.kind)}</span>}
+                      {best && (
+                        <span className={`absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 rounded-full text-[8px] font-bold uppercase tracking-wide whitespace-nowrap ${sel ? 'bg-white text-gray-900' : 'bg-cyan-600 text-white'}`}>{t.bestDay}</span>
+                      )}
+                    </button>
+                  )
+                })}
+                {/* Πιο μακρινή ημερομηνία: ημερολόγιο συσκευής */}
+                <div className="relative shrink-0 w-[50px] h-[64px] rounded-xl border border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-1 text-gray-500">
+                  <input type="date" value={selectedDate} onChange={e => e.target.value && setSelectedDate(e.target.value)}
+                    min={getTodayValue()} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                  <Calendar size={15} />
+                  <span className="text-[10px]">{t.moreDates}</span>
                 </div>
               </div>
+              {bestYmd && (() => {
+                const lbl = `${t.wkd[dowOf(bestYmd)]} ${Number(bestYmd.slice(8, 10))}/${Number(bestYmd.slice(5, 7))}`
+                const wet = isWet(selWx)
+                return (
+                  <div className={`mt-2.5 rounded-xl px-3 py-2.5 flex items-center gap-2.5 ${wet ? 'bg-amber-50 border border-amber-200' : 'bg-cyan-50/60 border border-cyan-500/20'}`}>
+                    <span className="text-[17px] leading-none">{wet ? wxEmoji(selWx!.kind) : '☀️'}</span>
+                    <p className="flex-1 text-[12px] leading-snug text-gray-800">
+                      {wet ? <><b>{t.rainWarn} ({selWx!.prob}%)</b> · {t.rainTry} <b>{lbl}</b></> : <><b>{t.bestHint}: {lbl}</b> · {t.bestWhy}</>}
+                    </p>
+                    {selectedDate !== bestYmd && (
+                      <button onClick={() => { setSelectedDate(bestYmd); selectionHaptic() }} className="shrink-0 text-[11px] font-semibold text-cyan-700 border border-cyan-600/40 rounded-full px-2.5 py-1">{t.pick}</button>
+                    )}
+                  </div>
+                )
+              })()}
             </div>
 
             <div className="mb-5" ref={timePickerRef}>
