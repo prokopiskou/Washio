@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { sendCapiEvent } from '@/lib/meta-capi'
+import { adConsentFrom } from '@/lib/consent-server'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 
 // Server-side mirror (Meta CAPI) των funnel events του browser Pixel:
@@ -40,6 +41,7 @@ export async function POST(req: NextRequest) {
       if (data.user) user = { id: data.user.id, email: data.user.email, phone: (data.user.phone as string | undefined) || null }
     } catch { /* ανώνυμος */ }
 
+    if (!adConsentFrom(req)) return NextResponse.json({ ok: true, skipped: 'consent' })
     await sendCapiEvent(b.event, {
       eventId,
       email: user?.email || null,

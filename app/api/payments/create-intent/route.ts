@@ -9,6 +9,7 @@ import { SERVICE_FEE_EUR } from '@/lib/pricing'
 import { computeRedeemable, isCreditEligible } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
 import { loyaltyDiscountFor } from '@/lib/loyalty'
+import { adConsentFrom } from '@/lib/consent-server'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -197,6 +198,7 @@ export async function POST(req: NextRequest) {
         servicePrice: servicePrice.toString(),
         addons: JSON.stringify(addonLines).slice(0, 490), // Stripe metadata ≤500 χαρ.
         fbp, fbc, clientIp, clientUa,
+        mc: adConsentFrom(req) ? '1' : '0', // συγκατάθεση διαφήμισης → Purchase CAPI στο webhook
         deviceId,
       },
     })

@@ -7,6 +7,7 @@ import { LastLoginTracker } from "@/components/LastLoginTracker";
 import { RegistrationTracker } from "@/components/RegistrationTracker";
 import { Analytics } from "@vercel/analytics/next";
 import { AnalyticsScripts } from "@/components/AnalyticsScripts";
+import { CookieBanner } from "@/components/CookieBanner";
 import { LanguageProvider } from "@/lib/i18n";
 import { GetAppButton } from "@/components/GetAppButton";
 import { NativePushOnboard } from "@/components/NativePushOnboard";
@@ -62,6 +63,7 @@ export default function RootLayout({
           <MapsPreloader />
           <Analytics />
           <AnalyticsScripts />
+          <CookieBanner />
         </LanguageProvider>
       </body>
     </html>

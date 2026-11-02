@@ -215,7 +215,8 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
     if (m.loyalty === '1' && appliedCredit > 0) { try { await supabase.from('bookings').update({ loyalty_discount: appliedCredit }).eq('id', inserted.id) } catch { /* στήλη: supabase/loyalty.sql */ } }
 
     // Meta CAPI Purchase (server-side, dedup με event_id = booking_ref).
-    await sendPurchaseCapi({
+    // Μόνο με συγκατάθεση διαφήμισης (mc=1). Παλιά intents χωρίς mc → όχι.
+    if (m.mc === '1') await sendPurchaseCapi({
       eventId: bookingRef,
       value: parseFloat(m.amount),
       email: m.userEmail || null,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { sendCapiEvent } from '@/lib/meta-capi'
+import { adConsentFrom } from '@/lib/consent-server'
 import { ipFrom } from '@/lib/throttle'
 
 // Server-side CompleteRegistration → Meta CAPI. Backup του browser Pixel, ώστε
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
     const supabase = await createServerClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ ok: false }, { status: 401 })
+    if (!adConsentFrom(req)) return NextResponse.json({ ok: true, skipped: 'consent' })
 
     let eventSourceUrl: string | null = null
     try {

@@ -1,5 +1,6 @@
 'use client'
 
+import { marketingAllowed } from '@/lib/consent'
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@/lib/analytics'
@@ -120,7 +121,7 @@ export function RegistrationTracker() {
       track('CompleteRegistration', { method }, { eventId: 'reg_' + u.id })
       // Server-side CAPI backup (iOS ATT / ad-blockers) — ΙΔΙΟ eventId → dedup.
       try {
-        fetch('/api/capi/registration', {
+        if (marketingAllowed()) fetch('/api/capi/registration', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: window.location.href }),

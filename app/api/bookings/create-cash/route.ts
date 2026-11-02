@@ -10,6 +10,7 @@ import { insertBookingAtomic } from '@/lib/book-atomic'
 import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
+import { adConsentFrom } from '@/lib/consent-server'
 import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
 import { loyaltyDiscountFor } from '@/lib/loyalty'
@@ -359,7 +360,7 @@ export async function POST(req: NextRequest) {
     // Meta CAPI Purchase και για ΜΕΤΡΗΤΑ — dedup με το browser Pixel (ίδιο
     // bookingRef ως event_id). Κλείνει το κενό κάλυψης CAPI (πριν έστελνε μόνο η
     // κάρτα από το webhook· οι cash κρατήσεις είχαν browser Purchase χωρίς server).
-    await sendPurchaseCapi({
+    if (adConsentFrom(req)) await sendPurchaseCapi({
       eventId: bookingRef,
       value: payable,
       email: user.email || null,

@@ -15,6 +15,8 @@ export function CapacitorInit() {
         // Σημάδεψε το native app ώστε το CSS (--safe-top) να κρατά το 47px
         // fallback ΜΟΝΟ εδώ — στο web μένει το καθαρό env(safe-area-inset-top).
         document.documentElement.classList.add('native-app')
+        // Ο server να ξέρει ότι είναι η εφαρμογή → καμία διαφημιστική παρακολούθηση (CAPI) χωρίς ATT.
+        try { document.cookie = 'ws_native=1; path=/; max-age=31536000; SameSite=Lax; Secure' } catch { /* ignore */ }
 
         const { SplashScreen } = await import('@capacitor/splash-screen')
         const { StatusBar, Style } = await import('@capacitor/status-bar')

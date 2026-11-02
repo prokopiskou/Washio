@@ -288,6 +288,9 @@ export default function LandingPage() {
             <a href="#how" className="text-xs text-gray-500 hover:text-washio-cyan-dark">Πώς λειτουργεί</a>
             <Link href="/apply" className="text-xs text-gray-500 hover:text-washio-cyan-dark">Συνεργάτες</Link>
             <a href="#contact" className="text-xs text-gray-500 hover:text-washio-cyan-dark">Επικοινωνία</a>
+            <Link href="/terms" className="text-xs text-gray-500 hover:text-washio-cyan-dark">Όροι</Link>
+            <Link href="/privacy" className="text-xs text-gray-500 hover:text-washio-cyan-dark">Απόρρητο</Link>
+            <Link href="/cookies" className="text-xs text-gray-500 hover:text-washio-cyan-dark">Cookies</Link>
           </div>
           <p className="text-xs text-gray-300">© 2026 Washio. All rights reserved.</p>
         </div>

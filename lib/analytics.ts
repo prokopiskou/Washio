@@ -1,4 +1,5 @@
 import { isInternalDevice } from '@/lib/internal'
+import { marketingAllowed } from '@/lib/consent'
 
 // Ενοποιημένο tracking → Meta Pixel + GA4 με μία κλήση.
 // Τα IDs έρχονται από env (public). Αν λείπουν, οι κλήσεις είναι no-op — τίποτα δεν σπάει.
@@ -36,7 +37,7 @@ export function track(event: string, params: Params = {}, opts: { eventId?: stri
     const fbq = (window as unknown as { fbq?: (...a: unknown[]) => void }).fbq
     if (fbq) fbq('track', event, params, eventId ? { eventID: eventId } : undefined)
   } catch { /* ignore */ }
-  if (eventId && SERVER_MIRROR.has(event)) {
+  if (eventId && SERVER_MIRROR.has(event) && marketingAllowed()) {
     try {
       // keepalive: φεύγει ακόμα κι αν η σελίδα αλλάξει αμέσως (π.χ. «Κλείσε τώρα» → confirmed).
       fetch('/api/capi/event', {

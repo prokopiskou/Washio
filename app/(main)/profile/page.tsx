@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { lightTap, successHaptic, errorHaptic } from '@/lib/haptics'
 import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Store, Gift } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
+import { openConsentSettings } from '@/lib/consent'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { readPageCache, writePageCache, clearPageCache } from '@/lib/page-cache'
@@ -22,6 +23,7 @@ const T = {
     mainTag: 'ΚΥΡΙΟ', main: 'Κύριο', plate: 'Πινακίδα', cancel: 'Άκυρο', addVehicle: 'Προσθήκη οχήματος',
     notifications: 'Ειδοποιήσεις', support: 'Επικοινωνία & Support', logout: 'Έξοδος',
     deleteAccount: 'Διαγραφή λογαριασμού', language: 'Γλώσσα',
+    terms: 'Όροι', privacy: 'Απόρρητο', cookies: 'Cookies', cookieSettings: 'Ρυθμίσεις cookies',
     partnerHub: 'Η επιχείρησή μου', partnerHubSub: 'Άνοιξε το dashboard του πλυντηρίου',
     confirmDelete1: 'Διαγραφή λογαριασμού; Η ενέργεια είναι οριστική και θα διαγράψει τα στοιχεία σου (οχήματα, αγαπημένα, προφίλ).',
     confirmDelete2: 'Είσαι σίγουρος/η; Δεν μπορεί να αναιρεθεί.',
@@ -38,6 +40,7 @@ const T = {
     mainTag: 'MAIN', main: 'Main', plate: 'Plate', cancel: 'Cancel', addVehicle: 'Add vehicle',
     notifications: 'Notifications', support: 'Contact & Support', logout: 'Log out',
     deleteAccount: 'Delete account', language: 'Language',
+    terms: 'Terms', privacy: 'Privacy', cookies: 'Cookies', cookieSettings: 'Cookie settings',
     partnerHub: 'My business', partnerHubSub: 'Open your car-wash dashboard',
     confirmDelete1: 'Delete account? This is permanent and will erase your data (vehicles, favorites, profile).',
     confirmDelete2: 'Are you sure? This cannot be undone.',
@@ -464,6 +467,13 @@ export default function ProfilePage() {
             <Trash2 size={15} strokeWidth={1.6} />
             <span className="text-[13px] font-medium">{t.deleteAccount}</span>
           </button>
+
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 pb-2 text-[12px] text-gray-400">
+            <a href="/terms" className="underline">{t.terms}</a>
+            <a href="/privacy" className="underline">{t.privacy}</a>
+            <a href="/cookies" className="underline">{t.cookies}</a>
+            <button onClick={openConsentSettings} className="underline">{t.cookieSettings}</button>
+          </div>
         </div>
 
         <BottomNav />
