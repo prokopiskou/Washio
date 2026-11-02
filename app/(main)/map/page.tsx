@@ -343,11 +343,11 @@ function MapPageContent() {
   const [wx, setWx] = useState<WxDay[]>([])
   const wxLoadedRef = useRef(false)
   useEffect(() => {
-    if (!showSchedule || wxLoadedRef.current) return
+    if ((!showSchedule && !selectedLocation) || wxLoadedRef.current) return
     wxLoadedRef.current = true
     const q = userLat && userLng ? `?lat=${userLat}&lng=${userLng}` : ''
     fetch(`/api/weather${q}`).then(r => r.json()).then(j => setWx(Array.isArray(j?.days) ? j.days : [])).catch(() => { wxLoadedRef.current = false })
-  }, [showSchedule, userLat, userLng])
+  }, [showSchedule, selectedLocation, userLat, userLng])
   const stripDays = (() => {
     const out: string[] = []
     const [y, m, d] = getTodayValue().split('-').map(Number)
@@ -362,6 +362,15 @@ function MapPageContent() {
   // Κυριακή (τα περισσότερα κλειστά) και σήμερα μετά τις 17:00 δεν προτείνονται.
   const bestYmd = bestWashDay(wx, ymd => dowOf(ymd) === 0 || (ymd === getTodayValue() && athensMinutesOfDay() >= 17 * 60))
   const selWx = wxBy.get(selectedDate)
+  // Sheet πλυντηρίου: αλλαγή μέρας από τη λωρίδα (σήμερα → «Τώρα»).
+  const pickSheetDay = (ymd: string) => {
+    selectionHaptic()
+    userPickedSlotRef.current = false
+    setSelectedSlot(null)
+    setSelectedTime('')
+    if (ymd === getTodayValue()) { setTiming('now'); setSelectedDate(ymd) }
+    else { setSelectedDate(ymd); setTiming('later') }
+  }
 
   // Τιμή ανά τύπο οχήματος: ΙΧ = βασική, SUV = price_suv, Μοτο = price_moto.
   // Υπηρεσία εύρους (βιολογικός): min–max ανά ΙΧ/SUV, όχι μοτο.
@@ -1603,6 +1612,46 @@ function MapPageContent() {
                   )
                 })}
               </div>
+
+              {/* Μέρες + καιρός (7 μέρες) — η «Ιδανική» με αχνό πλαίσιο */}
+              {selectedService && (() => {
+                const cur = sheetDate || activeDate
+                const days = stripDays.slice(0, 7)
+                const curWx = wxBy.get(cur)
+                const wet = isWet(curWx)
+                return (
+                  <>
+                    <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1 pt-2.5 pb-1 mb-1">
+                      {days.map(ymd => {
+                        const sel = ymd === cur
+                        const w = wxBy.get(ymd)
+                        const best = ymd === bestYmd
+                        return (
+                          <button key={ymd} onClick={() => pickSheetDay(ymd)}
+                            className={`relative shrink-0 w-[46px] h-[62px] rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all ${
+                              sel ? 'bg-washio-navy border-washio-navy text-white'
+                                : best ? 'bg-cyan-50/60 border-dashed border-cyan-500/60 text-washio-navy'
+                                : 'bg-white border-washio-border text-washio-navy'}`}>
+                            <span className={`text-[9.5px] uppercase tracking-wide ${sel ? 'text-white/70' : 'text-gray-400'}`}>{t.wkd[dowOf(ymd)]}</span>
+                            <span className="text-[15px] font-semibold leading-none">{Number(ymd.slice(8, 10))}</span>
+                            {w && <span className="text-[12px] leading-none">{wxEmoji(w.kind)}</span>}
+                            {best && (
+                              <span className={`absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 rounded-full text-[7.5px] font-bold uppercase tracking-wide whitespace-nowrap ${sel ? 'bg-white text-washio-navy' : 'bg-cyan-600 text-white'}`}>{t.bestDay}</span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {bestYmd && wet && cur !== bestYmd && (
+                      <button onClick={() => pickSheetDay(bestYmd)} className="w-full mb-2 rounded-xl px-3 py-2 flex items-center gap-2 bg-amber-50 border border-amber-200 text-left">
+                        <span className="text-[15px] leading-none">{wxEmoji(curWx!.kind)}</span>
+                        <span className="flex-1 text-[11.5px] text-gray-800"><b>{t.rainWarn} ({curWx!.prob}%)</b> · {t.rainTry} <b>{t.wkd[dowOf(bestYmd)]} {Number(bestYmd.slice(8, 10))}/{Number(bestYmd.slice(5, 7))}</b></span>
+                        <span className="text-[11px] font-semibold text-cyan-700">{t.pick}</span>
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
 
               {/* Time slots */}
               {selectedService && sheetDate && sheetDate !== getTodayValue() && visibleSlots.length > 0 && (
