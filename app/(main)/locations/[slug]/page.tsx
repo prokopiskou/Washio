@@ -15,6 +15,7 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { funnel } from '@/lib/funnel'
 import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
+import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
 
 const T = {
   el: {
@@ -33,6 +34,7 @@ const T = {
     selectPrompt: 'Επίλεξε υπηρεσία, ημερομηνία και ώρα',
     today: 'Σήμερα', tomorrow: 'Αύριο',
     reassure: 'Πληρώνεις στο πλυντήριο · Ακυρώνεις δωρεάν',
+    bestDay: 'Ιδανική', bestHint: 'Καλύτερη μέρα για πλύσιμο', bestWhy: 'χωρίς βροχή και την επόμενη μέρα', rainWarn: 'Πιθανή βροχή', rainTry: 'Δοκίμασε', pick: 'Επιλογή',
   },
   en: {
     loading: 'Loading...',
@@ -50,6 +52,7 @@ const T = {
     selectPrompt: 'Choose a service, date and time',
     today: 'Today', tomorrow: 'Tomorrow',
     reassure: 'Pay at the car wash · Free cancellation',
+    bestDay: 'Best', bestHint: 'Best day to wash', bestWhy: 'no rain the day after either', rainWarn: 'Rain likely', rainTry: 'Try', pick: 'Pick',
   },
 }
 
@@ -73,6 +76,8 @@ type Location = {
   city: string
   photos?: string[] | null
   capacity?: number
+  lat?: number | null
+  lng?: number | null
 }
 
 type Service = {
@@ -140,6 +145,7 @@ export default function LocationPage() {
   const [viewMonth, setViewMonth] = useState(today.getMonth())
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [selectedDate, setSelectedDate] = useState(today)
+  const [wx, setWx] = useState<WxDay[]>([])
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'SUV' | 'Μοτοσικλέτα'>('ΙΧ')
@@ -164,7 +170,7 @@ export default function LocationPage() {
       const [{ data: locationData }, favRes] = await Promise.all([
         supabase
           .from('locations')
-          .select(`id, name, address, city, photos, capacity,
+          .select(`id, name, address, city, photos, capacity, lat, lng,
             services(id, name, description, price, price_moto, price_suv, duration_minutes, is_active, sort_order, is_range, price_min, price_max, price_min_suv, price_max_suv),
             location_hours(day_of_week, is_closed, open_time, close_time, open_time2, close_time2),
             reviews(rating)`)
@@ -187,7 +193,7 @@ export default function LocationPage() {
       }
 
       const loc = locationData as any
-      setLocation({ id: loc.id, name: loc.name, address: loc.address, city: loc.city, photos: loc.photos, capacity: loc.capacity })
+      setLocation({ id: loc.id, name: loc.name, address: loc.address, city: loc.city, photos: loc.photos, capacity: loc.capacity, lat: loc.lat, lng: loc.lng })
       funnel('washer_page', { locationId: loc.id })
 
       const svc = ((loc.services || []) as Service[])
@@ -303,7 +309,35 @@ export default function LocationPage() {
     }
   }
 
+  // Καιρός 7 ημερών για το σημείο του πλυντηρίου (best-effort).
+  useEffect(() => {
+    if (!location) return
+    let alive = true
+    const q = location.lat && location.lng ? `?lat=${location.lat}&lng=${location.lng}` : ''
+    fetch(`/api/weather${q}`).then(r => r.json()).then(j => { if (alive) setWx(Array.isArray(j?.days) ? j.days : []) }).catch(() => {})
+    return () => { alive = false }
+  }, [location?.id])
+
   const dates = getDatesForMonth(viewYear, viewMonth)
+  const wxBy = new Map(wx.map(d => [d.date, d]))
+  const closedOn = (ymd: string) => {
+    const [y, m, dd] = ymd.split('-').map(Number)
+    const dow = jsDayToSupabase(new Date(y, m - 1, dd).getDay())
+    const h = locationHours.find(x => x.day_of_week === dow)
+    return !h || !!h.is_closed
+  }
+  // Σήμερα μετά τις 17:00 δεν προτείνεται (λίγες/καθόλου ώρες).
+  const skipDay = (ymd: string) => closedOn(ymd) || (ymd === athensToday() && athensMinutesOfDay() >= 17 * 60)
+  const bestYmd = locationHours.length ? bestWashDay(wx, skipDay) : null
+  const selYmd = ymdFromLocalDate(selectedDate)
+  const selWx = wxBy.get(selYmd)
+  const pickYmd = (ymd: string) => {
+    const [y, m, dd] = ymd.split('-').map(Number)
+    const d = new Date(y, m - 1, dd)
+    userPickedDateRef.current = true
+    setViewMonth(d.getMonth()); setViewYear(d.getFullYear())
+    setSelectedDate(d); setSelectedSlot(null); lightTap()
+  }
 
   // Τιμή ανά τύπο οχήματος: ΙΧ = βασική, SUV = price_suv, Μοτο = price_moto.
   // Υπηρεσία εύρους (βιολογικός): min–max ανά ΙΧ/SUV, όχι μοτο.
@@ -598,17 +632,22 @@ export default function LocationPage() {
               </button>
             </div>
           </div>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pt-2.5 pb-1">
             {dates.map((d, i) => {
               const selected = isSelectedDate(d)
               const isSunday = d.getDay() === 0
+              const ymd = ymdFromLocalDate(d)
+              const w = wxBy.get(ymd)
+              const best = ymd === bestYmd
               return (
                 <button
                   key={i}
                   onClick={() => { userPickedDateRef.current = true; setSelectedDate(d); setSelectedSlot(null); lightTap() }}
-                  className={`shrink-0 w-14 h-[72px] rounded-[14px] border flex flex-col items-center justify-center gap-1 transition-all ${
+                  className={`relative shrink-0 w-14 ${w ? 'h-[84px]' : 'h-[72px]'} rounded-[14px] border flex flex-col items-center justify-center gap-0.5 transition-all ${
                     selected
                       ? 'border-washio-cyan text-white'
+                      : best
+                      ? 'bg-washio-cyan/5 border-dashed border-washio-cyan/60 text-washio-navy'
                       : isSunday
                       ? 'bg-gray-100 border-washio-border text-gray-400'
                       : 'bg-white border-washio-border text-washio-navy'
@@ -625,10 +664,45 @@ export default function LocationPage() {
                   <span className={`text-[20px] font-semibold tracking-tight ${selected ? 'text-white' : isSunday ? 'text-gray-400' : 'text-washio-navy'}`}>
                     {d.getDate()}
                   </span>
+                  {w && (
+                    <span className={`text-[13px] leading-none ${isWet(w) && !selected ? 'opacity-90' : ''}`} aria-label={w.kind}>
+                      {wxEmoji(w.kind)}
+                    </span>
+                  )}
+                  {best && (
+                    <span className={`absolute -top-2 left-1/2 -translate-x-1/2 px-1.5 rounded-full text-[8.5px] font-bold uppercase tracking-wide whitespace-nowrap ${selected ? 'bg-white text-washio-cyan' : 'bg-washio-cyan text-white'}`}>
+                      {t.bestDay}
+                    </span>
+                  )}
                 </button>
               )
             })}
           </div>
+
+          {/* Καιρός: προτεινόμενη μέρα / προειδοποίηση βροχής για την επιλεγμένη */}
+          {bestYmd && (() => {
+            const [, bm, bd] = bestYmd.split('-').map(Number)
+            const bDate = new Date(Number(bestYmd.slice(0, 4)), bm - 1, bd)
+            const label = `${DAYS_JS_L[locale][bDate.getDay()]} ${bd}/${bm}`
+            const selWet = isWet(selWx)
+            return (
+              <div className={`mt-3 rounded-[12px] px-3 py-2.5 flex items-center gap-2.5 ${selWet ? 'bg-amber-50 border border-amber-200' : 'bg-washio-cyan/5 border border-washio-cyan/20'}`}>
+                <span className="text-[18px] leading-none">{selWet ? wxEmoji(selWx!.kind) : '☀️'}</span>
+                <p className="flex-1 text-[12px] leading-snug text-washio-navy">
+                  {selWet ? (
+                    <><b>{t.rainWarn} ({selWx!.prob}%)</b> · {t.rainTry} <b>{label}</b></>
+                  ) : (
+                    <><b>{t.bestHint}: {label}</b> · {t.bestWhy}</>
+                  )}
+                </p>
+                {selYmd !== bestYmd && (
+                  <button onClick={() => pickYmd(bestYmd)} className="shrink-0 text-[11px] font-semibold text-washio-cyan border border-washio-cyan/40 rounded-full px-2.5 py-1">
+                    {t.pick}
+                  </button>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Time slots */}
           <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-6 mb-2.5">
