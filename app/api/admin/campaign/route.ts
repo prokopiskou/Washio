@@ -415,14 +415,23 @@ export async function POST(req: NextRequest) {
         // 1) −3€ σε όσους δεν το έχουν (πρώτη φορά → welcome · αλλιώς «επανενεργοποίηση»).
         const missing = list.filter(r => !r.hasCoupon)
         if (missing.length) {
-          const { data: hadWelcome } = await admin.from('credit_ledger')
-            .select('user_id').eq('kind', 'welcome').in('user_id', missing.map(m => m.id))
-          const had = new Set((hadWelcome || []).map(h => h.user_id as string))
-          for (const m of missing) {
-            await admin.rpc('apply_credit', had.has(m.id)
+          // Σε κομμάτια των 100: 800+ ids σε ένα .in() σπάει το URL → παλιά έπεφτε σιωπηλά και
+          // όλοι θεωρούνταν «χωρίς welcome» → το unique index απέρριπτε την πίστωση.
+          const had = new Set<string>()
+          for (let i = 0; i < missing.length; i += 100) {
+            const { data: hw, error: hwErr } = await admin.from('credit_ledger')
+              .select('user_id').eq('kind', 'welcome').in('user_id', missing.slice(i, i + 100).map(m => m.id))
+            if (hwErr) return NextResponse.json({ error: 'credit_ledger: ' + hwErr.message }, { status: 500 })
+            for (const h of hw || []) had.add(h.user_id as string)
+          }
+          let creditErrors = 0
+          await mapLimit(missing, 10, async m => {
+            const { error: ce } = await admin.rpc('apply_credit', had.has(m.id)
               ? { p_user: m.id, p_delta: 3, p_kind: 'redeem', p_note: 'Δώρο: τέλος η βροχή' }
               : { p_user: m.id, p_delta: 3, p_kind: 'welcome', p_note: 'Καλωσόρισμα' })
-          }
+            if (ce) creditErrors++
+          })
+          if (creditErrors) console.error('rainend apply_credit errors', creditErrors)
         }
         // 2) Νέα λήξη σε 7 μέρες για ΟΛΟΥΣ τους παραλήπτες (να μην «καεί» πριν προλάβουν).
         await mapLimit(list, 10, async r => {
