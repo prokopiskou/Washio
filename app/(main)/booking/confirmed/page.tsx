@@ -138,7 +138,7 @@ function ConfirmedContent() {
         setPayState('ok')
         successHaptic()
         track('booking_paid')
-        trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: refParam }); funnel('booked')
+        purchaseOnce(refParam, parseFloat(total || '0'))
         // Στοιχεία πλυντηρίου (best-effort, session-independent μέσω server).
         try {
           if (intentId) {
@@ -172,7 +172,7 @@ function ConfirmedContent() {
             successHaptic()
             track('booking_paid')
             // eventId = booking_ref → dedup με το server-side CAPI (webhook).
-            trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: found.ref }); funnel('booked')
+            purchaseOnce(found.ref, parseFloat(total || '0'))
             return
           }
           await new Promise(r => setTimeout(r, 2500))
@@ -182,7 +182,7 @@ function ConfirmedContent() {
         setPayState('slow')
         successHaptic()
         track('booking_paid')
-        trackEvent('Purchase', { value: parseFloat(total || '0'), currency: 'EUR' }, { eventId: intentId }); funnel('booked')
+        purchaseOnce(intentId, parseFloat(total || '0'))
         return
       }
 
@@ -402,6 +402,16 @@ function ConfirmedContent() {
       </div>
     </main>
   )
+}
+
+// Purchase ΜΙΑ φορά ανά κράτηση: η σελίδα ξαναφορτώνει (refresh, «πίσω», άνοιγμα της εφαρμογής)
+// και πριν έστελνε νέο Purchase κάθε φορά → η Meta μετρούσε περισσότερες κρατήσεις απ' όσες υπάρχουν.
+function purchaseOnce(ref: string | null | undefined, value: number) {
+  if (!ref) return
+  const k = 'ws_purchase_' + ref
+  try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1') } catch { /* χωρίς storage: στείλε */ }
+  trackEvent('Purchase', { value, currency: 'EUR' }, { eventId: ref })
+  funnel('booked')
 }
 
 export default function ConfirmedPage() {
