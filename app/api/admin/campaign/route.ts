@@ -40,9 +40,11 @@ const SUBJECT_REF = '3€ για σένα, 3€ για έναν φίλο σου'
 const PREHEADER_REF = 'Στείλε τον σύνδεσμό σου. Μόλις ο φίλος σου κλείσει, κερδίζετε και οι δύο.'
 // «Τέλος η βροχή»: όσοι ΔΕΝ έχουν κάνει κράτηση. Πριν φύγει: −3€ σε όλους (και σε όσους τους
 // έληξε) με νέα λήξη σε 7 μέρες — αλλιώς το email θα υποσχόταν κάτι που δεν ισχύει.
-const CAMPAIGN_RAIN = 'rain_end_oct'
-const SUBJECT_RAIN = 'Τέλος η βροχή ☀️ Το −3€ σου σε περιμένει'
-const PREHEADER_RAIN = 'Μετά από τόση βροχή, το αυτοκίνητό σου το ξέρει. Κλείσε ώρα κοντά σου σε 30″.'
+// Νοέμβριος: νέο θέμα → πάει ΚΑΙ σε όσους έλαβαν το «rain_end_oct» (διαφορετικό email, 1 μήνα μετά).
+const SUBJECT_RAIN_OCT = 'Τέλος η βροχή ☀️ Το −3€ σου σε περιμένει'
+const CAMPAIGN_RAIN = 'rain_end_nov'
+const SUBJECT_RAIN = 'Τέλος η βροχή ☀️ 5 στεγνές μέρες μπροστά σου'
+const PREHEADER_RAIN = 'Το πλύσιμο θα κρατήσει μέχρι την Κυριακή. Κλείσε ώρα κοντά σου σε 30″.'
 const RAIN_DAYS = 7
 type Audience = 'all' | 'new' | 'referral' | 'rainend'
 // ΟΛΑ τα προωθητικά emails που έχουμε στείλει ποτέ. Όποιος έλαβε ΕΣΤΩ ΕΝΑ, εξαιρείται από την
@@ -56,7 +58,8 @@ const PROMO_SUBJECTS = [
   'Δεν ολοκλήρωσες την κράτησή σου',                    // cron abandoned-checkout
   'Άνοιξε ώρα κοντά σου!',                              // ακύρωση → waitlist
   'Το Washio ήρθε στην περιοχή σου!',                   // waitlist-notify
-  SUBJECT_RAIN,                                          // rain_end_oct
+  SUBJECT_RAIN_OCT,                                      // rain_end_oct
+  SUBJECT_RAIN,                                          // rain_end_nov
 ]
 const cfg = (a: Audience) => a === 'rainend'
   ? { campaign: CAMPAIGN_RAIN, subject: SUBJECT_RAIN, preheader: PREHEADER_RAIN }
@@ -122,8 +125,11 @@ function rainHtml(ctaUrl: string, userId: string, until: string): string {
       <p style="margin:0;color:#19A8C7;font-size:12px;font-weight:700;letter-spacing:1.6px;">ΤΕΛΟΣ Η ΒΡΟΧΗ ☀️</p>
     </div>
     <div style="background:#FFFFFF;border:1px solid #E8EEF2;border-top:none;border-radius:0 0 18px 18px;padding:28px;">
-      <h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;">Τόσες μέρες βροχή. Το αυτοκίνητό σου <span style="color:#078EAD;">το ξέρει</span>.</h1>
-      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Ο καιρός ανοίγει. Βρες πλυντήριο κοντά σου, δες ελεύθερες ώρες και κλείσε σε 30″. Πληρώνεις στο πλυντήριο.</p>
+      <h1 style="margin:0 0 14px;color:#10182A;font-size:23px;line-height:1.3;font-weight:800;">Η καταιγίδα πέρασε.<br/>Μπροστά σου <span style="color:#078EAD;">5 στεγνές μέρες</span>.</h1>
+      <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Τώρα είναι η στιγμή. Το πλύσιμο θα κρατήσει. Βρες πλυντήριο κοντά σου, δες ελεύθερες ώρες και κλείσε σε 30″.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 18px;border-collapse:separate;border-spacing:4px 0;">
+        <tr>${['Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'].map(d => `<td style="background:#F7FAFC;border:1px solid #E8EEF2;border-radius:10px;padding:8px 0;text-align:center;"><div style="color:#6F7785;font-size:11px;font-weight:600;">${d}</div><div style="font-size:18px;line-height:24px;">🌤️</div></td>`).join('')}</tr>
+      </table>
       <div style="background:#EAF8FB;border:1px solid #CFECF3;border-radius:14px;padding:14px 16px;margin:0 0 20px;">
         <p style="margin:0;color:#078EAD;font-size:15px;font-weight:800;">🎁 −3€ στο πρώτο σου πλύσιμο</p>
         <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Είναι ήδη στον λογαριασμό σου · Ισχύει έως ${until} · Σε πλύσιμο από 12€.</p>
@@ -131,7 +137,7 @@ function rainHtml(ctaUrl: string, userId: string, until: string): string {
       <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px;border-collapse:collapse;">
         ${row('Ελεύθερες ώρες σε πραγματικό χρόνο')}
         ${row('Πας στην ώρα σου, χωρίς ουρά')}
-        ${row('Δωρεάν ακύρωση')}
+        ${row('Πληρώνεις στο πλυντήριο · Δωρεάν ακύρωση')}
       </table>
       <a href="${ctaUrl}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε το πλύσιμό σου →</a>
     </div>
