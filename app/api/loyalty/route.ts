@@ -25,9 +25,11 @@ export async function GET(req: NextRequest) {
   if (!userId) return NextResponse.json({ need: DROPS_FOR_REWARD, amount: LOYALTY_EUR, locations: [] })
   const q = (cols: string) => admin.from('bookings').select(cols)
     .eq('user_id', userId).or('source.is.null,source.eq.platform').limit(1000)
-  let res = await q('location_id, status, slot_date, slot_start_time, loyalty_discount, locations(name, slug)')
+  // Με checked_in_at: σκαναρισμένο πλύσιμο = σταγόνα αμέσως (όχι στο τέλος της μέρας).
+  let res = await q('location_id, status, slot_date, slot_start_time, loyalty_discount, checked_in_at, locations(name, slug)')
+  if (res.error) res = await q('location_id, status, slot_date, slot_start_time, checked_in_at, locations(name, slug)')
   if (res.error) res = await q('location_id, status, slot_date, slot_start_time, locations(name, slug)')
-  type R = { location_id: string; status: string; slot_date: string | null; slot_start_time: string | null; loyalty_discount?: number | null; locations: { name?: string; slug?: string } | null }
+  type R = { location_id: string; status: string; slot_date: string | null; slot_start_time: string | null; loyalty_discount?: number | null; checked_in_at?: string | null; locations: { name?: string; slug?: string } | null }
   const by = new Map<string, { name: string; slug: string; rows: R[] }>()
   for (const r of (res.data || []) as unknown as R[]) {
     const e = by.get(r.location_id) || { name: r.locations?.name || '', slug: r.locations?.slug || '', rows: [] }

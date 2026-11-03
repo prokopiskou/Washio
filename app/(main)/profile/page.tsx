@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { lightTap, successHaptic, errorHaptic } from '@/lib/haptics'
 import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Store, Gift } from 'lucide-react'
 import { BottomNav } from '@/components/BottomNav'
+import { WashioClubCard } from '@/components/WashioClubCard'
 import { openConsentSettings } from '@/lib/consent'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -318,6 +319,9 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+
+          {/* Washio Club — σταγόνες ανά πλυντήριο */}
+          <WashioClubCard />
 
           {/* Κουπόνια & Παραπομπές */}
           <button
