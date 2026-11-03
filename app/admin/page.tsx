@@ -990,6 +990,14 @@ export default function AdminPage() {
                     <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500">
                       {locations.length} σημεία
                     </p>
+                    <div className="flex items-center gap-2">
+                    <a
+                      href="/api/admin/places"
+                      onClick={e => { if (!confirm('Λίστα όλων των πλυντηρίων Αττικής από Google (CSV). Κόστος ~4–5$ στο Google Cloud, διαρκεί 1–3 λεπτά. Συνέχεια;')) e.preventDefault() }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-[12px] font-semibold"
+                    >
+                      📍 Πλυντήρια Αττικής (CSV)
+                    </a>
                     <button
                       onClick={() => router.push('/admin/locations/new')}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
@@ -997,6 +1005,7 @@ export default function AdminPage() {
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
                       Νέο σημείο
                     </button>
+                    </div>
                   </div>
 
                   <div className="space-y-3">
