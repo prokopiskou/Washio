@@ -118,6 +118,8 @@ export async function POST(req: NextRequest) {
           ? `Μάζεψες ${lo.need} σταγόνες στο ${place} — το επόμενο πλύσιμο εκεί έχει −${lo.amount}€ 🎉`
           : `+1 σταγόνα στο ${place} (${lo.drops}/${lo.need}). Στις ${lo.need}, −${lo.amount}€ στο επόμενο.`
         await sendPush(b.user_id, { title: 'Καλό πλύσιμο! 💧', body, url: '/profile/bookings' })
+        // Να μη ξαναστείλει το cron «+1 σταγόνα» (στήλη: supabase/loyalty_push.sql · αν λείπει, αγνοείται).
+        await admin.from('bookings').update({ drop_notified_at: new Date().toISOString() }).eq('id', b.id).then(() => null, () => null)
       } catch { /* best-effort */ }
     }
 

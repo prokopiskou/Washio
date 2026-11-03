@@ -234,7 +234,7 @@ export async function GET(req: Request) {
   // Τα υπόλοιπα crons τρέχουν μαζί με αυτό (ό,τι χτυπά το /api/cron/emails κάθε 15' —
   // το GitHub workflow είναι απενεργοποιημένο, οπότε rebook / welcome-nudge / push δεν έτρεχαν ΠΟΤΕ).
   // Παράλληλα, best-effort· το καθένα έχει δικούς του κανόνες (ώρες, 1 φορά ανά χρήστη, claim).
-  const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders'] as const
+  const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders', 'loyalty-drops'] as const
   const athH = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Athens', hour: '2-digit', hourCycle: 'h23' }).format(new Date()))
   const callSub = async (name: string) => {
     // Push «ώρα για πλύσιμο»: μόνο 10:00–20:59 (δεν έχει δικό του έλεγχο ώρας).
