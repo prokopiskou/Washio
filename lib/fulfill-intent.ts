@@ -160,6 +160,15 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
         return { status: 200, body: { received: true, duplicate: true } }
       }
       if (inserted.code === 'SLOT_FULL') {
+        // ΠΡΩΤΑ: μήπως το «γεμάτο» slot το γέμισε η ΙΔΙΑ πληρωμή; (webhook + σελίδα επιβεβαίωσης
+        // τρέχουν ταυτόχρονα → η 2η κλήση έβλεπε την κράτηση της 1ης ως πληρότητα και έκανε
+        // refund σε κράτηση που υπάρχει — WS-701F624B, 4/11.) Τότε είναι απλώς διπλό → skip.
+        const { data: mine } = await supabase
+          .from('bookings').select('id').eq('stripe_payment_intent_id', intent.id).maybeSingle()
+        if (mine) {
+          console.log('SLOT_FULL from own booking (concurrent fulfill):', intent.id, '— skipping')
+          return { status: 200, body: { received: true, duplicate: true } }
+        }
         // Ο πελάτης πλήρωσε για ώρα που δεν χωράει πια → πλήρες refund.
         let refunded = false
         try {
