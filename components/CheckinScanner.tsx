@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { successHaptic, errorHaptic } from '@/lib/haptics'
+import { useCatalogName } from '@/lib/catalog-i18n'
 
 // Σκάνερ QR για το dashboard του πλυντηρίου.
 // Σκανάρει → POST /api/bookings/checkin → η κράτηση περνάει ΑΜΕΣΩΣ «Ήρθε» (χωρίς κουμπί).
@@ -44,6 +45,7 @@ export async function submitCheckin(code: string, scanToken?: string): Promise<C
 export function CheckinResultCard({ res, onNext, nextLabel = 'Σκάναρε επόμενο' }: { res: CheckinResult; onNext?: () => void; nextLabel?: string }) {
   const b = res.booking
   const good = res.ok
+  const tn = useCatalogName()
   return (
     <div className="w-full">
       <div className="rounded-2xl p-4 text-center" style={{ background: good ? '#E7F6EF' : '#FCEAEA' }}>
@@ -70,8 +72,8 @@ export function CheckinResultCard({ res, onNext, nextLabel = 'Σκάναρε ε�
               <p className="text-[14px] font-semibold" style={{ color: '#0F7A5C' }}>💳 Πληρωμένη με κάρτα — μη ζητήσεις χρήματα</p>
             </div>
           )}
-          <Row label="Υπηρεσία" value={b.service} strong />
-          {b.addons.length > 0 && <Row label="Πρόσθετα" value={b.addons.join(', ')} />}
+          <Row label="Υπηρεσία" value={tn(b.service)} strong />
+          {b.addons.length > 0 && <Row label="Πρόσθετα" value={b.addons.map(a => tn(a)).join(', ')} />}
           <Row label="Αυτοκίνητο" value={[b.plate, b.car].filter(Boolean).join(' · ') || '—'} />
           <Row label="Πελάτης" value={b.name || '—'} />
           {b.phone && <Row label="Τηλέφωνο" value={<a href={`tel:${b.phone}`} className="text-blue-600">{b.phone}</a>} />}

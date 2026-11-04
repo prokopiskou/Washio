@@ -3,6 +3,7 @@
 import { formatDuration } from '@/lib/duration'
 import { useLocale } from '@/lib/i18n'
 import { DASH_EN } from '@/lib/dashboard-i18n'
+import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LineChart, Line, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
@@ -203,6 +204,8 @@ export default function DashboardPage() {
   // Γλώσσα dashboard (Ρυθμίσεις → Γλώσσα). Ελληνικά = αυτούσια, English = λεξικό DASH_EN.
   const { locale, setLocale } = useLocale()
   const t = (s: string): string => (locale === 'en' ? DASH_EN[s] ?? s : s)
+  // Ονόματα υπηρεσιών/πρόσθετων στη γλώσσα του dashboard.
+  const tn = (n: string | null | undefined): string => translateCatalogName(n, locale)
   const dl = locale === 'en' ? 'en-GB' : 'el-GR'
 
   // Αντιγραφή κινητού πελάτη (Κρατήσεις) — εικονίδιο δίπλα στο κινητό, ✓ για 1,5''.
@@ -1527,13 +1530,13 @@ export default function DashboardPage() {
                             <div className="mt-2 rounded-lg bg-gray-50 px-2.5 py-2 space-y-0.5">
                               {b.services?.name && (
                                 <div className="flex justify-between gap-3 text-[12px]">
-                                  <span className="font-semibold text-gray-900 truncate">{b.services.name}</span>
+                                  <span className="font-semibold text-gray-900 truncate">{tn(b.services.name)}</span>
                                   {b.service_price != null && <span className="text-gray-700 shrink-0">€{Number(b.service_price).toFixed(2)}</span>}
                                 </div>
                               )}
                               {(b.addons || []).map((a, i) => (
                                 <div key={i} className="flex justify-between gap-3 text-[12px]">
-                                  <span className="text-gray-600 truncate">+ {a.name}</span>
+                                  <span className="text-gray-600 truncate">+ {tn(a.name)}</span>
                                   <span className="text-gray-700 shrink-0">€{Number(a.price).toFixed(2)}</span>
                                 </div>
                               ))}
@@ -1861,7 +1864,7 @@ export default function DashboardPage() {
                               </p>
                               {height > 56 && (
                                 <p className="text-[10px] leading-tight truncate mt-0.5" style={{ color: st.fg, opacity: 0.8 }}>
-                                  {b.services?.name || ''}
+                                  {tn(b.services?.name) || ''}
                                 </p>
                               )}
                             </div>
@@ -1956,7 +1959,7 @@ export default function DashboardPage() {
                         ό,τι προσφέρει στην πλατφόρμα μπορεί να το βάλει και ως δικό του ραντεβού. */}
                     {bookableServices.filter(s => s.is_active).map(s => (
                       <option key={s.id} value={s.name}>
-                        {s.name} · {formatDuration(s.duration_minutes, locale)}
+                        {tn(s.name)} · {formatDuration(s.duration_minutes, locale)}
                       </option>
                     ))}
                     {/* Σε επεξεργασία: κράτα και την υπηρεσία της κράτησης, ακόμα κι αν δεν είναι πια ενεργή. */}
@@ -2110,7 +2113,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
                             <p className="text-[15px] font-semibold tracking-tight text-gray-900">
-                              {bs.name}
+                              {tn(bs.name)}
                               <span className="text-[12px] font-medium text-gray-400 ml-1.5">· {formatDuration(bs.duration_minutes, locale)}</span>
                             </p>
                             <p className={`text-[12px] font-medium mt-0.5 ${bs.is_active ? 'text-green-600' : 'text-gray-400'}`}>
@@ -2254,7 +2257,7 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <p className="text-[15px] font-semibold tracking-tight text-gray-900">
-                          {service.service_name}
+                          {tn(service.service_name)}
                         </p>
                         <p className={`text-[12px] font-medium mt-0.5 ${service.is_active ? 'text-green-600' : 'text-gray-400'}`}>
                           {service.is_active ? t('● Ενεργή') : t('○ Ανενεργή')}

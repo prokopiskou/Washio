@@ -504,6 +504,18 @@ function MapPageContent() {
       } else {
         const maxMinutes = nowMinutes + 60
         nextSlot = slotsForLoc.find(s => s.available && toMinutes(s.time) <= maxMinutes)?.time || null
+        // «Τώρα» = ΑΝΟΙΧΤΟ τώρα. Πριν: στις 8:21 ένα πλυντήριο που ανοίγει 9:00 έβγαινε «διαθέσιμο τώρα»
+        // (slot μέσα στην επόμενη ώρα). Τώρα: μόνο αν έχει ήδη ανοίξει· αλλιώς πάει στο «αργότερα» (laterSlot).
+        let openNow = true
+        if (isCheckToday) {
+          const dayAll = computeSlots({
+            dayHours: hoursMap[loc.id] || null,
+            exception: exceptionsMap[loc.id] as HoursException,
+            bookings: [], capacity: 1, durationMinutes: 30, isToday: false, nowMinutes: 0,
+          })
+          openNow = !!dayAll[0] && toMinutes(dayAll[0].time) <= nowMinutes
+        }
+        if (!openNow) nextSlot = null
         hasAvailability = nextSlot !== null
       }
       // Μη διαθέσιμο τώρα αλλά με ελεύθερη ώρα αργότερα την ίδια μέρα (π.χ. γεμάτο τώρα, ελεύθερο 21:30).
@@ -1076,6 +1088,9 @@ function MapPageContent() {
         disableDefaultUI: true,
         gestureHandling: 'greedy', // μετακίνηση με ΕΝΑ δάχτυλο σε όλους τους browsers
         styles: COOL_MAP_STYLES,
+        // Όχι «πέταγμα» σε όλο τον κόσμο με zoom-out: ελάχιστο zoom ≈ Αττική και όρια γύρω από την Ελλάδα.
+        minZoom: 9,
+        restriction: { latLngBounds: { north: 41.9, south: 34.7, west: 19.2, east: 28.4 }, strictBounds: false },
       })
       mapInstanceRef.current = map
       map.addListener('zoom_changed', () => setMapZoom(map.getZoom() ?? 13))
