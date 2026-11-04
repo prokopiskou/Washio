@@ -53,7 +53,7 @@ function html(month: string, rows: { name: string; amount: number }[]) {
     : `<div style="background:#E7F6EF;border:1px solid #C9EBDB;border-radius:14px;padding:16px;margin:0 0 18px;">
          <p style="margin:0;color:#0F7A5C;font-size:12px;font-weight:600;">Σου οφείλουμε · ${esc(month)}</p>
          <p style="margin:4px 0 0;color:#10182A;font-size:26px;font-weight:800;">${eur(-total)}</p>
-         <p style="margin:6px 0 0;color:#374151;font-size:13px;line-height:1.5;">Από πληρωμές με κάρτα μέσω Washio, μετά την προμήθεια. Θα τα μεταφέρουμε στον λογαριασμό σου έως ${DUE}. Αν δεν μας έχεις δώσει IBAN, απάντησε σε αυτό το email.</p>
+         <p style="margin:6px 0 0;color:#374151;font-size:13px;line-height:1.5;">Από πληρωμές με κάρτα μέσω Washio, μετά την προμήθεια. Θα τα μεταφέρουμε στον τραπεζικό λογαριασμό σου έως ${DUE}.</p>
        </div>`
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#F7FAFC;">
   <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px 16px;">
