@@ -47,6 +47,7 @@ function html(month: string, rows: { name: string; amount: number }[]) {
          <p style="margin:4px 0 0;color:#10182A;font-size:26px;font-weight:800;">${eur(total)}</p>
          <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Πληρωμή έως ${DUE}</p>
        </div>
+       <p style="margin:0 0 10px;color:#374151;font-size:14px;line-height:1.5;text-align:center;">Μπορείς να πληρώσεις την προμήθεια με την <b>χρεωστική ή πιστωτική κάρτα</b> σου, με ένα πάτημα:</p>
        <a href="${link}" style="display:block;background:#19A8C7;color:#fff;text-align:center;padding:15px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Πληρωμή με Revolut · ${eur(total)} →</a>
        <p style="margin:10px 0 0;color:#9AA3AF;font-size:12px;text-align:center;">Ή σκάναρε το QR μέσα στο PDF. Το ποσό είναι ήδη συμπληρωμένο.</p>`
     : `<div style="background:#E7F6EF;border:1px solid #C9EBDB;border-radius:14px;padding:16px;margin:0 0 18px;">
