@@ -67,14 +67,15 @@ function html(month: string, rows: { name: string; amount: number }[]) {
       ${box}
       <p style="margin:16px 0 0;color:#374151;font-size:13px;line-height:1.6;">Για οποιαδήποτε ασυμφωνία, επικοινώνησε τηλεφωνικά στο <a href="tel:6986150513" style="color:#078EAD;font-weight:700;text-decoration:none;">698 615 0513</a>.</p>
       <div style="margin:22px 0 0;padding:18px;border-radius:14px;background:#F7FAFC;border:1px solid #E8EEF2;">
-        <p style="margin:0 0 8px;color:#10182A;font-size:14px;font-weight:800;">Νέο: check-in με QR</p>
-        <p style="margin:0 0 10px;color:#4B5563;font-size:13px;line-height:1.6;">Κάθε κράτηση έχει πλέον δικό της QR στο κινητό του πελάτη. Το σκανάρεις όταν φτάσει και η κράτηση περνάει αυτόματα «Ήρθε», χωρίς να πατήσεις τίποτα.</p>
-        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;color:#374151;line-height:1.5;">
-          <tr><td style="padding:3px 8px 3px 0;vertical-align:top;font-weight:800;color:#078EAD;">1</td><td style="padding:3px 0;"><b>Dashboard → Ρυθμίσεις → Σκάνερ καταστήματος</b> → «Στείλε το link» στους υπαλλήλους σου.</td></tr>
-          <tr><td style="padding:3px 8px 3px 0;vertical-align:top;font-weight:800;color:#078EAD;">2</td><td style="padding:3px 0;">Το ανοίγουν στο κινητό τους. Δεν χρειάζεται κωδικός και δεν βλέπουν έσοδα.</td></tr>
-          <tr><td style="padding:3px 8px 3px 0;vertical-align:top;font-weight:800;color:#078EAD;">3</td><td style="padding:3px 0;">Έρχεται ο πελάτης → σκανάρουν το QR του → <b>«Ήρθε»</b>. Αν είχε πατηθεί κατά λάθος «Δεν ήρθε», διορθώνεται αυτόματα.</td></tr>
+        <p style="margin:0 0 6px;color:#10182A;font-size:15px;font-weight:800;">Νέο: check-in με QR</p>
+        <p style="margin:0 0 12px;color:#4B5563;font-size:13px;line-height:1.6;">Κάθε πελάτης λαμβάνει πλέον ένα <b>QR με την κράτησή του</b> και το δείχνει όταν φτάνει στο πλυντήριο. Εσείς το σκανάρετε και η κράτηση περνάει αυτόματα «Ήρθε».</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;color:#374151;line-height:1.55;">
+          <tr><td style="padding:4px 10px 4px 0;vertical-align:top;font-weight:800;color:#078EAD;">1</td><td style="padding:4px 0;"><b>Κάντε ενημέρωση την εφαρμογή Washio</b> από το App Store (iPhone) ή το Play Store (Android).</td></tr>
+          <tr><td style="padding:4px 10px 4px 0;vertical-align:top;font-weight:800;color:#078EAD;">2</td><td style="padding:4px 0;">Ανοίξτε το dashboard του πλυντηρίου. <b>Πάνω δεξιά</b> θα δείτε ένα <b>εικονίδιο κάμερας 📷</b>.</td></tr>
+          <tr><td style="padding:4px 10px 4px 0;vertical-align:top;font-weight:800;color:#078EAD;">3</td><td style="padding:4px 0;">Όταν έρθει ο πελάτης, πατήστε την κάμερα και σκανάρετε το QR από το κινητό του. Η κράτηση περνάει «Ήρθε», δεν χρειάζεται να πατήσετε τίποτε άλλο.</td></tr>
         </table>
-        <p style="margin:10px 0 0;color:#6B7280;font-size:12px;line-height:1.5;">Γιατί μετράει: μόνο τα σκαναρισμένα πλυσίματα δίνουν αμέσως «σταγόνα» στον πελάτη. Κάθε 4ο πλύσιμο στο ίδιο πλυντήριο έχει −3€, άρα ξαναέρχεται σε σένα.</p>
+        <p style="margin:14px 0 6px;color:#10182A;font-size:13px;font-weight:800;">Δεν είστε εσείς στο πλυντήριο;</p>
+        <p style="margin:0;color:#4B5563;font-size:13px;line-height:1.6;">Στείλτε έναν σύνδεσμο στους υπαλλήλους σας: <b>Dashboard → Ρυθμίσεις → Σκάνερ καταστήματος → «Στείλε το link»</b> (Viber, WhatsApp ή SMS). Μόλις τον ανοίξουν, εμφανίζεται η ίδια κάμερα στο <b>δικό τους κινητό</b> και σκανάρουν τις κρατήσεις, <b>χωρίς πρόσβαση στο dashboard σας</b> (δεν βλέπουν έσοδα ούτε ρυθμίσεις). Αν φύγει κάποιος υπάλληλος, πατήστε «Νέο link» και ο παλιός σταματά αμέσως.</p>
       </div>
       <p style="margin:20px 0 0;color:#6B7280;font-size:13px;line-height:1.6;">Ευχαριστούμε για τη συνεργασία.</p>
       <p style="margin:6px 0 0;color:#10182A;font-size:13px;font-weight:600;">Η ομάδα του Washio</p>
