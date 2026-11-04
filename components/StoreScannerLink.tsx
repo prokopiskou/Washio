@@ -43,9 +43,14 @@ export function StoreScannerLink({ locationId, locationName }: { locationId: str
     <div className="bg-white border border-gray-100 rounded-[14px] p-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
       <p className="text-[15px] font-semibold tracking-tight text-gray-900">Σκάνερ καταστήματος · {locationName}</p>
       <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">
-        Για τους υπαλλήλους: ανοίγει μόνο την κάμερα check-in για <b>αυτό</b> το πλυντήριο, χωρίς σύνδεση. Δεν βλέπουν έσοδα, ρυθμίσεις ή άλλα καταστήματα.
-        Άνοιξέ το στο κινητό/tablet του καταστήματος και βάλ&apos; το στην αρχική οθόνη.
+        Για τους υπαλλήλους σου: ανοίγει μόνο την κάμερα για <b>αυτό</b> το πλυντήριο, χωρίς κωδικό. Δεν βλέπουν έσοδα ούτε ρυθμίσεις.
       </p>
+      <ol className="mt-3 space-y-1.5 text-[13px] text-gray-700">
+        <li><b>1.</b> Πάτα «Στείλε το link» και στείλ&apos; το στον υπάλληλο (Viber / WhatsApp / SMS).</li>
+        <li><b>2.</b> Το ανοίγει στο κινητό του και το βάζει στην αρχική οθόνη.</li>
+        <li><b>3.</b> Όταν έρθει πελάτης, σκανάρει το QR της κράτησης από το κινητό του πελάτη → περνάει αυτόματα «Ήρθε».</li>
+      </ol>
+      <p className="text-[12px] text-gray-400 mt-2">Αν φύγει υπάλληλος, πάτα «Νέο link»: το παλιό σταματά αμέσως.</p>
       {err && <p className="text-[12px] text-red-600 mt-3">{err}</p>}
       {url && (
         <div className="mt-4 flex flex-col items-center">

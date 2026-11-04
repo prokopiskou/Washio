@@ -2603,8 +2603,8 @@ export default function DashboardPage() {
 
           {activeTab === 'settings' && (
             <div className="space-y-5">
-              {/* Σκάνερ καταστήματος: για ιδιοκτήτες με πολλά πλυντήρια (υπάλληλοι σε άλλο κατάστημα) */}
-              {(myLocations.length > 1 || supportMode) && location?.id && (
+              {/* Σκάνερ καταστήματος: link για τους υπαλλήλους (check-in με QR χωρίς login) — σε ΟΛΑ τα πλυντήρια */}
+              {location?.id && (
                 <StoreScannerLink locationId={location.id} locationName={location.name} />
               )}
               <div

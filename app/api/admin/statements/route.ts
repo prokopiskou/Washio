@@ -65,7 +65,18 @@ function html(month: string, rows: { name: string; amount: number }[]) {
       <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Σου στέλνουμε την εκκαθάριση ${esc(month)} για ${names}. Στο συνημμένο PDF θα βρεις κάθε κράτηση που σου έφερε το Washio, την προμήθεια ανά κράτηση και το σύνολο.</p>
       ${list}
       ${box}
-      <p style="margin:20px 0 0;color:#6B7280;font-size:13px;line-height:1.6;">Ευχαριστούμε για τη συνεργασία. Για οποιαδήποτε απορία, απάντησε σε αυτό το email.</p>
+      <p style="margin:16px 0 0;color:#374151;font-size:13px;line-height:1.6;">Για οποιαδήποτε ασυμφωνία, επικοινώνησε τηλεφωνικά στο <a href="tel:6986150513" style="color:#078EAD;font-weight:700;text-decoration:none;">698 615 0513</a>.</p>
+      <div style="margin:22px 0 0;padding:18px;border-radius:14px;background:#F7FAFC;border:1px solid #E8EEF2;">
+        <p style="margin:0 0 8px;color:#10182A;font-size:14px;font-weight:800;">Νέο: check-in με QR</p>
+        <p style="margin:0 0 10px;color:#4B5563;font-size:13px;line-height:1.6;">Κάθε κράτηση έχει πλέον δικό της QR στο κινητό του πελάτη. Το σκανάρεις όταν φτάσει και η κράτηση περνάει αυτόματα «Ήρθε», χωρίς να πατήσεις τίποτα.</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;font-size:13px;color:#374151;line-height:1.5;">
+          <tr><td style="padding:3px 8px 3px 0;vertical-align:top;font-weight:800;color:#078EAD;">1</td><td style="padding:3px 0;"><b>Dashboard → Ρυθμίσεις → Σκάνερ καταστήματος</b> → «Στείλε το link» στους υπαλλήλους σου.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;vertical-align:top;font-weight:800;color:#078EAD;">2</td><td style="padding:3px 0;">Το ανοίγουν στο κινητό τους. Δεν χρειάζεται κωδικός και δεν βλέπουν έσοδα.</td></tr>
+          <tr><td style="padding:3px 8px 3px 0;vertical-align:top;font-weight:800;color:#078EAD;">3</td><td style="padding:3px 0;">Έρχεται ο πελάτης → σκανάρουν το QR του → <b>«Ήρθε»</b>. Αν είχε πατηθεί κατά λάθος «Δεν ήρθε», διορθώνεται αυτόματα.</td></tr>
+        </table>
+        <p style="margin:10px 0 0;color:#6B7280;font-size:12px;line-height:1.5;">Γιατί μετράει: μόνο τα σκαναρισμένα πλυσίματα δίνουν αμέσως «σταγόνα» στον πελάτη. Κάθε 4ο πλύσιμο στο ίδιο πλυντήριο έχει −3€, άρα ξαναέρχεται σε σένα.</p>
+      </div>
+      <p style="margin:20px 0 0;color:#6B7280;font-size:13px;line-height:1.6;">Ευχαριστούμε για τη συνεργασία.</p>
       <p style="margin:6px 0 0;color:#10182A;font-size:13px;font-weight:600;">Η ομάδα του Washio</p>
     </div>
   </div></body></html>`
