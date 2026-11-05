@@ -196,7 +196,11 @@ export default function CheckinScanner({ onClose, onCheckedIn, scanToken, title 
         </div>
 
         {result ? (
-          <CheckinResultCard res={result} onNext={next} />
+          // Dashboard (παράθυρο): μετά το σκανάρισμα μόνο «Κλείσιμο» — για επόμενο πελάτη ξανανοίγει την κάμερα.
+          // Σκάνερ υπαλλήλου (/s/…, ολόκληρη σελίδα): «Σκάναρε ξανά», αφού δεν υπάρχει πού να κλείσει.
+          embedded
+            ? <CheckinResultCard res={result} onNext={next} nextLabel="Σκάναρε ξανά" />
+            : <CheckinResultCard res={result} onNext={() => { stopCamera(); onClose() }} nextLabel="Κλείσιμο" />
         ) : (
           <>
             <div className={mode === 'camera' ? 'block' : 'hidden'}>
