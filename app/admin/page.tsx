@@ -55,6 +55,11 @@ export default function AdminPage() {
   const [authorized, setAuthorized] = useState(false)
   const [authChecking, setAuthChecking] = useState(true)
   const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons' | 'payouts'>('overview')
+  // Επιστροφή από επεξεργασία/νέο πλυντήριο → ίδια καρτέλα (/admin?tab=locations), όχι η αρχική.
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    if (tab && ['overview', 'bookings', 'locations', 'users', 'applications', 'financials', 'addons', 'payouts'].includes(tab)) setActiveTab(tab as typeof activeTab)
+  }, [])
   const [bookings, setBookings] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
   const [users, setUsers] = useState<any[]>([])

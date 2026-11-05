@@ -175,7 +175,7 @@ export default function EditLocationPage() {
     setLoading(false)
     if (dbErr) { setError(dbErr.message); return }
     setSaved(true)
-    setTimeout(() => router.push('/admin'), 700)
+    setTimeout(() => router.push('/admin?tab=locations'), 700)
   }
 
   if (loadingData) {
@@ -186,7 +186,7 @@ export default function EditLocationPage() {
     <main className="min-h-screen bg-white flex flex-col items-center">
       <div className="w-full max-w-md pb-24">
         <div className="bg-white border-b border-gray-100 px-6 pb-5 pt-[calc(var(--safe-top)+16px)] flex items-center gap-3">
-          <button onClick={() => router.back()} className="text-gray-400"><ArrowLeft size={18} /></button>
+          <button onClick={() => router.push('/admin?tab=locations')} className="text-gray-400"><ArrowLeft size={18} /></button>
           <h1 className="text-lg font-semibold text-gray-900">Επεξεργασία πρατηρίου</h1>
         </div>
 

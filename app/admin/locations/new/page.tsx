@@ -123,7 +123,7 @@ export default function NewLocationPage() {
       return
     }
 
-    router.push('/admin')
+    router.push('/admin?tab=locations')
   }
 
   return (
@@ -132,7 +132,7 @@ export default function NewLocationPage() {
 
         <div className="bg-white border-b border-gray-100 px-6 pb-5 pt-[calc(var(--safe-top)+16px)]">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="text-gray-400">
+            <button onClick={() => router.push('/admin?tab=locations')} className="text-gray-400">
               <ArrowLeft size={18} />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">Νέο πρατήριο</h1>
