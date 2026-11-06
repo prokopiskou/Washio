@@ -8,6 +8,13 @@ const athensToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/A
 
 export async function GET(req: NextRequest) {
   const location = req.nextUrl.searchParams.get('location') || ''
+  // ?all=1 → όλες οι ενεργές προωθήσεις (χάρτης: χρυσή πινέζα + λίστα).
+  if (req.nextUrl.searchParams.get('all')) {
+    const { data } = await admin.from('promotions')
+      .select('id, location_id, service_id, discount_type, discount_value, starts_on, ends_on')
+      .eq('is_active', true).gte('ends_on', athensToday())
+    return NextResponse.json({ promotions: data || [] }, { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300' } })
+  }
   if (!/^[0-9a-f-]{36}$/i.test(location)) return NextResponse.json({ promotions: [] })
   const { data } = await admin.from('promotions')
     .select('id, service_id, discount_type, discount_value, starts_on, ends_on')

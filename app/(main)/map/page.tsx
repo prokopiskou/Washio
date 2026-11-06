@@ -14,6 +14,7 @@ import { getCurrentPosition, getFastPosition } from '@/lib/geo'
 import { startMapOpenLog } from '@/lib/map-open-log'
 import { funnel } from '@/lib/funnel'
 import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
+import { applyPromo } from '@/lib/promotions'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService, compareServices } from '@/lib/services-catalog'
@@ -295,6 +296,13 @@ function MapPageContent() {
   // Η μέρα στην οποία αναφέρονται οι ώρες του sheet. Για μη διαθέσιμο πλυντήριο
   // = η πρώτη μέρα με ελεύθερη ώρα (π.χ. αύριο), ώστε ο χρήστης να κλείσει αμέσως.
   const [sheetDate, setSheetDate] = useState<string | null>(null)
+  // Ενεργές προωθήσεις όλων των πλυντηρίων (χρυσή πινέζα, χρυσό πλαίσιο στη λίστα, κάρτα προσφοράς).
+  const [promos, setPromos] = useState<{ id: string; location_id: string; service_id: string; discount_type: 'percent' | 'amount'; discount_value: number; starts_on: string; ends_on: string }[]>([])
+  useEffect(() => {
+    let alive = true
+    fetch('/api/promotions?all=1').then(r => r.json()).then(j => { if (alive) setPromos(j.promotions || []) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
   const [findingNext, setFindingNext] = useState(false)
   const nextCacheRef = useRef<Record<string, NextCache>>({})
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
@@ -378,11 +386,20 @@ function MapPageContent() {
     Number(vehicleType === 'SUV' ? s.price_min_suv : s.price_min) || 0,
     Number(vehicleType === 'SUV' ? s.price_max_suv : s.price_max) || 0,
   ]
-  const priceFor = (s: Service) => {
+  // Τιμή καταλόγου (χωρίς προώθηση).
+  const listPriceFor = (s: Service) => {
     if (s.is_range) { const [a, b] = rangeFor(s); return (a + b) / 2 }
     return vehicleType === 'Μοτοσικλέτα' && s.price_moto ? s.price_moto
       : vehicleType === 'SUV' && s.price_suv ? s.price_suv
       : s.price
+  }
+  // Προωθήσεις πλυντηρίων (dashboard → Προωθήσεις). Η κράτηση εφαρμόζει την τιμή server-side.
+  const promoDate = sheetDate || activeDate
+  const promoForSvc = (s: Service) => s.is_range ? undefined : promos.find(p => p.service_id === s.id && p.starts_on <= promoDate && promoDate <= p.ends_on)
+  const priceFor = (s: Service) => {
+    const lp = listPriceFor(s)
+    const pr = promoForSvc(s)
+    return pr ? applyPromo(Number(lp) || 0, pr) : lp
   }
   const priceLabel = (s: Service) => {
     if (s.is_range) { const [a, b] = rangeFor(s); return `€${a}–${b}` }
@@ -390,7 +407,8 @@ function MapPageContent() {
   }
   // Κουπόνι ήδη μέσα στην τιμή (~~15€~~ 12€) — ίδιοι κανόνες με το checkout.
   const coupon = useCouponCredit()
-  const discFor = (s: Service) => couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range)
+  // Συνολική έκπτωση που βλέπει ο πελάτης = προώθηση + κουπόνι (το κουπόνι στην τιμή μετά την προώθηση).
+  const discFor = (s: Service) => ((Number(listPriceFor(s)) || 0) - (Number(priceFor(s)) || 0)) + couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range)
 
   const visibleServices = locationServices.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
@@ -405,12 +423,15 @@ function MapPageContent() {
     return true
   })
 
+  // Προσφορά που ισχύει ΣΗΜΕΡΑ σε ένα πλυντήριο (για χρυσή πινέζα / λίστα).
+  const locPromoNow = (locId: string) => { const d = getTodayValue(); return promos.find(p => p.location_id === locId && p.starts_on <= d && d <= p.ends_on) }
+
   // Λίστα: «από X €» = φθηνότερη υπηρεσία για τον τύπο οχήματος, με το κουπόνι ήδη μέσα.
   const fromPrice = (locId: string): number | null => {
     let best: number | null = null
     for (const s of servicesByLocRef.current[locId] || []) {
       if (s.is_range) continue
-      const p = Number(priceFor(s)) || 0
+      const p = Number(listPriceFor(s)) || 0
       if (!(p > 0)) continue
       const moto = isMotoService(s.name)
       if (vehicleType === 'Μοτοσικλέτα' ? !moto : moto) continue
@@ -1005,15 +1026,20 @@ function MapPageContent() {
       const isSelected = selectedLocation?.id === loc.id
       const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
       const rawName = loc.name || ''
-      const label = rawName.length > 20 ? rawName.slice(0, 19) + '…' : rawName
+      const isPromo = promos.some(p => p.location_id === loc.id && p.starts_on <= getTodayValue() && getTodayValue() <= p.ends_on)
+      const nm = isPromo ? '★ ' + rawName : rawName
+      const label = nm.length > 22 ? nm.slice(0, 21) + '…' : nm
       // Το όνομα εμφανίζεται μόνο όταν έχει γίνει αρκετό zoom (καθαρό, χωρίς μπούχτισμα).
-      const showLabel = showLabels
+      const showLabel = showLabels || promos.some(p => p.location_id === loc.id && p.starts_on <= getTodayValue() && getTodayValue() <= p.ends_on)
       // Διαθέσιμο τώρα = μπλε έξω/άσπρο μέσα · Μη διαθέσιμο (εκτός ωραρίου/γεμάτο) = γκρι έξω/άσπρο μέσα.
       // Επιλεγμένο = navy, για να ξεχωρίζει από τα μπλε.
       const avail = !!loc.hasAvailability
-      const pinFill = isSelected ? '#10182A' : avail ? '#19A8C7' : '#B4BCC7'
-      const pillFill = isSelected ? '#10182A' : '#FFFFFF'
-      const pillText = isSelected ? '#FFFFFF' : avail ? '#10182A' : '#8A93A0'
+      // Προσφορά σήμερα → χρυσή πινέζα + χρυσό όνομα, πάντα ορατό (και σε μικρό zoom).
+      const todayP = getTodayValue()
+      const gold = promos.some(p => p.location_id === loc.id && p.starts_on <= todayP && todayP <= p.ends_on)
+      const pinFill = isSelected ? '#10182A' : gold ? '#C9A227' : avail ? '#19A8C7' : '#B4BCC7'
+      const pillFill = isSelected ? '#10182A' : gold ? '#C9A227' : '#FFFFFF'
+      const pillText = isSelected ? '#FFFFFF' : gold ? '#FFFFFF' : avail ? '#10182A' : '#8A93A0'
 
       let svgString: string
       let W: number, H: number, aX: number, aY: number
@@ -1064,7 +1090,7 @@ function MapPageContent() {
         map: mapInstanceRef.current,
         optimized: false, // καθαρό (crisp) render σε retina — αλλιώς τα ονόματα βγαίνουν θολά
         // Μπροστινές (πιο νότιες) πινέζες πάνω-πάνω ώστε να είναι πάντα πατήσιμες όταν στοιβάζονται.
-        zIndex: isSelected ? 1000000 : (loc.hasAvailability ? 200000 : 0) + Math.round(100000 - loc.lat * 100),
+        zIndex: isSelected ? 1000000 : (pinFill === '#C9A227' ? 500000 : 0) + (loc.hasAvailability ? 200000 : 0) + Math.round(100000 - loc.lat * 100),
         icon: {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svgString),
           scaledSize: new window.google.maps.Size(W, H),
@@ -1074,7 +1100,7 @@ function MapPageContent() {
       marker.addListener('click', () => selectLocation(loc))
       markersRef.current.push(marker)
     })
-  }, [mapLoaded, filteredLocations, selectedLocation, showLabels])
+  }, [mapLoaded, filteredLocations, selectedLocation, showLabels, promos])
 
   useEffect(() => { updateMarkers() }, [updateMarkers])
 
@@ -1370,18 +1396,24 @@ function MapPageContent() {
               </div>
               <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 space-y-2.5">
                 {[...filteredLocations]
-                  .sort((a, b) => (a.hasAvailability ? 0 : a.laterSlot ? 1 : 2) - (b.hasAvailability ? 0 : b.laterSlot ? 1 : 2))
+                  .sort((a, b) => (locPromoNow(b.id) ? 1 : 0) - (locPromoNow(a.id) ? 1 : 0) || (a.hasAvailability ? 0 : a.laterSlot ? 1 : 2) - (b.hasAvailability ? 0 : b.laterSlot ? 1 : 2))
                   .map(loc => {
                     const r = ratingByLocRef.current[loc.id]
                     const from = fromPrice(loc.id)
                     const open = !!loc.hasAvailability || !!loc.laterSlot
+                    const lp = locPromoNow(loc.id)
                     return (
                       <button
                         key={loc.id}
                         onClick={() => selectLocation(loc, 'list')}
-                        className="w-full bg-white rounded-[18px] p-2.5 border border-washio-border flex items-center gap-3 text-left active:scale-[0.99] transition-transform"
-                        style={{ boxShadow: '0 4px 14px rgba(16,24,42,0.06)' }}
+                        className={`relative w-full bg-white rounded-[18px] p-2.5 flex items-center gap-3 text-left active:scale-[0.99] transition-transform ${lp ? 'border-2 border-[#C9A227]' : 'border border-washio-border'}`}
+                        style={{ boxShadow: lp ? '0 6px 18px rgba(201,162,39,0.25)' : '0 4px 14px rgba(16,24,42,0.06)' }}
                       >
+                        {lp && (
+                          <span className="absolute -top-2 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold text-white tracking-wide" style={{ background: 'linear-gradient(135deg,#D4AF37,#B8901F)' }}>
+                            ★ {locale === 'en' ? 'OFFER' : 'ΠΡΟΣΦΟΡΑ'} · −{lp.discount_type === 'percent' ? `${Number(lp.discount_value)}%` : `€${eur(Number(lp.discount_value))}`}
+                          </span>
+                        )}
                         <div className="w-[72px] h-[72px] rounded-[14px] overflow-hidden shrink-0 bg-washio-navy flex items-center justify-center">
                           {loc.photos && loc.photos.length > 0 ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -1598,6 +1630,41 @@ function MapPageContent() {
                 </div>
               )}
 
+              {/* Προσφορά πλυντηρίου — χρυσή κάρτα, πάνω από τις υπηρεσίες */}
+              {selectedLocation && promos.filter(p => p.location_id === selectedLocation.id).map(p => {
+                const s = visibleServices.find(x => x.id === p.service_id)
+                if (!s) return null
+                const lp = Number(listPriceFor(s)) || 0
+                const np = applyPromo(lp, p)
+                const [, em, ed] = p.ends_on.split('-')
+                const MON = locale === 'en' ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] : ['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιουν','Ιουλ','Αυγ','Σεπ','Οκτ','Νοε','Δεκ']
+                const [, sm, sd] = p.starts_on.split('-')
+                const started = p.starts_on <= getTodayValue()
+                return (
+                  <button key={p.id}
+                    onClick={() => {
+                      userPickedSlotRef.current = false
+                      setSelectedService(s.id)
+                      if (!started) pickSheetDay(p.starts_on)
+                      funnel('service_select', { locationId: selectedLocation.id, meta: { src: 'promo', svc: s.name, price: lp, shown: np, disc: lp - np } })
+                    }}
+                    className="w-full mb-3 rounded-[16px] p-3 flex items-center gap-3 text-left"
+                    style={{ background: 'linear-gradient(135deg,#FFF8E1 0%,#FCEBB6 100%)', border: '1.5px solid #C9A227', boxShadow: '0 6px 16px rgba(201,162,39,0.22)' }}>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-[18px]" style={{ background: 'linear-gradient(135deg,#D4AF37,#B8901F)' }}>★</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-bold tracking-[1.2px] uppercase" style={{ color: '#8A6A0C' }}>{locale === 'en' ? 'Offer' : 'Προσφορά'} · −{p.discount_type === 'percent' ? `${Number(p.discount_value)}%` : `€${eur(Number(p.discount_value))}`}</p>
+                      <p className="text-[14px] font-semibold text-washio-navy truncate">{translateCatalogName(s.name, locale)}</p>
+                      <p className="text-[11px]" style={{ color: '#8A6A0C' }}>{started ? (locale === 'en' ? `until ${Number(ed)} ${MON[Number(em) - 1]}` : `έως ${Number(ed)} ${MON[Number(em) - 1]}`) : (locale === 'en' ? `${Number(sd)} ${MON[Number(sm) - 1]} – ${Number(ed)} ${MON[Number(em) - 1]}` : `${Number(sd)} ${MON[Number(sm) - 1]} – ${Number(ed)} ${MON[Number(em) - 1]}`)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[12px] line-through text-gray-400 leading-none">€{eur(lp)}</p>
+                      <p className="text-[19px] font-bold leading-tight" style={{ color: '#8A6A0C' }}>€{eur(np)}</p>
+                      <p className="text-[11px] font-semibold text-washio-navy underline">{locale === 'en' ? 'Book' : 'Κλείσε'}</p>
+                    </div>
+                  </button>
+                )
+              })}
+
               {/* Services */}
               {visibleServices.some(s => discFor(s) > 0) && (
                 <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}</p>
@@ -1605,7 +1672,7 @@ function MapPageContent() {
               <div className="flex gap-2 mb-3">
                 {visibleServices.map(s => {
                   const price = priceLabel(s)
-                  const base = Number(priceFor(s)) || 0
+                  const base = Number(listPriceFor(s)) || 0
                   const disc = discFor(s)
                   const isSelected = selectedService === s.id
                   return (
