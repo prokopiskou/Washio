@@ -51,12 +51,14 @@ async function commissions(month: string, locationId?: string) {
   const out = new Map<string, { gross: number; count: number }>()
   for (const b of (data || []) as unknown as { location_id: string; platform_fee: number | null; profiles: { email?: string } | null }[]) {
     if (isInternalEmail(b.profiles?.email)) continue
+    // Μόνο κρατήσεις με προμήθεια: οι χειροκίνητες του πλυντηρίου (δικοί του πελάτες) έχουν 0.
+    if (!(Number(b.platform_fee) > 0)) continue
     const cur = out.get(b.location_id) || { gross: 0, count: 0 }
     cur.gross += Number(b.platform_fee) || 0
     cur.count += 1
     out.set(b.location_id, cur)
   }
-  for (const v of out.values()) v.gross = r2(v.gross)
+  for (const [k, v] of out) { v.gross = r2(v.gross); if (v.gross <= 0) out.delete(k) }
   return out
 }
 
