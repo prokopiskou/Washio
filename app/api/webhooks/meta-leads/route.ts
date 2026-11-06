@@ -72,12 +72,17 @@ export async function POST(req: NextRequest) {
     const cars = pick(fields, 'αυτοκίνητα', 'πόσα')
 
     // Αν δεν μπορέσαμε να διαβάσουμε τα στοιχεία (λείπει token), κράτα τουλάχιστον το lead id.
+    // Ο πίνακας έχει NOT NULL σε όλα τα πεδία της αίτησης → κενό string όπου δεν έχουμε τιμή.
     const { error } = await admin.from('applications').insert({
       business_name: business || `Meta lead ${id}`,
-      owner_name: name || null,
-      phone: phone || null,
-      email: email || null,
-      lanes: cars || null,
+      address: '',
+      city: '',
+      afm: '',
+      owner_name: name || '',
+      phone: phone || '',
+      email: email || '',
+      hours: '',
+      lanes: cars || '',
       wash_type: 'Meta lead',
       status: 'pending',
     })
