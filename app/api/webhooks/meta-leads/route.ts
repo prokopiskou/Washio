@@ -18,7 +18,10 @@ const GRAPH = 'https://graph.facebook.com/v21.0'
 // Επαλήθευση webhook (μία φορά, όταν το συνδέεις στο Meta App).
 export async function GET(req: NextRequest) {
   const p = req.nextUrl.searchParams
-  if (p.get('hub.mode') === 'subscribe' && p.get('hub.verify_token') === process.env.META_LEADS_VERIFY_TOKEN) {
+  // Ανεκτικό σε κενά / εισαγωγικά / backticks που μπαίνουν κατά λάθος στο Vercel ή στη Meta.
+  const clean = (v?: string | null) => String(v || '').trim().replace(/^[`'"]+|[`'"]+$/g, '').trim()
+  const want = clean(process.env.META_LEADS_VERIFY_TOKEN)
+  if (p.get('hub.mode') === 'subscribe' && want && clean(p.get('hub.verify_token')) === want) {
     return new NextResponse(p.get('hub.challenge') || '', { status: 200 })
   }
   return new NextResponse('Forbidden', { status: 403 })
