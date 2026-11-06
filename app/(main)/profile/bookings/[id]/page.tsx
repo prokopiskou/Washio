@@ -274,7 +274,7 @@ export default function BookingDetailPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select(`id, booking_ref, slot_date, slot_start_time, status, total_amount, coupon_amount, car_plate, stripe_payment_intent_id, stripe_payment_status, created_at, location_id, service_id, duration_minutes, locations(id, slug, name, address, city, lat, lng), services(name, ${RANGE_SVC_COLS})`)
+        .select(`id, booking_ref, slot_date, slot_start_time, status, total_amount, coupon_amount, car_plate, stripe_payment_intent_id, stripe_payment_status, created_at, location_id, service_id, duration_minutes, locations(id, slug, name, address, city, lat, lng, extra_instructions), services(name, ${RANGE_SVC_COLS})`)
         .eq('id', bookingId)
         .single()
 
@@ -550,6 +550,18 @@ export default function BookingDetailPage() {
               <StatusPill status={effStatus} />
             </div>
           </div>
+
+          {/* Σημειώσεις πλυντηρίου — ΠΑΝΩ από το QR, να τις βλέπουν όλοι */}
+          {(booking.locations as { extra_instructions?: string | null } | null)?.extra_instructions && booking.status !== 'cancelled' && (
+            <div className="rounded-2xl px-4 py-3.5 mb-3.5" style={{ background: '#FFF4D6', border: '1.5px solid #F2C94C' }}>
+              <p className="text-[11px] font-bold tracking-[1.2px] uppercase mb-1.5" style={{ color: '#8A6A0C' }}>
+                ⚠️ {locale === 'en' ? 'Notes from the car wash' : 'Σημειώσεις πλυντηρίου'}
+              </p>
+              <p className="text-[14px] text-gray-900 font-medium leading-relaxed whitespace-pre-line">
+                {(booking.locations as { extra_instructions?: string | null }).extra_instructions}
+              </p>
+            </div>
+          )}
 
           {/* QR check-in — το δείχνεις στο πλυντήριο */}
           {qrCode && booking.status !== 'cancelled' && String(booking.slot_date) >= minDateStr && (

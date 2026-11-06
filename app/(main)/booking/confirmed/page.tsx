@@ -21,7 +21,7 @@ const T = {
     cashSub: 'Πληρωμή με μετρητά στο κατάστημα', emailSub: 'Στείλαμε email επιβεβαίωσης',
     passCaption: 'Επιβεβαίωση Κράτησης', refLabel: 'Κωδικός',
     qrHint: 'Δείξ\' το στο πλυντήριο όταν φτάσεις',
-    usefulInstructions: 'Χρήσιμες οδηγίες',
+    usefulInstructions: 'Σημειώσεις πλυντηρίου',
     washroom: 'Πλυντήριο', dateLabel: 'Ημ/νία', timeLabel: 'Ώρα',
     serviceLabel: 'Υπηρεσία', plateLabel: 'Πινακίδα',
     cashTotal: 'Πληρώνεις στο πλυντήριο', total: 'Σύνολο',
@@ -34,7 +34,7 @@ const T = {
     cashSub: 'Pay with cash at the store', emailSub: 'We sent a confirmation email',
     passCaption: 'Booking Confirmation', refLabel: 'Code',
     qrHint: 'Show this at the car wash when you arrive',
-    usefulInstructions: 'Useful instructions',
+    usefulInstructions: 'Notes from the car wash',
     washroom: 'Car wash', dateLabel: 'Date', timeLabel: 'Time',
     serviceLabel: 'Service', plateLabel: 'Plate',
     cashTotal: 'Pay at the venue', total: 'Total',
@@ -323,6 +323,18 @@ function ConfirmedContent() {
               </div>
             </div>
 
+            {/* Σημειώσεις πλυντηρίου — ΠΑΝΩ από το QR, να τις βλέπουν όλοι */}
+            {locationInstructions && (
+              <div className="mt-6 rounded-2xl px-4 py-3.5" style={{ background: '#FFF4D6', border: '1.5px solid #F2C94C' }}>
+                <p className="text-[11px] font-bold tracking-[1.2px] uppercase mb-1.5" style={{ color: '#8A6A0C' }}>
+                  ⚠️ {t.usefulInstructions}
+                </p>
+                <p className="text-[14px] text-gray-900 font-medium leading-relaxed whitespace-pre-line">
+                  {locationInstructions}
+                </p>
+              </div>
+            )}
+
             {/* QR check-in — το δείχνει στο πλυντήριο */}
             {qrCode && (
               <div className="mt-6 flex flex-col items-center">
@@ -347,18 +359,6 @@ function ConfirmedContent() {
               </p>
             </div>
           </div>
-
-          {/* Επιπλέον χρήσιμες οδηγίες πλυντηρίου (αν έχει ορίσει το admin) */}
-          {locationInstructions && (
-            <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 px-4 py-3.5">
-              <p className="text-[11px] font-semibold tracking-[1.2px] uppercase text-blue-900/60 mb-1.5">
-                {t.usefulInstructions}
-              </p>
-              <p className="text-[13px] text-gray-700 leading-relaxed whitespace-pre-line">
-                {locationInstructions}
-              </p>
-            </div>
-          )}
 
           {/* Actions */}
           <div className="flex flex-col gap-2.5 mt-6">
