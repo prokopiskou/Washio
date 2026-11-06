@@ -997,6 +997,12 @@ export default function AdminPage() {
                     </p>
                     <div className="flex items-center gap-2">
                     <a
+                      href="/admin/audience"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-[12px] font-semibold"
+                    >
+                      🎯 Κοινό
+                    </a>
+                    <a
                       href="/admin/invoices"
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-[12px] font-semibold"
                     >
