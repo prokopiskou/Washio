@@ -29,10 +29,12 @@ export async function GET(req: NextRequest) {
 
 type Field = { name: string; values: string[] }
 
+// Σειρά προτεραιότητας = σειρά των keys (όχι των πεδίων), ώστε το «ονοματεπώνυμο»
+// να μη μπερδεύεται με το «όνομα_και_περιοχή_του_πλυντηρίου».
 function pick(fields: Field[], ...keys: string[]): string {
-  for (const f of fields) {
-    const n = f.name.toLowerCase()
-    if (keys.some(k => n === k || n.includes(k))) return (f.values || []).join(', ').trim()
+  for (const k of keys) {
+    const f = fields.find(f => { const n = f.name.toLowerCase(); return n === k || n.includes(k) })
+    if (f) return (f.values || []).join(', ').trim()
   }
   return ''
 }
@@ -65,10 +67,12 @@ export async function POST(req: NextRequest) {
         formName = j.ad_name || ''
       } catch { /* συνεχίζουμε με ό,τι έχουμε */ }
     }
-    const name = pick(fields, 'full_name', 'όνομα')
-    const phone = pick(fields, 'phone_number', 'phone', 'τηλέφωνο')
+    // Ονόματα πεδίων της φόρμας «Washio Συνεργάτες – Πλυντήρια»: ονοματεπώνυμο, αριθμός_τηλεφώνου,
+    // email, όνομα_και_περιοχή_του_πλυντηρίου_σου, πόσα_αυτοκίνητα_πλένεις_περίπου_τη_μέρα;
+    const name = pick(fields, 'ονοματεπώνυμο', 'full_name', 'first_name')
+    const phone = pick(fields, 'αριθμός_τηλεφώνου', 'phone_number', 'phone', 'τηλέφων', 'κινητ')
     const email = pick(fields, 'email')
-    const business = pick(fields, 'πλυντηρ', 'όνομα_και', 'περιοχή')
+    const business = pick(fields, 'όνομα_και_περιοχή', 'πλυντηρ', 'περιοχή')
     const cars = pick(fields, 'αυτοκίνητα', 'πόσα')
 
     // Αν δεν μπορέσαμε να διαβάσουμε τα στοιχεία (λείπει token), κράτα τουλάχιστον το lead id.
