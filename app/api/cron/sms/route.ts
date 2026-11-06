@@ -51,13 +51,13 @@ function reminderText(day: 'σήμερα' | 'αύριο', time: string, place: s
 
 type Row = {
   id: string; booking_ref: string; user_id: string | null; slot_date: string; slot_start_time: string
-  created_at: string; locations: { name?: string; google_maps_url?: string | null } | null; profiles: { phone?: string | null } | null
+  created_at: string; customer_phone?: string | null; locations: { name?: string; google_maps_url?: string | null } | null; profiles: { phone?: string | null } | null
 }
 
 async function candidates(now: Date): Promise<{ row: Row; day: 'σήμερα' | 'αύριο' }[]> {
   const a = athensParts(now)
   const out: { row: Row; day: 'σήμερα' | 'αύριο' }[] = []
-  const sel = 'id, booking_ref, user_id, slot_date, slot_start_time, created_at, locations(name, google_maps_url), profiles(phone)'
+  const sel = 'id, booking_ref, user_id, slot_date, slot_start_time, created_at, customer_phone, locations(name, google_maps_url), profiles(phone)'
   const recentCut = new Date(now.getTime() - 30 * 60 * 1000).toISOString()
   const base = () => admin.from('bookings').select(sel)
     .eq('status', 'confirmed').eq('source', 'platform').eq('sms_reminder_sent', false).lt('created_at', recentCut)
@@ -137,7 +137,8 @@ export async function GET(req: NextRequest) {
   for (const { row, day } of list) {
     const guest = await isGuest(row.user_id)
     if (!scopeAll && !guest) { stats.skippedScope++; continue }
-    const phone = row.profiles?.phone || ''
+    // Προφίλ πρώτα· αλλιώς το κινητό που δόθηκε στην κράτηση (πολλοί εγγεγραμμένοι δεν το έχουν στο προφίλ).
+    const phone = [row.profiles?.phone, row.customer_phone].find(p => p && toMsisdn(p)) || ''
     if (!toMsisdn(phone)) {
       stats.skippedPhone++
       if (!dry) await admin.from('bookings').update({ sms_reminder_sent: true }).eq('id', row.id) // ποτέ δεν θα σταλεί
