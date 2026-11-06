@@ -1,5 +1,6 @@
 'use client'
 
+import { applyPromo } from '@/lib/promotions'
 import { formatDuration } from '@/lib/duration'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -472,6 +473,7 @@ function BookingPageContent() {
   const [selectedVehicleId, setSelectedVehicleId] = useState<string>('')
   const [vehicleFormType, setVehicleFormType] = useState('ΙΧ')
   const [servicePrice, setServicePrice] = useState(0)
+  const [listPrice, setListPrice] = useState(0) // τιμή πριν την προώθηση (0 = καμία προώθηση)
 
   const serviceId = params.get('service') || ''
   const locationId = params.get('location') || ''
@@ -620,6 +622,14 @@ function BookingPageContent() {
               ? serviceData.price_suv
               : serviceData.price
             setServicePrice(price)
+            // Προώθηση πλυντηρίου για την ημέρα του ραντεβού (ίδια λογική με τον server).
+            if (locationId) {
+              fetch(`/api/promotions?location=${locationId}`).then(r => r.json()).then(j => {
+                const pr = (j.promotions || []).find((p: { service_id: string; starts_on: string; ends_on: string }) =>
+                  p.service_id === serviceData.id && p.starts_on <= dateStr && dateStr <= p.ends_on)
+                if (pr) { setListPrice(Number(price) || 0); setServicePrice(applyPromo(Number(price) || 0, pr)) }
+              }).catch(() => {})
+            }
           }
         }
       }
@@ -1217,7 +1227,10 @@ function BookingPageContent() {
               <>
                 <div className="flex justify-between items-center py-3 border-b border-washio-border">
                   <span className="text-[13px] text-gray-500">{translateCatalogName(service.name, locale)}</span>
-                  <span className="text-[14px] font-medium text-gray-900">{eur2(servicePrice)}</span>
+                  <span className="text-[14px] font-medium text-gray-900">
+                    {listPrice > servicePrice && <span className="line-through text-gray-400 mr-1.5 text-[12px]">{eur2(listPrice)}</span>}
+                    {eur2(servicePrice)}
+                  </span>
                 </div>
                 {selectedAddons.length > 0 && (
                   <div className="flex justify-between items-center py-3 border-b border-washio-border">

@@ -3,6 +3,7 @@
 import { formatDuration } from '@/lib/duration'
 import { useLocale } from '@/lib/i18n'
 import { DASH_EN } from '@/lib/dashboard-i18n'
+import { PromotionsPanel } from '@/components/dashboard/PromotionsPanel'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -23,7 +24,7 @@ import CheckinScanner from '@/components/CheckinScanner'
 import { StoreScannerLink } from '@/components/StoreScannerLink'
 import { rangeLabel, RANGE_SVC_COLS, type RangeSvc } from '@/lib/range-price'
 
-type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'hours' | 'settings' | 'staff' | 'feedback'
+type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'promotions' | 'hours' | 'settings' | 'staff' | 'feedback'
 type Period = '7D' | '30D' | '3M' | '6M' | '12M'
 type Metric = 'revenue' | 'bookings'
 
@@ -1213,6 +1214,7 @@ export default function DashboardPage() {
             ['bookings', `${t('Κρατήσεις')}${newBookingsCount > 0 ? ` (${newBookingsCount})` : ''}`],
             ['calendar', t('Ημερολόγιο')],
             ['services', t('Υπηρεσίες')],
+            ['promotions', t('Προωθήσεις')],
             ['hours', t('Ωράριο')],
             ['settings', t('Ρυθμίσεις')],
             ['feedback', 'Feedback'],
@@ -2330,6 +2332,10 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === 'promotions' && location?.id && (
+            <PromotionsPanel locationId={location.id} services={bookableServices.map(s => ({ id: s.id, service_name: tn(s.name), price: s.price, is_active: s.is_active, is_range: s.is_range }))} t={t} />
           )}
 
           {activeTab === 'hours' && (() => {

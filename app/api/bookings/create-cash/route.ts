@@ -1,3 +1,4 @@
+import { activePromotionFor, applyPromo } from '@/lib/promotions'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -151,6 +152,9 @@ export async function POST(req: NextRequest) {
       amount = isMoto && svc.price_moto != null ? Number(svc.price_moto)
         : isSuv && svc.price_suv != null ? Number(svc.price_suv)
         : Number(svc.price)
+      // Προώθηση πλυντηρίου (dashboard → Προωθήσεις) για την ημέρα του ραντεβού — server-side.
+      const promo = await activePromotionFor(admin, serviceId, slotDate, amount)
+      if (promo) amount = applyPromo(amount, promo)
       servicePrice = amount
 
       const requestedAddonIds: string[] = Array.isArray(addonIds) ? addonIds : []

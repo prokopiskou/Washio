@@ -1,3 +1,4 @@
+import { activePromotionFor, applyPromo } from '@/lib/promotions'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
@@ -124,6 +125,10 @@ export async function POST(req: NextRequest) {
     let amount = isMoto && service.price_moto != null ? Number(service.price_moto)
       : isSuv && service.price_suv != null ? Number(service.price_suv)
       : Number(service.price)
+
+    // Προώθηση πλυντηρίου (dashboard → Προωθήσεις) για την ημέρα του ραντεβού — server-side.
+    const promo = await activePromotionFor(admin, serviceId, slotDate, amount)
+    if (promo) amount = applyPromo(amount, promo)
 
     const servicePrice = amount
     // Πρόσθετα που πλήρωσε ο πελάτης (όνομα + τιμή) — αποθηκεύονται στην κράτηση ώστε
