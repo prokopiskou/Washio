@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic'
 const LandingPage = dynamic(() => import('./landing/page'))
 import { BottomNav } from '@/components/BottomNav'
 import { CouponActiveBanner } from '@/components/CouponActiveBanner'
+import { OwnWashBanner } from '@/components/OwnWashBanner'
 import { WashioLoader } from '@/components/WashioLoader'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -661,6 +662,9 @@ export default function HomePage() {
               </div>
             </div>
           )}
+
+          {/* «Απόκτησε το δικό σου πλυντήριο» → φόρμα ενδιαφέροντος */}
+          <OwnWashBanner />
         </div>
 
         {/* Bottom Nav */}
