@@ -36,3 +36,7 @@ create table if not exists public.commission_invoices (
 alter table public.commission_invoices enable row level security;  -- μόνο service role
 
 select name, afm from public.locations where is_active order by name;
+
+-- 3) Εξόφληση (απόδειξη είσπραξης στο Oxygen)
+alter table public.commission_invoices add column if not exists paid_at timestamptz;
+alter table public.commission_invoices add column if not exists oxygen_receipt_id text;

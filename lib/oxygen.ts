@@ -56,6 +56,9 @@ export const oxygen = {
   createContact: (body: Record<string, unknown>) => call<{ id: string }>('/contacts', { method: 'POST', body: JSON.stringify(body) }),
   createInvoice: (body: Record<string, unknown>) => call<Record<string, unknown> & { id: string }>('/invoices', { method: 'POST', body: JSON.stringify(body) }),
   invoice: (id: string) => call<Record<string, unknown>>(`/invoices/${id}`),
+  /** Απόδειξη Είσπραξης έναντι τιμολογίου (εξόφληση). Χωρίς amount → όλο το υπόλοιπο. */
+  payInvoice: (id: string, body: { payment_method_id?: string; description?: string; comments?: string; issue_date?: string } = {}) =>
+    call<Record<string, unknown> & { id: string }>(`/invoices/${id}/payments`, { method: 'POST', body: JSON.stringify(body) }),
   async invoicePdf(id: string): Promise<Buffer> {
     const key = process.env.OXYGEN_API_KEY
     const res = await fetch(`${BASE}/invoices/${id}/pdf?template=a4`, {
