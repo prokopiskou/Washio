@@ -551,11 +551,14 @@ function BookingPageContent() {
   // Στο «Πληρωμή» ζητείται intent με την τελική πινακίδα (το πολύ 1 επιπλέον).
   useEffect(() => {
     // Επισκέπτης: δεν υπάρχει ακόμα λογαριασμός → το intent φτιάχνεται μετά τη σύνδεση.
-    if (!service || sessionLoading || showPayment || isGuest) return
+    // ΜΟΝΟ όταν έχει επιλέξει «Κάρτα»: πριν, κάθε συνδεδεμένος που άνοιγε τη σελίδα (και όσοι
+    // πλήρωναν στο πλυντήριο) άνοιγε PaymentIntent → ψεύτικες «προσπάθειες πληρωμής» στο Stripe,
+    // φουσκωμένα checkout_attempts και emails «δεν ολοκλήρωσες» σε όσους απλώς κοίταζαν.
+    if (!service || sessionLoading || showPayment || isGuest || payMethod !== 'card') return
     const t = setTimeout(() => { fetchIntent(service, plate, selectedAddons) }, 800)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service, selectedAddons, sessionLoading, showPayment, isGuest])
+  }, [service, selectedAddons, sessionLoading, showPayment, isGuest, payMethod])
   // ────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
