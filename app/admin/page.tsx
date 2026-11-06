@@ -997,6 +997,12 @@ export default function AdminPage() {
                     </p>
                     <div className="flex items-center gap-2">
                     <a
+                      href="/admin/invoices"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-[12px] font-semibold"
+                    >
+                      🧾 Τιμολόγια / Εξόφληση
+                    </a>
+                    <a
                       href="/api/admin/places"
                       onClick={e => { if (!confirm('Λίστα όλων των πλυντηρίων Αττικής από Google (CSV). Κόστος ~4–5$ στο Google Cloud, διαρκεί 1–3 λεπτά. Συνέχεια;')) e.preventDefault() }}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-[12px] font-semibold"
