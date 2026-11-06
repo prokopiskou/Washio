@@ -555,7 +555,7 @@ export default function BookingDetailPage() {
           {(booking.locations as { extra_instructions?: string | null } | null)?.extra_instructions && booking.status !== 'cancelled' && (
             <div className="rounded-2xl px-4 py-3.5 mb-3.5" style={{ background: '#FFF4D6', border: '1.5px solid #F2C94C' }}>
               <p className="text-[11px] font-bold tracking-[1.2px] uppercase mb-1.5" style={{ color: '#8A6A0C' }}>
-                ⚠️ {locale === 'en' ? 'Notes from the car wash' : 'Σημειώσεις πλυντηρίου'}
+                ⚠️ {locale === 'en' ? 'Important information' : 'Σημαντικές πληροφορίες'}
               </p>
               <p className="text-[14px] text-gray-900 font-medium leading-relaxed whitespace-pre-line">
                 {(booking.locations as { extra_instructions?: string | null }).extra_instructions}
