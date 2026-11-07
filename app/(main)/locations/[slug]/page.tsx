@@ -783,7 +783,7 @@ export default function LocationPage() {
         >
           {canBook ? (
             <button
-              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}${(carChoice?.kind === 'car' && carChoice.known) || (carChoice?.kind === 'moto' && carChoice.label) ? `&carModel=${encodeURIComponent(carChoice.label || '')}` : ''}`) }}
+              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}${carChoice?.label ? `&carModel=${encodeURIComponent(carChoice.label)}` : ''}`) }}
               className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
               style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.38)' }}
             >

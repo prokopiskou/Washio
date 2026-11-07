@@ -7,6 +7,17 @@ import { searchCarModels } from '@/lib/car-models'
 import { choiceFromModel, type CarChoice } from '@/lib/car-choice'
 import { funnel } from '@/lib/funnel'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
+import { Capacitor } from '@capacitor/core'
+
+// Εφαρμογή (iOS/Android): όσο είναι ανοιχτό το παράθυρο, το πληκτρολόγιο ΔΕΝ μικραίνει την οθόνη
+// (resize 'none') → το sheet του πλυντηρίου από κάτω μένει ακίνητο. Στο κλείσιμο ξανά 'native'.
+async function keyboardResize(mode: 'none' | 'native') {
+  if (!Capacitor.isNativePlatform()) return
+  try {
+    const { Keyboard, KeyboardResize } = await import('@capacitor/keyboard')
+    await Keyboard.setResizeMode({ mode: mode === 'none' ? KeyboardResize.None : KeyboardResize.Native })
+  } catch { /* plugin λείπει → τίποτα */ }
+}
 
 const T = {
   el: {
@@ -71,6 +82,7 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
     // Συγχρονισμένα μέσα στο πάτημα: εμφάνιση + focus (iOS ανοίγει πληκτρολόγιο μόνο έτσι).
     // Σταθερή θέση σε px (υπολογισμένη ΤΩΡΑ, πριν ανοίξει το πληκτρολόγιο) → δεν «πηδάει» όταν
     // το πληκτρολόγιο μικραίνει την οθόνη (με κεντράρισμα ξανα-κεντραριζόταν και ανέβαινε).
+    void keyboardResize('none')
     if (panelRef.current) panelRef.current.style.marginTop = `${Math.round(window.innerHeight * 0.16)}px`
     if (wrapRef.current) wrapRef.current.style.display = 'flex'
     inputRef.current?.focus({ preventScroll: true })
@@ -80,6 +92,7 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
     if (wrapRef.current) wrapRef.current.style.display = 'none'
     inputRef.current?.blur()
     setOpen(false); setQ('')
+    void keyboardResize('native')
   }
   const close = () => { hide(); onClose?.() }
   useImperativeHandle(ref, () => ({ open: show }))
@@ -104,7 +117,7 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
           </div>
           <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder={t.ph} enterKeyHint="search" autoComplete="off"
             className="w-full h-[52px] px-4 rounded-[14px] border border-washio-border text-[16px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan" />
-          <div className="mt-2 max-h-[40vh] overflow-y-auto">
+          <div className="mt-2 max-h-[30vh] overflow-y-auto">
             {results.map(c => (
               <button key={c.label} type="button" onClick={() => { const ch = choiceFromModel(c.label); if (ch) pick(ch) }}
                 className="w-full text-left px-3 py-3 rounded-xl text-[15px] text-washio-navy active:bg-gray-50 border-b border-gray-100 last:border-0">

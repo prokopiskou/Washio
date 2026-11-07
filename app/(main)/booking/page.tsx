@@ -62,7 +62,7 @@ const T = {
     serviceForA: 'Η υπηρεσία είναι για', vehicleWillBeSavedAs: '. Το όχημα που θα προσθέσεις θα καταχωρηθεί ως',
     plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
     backToMyVehicles: '← Επιστροφή στα οχήματά μου',
-    carModel: 'Μάρκα & μοντέλο', carModelPh: 'π.χ. Toyota Yaris, Nissan Qashqai', taxi: 'Ταξί',
+    modelRequired: 'Γράψε τη μάρκα και το μοντέλο του αυτοκινήτου σου.', modelShort: 'Συμπλήρωσε μάρκα & μοντέλο', carModel: 'Μάρκα & μοντέλο', carModelPh: 'π.χ. Toyota Yaris, Nissan Qashqai', taxi: 'Ταξί',
     isSuvNote: 'είναι SUV/MPV — εφαρμόζεται τιμή SUV.', isCarNote: 'είναι κανονικό αυτοκίνητο — εφαρμόζεται τιμή ΙΧ.',
     phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonProducts: 'Προϊόντα & εξαρτήματα', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
     clubReward: '💧 3 σταγόνες · δώρο',
@@ -109,7 +109,7 @@ const T = {
     serviceForA: 'This service is for', vehicleWillBeSavedAs: '. The vehicle you add will be saved as',
     plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
     backToMyVehicles: '← Back to my vehicles',
-    carModel: 'Make & model', carModelPh: 'e.g. Toyota Yaris, Nissan Qashqai', taxi: 'Taxi',
+    modelRequired: 'Enter your car make and model.', modelShort: 'Add your car make & model', carModel: 'Make & model', carModelPh: 'e.g. Toyota Yaris, Nissan Qashqai', taxi: 'Taxi',
     isSuvNote: 'is an SUV/MPV — SUV price applies.', isCarNote: 'is a regular car — standard price applies.',
     phone: 'Phone', addons: 'Add-on services', addonProducts: 'Products & accessories', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
     clubReward: '💧 3 drops · gift',
@@ -764,7 +764,9 @@ function BookingPageContent() {
   const awaitingCode = isGuest && (otpStep || emailChecking)
   // Κινητό: ελληνικό 69xxxxxxxx (ή ξένο με +). «1234567890», σταθερά κλπ → όχι.
   const phoneValid = phoneOk(phone)
-  const canProceed = !!(phone.trim() && email.trim() && service) && !awaitingCode && phoneValid &&
+  // Μάρκα & μοντέλο ΥΠΟΧΡΕΩΤΙΚΑ για αυτοκίνητο (ορίζει ΙΧ/SUV + το βλέπει το πλυντήριο).
+  const modelMissing = vehicleType !== 'Μοτοσικλέτα' && carModel.trim().length < 2
+  const canProceed = !!(phone.trim() && email.trim() && service) && !awaitingCode && phoneValid && !modelMissing &&
     (!isGuest || (name.trim().length >= 2 && emailOk)) && (!needName || name.trim().length >= 2)
 
   // Επισκέπτης → φτιάξε λογαριασμό + σύνδεση ΤΩΡΑ (πριν την κράτηση). true = συνδεδεμένος.
@@ -1151,6 +1153,9 @@ function BookingPageContent() {
                     )}
                   </div>
                 </div>
+                {modelMissing && (
+                  <p className="mt-1.5 text-[12px] leading-snug text-red-600">{t.modelRequired}</p>
+                )}
                 {sizeNote && (
                   <p className={`mt-1.5 text-[12px] leading-snug ${sizeNote.size === 'SUV' ? 'text-amber-700' : 'text-green-700'}`}>
                     {sizeNote.model} {sizeNote.size === 'SUV' ? t.isSuvNote : t.isCarNote}
@@ -1459,7 +1464,7 @@ function BookingPageContent() {
           >
             {!canProceed ? (
               <div className="w-full h-14 bg-gray-100 text-gray-400 text-[14px] font-medium rounded-xl flex items-center justify-center">
-                {isGuest && otpStep ? t.enterCodeFirst : isGuest && emailChecking ? t.checkingEmail : isGuest ? t.fillContact : t.fillPlatePhone}
+                {modelMissing ? t.modelShort : isGuest && otpStep ? t.enterCodeFirst : isGuest && emailChecking ? t.checkingEmail : isGuest ? t.fillContact : t.fillPlatePhone}
               </div>
             ) : isRange ? (
               <button

@@ -983,7 +983,7 @@ function MapPageContent() {
     funnel('book_click', { locationId: selectedLocation.id, meta: { src: 'map', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } })
 
     const bookDate = sheetDate || activeDate
-    const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${bookDate}&vehicleType=${encodeURIComponent(vehicleType)}${(carChoice?.kind === 'car' && carChoice.known) || (carChoice?.kind === 'moto' && carChoice.label) ? `&carModel=${encodeURIComponent(carChoice.label || '')}` : ''}`
+    const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${bookDate}&vehicleType=${encodeURIComponent(vehicleType)}${carChoice?.label ? `&carModel=${encodeURIComponent(carChoice.label)}` : ''}`
 
     if (timing === 'now' && bookDate === getTodayValue()) {
       const minutes = getMinutesUntilSlot(selectedSlot!)

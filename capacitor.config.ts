@@ -1,4 +1,5 @@
 import { CapacitorConfig } from '@capacitor/cli'
+import { KeyboardResize, KeyboardStyle } from '@capacitor/keyboard'
 
 const config: CapacitorConfig = {
   appId: 'gr.washio.app',
@@ -55,8 +56,8 @@ const config: CapacitorConfig = {
       overlaysWebView: true,
     },
     Keyboard: {
-      resize: 'native',
-      style: 'DARK',
+      resize: KeyboardResize.Native,
+      style: KeyboardStyle.Dark,
       resizeOnFullScreen: true,
     },
     PushNotifications: {
