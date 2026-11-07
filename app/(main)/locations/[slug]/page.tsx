@@ -15,7 +15,7 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { funnel } from '@/lib/funnel'
 import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
-import { applyPromo } from '@/lib/promotions'
+import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
 import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
 import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
@@ -367,7 +367,7 @@ export default function LocationPage() {
   }
   // Προώθηση πλυντηρίου για την επιλεγμένη ημέρα (η κράτηση την εφαρμόζει server-side).
   // Βιολογικός (εύρος): μόνο προσφορά σταθερής τιμής («μόνο 120€») — το εύρος σβήνει.
-  const promoFor = (s: Service) => promos.find(p => p.service_id === s.id && p.starts_on <= selYmd && selYmd <= p.ends_on && (!s.is_range || p.discount_type === 'fixed'))
+  const promoFor = (s: Service) => promos.find(p => p.service_id === s.id && promoAppliesTo(p, selYmd, athensToday()) && (!s.is_range || p.discount_type === 'fixed'))
   const priceFor = (s: Service) => {
     const lp = listPriceFor(s)
     const pr = promoFor(s)
@@ -380,7 +380,7 @@ export default function LocationPage() {
   }
   // Κουπόνι ήδη μέσα στην τιμή (~~15€~~ 12€) — ίδιοι κανόνες με το checkout.
   const coupon = useCouponCredit()
-  const [promos, setPromos] = useState<{ service_id: string; discount_type: 'percent' | 'amount' | 'fixed'; discount_value: number; starts_on: string; ends_on: string }[]>([])
+  const [promos, setPromos] = useState<{ service_id: string; discount_type: 'percent' | 'amount' | 'fixed'; discount_value: number; starts_on: string; ends_on: string; by_booking_date?: boolean }[]>([])
   useEffect(() => {
     if (!location?.id) return
     let alive = true

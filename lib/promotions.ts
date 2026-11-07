@@ -12,6 +12,7 @@ export type Promotion = {
   starts_on: string   // YYYY-MM-DD (ημέρα ραντεβού)
   ends_on: string     // YYYY-MM-DD (συμπεριλαμβάνεται)
   is_active: boolean
+  by_booking_date?: boolean  // true → ισχύει για ΚΡΑΤΗΣΕΙΣ που γίνονται από–έως (το ραντεβού μπορεί να είναι οποτεδήποτε)
 }
 
 export const round2 = (n: number) => Math.round(n * 100) / 100
@@ -28,15 +29,23 @@ export function applyPromo(price: number, p: Pick<Promotion, 'discount_type' | '
 export const promoCovers = (p: Pick<Promotion, 'starts_on' | 'ends_on' | 'is_active'>, ymd: string) =>
   p.is_active && p.starts_on <= ymd && ymd <= p.ends_on
 
+const athensToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(new Date())
+
+/** Ισχύει η προώθηση; κατά ημέρα ΚΡΑΤΗΣΗΣ (σήμερα) αν by_booking_date, αλλιώς κατά ημέρα ραντεβού. */
+export function promoAppliesTo(p: { starts_on: string; ends_on: string; by_booking_date?: boolean | null }, slotYmd: string, todayYmd: string): boolean {
+  const d = p.by_booking_date ? todayYmd : slotYmd
+  return p.starts_on <= d && d <= p.ends_on
+}
+
 /** Ενεργή προώθηση για υπηρεσία + ημέρα ραντεβού (server). Μεγαλύτερη έκπτωση αν υπάρχουν πολλές. */
 export async function activePromotionFor(admin: SupabaseClient, serviceId: string, slotDate: string, basePrice: number): Promise<Promotion | null> {
   try {
-    const { data, error } = await admin.from('promotions')
-      .select('id, location_id, service_id, discount_type, discount_value, starts_on, ends_on, is_active')
-      .eq('service_id', serviceId).eq('is_active', true)
-      .lte('starts_on', slotDate).gte('ends_on', slotDate)
-    if (error || !data?.length) return null
-    return (data as Promotion[]).sort((a, b) => applyPromo(basePrice, a) - applyPromo(basePrice, b))[0]
+    const today = athensToday()
+    // select * → περιλαμβάνει και το by_booking_date όταν υπάρχει η στήλη (supabase/promotions_fixed.sql)
+    const res = await admin.from('promotions').select('*').eq('service_id', serviceId).eq('is_active', true).gte('ends_on', today < slotDate ? today : slotDate)
+    const list = ((res.data || []) as unknown as Promotion[]).filter(p => promoAppliesTo(p, slotDate, today))
+    if (!list.length) return null
+    return list.sort((a, b) => applyPromo(basePrice, a) - applyPromo(basePrice, b))[0]
   } catch { return null }
 }
 

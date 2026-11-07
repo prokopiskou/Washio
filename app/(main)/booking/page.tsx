@@ -1,6 +1,6 @@
 'use client'
 
-import { applyPromo } from '@/lib/promotions'
+import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { formatDuration } from '@/lib/duration'
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -638,8 +638,8 @@ function BookingPageContent() {
             // Προσφορά σταθερής τιμής (π.χ. «μόνο 120€»): σβήνει το εύρος → κανονική κράτηση με αυτή την τιμή.
             if (locationId) {
               fetch(`/api/promotions?location=${locationId}`).then(r => r.json()).then(j => {
-                const pr = (j.promotions || []).find((p: { service_id: string; discount_type: string; starts_on: string; ends_on: string }) =>
-                  p.service_id === serviceData.id && p.discount_type === 'fixed' && p.starts_on <= dateStr && dateStr <= p.ends_on)
+                const pr = (j.promotions || []).find((p: { service_id: string; discount_type: string; starts_on: string; ends_on: string; by_booking_date?: boolean }) =>
+                  p.service_id === serviceData.id && p.discount_type === 'fixed' && promoAppliesTo(p, dateStr, athensToday()))
                 if (pr) { promoRef.current = pr; setRangeFixed(true); setServicePrice(applyPromo(0, pr)) }
               }).catch(() => {})
             }
@@ -653,8 +653,8 @@ function BookingPageContent() {
             // Προώθηση πλυντηρίου για την ημέρα του ραντεβού (ίδια λογική με τον server).
             if (locationId) {
               fetch(`/api/promotions?location=${locationId}`).then(r => r.json()).then(j => {
-                const pr = (j.promotions || []).find((p: { service_id: string; starts_on: string; ends_on: string }) =>
-                  p.service_id === serviceData.id && p.starts_on <= dateStr && dateStr <= p.ends_on)
+                const pr = (j.promotions || []).find((p: { service_id: string; starts_on: string; ends_on: string; by_booking_date?: boolean }) =>
+                  p.service_id === serviceData.id && promoAppliesTo(p, dateStr, athensToday()))
                 if (pr) { promoRef.current = pr; setListPrice(Number(price) || 0); setServicePrice(applyPromo(Number(price) || 0, pr)) }
               }).catch(() => {})
             }

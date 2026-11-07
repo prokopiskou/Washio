@@ -14,7 +14,7 @@ import { getCurrentPosition, getFastPosition } from '@/lib/geo'
 import { startMapOpenLog } from '@/lib/map-open-log'
 import { funnel } from '@/lib/funnel'
 import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
-import { applyPromo } from '@/lib/promotions'
+import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService, compareServices } from '@/lib/services-catalog'
@@ -299,7 +299,7 @@ function MapPageContent() {
   // = η πρώτη μέρα με ελεύθερη ώρα (π.χ. αύριο), ώστε ο χρήστης να κλείσει αμέσως.
   const [sheetDate, setSheetDate] = useState<string | null>(null)
   // Ενεργές προωθήσεις όλων των πλυντηρίων (χρυσή πινέζα, χρυσό πλαίσιο στη λίστα, κάρτα προσφοράς).
-  const [promos, setPromos] = useState<{ id: string; location_id: string; service_id: string; discount_type: 'percent' | 'amount' | 'fixed'; discount_value: number; starts_on: string; ends_on: string }[]>([])
+  const [promos, setPromos] = useState<{ id: string; location_id: string; service_id: string; discount_type: 'percent' | 'amount' | 'fixed'; discount_value: number; starts_on: string; ends_on: string; by_booking_date?: boolean }[]>([])
   useEffect(() => {
     let alive = true
     fetch('/api/promotions?all=1').then(r => r.json()).then(j => { if (alive) setPromos(j.promotions || []) }).catch(() => {})
@@ -406,7 +406,7 @@ function MapPageContent() {
   // Προωθήσεις πλυντηρίων (dashboard → Προωθήσεις). Η κράτηση εφαρμόζει την τιμή server-side.
   const promoDate = sheetDate || activeDate
   // Υπηρεσία εύρους (βιολογικός): μόνο προσφορά σταθερής τιμής («μόνο 120€») — το εύρος σβήνει.
-  const promoForSvc = (s: Service) => promos.find(p => p.service_id === s.id && p.starts_on <= promoDate && promoDate <= p.ends_on && (!s.is_range || p.discount_type === 'fixed'))
+  const promoForSvc = (s: Service) => promos.find(p => p.service_id === s.id && promoAppliesTo(p, promoDate, getTodayValue()) && (!s.is_range || p.discount_type === 'fixed'))
   const rangeText = (s: Service) => { const [a, b] = rangeFor(s); return `€${a}–${b}` }
   const promoTag = (p: { discount_type: string; discount_value: number }) => p.discount_type === 'fixed'
     ? (locale === 'en' ? `only €${eur(Number(p.discount_value))}` : `μόνο €${eur(Number(p.discount_value))}`)
@@ -440,7 +440,7 @@ function MapPageContent() {
   })
 
   // Προσφορά που ισχύει ΣΗΜΕΡΑ σε ένα πλυντήριο (για χρυσή πινέζα / λίστα).
-  const locPromoNow = (locId: string) => { const d = getTodayValue(); return promos.find(p => p.location_id === locId && p.starts_on <= d && d <= p.ends_on) }
+  const locPromoNow = (locId: string) => { const d = getTodayValue(); return promos.find(p => p.location_id === locId && p.starts_on <= d && d <= p.ends_on) } // σήμερα ισχύει (για κρατήσεις ή ραντεβού σήμερα)
 
   // Λίστα: «από X €» = φθηνότερη υπηρεσία για τον τύπο οχήματος, με το κουπόνι ήδη μέσα.
   const fromPrice = (locId: string): number | null => {
@@ -1639,6 +1639,7 @@ function MapPageContent() {
                 const MON = locale === 'en' ? ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'] : ['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιουν','Ιουλ','Αυγ','Σεπ','Οκτ','Νοε','Δεκ']
                 const [, sm, sd] = p.starts_on.split('-')
                 const started = p.starts_on <= getTodayValue()
+                if (p.by_booking_date && !started) return null // ισχύει για κρατήσεις από starts_on → πριν δεν δείχνεται
                 return (
                   <button key={p.id}
                     onClick={() => {
