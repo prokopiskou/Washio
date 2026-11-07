@@ -9,6 +9,8 @@ export type FunnelStep =
   | 'cancel_open' | 'cancel_save_click' | 'rescheduled' | 'cancelled'
   // Χάρτης: άνοιξε τη λίστα όλων των πλυντηρίων (swipe up).
   | 'list_open'
+  // «Ποιο αμάξι έχεις;»: μοντέλο που δεν υπάρχει στη λίστα (lib/car-models) → να προστεθεί.
+  | 'car_model_unknown'
 
 function storageId(store: 'local' | 'session', key: string): string {
   try {

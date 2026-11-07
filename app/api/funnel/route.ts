@@ -10,7 +10,7 @@ const admin = createClient(
   { auth: { persistSession: false } }
 )
 
-const STEPS = new Set(['map_open', 'washer_open', 'washer_page', 'no_slots', 'service_select', 'slot_select',
+const STEPS = new Set(['car_model_unknown', 'map_open', 'washer_open', 'washer_page', 'no_slots', 'service_select', 'slot_select',
   'book_click', 'login_wall', 'booking_page', 'pay_click', 'booked',
   'cancel_open', 'cancel_save_click', 'rescheduled', 'cancelled', 'list_open'])
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

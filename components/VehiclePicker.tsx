@@ -4,20 +4,19 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { searchCarModels } from '@/lib/car-models'
 import { choiceFromModel, type CarChoice } from '@/lib/car-choice'
+import { funnel } from '@/lib/funnel'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 
 const T = {
   el: {
     ask: 'Ποιο αμάξι έχεις;', change: 'αλλαγή', moto: 'Μοτοσικλέτα', title: 'Ποιο αμάξι έχεις;',
     sub: 'Για να σου δείξουμε τη σωστή τιμή.', ph: 'π.χ. Toyota Yaris, Nissan Qashqai',
-    notFound: 'Δεν βρίσκω το μοντέλο μου', regular: 'Κανονικό αυτοκίνητο', regularSub: 'hatchback, sedan, station wagon',
-    big: 'SUV / MPV / 7θέσιο', bigSub: 'crossover, πολυμορφικό, βαν', myCar: 'Το αμάξι μου',
+    useTyped: 'χρήση αυτού', regular: 'Αυτοκίνητο', big: 'SUV / MPV',
   },
   en: {
     ask: 'Which car do you have?', change: 'change', moto: 'Motorcycle', title: 'Which car do you have?',
     sub: 'So we can show you the right price.', ph: 'e.g. Toyota Yaris, Nissan Qashqai',
-    notFound: "I can't find my model", regular: 'Regular car', regularSub: 'hatchback, sedan, estate',
-    big: 'SUV / MPV / 7-seater', bigSub: 'crossover, people carrier, van', myCar: 'My car',
+    useTyped: 'use this', regular: 'Car', big: 'SUV / MPV',
   },
 }
 
@@ -29,7 +28,7 @@ export function VehicleChip({ choice, onClick, locale = 'el' }: { choice: CarCho
       🚗 {t.ask}
     </button>
   )
-  const label = choice.kind === 'moto' ? `🏍️ ${t.moto}` : `🚗 ${choice.known ? choice.label : choice.size === 'SUV' ? t.big : t.regular}`
+  const label = choice.kind === 'moto' ? `🏍️ ${t.moto}` : `🚗 ${choice.label || (choice.size === 'SUV' ? t.big : t.regular)}`
   return (
     <button type="button" onClick={onClick}
       className="h-9 max-w-[230px] px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap bg-white text-washio-navy border border-washio-border flex items-center gap-1.5">
@@ -44,11 +43,13 @@ export function VehiclePickerSheet({ open, onClose, onPick, locale = 'el' }: {
 }) {
   const t = T[locale]
   const [q, setQ] = useState('')
-  const [manual, setManual] = useState(false)
   useBodyScrollLock(open)
   if (!open) return null
   const results = searchCarModels(q, 7)
-  const pick = (c: CarChoice) => { onPick(c); setQ(''); setManual(false); onClose() }
+  const pick = (c: CarChoice) => { onPick(c); setQ(''); onClose() }
+  const typed = q.trim()
+  // Μοντέλο που δεν έχουμε στη λίστα → κρατάμε ό,τι έγραψε (τιμή ΙΧ) και το καταγράφουμε για να το προσθέσουμε.
+  const useTyped = () => { funnel('car_model_unknown', { meta: { model: typed.slice(0, 60) } }); pick({ kind: 'car', label: typed.slice(0, 60), size: 'ΙΧ', known: false }) }
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
       <div className="w-full max-w-md bg-white rounded-t-[24px] p-5 pb-[calc(var(--safe-bottom,0px)+20px)]" onClick={e => e.stopPropagation()}>
@@ -60,37 +61,24 @@ export function VehiclePickerSheet({ open, onClose, onPick, locale = 'el' }: {
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"><X size={16} /></button>
         </div>
 
-        {!manual ? (
-          <>
-            <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={t.ph}
-              className="w-full h-[52px] px-4 rounded-[14px] border border-washio-border text-[16px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan" />
-            <div className="mt-2 min-h-[44px] max-h-[44vh] overflow-y-auto">
-              {results.map(c => (
-                <button key={c.label} type="button" onClick={() => { const ch = choiceFromModel(c.label); if (ch) pick(ch) }}
-                  className="w-full text-left px-3 py-3 rounded-xl text-[15px] text-washio-navy active:bg-gray-50 border-b border-gray-100 last:border-0">
-                  {c.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2 mt-3">
-              <button type="button" onClick={() => pick({ kind: 'moto' })}
-                className="flex-1 h-11 rounded-[14px] border border-washio-border text-[14px] font-semibold text-washio-navy">🏍️ {t.moto}</button>
-              <button type="button" onClick={() => setManual(true)}
-                className="flex-1 h-11 rounded-[14px] border border-washio-border text-[13px] font-medium text-gray-500">{t.notFound}</button>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {([['ΙΧ', t.regular, t.regularSub], ['SUV', t.big, t.bigSub]] as const).map(([size, title, sub]) => (
-              <button key={size} type="button" onClick={() => pick({ kind: 'car', label: title, size, known: false })}
-                className="w-full text-left px-4 py-3.5 rounded-[14px] border border-washio-border active:bg-gray-50">
-                <p className="text-[15px] font-semibold text-washio-navy">{title}</p>
-                <p className="text-[12px] text-gray-500">{sub}</p>
-              </button>
-            ))}
-            <button type="button" onClick={() => setManual(false)} className="mt-1 text-[13px] text-gray-500 underline self-start">←</button>
-          </div>
-        )}
+        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={t.ph}
+          className="w-full h-[52px] px-4 rounded-[14px] border border-washio-border text-[16px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan" />
+        <div className="mt-2 min-h-[44px] max-h-[44vh] overflow-y-auto">
+          {results.map(c => (
+            <button key={c.label} type="button" onClick={() => { const ch = choiceFromModel(c.label); if (ch) pick(ch) }}
+              className="w-full text-left px-3 py-3 rounded-xl text-[15px] text-washio-navy active:bg-gray-50 border-b border-gray-100 last:border-0">
+              {c.label}
+            </button>
+          ))}
+          {typed.length >= 3 && results.length === 0 && (
+            <button type="button" onClick={useTyped}
+              className="w-full text-left px-3 py-3 rounded-xl text-[15px] text-washio-navy active:bg-gray-50">
+              «{typed}» <span className="text-[12px] text-gray-400">· {t.useTyped}</span>
+            </button>
+          )}
+        </div>
+        <button type="button" onClick={() => pick({ kind: 'moto' })}
+          className="mt-3 w-full h-11 rounded-[14px] border border-washio-border text-[14px] font-semibold text-washio-navy">🏍️ {t.moto}</button>
       </div>
     </div>
   )
