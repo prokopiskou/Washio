@@ -248,12 +248,14 @@ export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'created_at' | 'slot_date'>('created_at')
   // Μόλις φορτωθούν οι κρατήσεις: άνοιξε την καρτέλα, φέρε την κράτηση στην οθόνη και τόνισέ την για λίγο.
+  // Το απαλό μπλε πλαίσιο ΜΕΝΕΙ στην κράτηση (μέχρι να αλλάξει καρτέλα / άλλη ειδοποίηση).
+  const focusDoneRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!focusBookingId || !bookings.some(b => b.id === focusBookingId)) return
+    if (!focusBookingId || focusDoneRef.current === focusBookingId || !bookings.some(b => b.id === focusBookingId)) return
+    focusDoneRef.current = focusBookingId
     setActiveTab('bookings'); setFilterStatus('all'); setSortBy('slot_date')
     const t1 = setTimeout(() => document.getElementById(`bk-${focusBookingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350)
-    const t2 = setTimeout(() => setFocusBookingId(null), 6000)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    return () => clearTimeout(t1)
   }, [focusBookingId, bookings])
   const [calendarDate, setCalendarDate] = useState<Date>(new Date())
   const [calendarBookings, setCalendarBookings] = useState<Booking[]>([])
@@ -1234,7 +1236,7 @@ export default function DashboardPage() {
             ['feedback', 'Feedback'],
           ] as [TabKey, string][]).map(([key, label]) => (
             <button key={key}
-              onClick={() => { setActiveTab(key); if (key === 'bookings') setNewBookingsCount(0); lightTap() }}
+              onClick={() => { setActiveTab(key); if (key !== 'bookings') setFocusBookingId(null); if (key === 'bookings') setNewBookingsCount(0); lightTap() }}
               className={`shrink-0 py-3 text-[13px] tracking-tight transition-all border-b-2 ${
                 activeTab === key ? 'border-gray-900 text-gray-900 font-semibold' : 'border-transparent text-gray-400 font-medium'
               } ${key === 'bookings' && newBookingsCount > 0 ? 'text-blue-600' : ''}`}
@@ -1491,8 +1493,10 @@ export default function DashboardPage() {
                       <div
                         key={b.id}
                         id={`bk-${b.id}`}
-                        className={`border border-gray-100 rounded-xl p-3 flex items-start gap-3 transition-shadow ${focused ? 'ring-2 ring-blue-500' : ''}`}
-                        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)', background: cardBg, ...(cardBorder ? { borderColor: cardBorder } : {}) }}
+                        className="border border-gray-100 rounded-xl p-3 flex items-start gap-3 transition-all"
+                        style={focused
+                          ? { background: '#F3F8FF', borderColor: '#93C5FD', boxShadow: '0 0 0 3px rgba(147,197,253,0.35)' }
+                          : { boxShadow: '0 1px 3px rgba(0,0,0,0.03)', background: cardBg, ...(cardBorder ? { borderColor: cardBorder } : {}) }}
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-[14px] font-semibold tracking-tight text-gray-900">
