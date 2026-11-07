@@ -1057,7 +1057,8 @@ function MapPageContent() {
       let W: number, H: number, aX: number, aY: number
 
       if (showLabel) {
-        W = Math.max(66, Math.min(210, Math.round(label.length * 6.4 + 22)))
+        // Πλάτος από το ΠΡΑΓΜΑΤΙΚΟ μέγεθος του κειμένου (canvas) → ίδιο κενό αριστερά/δεξιά σε όλα τα ονόματα.
+        W = Math.max(48, Math.min(230, Math.ceil(labelTextWidth(label)) + 2 * 11 + 2))
         H = 78
         const cx = W / 2
         aX = cx; aY = 70
@@ -2002,6 +2003,19 @@ function MapPageContent() {
 }
 
 const LOCS_CACHE_KEY = 'washio_map_locs_v1'
+
+// Μέτρηση πλάτους ονόματος πινέζας (ίδια γραμματοσειρά με το SVG: 11px / 600).
+let _labelCtx: CanvasRenderingContext2D | null = null
+function labelTextWidth(text: string): number {
+  try {
+    if (!_labelCtx) _labelCtx = document.createElement('canvas').getContext('2d')
+    if (_labelCtx) {
+      _labelCtx.font = '600 11px -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif'
+      return _labelCtx.measureText(text).width
+    }
+  } catch { /* fallback */ }
+  return text.length * 6.4
+}
 
 export default function MapPage() {
   return (
