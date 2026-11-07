@@ -115,8 +115,8 @@ export async function POST(req: NextRequest) {
         const lo = await loyaltyStatus(admin, b.user_id, b.location_id)
         const place = b.locations?.name || 'το πλυντήριο'
         const body = lo.rewardNext
-          ? `Μάζεψες ${lo.need} σταγόνες στο ${place} — το επόμενο πλύσιμο εκεί έχει −${lo.amount}€ 🎉`
-          : `+1 σταγόνα στο ${place} (${lo.drops}/${lo.need}). Στις ${lo.need}, −${lo.amount}€ στο επόμενο.`
+          ? `Μάζεψες ${lo.need} σταγόνες — το επόμενο πλύσιμο, σε όποιο πλυντήριο, έχει −${lo.amount}€ 🎉`
+          : `+1 σταγόνα (${lo.drops}/${lo.need}) από το ${place}. Στις ${lo.need}, −${lo.amount}€ στο επόμενο πλύσιμο — σε όποιο πλυντήριο.`
         await sendPush(b.user_id, { title: 'Καλό πλύσιμο! 💧', body, url: '/profile/bookings' })
         // Να μη ξαναστείλει το cron «+1 σταγόνα» (στήλη: supabase/loyalty_push.sql · αν λείπει, αγνοείται).
         await admin.from('bookings').update({ drop_notified_at: new Date().toISOString() }).eq('id', b.id).then(() => null, () => null)

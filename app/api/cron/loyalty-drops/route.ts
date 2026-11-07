@@ -50,8 +50,8 @@ export async function GET(req: Request) {
       const lo = await loyaltyStatus(db, b.user_id, b.location_id)
       const place = b.locations?.name || 'το πλυντήριο'
       const body = lo.rewardNext
-        ? `Μάζεψες ${lo.need} σταγόνες στο ${place} — το επόμενο πλύσιμο εκεί έχει −${lo.amount}€ 🎉`
-        : `+1 σταγόνα στο ${place} (${lo.drops}/${lo.need}). Στις ${lo.need}, −${lo.amount}€ στο επόμενο.`
+        ? `Μάζεψες ${lo.need} σταγόνες — το επόμενο πλύσιμο, σε όποιο πλυντήριο, έχει −${lo.amount}€ 🎉`
+        : `+1 σταγόνα (${lo.drops}/${lo.need}) από το ${place}. Στις ${lo.need}, −${lo.amount}€ στο επόμενο πλύσιμο — σε όποιο πλυντήριο.`
       await sendPush(b.user_id, { title: 'Ευχαριστούμε για το πλύσιμο 💧', body, url: '/profile/bookings' })
       sent++
     } catch { /* best-effort */ }
