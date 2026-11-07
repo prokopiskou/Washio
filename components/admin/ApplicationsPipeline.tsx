@@ -29,6 +29,7 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
   const [err, setErr] = useState<Record<string, string>>({})
   const [nowMs] = useState(() => Date.now())
   const [picked, setPicked] = useState<Record<string, boolean>>({})
+  const [closing, setClosing] = useState<Record<string, boolean>>({})
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {}
@@ -125,7 +126,23 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
                   )}
                   {st === 'followup' && <p className="text-[11px] text-gray-400 -mb-1">Σήκωσε:</p>}
                   {st !== 'followup' && <p className="text-[12px] font-semibold text-gray-700">{wasAnswered ? 'Σήκωσε — εκκρεμεί απόφαση' : 'Σήκωσε — τι έγινε;'}</p>}
-                  <button disabled={!!busy} onClick={() => act(a, 'to_onboarding', call)} className={btn + ' h-10 bg-gray-900 text-white'}>✓ Κλείνει</button>
+                  {!closing[a.id] ? (
+                    <button disabled={!!busy} onClick={() => setClosing(c => ({ ...c, [a.id]: true }))} className={btn + ' h-10 bg-gray-900 text-white'}>✓ Κλείνει → Onboarding</button>
+                  ) : (
+                    <div className="rounded-lg border border-gray-900 bg-white p-2.5 flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <input autoFocus value={o.afm} onChange={e => setO('afm', e.target.value)} placeholder="ΑΦΜ *" inputMode="numeric" className="h-9 px-2 rounded-lg border border-gray-200 text-[13px]" />
+                        <input value={o.doy} onChange={e => setO('doy', e.target.value)} placeholder="ΔΟΥ *" className="h-9 px-2 rounded-lg border border-gray-200 text-[13px]" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button disabled={!!busy || o.afm.replace(/\D/g, '').length !== 9 || !o.doy.trim()}
+                          onClick={() => act(a, 'onboard', { ...o, ...call })}
+                          className={btn + ' flex-1 h-10 bg-green-600 text-white'}>{busy === a.id + 'onboard' ? '...' : 'Προχωράμε →'}</button>
+                        <button onClick={() => setClosing(c => ({ ...c, [a.id]: false }))} className="text-[12px] text-gray-500 underline px-2">Άκυρο</button>
+                      </div>
+                      <p className="text-[11px] text-gray-400">Δημιουργείται το πρατήριο (ανενεργό) στα Πλυντήρια.</p>
+                    </div>
+                  )}
                   <div className="flex gap-2">
                     <input type="datetime-local" value={fu[a.id] || ''} onChange={e => setFu(f => ({ ...f, [a.id]: e.target.value }))}
                       className="flex-1 min-w-0 h-9 px-2 rounded-lg border border-gray-200 text-[13px] bg-white" />

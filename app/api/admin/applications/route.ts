@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
       const r = await activateOnboarding(admin, ob)
       if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 })
       await admin.from('applications').update({
-        stage: 'done', status: 'approved', afm, doy, address, onboarding_id: ob.id, location_id: r.locationId, stage_updated_at: now,
+        ...callLog, stage: 'done', status: 'approved', afm, doy, address, onboarding_id: ob.id, location_id: r.locationId, stage_updated_at: now,
       }).eq('id', app.id)
       return NextResponse.json({ ok: true, locationId: r.locationId })
     }
