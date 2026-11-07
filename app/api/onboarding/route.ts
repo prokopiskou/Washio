@@ -1,3 +1,4 @@
+import { activateOnboarding } from '@/lib/onboarding-activate'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid IBAN' }, { status: 400 })
     }
 
-    const { error: dbError } = await supabaseAdmin.from('partner_onboarding').insert({
+    const { data: obRow, error: dbError } = await supabaseAdmin.from('partner_onboarding').insert({
       business_name: String(businessName).trim(),
       afm: String(afm).trim(),
       doy: String(doy).trim(),
@@ -112,12 +113,16 @@ export async function POST(req: Request) {
       declaration_accepted: true,
       declaration_accepted_at: new Date().toISOString(),
       status: 'pending',
-    })
+    }).select('*').single()
 
     if (dbError) {
       console.error('Onboarding DB insert error:', dbError)
       return NextResponse.json({ error: 'Failed to save onboarding data' }, { status: 500 })
     }
+
+    // Αυτόματη έγκριση: δημιουργείται ΑΜΕΣΩΣ το πρατήριο (ανενεργό) στα «Πλυντήρια» του admin —
+    // περιμένει μόνο το τελικό ⏻ ενεργοποίησης.
+    try { if (obRow) await activateOnboarding(supabaseAdmin, obRow) } catch (e) { console.error('auto-activate onboarding', e) }
 
     const details: [string, string][] = [
       ['Επωνυμία', String(businessName)],
