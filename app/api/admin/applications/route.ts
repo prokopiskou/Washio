@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
   const b = await req.json().catch(() => ({})) as {
     id?: string; action?: string; at?: string; afm?: string; doy?: string; address?: string; iban?: string; ibanHolder?: string; text?: string; answered?: boolean
-    businessName?: string; contactName?: string; phone?: string; email?: string; city?: string; promoMonths?: number
+    businessName?: string; contactName?: string; phone?: string; email?: string; city?: string; promoMonths?: number; legacy?: boolean
   }
   const { data: app } = await admin.from('applications').select('*').eq('id', b.id || '').maybeSingle()
   if (!app) return NextResponse.json({ error: 'Η αίτηση δεν βρέθηκε' }, { status: 404 })
@@ -107,6 +107,8 @@ export async function POST(req: NextRequest) {
     case 'note':
       return set({ pipeline_notes: String(b.text || '').slice(0, 2000) })
     case 'onboard': {
+      // Παλιά ροή (χωρίς συμβόλαιο) — πλέον μόνο μέσω ηλεκτρονικού συμφωνητικού (send_contract).
+      if (!b.legacy) return NextResponse.json({ error: 'Ανανέωσε τη σελίδα (Cmd+Shift+R) — το onboarding γίνεται πλέον με αποστολή συμβολαίου.' }, { status: 409 })
       const afm = String(b.afm || '').replace(/\D/g, '')
       const doy = String(b.doy || '').trim()
       const address = String(b.address || app.address || '').trim()
