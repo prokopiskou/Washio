@@ -120,6 +120,10 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
               const call = st !== 'followup' && !wasAnswered ? { answered: true } : {}
               return (
                 <div className="mt-2.5 flex flex-col gap-2 rounded-xl bg-gray-50 p-3">
+                  {st === 'followup' && (
+                    <button disabled={!!busy} onClick={() => act(a, 'no_answer')} className={btn + ' bg-white border border-gray-300 text-gray-700'}>✕ Δεν σήκωσε — υπενθύμιση αύριο 10:00</button>
+                  )}
+                  {st === 'followup' && <p className="text-[11px] text-gray-400 -mb-1">Σήκωσε:</p>}
                   {st !== 'followup' && <p className="text-[12px] font-semibold text-gray-700">{wasAnswered ? 'Σήκωσε — εκκρεμεί απόφαση' : 'Σήκωσε — τι έγινε;'}</p>}
                   <button disabled={!!busy} onClick={() => act(a, 'to_onboarding', call)} className={btn + ' h-10 bg-gray-900 text-white'}>✓ Κλείνει → Onboarding</button>
                   <div className="flex gap-2">
