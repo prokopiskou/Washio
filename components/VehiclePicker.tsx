@@ -12,17 +12,25 @@ const T = {
   el: {
     ask: 'Τι όχημα έχεις;', change: 'αλλαγή', moto: 'Μοτοσικλέτα', title: 'Τι όχημα έχεις;',
     sub: 'Για να σου δείξουμε τη σωστή τιμή.', ph: 'π.χ. Toyota Yaris, Qashqai, Honda SH',
-    useTyped: 'χρήση αυτού', regular: 'Αυτοκίνητο', big: 'SUV / MPV',
+    useTyped: 'χρήση αυτού', regular: 'Αυτοκίνητο', big: 'SUV / MPV', tapHint: 'Πάτα για να δεις υπηρεσίες & τιμές',
   },
   en: {
     ask: 'What vehicle do you have?', change: 'change', moto: 'Motorcycle', title: 'What vehicle do you have?',
     sub: 'So we can show you the right price.', ph: 'e.g. Toyota Yaris, Qashqai, Honda SH',
-    useTyped: 'use this', regular: 'Car', big: 'SUV / MPV',
+    useTyped: 'use this', regular: 'Car', big: 'SUV / MPV', tapHint: 'Tap to see services & prices',
   },
 }
 
-export function VehicleChip({ choice, onClick, locale = 'el' }: { choice: CarChoice | null; onClick: () => void; locale?: 'el' | 'en' }) {
+export function VehicleChip({ choice, onClick, locale = 'el', big = false }: { choice: CarChoice | null; onClick: () => void; locale?: 'el' | 'en'; big?: boolean }) {
   const t = T[locale]
+  // Χωρίς όχημα: ΜΕΓΑΛΟ κουμπί (το μόνο που πρέπει να κάνει πριν δει υπηρεσίες/τιμές).
+  if (!choice && big) return (
+    <button type="button" onClick={onClick}
+      className="w-full h-[76px] px-4 rounded-2xl bg-washio-cyan text-white text-left flex flex-col justify-center shadow-[0_6px_16px_rgba(25,168,199,0.35)] active:opacity-90">
+      <span className="text-[16px] font-bold leading-tight">{t.ask}</span>
+      <span className="text-[12px] font-medium text-white/85 mt-0.5">{t.tapHint}</span>
+    </button>
+  )
   if (!choice) return (
     <button type="button" onClick={onClick}
       className="h-9 px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap bg-washio-cyan text-white border border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)] animate-pulse">
@@ -44,11 +52,11 @@ export type VehicleSelectorHandle = { open: () => void }
 /**
  * Chip + παράθυρο «Τι όχημα έχεις;». Το παράθυρο είναι ΗΔΗ στη σελίδα (κρυφό) → στο πάτημα
  * εμφανίζεται αμέσως (χωρίς re-render του χάρτη) και το πληκτρολόγιο ανοίγει μαζί του.
- * Πάνω στην οθόνη (όχι κάτω) → το πληκτρολόγιο δεν το σπρώχνει/κρύβει.
+ * Στο κέντρο (λίγο πιο πάνω) → φαίνεται καθαρά και πάνω από το πληκτρολόγιο.
  */
 export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
-  choice: CarChoice | null; onPick: (c: CarChoice) => void; onClose?: () => void; locale?: 'el' | 'en'
-}>(function VehicleSelector({ choice, onPick, onClose, locale = 'el' }, ref) {
+  choice: CarChoice | null; onPick: (c: CarChoice) => void; onClose?: () => void; locale?: 'el' | 'en'; big?: boolean
+}>(function VehicleSelector({ choice, onPick, onClose, locale = 'el', big = false }, ref) {
   const t = T[locale]
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -80,9 +88,9 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
 
   return (
     <>
-      <VehicleChip choice={choice} onClick={show} locale={locale} />
-      {isClient && createPortal(<div ref={wrapRef} style={{ display: 'none' }} className="fixed inset-0 z-[80] items-start justify-center bg-black/40" onClick={close}>
-        <div className="w-full max-w-md bg-white rounded-b-[24px] px-5 pb-5 pt-[calc(var(--safe-top,0px)+16px)]" onClick={e => e.stopPropagation()}>
+      <VehicleChip choice={choice} onClick={show} locale={locale} big={big} />
+      {isClient && createPortal(<div ref={wrapRef} style={{ display: 'none' }} className="fixed inset-0 z-[80] items-center justify-center bg-black/40 px-4" onClick={close}>
+        <div className="w-full max-w-md bg-white rounded-[24px] p-5 -mt-[12vh]" onClick={e => e.stopPropagation()}>
           <div className="flex items-start justify-between mb-3">
             <div>
               <p className="text-[18px] font-bold tracking-tight text-washio-navy">{t.title}</p>

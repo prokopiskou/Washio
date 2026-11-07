@@ -548,9 +548,11 @@ export default function LocationPage() {
             {t.vehicle}
           </p>
           <div className="flex gap-2">
-            <VehicleSelector ref={carPickerRef} choice={carChoice} onPick={onCarPicked} onClose={() => { pendingSvcRef.current = null }} locale={locale === 'en' ? 'en' : 'el'} />
+            <VehicleSelector ref={carPickerRef} choice={carChoice} big={!carChoice} onPick={onCarPicked} onClose={() => { pendingSvcRef.current = null }} locale={locale === 'en' ? 'en' : 'el'} />
           </div>
 
+          {/* Χωρίς όχημα → καμία υπηρεσία (πρώτα «Τι όχημα έχεις;») */}
+          {carChoice && <>
           {/* Services */}
           <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-6 mb-2.5">
             {t.service}
@@ -631,6 +633,7 @@ export default function LocationPage() {
               )
             })}
           </div>
+          </>}
           </div>
 
           {/* RIGHT (desktop): πότε (ημερομηνία + ώρες) */}

@@ -1585,8 +1585,8 @@ function MapPageContent() {
 
               {/* Γραμμή 2: τύπος οχήματος · φωτογραφία (ίδια γραμμή, ίδιο ύψος) */}
               <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex gap-2 shrink-0 min-w-0">
-                  <VehicleSelector ref={carPickerRef} choice={carChoice} onPick={onCarPicked} onClose={() => { pendingSvcRef.current = null }} locale={locale === 'en' ? 'en' : 'el'} />
+                <div className={carChoice ? 'flex gap-2 shrink-0 min-w-0' : 'flex-1 min-w-0'}>
+                  <VehicleSelector ref={carPickerRef} choice={carChoice} big={!carChoice} onPick={onCarPicked} onClose={() => { pendingSvcRef.current = null }} locale={locale === 'en' ? 'en' : 'el'} />
                 </div>
                 {/* Διακριτική φωτογραφία — tap → σελίδα πλυντηρίου (όλες οι φωτό). */}
                 {selectedLocation.photos && selectedLocation.photos.length > 0 && (
@@ -1668,7 +1668,8 @@ function MapPageContent() {
               {carChoice && visibleServices.some(s => discFor(s) > 0) && (
                 <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}</p>
               )}
-              <div className="flex gap-2 mb-3">
+              {/* Χωρίς όχημα → καμία υπηρεσία (πρώτα «Τι όχημα έχεις;») */}
+              {carChoice && <div className="flex gap-2 mb-3">
                 {visibleServices.map(s => {
                   const price = priceLabel(s)
                   const base = Number(listPriceFor(s)) || 0
@@ -1699,7 +1700,7 @@ function MapPageContent() {
                     </button>
                   )
                 })}
-              </div>
+              </div>}
 
               {/* Μέρες + καιρός (7 μέρες) — η «Ιδανική» με αχνό πλαίσιο */}
               {selectedService && (() => {
