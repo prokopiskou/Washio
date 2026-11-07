@@ -11,13 +11,12 @@ type App = any
 const STAGES: { key: string; label: string }[] = [
   { key: 'new', label: 'Νέες' },
   { key: 'no_answer', label: 'Δεν σήκωσε' },
-  { key: 'answered', label: 'Σήκωσε' },
   { key: 'followup', label: 'Follow-up' },
   { key: 'onboarding', label: 'Onboarding' },
   { key: 'done', label: 'Ολοκληρώθηκαν' },
   { key: 'lost', label: 'Δεν ενδιαφέρονται' },
 ]
-const stageOf = (a: App) => a.stage || (a.status === 'approved' ? 'done' : a.status === 'rejected' ? 'lost' : 'new')
+const stageOf = (a: App) => a.stage === 'answered' ? 'new' : a.stage || (a.status === 'approved' ? 'done' : a.status === 'rejected' ? 'lost' : 'new')
 const fmt = (iso?: string | null) => iso ? new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)) : '—'
 const isMeta = (a: App) => a.wash_type === 'Meta lead'
 
@@ -29,6 +28,7 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [err, setErr] = useState<Record<string, string>>({})
   const [nowMs] = useState(() => Date.now())
+  const [picked, setPicked] = useState<Record<string, boolean>>({})
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {}
@@ -103,27 +103,32 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
             />
 
             {/* Ενέργειες ανά στάδιο */}
-            {(st === 'new' || st === 'no_answer') && (
+            {(st === 'new' || st === 'no_answer') && !picked[a.id] && (
               <div className="flex gap-2 mt-2.5">
-                <button disabled={!!busy} onClick={() => act(a, 'answered')} className={btn + ' flex-1 bg-green-600 text-white'}>✓ Σήκωσε</button>
+                <button disabled={!!busy} onClick={() => setPicked(p => ({ ...p, [a.id]: true }))} className={btn + ' flex-1 bg-green-600 text-white'}>✓ Σήκωσε</button>
                 <button disabled={!!busy} onClick={() => act(a, 'no_answer')} className={btn + ' flex-1 bg-white border border-gray-300 text-gray-700'}>✕ Δεν σήκωσε</button>
               </div>
             )}
 
-            {(st === 'answered' || st === 'followup') && (
-              <div className="mt-2.5 flex flex-col gap-2">
-                <div className="flex gap-2">
-                  <input type="datetime-local" value={fu[a.id] || ''} onChange={e => setFu(f => ({ ...f, [a.id]: e.target.value }))}
-                    className="flex-1 h-9 px-2 rounded-lg border border-gray-200 text-[13px]" />
-                  <button disabled={!!busy || !fu[a.id]} onClick={async () => { if (await act(a, 'followup', { at: new Date(fu[a.id]).toISOString() })) setFu(f => ({ ...f, [a.id]: '' })) }}
-                    className={btn + ' bg-amber-500 text-white'}>📅 {st === 'followup' ? 'Νέο follow-up' : 'Follow-up'}</button>
+            {(((st === 'new' || st === 'no_answer') && picked[a.id]) || st === 'followup') && (() => {
+              const call = st !== 'followup' ? { answered: true } : {}
+              return (
+                <div className="mt-2.5 flex flex-col gap-2 rounded-xl bg-gray-50 p-3">
+                  {st !== 'followup' && <p className="text-[12px] font-semibold text-gray-700">Σήκωσε — τι έγινε;</p>}
+                  <button disabled={!!busy} onClick={() => act(a, 'to_onboarding', call)} className={btn + ' h-10 bg-gray-900 text-white'}>✓ Κλείνει → Onboarding</button>
+                  <div className="flex gap-2">
+                    <input type="datetime-local" value={fu[a.id] || ''} onChange={e => setFu(f => ({ ...f, [a.id]: e.target.value }))}
+                      className="flex-1 min-w-0 h-9 px-2 rounded-lg border border-gray-200 text-[13px] bg-white" />
+                    <button disabled={!!busy || !fu[a.id]} onClick={async () => { if (await act(a, 'followup', { at: new Date(fu[a.id]).toISOString(), ...call })) setFu(f => ({ ...f, [a.id]: '' })) }}
+                      className={btn + ' bg-amber-500 text-white'}>📅 {st === 'followup' ? 'Νέο follow-up' : 'Follow-up'}</button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <button disabled={!!busy} onClick={() => act(a, 'lost', call)} className={btn + ' bg-white border border-gray-300 text-gray-600'}>Δεν ενδιαφέρεται</button>
+                    {st !== 'followup' && <button onClick={() => setPicked(p => ({ ...p, [a.id]: false }))} className="text-[12px] text-gray-500 underline">Πίσω</button>}
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button disabled={!!busy} onClick={() => act(a, 'to_onboarding')} className={btn + ' flex-1 bg-gray-900 text-white'}>→ Onboarding</button>
-                  <button disabled={!!busy} onClick={() => act(a, 'lost')} className={btn + ' bg-white border border-gray-300 text-gray-600'}>Δεν ενδιαφέρεται</button>
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             {st === 'onboarding' && (
               <div className="mt-2.5 rounded-xl bg-gray-50 p-3 flex flex-col gap-2">

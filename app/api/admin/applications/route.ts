@@ -25,13 +25,15 @@ export async function POST(req: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
   const b = await req.json().catch(() => ({})) as {
-    id?: string; action?: string; at?: string; afm?: string; doy?: string; address?: string; iban?: string; ibanHolder?: string; text?: string
+    id?: string; action?: string; at?: string; afm?: string; doy?: string; address?: string; iban?: string; ibanHolder?: string; text?: string; answered?: boolean
   }
   const { data: app } = await admin.from('applications').select('*').eq('id', b.id || '').maybeSingle()
   if (!app) return NextResponse.json({ error: 'Η αίτηση δεν βρέθηκε' }, { status: 404 })
   const now = new Date().toISOString()
+  // «Σήκωσε» + απόφαση στο ίδιο βήμα (onboarding / follow-up / δεν ενδιαφέρεται) → μετράει και την κλήση.
+  const callLog = b.answered ? { call_attempts: (app.call_attempts || 0) + 1, last_call_at: now, last_call_by: user.email } : {}
   const set = async (patch: Record<string, unknown>) => {
-    const { error } = await admin.from('applications').update({ ...patch, stage_updated_at: now }).eq('id', app.id)
+    const { error } = await admin.from('applications').update({ ...callLog, ...patch, stage_updated_at: now }).eq('id', app.id)
     return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })
   }
 
