@@ -1,6 +1,6 @@
 'use client'
 // Chip «🚗 Ποιο αμάξι έχεις;» + sheet επιλογής μοντέλου (αντικαθιστά το ΙΧ / SUV / Μοτοσικλέτα).
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import { searchCarModels } from '@/lib/car-models'
 import { choiceFromModel, type CarChoice } from '@/lib/car-choice'
@@ -43,7 +43,15 @@ export function VehiclePickerSheet({ open, onClose, onPick, locale = 'el' }: {
 }) {
   const t = T[locale]
   const [q, setQ] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
   useBodyScrollLock(open)
+  // Πρώτα εμφανίζεται το παράθυρο, ΜΕΤΑ ανοίγει το πληκτρολόγιο (όχι autoFocus).
+  useEffect(() => {
+    if (!open) return
+    let r2 = 0
+    const r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true })) })
+    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2) }
+  }, [open])
   if (!open) return null
   const results = searchCarModels(q, 40)
   const pick = (c: CarChoice) => { onPick(c); setQ(''); onClose() }
@@ -61,7 +69,7 @@ export function VehiclePickerSheet({ open, onClose, onPick, locale = 'el' }: {
           <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"><X size={16} /></button>
         </div>
 
-        <input autoFocus value={q} onChange={e => setQ(e.target.value)} placeholder={t.ph}
+        <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder={t.ph}
           className="w-full h-[52px] px-4 rounded-[14px] border border-washio-border text-[16px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan" />
         <div className="mt-2 min-h-[44px] max-h-[44vh] overflow-y-auto">
           {results.map(c => (
