@@ -7,12 +7,23 @@ import { activateOnboarding } from '@/lib/onboarding-activate'
 // Admin → Αιτήσεις: στάδια διαδικασίας για αιτήσεις πλυντηρίων (apply / Meta leads).
 //  POST { id, action, ... }
 //   answered            → σήκωσε (stage=answered)
-//   no_answer           → δεν σήκωσε (+1 προσπάθεια)
+//   no_answer           → δεν σήκωσε (+1 προσπάθεια) + υπενθύμιση αύριο 10:00
 //   followup {at}       → follow-up σε ημερομηνία/ώρα (email 15' πριν σε όποιον το όρισε)
 //   to_onboarding       → πάει στο στάδιο onboarding
 //   onboard {afm, doy, address?, iban?, ibanHolder?} → «Onboarding κομπλέ»: δημιουργεί onboarding + πρατήριο (ανενεργό)
 //   lost / reopen       → δεν ενδιαφέρεται / ξανά νέα
 //   note {text}         → σημειώσεις
+// Αύριο 10:00 ώρα Ελλάδας (σωστό για χειμερινή/θερινή ώρα).
+function tomorrowMorningAthens(): string {
+  const now = new Date()
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' })
+    .formatToParts(now).map(x => [x.type, x.value]))
+  const offsetH = Number(p.hour) - now.getUTCHours()
+  const off = ((offsetH % 24) + 24) % 24 // 2 ή 3
+  const d = new Date(Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day) + 1, 10 - off, 0, 0))
+  return d.toISOString()
+}
+
 const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } })
 
 async function requireAdmin() {
@@ -41,7 +52,9 @@ export async function POST(req: NextRequest) {
     case 'answered':
       return set({ stage: 'answered', call_attempts: (app.call_attempts || 0) + 1, last_call_at: now, last_call_by: user.email })
     case 'no_answer':
-      return set({ stage: 'no_answer', call_attempts: (app.call_attempts || 0) + 1, last_call_at: now, last_call_by: user.email })
+      // Δεν σήκωσε → υπενθύμιση αύριο το πρωί (10:00) σε όποιον πάτησε.
+      return set({ stage: 'no_answer', call_attempts: (app.call_attempts || 0) + 1, last_call_at: now, last_call_by: user.email,
+        followup_at: tomorrowMorningAthens(), followup_by: user.email, followup_notified_at: null })
     case 'followup': {
       const at = b.at ? new Date(b.at) : null
       if (!at || isNaN(at.getTime())) return NextResponse.json({ error: 'Λάθος ημερομηνία' }, { status: 400 })

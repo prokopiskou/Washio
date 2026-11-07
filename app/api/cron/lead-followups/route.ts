@@ -17,8 +17,8 @@ export async function GET(req: Request) {
   const now = new Date()
   const to = new Date(now.getTime() + 20 * 60 * 1000)
   const { data, error } = await db.from('applications')
-    .select('id, business_name, owner_name, phone, email, followup_at, followup_by, pipeline_notes')
-    .eq('stage', 'followup').is('followup_notified_at', null)
+    .select('id, business_name, owner_name, phone, email, followup_at, followup_by, pipeline_notes, stage, call_attempts')
+    .in('stage', ['followup', 'no_answer']).is('followup_notified_at', null)
     .gte('followup_at', new Date(now.getTime() - 60 * 60 * 1000).toISOString()).lte('followup_at', to.toISOString())
   if (error) return NextResponse.json({ ok: false, skipped: 'column', error: error.message })
 
@@ -31,12 +31,14 @@ export async function GET(req: Request) {
     const mins = Math.max(0, Math.round((new Date(a.followup_at).getTime() - now.getTime()) / 60000))
     const toEmail = a.followup_by && ADMIN_EMAILS.includes(String(a.followup_by).toLowerCase()) ? [a.followup_by] : ADMIN_EMAILS
     const name = String(a.business_name || 'Πλυντήριο').trim()
+    const retry = a.stage === 'no_answer' // δεν σήκωσε χθες → ξαναπάρ' τον
+    const title = retry ? `📞 Ξαναπάρε · ${name} (δεν σήκωσε${a.call_attempts ? `, ${a.call_attempts}η προσπάθεια` : ''})` : `📞 Follow-up σε ${mins}' · ${name}`
     try {
       await resend.emails.send({
         from: 'Washio <noreply@washio.gr>', to: toEmail,
-        subject: `📞 Follow-up σε ${mins}' · ${name}`,
+        subject: title,
         html: `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px;color:#10182A;">
-          <h2 style="margin:0 0 10px;">📞 Follow-up σε ${mins}'</h2>
+          <h2 style="margin:0 0 10px;">${retry ? '📞 Ξαναπάρε — δεν σήκωσε' : `📞 Follow-up σε ${mins}'`}</h2>
           <p style="margin:0 0 14px;color:#6B7280;">${esc(when)}</p>
           <table style="width:100%;font-size:14px;border-collapse:collapse;">
             <tr><td style="color:#6B7280;padding:6px 0;">Πλυντήριο</td><td style="text-align:right;font-weight:600;">${esc(name)}</td></tr>
@@ -53,7 +55,7 @@ export async function GET(req: Request) {
     try {
       const { data: users } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 })
       const ids = (users?.users || []).filter(u => u.email && toEmail.map(String).map(s => s.toLowerCase()).includes(u.email.toLowerCase())).map(u => u.id)
-      await Promise.all(ids.map(uid => sendPush(uid, { title: `📞 Follow-up σε ${mins}' · ${name}`, body: `${a.owner_name || ''} ${a.phone || ''}`.trim(), url: '/admin?tab=applications' })))
+      await Promise.all(ids.map(uid => sendPush(uid, { title, body: `${a.owner_name || ''} ${a.phone || ''}`.trim(), url: '/admin?tab=applications' })))
     } catch { /* best-effort */ }
   }
   return NextResponse.json({ ok: true, sent })

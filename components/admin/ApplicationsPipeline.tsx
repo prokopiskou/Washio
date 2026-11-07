@@ -91,6 +91,10 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
               Ήρθε {fmt(a.created_at)}{a.call_attempts ? ` · Κλήσεις: ${a.call_attempts}` : ''}{a.last_call_at ? ` · Τελευταία ${fmt(a.last_call_at)}` : ''}{a.last_call_by ? ` (${String(a.last_call_by).split('@')[0]})` : ''}
             </p>
 
+            {st === 'no_answer' && a.followup_at && (
+              <p className={`mt-2 text-[12px] font-semibold ${due ? 'text-red-600' : 'text-gray-600'}`}>⏰ Υπενθύμιση: {fmt(a.followup_at)}{due ? ' · ξαναπάρ\' τον' : ''}</p>
+            )}
+
             {st === 'followup' && (
               <p className={`mt-2 text-[13px] font-semibold ${due ? 'text-red-600' : 'text-amber-700'}`}>📅 Follow-up: {fmt(a.followup_at)}{due ? ' · έχει περάσει' : ''}</p>
             )}
