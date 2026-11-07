@@ -12,7 +12,6 @@ export const DASH_EN: Record<string, string> = {
   'Προγραμματισμένη': 'Scheduled',
   'Ενεργή': 'Active',
   'Δώσε έκπτωση σε μία υπηρεσία. Οι πελάτες βλέπουν την προσφορά στην εφαρμογή και η τιμή εφαρμόζεται αυτόματα στην κράτηση.': 'Discount one service. Customers see the offer in the app and the price applies automatically at booking.',
-  'Υπηρεσία': 'Service',
   'Επίλεξε υπηρεσία…': 'Choose a service…',
   'Έκπτωση': 'Discount',
   'Αρχική τιμή': 'Original price',
@@ -24,7 +23,6 @@ export const DASH_EN: Record<string, string> = {
   'Δημιουργία προώθησης': 'Create promotion',
   'Οι προωθήσεις σου': 'Your promotions',
   'Παύση': 'Pause',
-  'Ενεργοποίηση': 'Activate',
   // Ειδοποιήσεις
   'Χρειάζεται να είσαι συνδεδεμένος.': 'You need to be signed in.',
   'άγνωστο': 'unknown',
