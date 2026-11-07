@@ -250,7 +250,7 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
       await sendPush((locationData as { owner_id?: string })?.owner_id, {
         title: '💳 Νέα κράτηση — ΠΛΗΡΩΜΕΝΗ με κάρτα',
         body: `Μη ζητήσεις χρήματα, €${Math.max(0, parseFloat(m.amount) - (parseFloat(m.appliedCredit || '0') || 0)).toFixed(2)} εξοφλημένα online • ${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${m.carPlate ? ' • ' + m.carPlate : ''}`,
-        url: '/dashboard',
+        url: `/dashboard?booking=${inserted.id}`,
       })
     }
 

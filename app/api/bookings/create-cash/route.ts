@@ -289,7 +289,7 @@ export async function POST(req: NextRequest) {
         await sendPush(ownerId, {
           title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
           body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις €${payable.toFixed(2)} στο κατάστημα`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
-          url: '/dashboard',
+          url: `/dashboard?booking=${inserted.id}`,
         })
       }
     } catch { /* best-effort */ }

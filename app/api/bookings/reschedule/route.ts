@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         await sendPush(ownerId, {
           title: 'Αλλαγή ώρας κράτησης 🔄',
           body: `${booking.booking_ref} → ${hhmm} (${slotDate})`,
-          url: '/dashboard',
+          url: `/dashboard?booking=${booking.id}`,
         })
       }
     } catch { /* best-effort */ }

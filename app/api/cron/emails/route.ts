@@ -245,7 +245,7 @@ export async function GET(req: Request) {
       await sendPush(location.owner_id, {
         title: `Ραντεβού σε ${mins}' ⏰ · ${hhmm}`,
         body: lines.join('\n'),
-        url: '/dashboard',
+        url: `/dashboard?booking=${booking.id}`,
       }).catch(() => null)
       stats.operatorReminders++
     }

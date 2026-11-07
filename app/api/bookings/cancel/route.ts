@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
         await sendPush(ownerId, {
           title: 'Ακύρωση κράτησης ❌',
           body: `${booking.booking_ref} • ${cd.getDate()} ${MONTHS_SHORT[cd.getMonth()]} ${booking.slot_start_time?.slice(0, 5) || ''} — το slot άνοιξε.`,
-          url: '/dashboard',
+          url: `/dashboard?booking=${booking.id}`,
         })
       }
     } catch { /* best-effort */ }

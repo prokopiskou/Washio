@@ -227,6 +227,12 @@ export default function DashboardPage() {
     setTimeout(() => setCopiedPhoneId(c => (c === id ? null : c)), 1500)
   }
   const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  // Άνοιγμα από ειδοποίηση: /dashboard?booking=<id> → καρτέλα Κρατήσεις, scroll + τονισμός της κράτησης.
+  const [focusBookingId, setFocusBookingId] = useState<string | null>(null)
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('booking')
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) setFocusBookingId(id)
+  }, [])
   const [loading, setLoading] = useState(true)
   const [location, setLocation] = useState<any | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -241,6 +247,14 @@ export default function DashboardPage() {
   const [newBookingsCount, setNewBookingsCount] = useState(0)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'created_at' | 'slot_date'>('created_at')
+  // Μόλις φορτωθούν οι κρατήσεις: άνοιξε την καρτέλα, φέρε την κράτηση στην οθόνη και τόνισέ την για λίγο.
+  useEffect(() => {
+    if (!focusBookingId || !bookings.some(b => b.id === focusBookingId)) return
+    setActiveTab('bookings'); setFilterStatus('all'); setSortBy('slot_date')
+    const t1 = setTimeout(() => document.getElementById(`bk-${focusBookingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350)
+    const t2 = setTimeout(() => setFocusBookingId(null), 6000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [focusBookingId, bookings])
   const [calendarDate, setCalendarDate] = useState<Date>(new Date())
   const [calendarBookings, setCalendarBookings] = useState<Booking[]>([])
   const [calendarLoading, setCalendarLoading] = useState(false)
@@ -1472,10 +1486,12 @@ export default function DashboardPage() {
 
                     const payBadge = paymentBadge(b)
 
+                    const focused = focusBookingId === b.id
                     return (
                       <div
                         key={b.id}
-                        className="border border-gray-100 rounded-xl p-3 flex items-start gap-3"
+                        id={`bk-${b.id}`}
+                        className={`border border-gray-100 rounded-xl p-3 flex items-start gap-3 transition-shadow ${focused ? 'ring-2 ring-blue-500' : ''}`}
                         style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)', background: cardBg, ...(cardBorder ? { borderColor: cardBorder } : {}) }}
                       >
                         <div className="flex-1 min-w-0">
