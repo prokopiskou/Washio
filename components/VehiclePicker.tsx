@@ -9,12 +9,12 @@ import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 
 const T = {
   el: {
-    ask: 'Ποιο όχημα έχεις;', change: 'αλλαγή', moto: 'Μοτοσικλέτα', title: 'Ποιο όχημα έχεις;',
+    ask: 'Τι όχημα έχεις;', change: 'αλλαγή', moto: 'Μοτοσικλέτα', title: 'Τι όχημα έχεις;',
     sub: 'Για να σου δείξουμε τη σωστή τιμή.', ph: 'π.χ. Toyota Yaris, Qashqai, Honda SH',
     useTyped: 'χρήση αυτού', regular: 'Αυτοκίνητο', big: 'SUV / MPV',
   },
   en: {
-    ask: 'Which vehicle do you have?', change: 'change', moto: 'Motorcycle', title: 'Which vehicle do you have?',
+    ask: 'What vehicle do you have?', change: 'change', moto: 'Motorcycle', title: 'What vehicle do you have?',
     sub: 'So we can show you the right price.', ph: 'e.g. Toyota Yaris, Qashqai, Honda SH',
     useTyped: 'use this', regular: 'Car', big: 'SUV / MPV',
   },
@@ -25,10 +25,10 @@ export function VehicleChip({ choice, onClick, locale = 'el' }: { choice: CarCho
   if (!choice) return (
     <button type="button" onClick={onClick}
       className="h-9 px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap bg-washio-cyan text-white border border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)] animate-pulse">
-      🚗 {t.ask}
+      {t.ask}
     </button>
   )
-  const label = choice.kind === 'moto' ? `🏍️ ${choice.label || t.moto}` : `🚗 ${choice.label || (choice.size === 'SUV' ? t.big : t.regular)}`
+  const label = choice.kind === 'moto' ? (choice.label || t.moto) : (choice.label || (choice.size === 'SUV' ? t.big : t.regular))
   return (
     <button type="button" onClick={onClick}
       className="h-9 max-w-[230px] px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap bg-white text-washio-navy border border-washio-border flex items-center gap-1.5">
@@ -67,7 +67,7 @@ export function VehiclePickerSheet({ open, onClose, onPick, locale = 'el' }: {
           {results.map(c => (
             <button key={c.label} type="button" onClick={() => { const ch = choiceFromModel(c.label); if (ch) pick(ch) }}
               className="w-full text-left px-3 py-3 rounded-xl text-[15px] text-washio-navy active:bg-gray-50 border-b border-gray-100 last:border-0">
-              {c.size === 'Μοτοσικλέτα' ? '🏍️' : '🚗'} {c.label}
+              {c.label}
             </button>
           ))}
           {typed.length >= 3 && results.length === 0 && (
@@ -78,7 +78,7 @@ export function VehiclePickerSheet({ open, onClose, onPick, locale = 'el' }: {
           )}
         </div>
         <button type="button" onClick={() => pick({ kind: 'moto' })}
-          className="mt-3 w-full h-11 rounded-[14px] border border-washio-border text-[14px] font-semibold text-washio-navy">🏍️ {t.moto}</button>
+          className="mt-3 w-full h-11 rounded-[14px] border border-washio-border text-[14px] font-semibold text-washio-navy">{t.moto}</button>
       </div>
     </div>
   )
