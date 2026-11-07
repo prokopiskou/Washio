@@ -8,7 +8,7 @@ import { sizeOfModel, type SizeClass } from '@/lib/car-models'
 
 export type CarChoice =
   | { kind: 'car'; label: string; size: SizeClass; known: boolean } // known=false → δήλωσε μόνος του κατηγορία
-  | { kind: 'moto' }
+  | { kind: 'moto'; label?: string }
 
 const KEY = 'washio_car_choice_v1'
 const EVT = 'washio-car-choice'
@@ -33,7 +33,8 @@ export function setCarChoice(c: CarChoice | null) {
 /** Μοντέλο από λίστα → επιλογή με σωστή κατηγορία. */
 export function choiceFromModel(label: string): CarChoice | null {
   const size = sizeOfModel(label)
-  return size ? { kind: 'car', label, size, known: true } : null
+  if (!size) return null
+  return size === 'Μοτοσικλέτα' ? { kind: 'moto', label } : { kind: 'car', label, size, known: true }
 }
 
 const subscribe = (cb: () => void) => {
@@ -56,7 +57,7 @@ export function useCarChoice(): [CarChoice | null, (c: CarChoice | null) => void
         .order('is_primary', { ascending: false }).order('created_at', { ascending: false }).limit(1)
       if (error || !data?.length || read()) return
       const v = data[0] as { type?: string; car_model?: string | null }
-      if (v.type === 'Μοτοσικλέτα') return setCarChoice({ kind: 'moto' })
+      if (v.type === 'Μοτοσικλέτα') return setCarChoice(v.car_model ? { kind: 'moto', label: v.car_model } : { kind: 'moto' })
       const fromModel = v.car_model ? choiceFromModel(v.car_model) : null
       if (fromModel) setCarChoice(fromModel)
     })().catch(() => {})

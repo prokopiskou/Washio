@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     const carModel = String(rawModel || '').replace(/[<>]/g, '').trim().slice(0, 60)
     const isTaxi = rawTaxi === true
     const modelSize = sizeOfModel(carModel)
-    const vehicleType = rawVehicleType === 'Μοτοσικλέτα' ? rawVehicleType : (modelSize || rawVehicleType)
+    const vehicleType = modelSize || rawVehicleType
     // Πινακίδα: μόνο γράμματα/αριθμοί/κενό/παύλα, έως 12 χαρακτήρες (μπαίνει σε email/push).
     const carPlate = String(rawPlate || '').toUpperCase().replace(/[^A-ZΑ-Ω0-9 \-]/g, '').slice(0, 12)
 

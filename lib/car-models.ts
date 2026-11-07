@@ -3,6 +3,7 @@
 // (μεγαλύτερη κατηγορία δεν υπάρχει ακόμα). Όλα τα υπόλοιπα (hatchback, sedan, station wagon, coupé, cabrio) → «ΙΧ».
 // Νέο/οριακό μοντέλο → πρόσθεσέ το εδώ (μία γραμμή). Άγνωστο μοντέλο → ο πελάτης κρατά την επιλογή του χάρτη.
 export type SizeClass = 'ΙΧ' | 'SUV'
+export type VehicleClass = SizeClass | 'Μοτοσικλέτα'
 
 // [μάρκα, μοντέλα ΙΧ, μοντέλα SUV/MPV]
 const DATA: [string, string[], string[]][] = [
@@ -48,14 +49,81 @@ const DATA: [string, string[], string[]][] = [
   ['Toyota', ['Aygo', 'Aygo X', 'Yaris', 'Corolla', 'Auris', 'Prius', 'Avensis', 'GR86', 'Supra', 'Camry', 'iQ'], ['Yaris Cross', 'C-HR', 'RAV4', 'bZ4X', 'Land Cruiser', 'Highlander', 'Corolla Cross', 'Hilux', 'Proace', 'Proace City', 'Verso', 'Corolla Verso']],
   ['Volkswagen', ['Polo', 'Golf', 'Up', 'Passat', 'Arteon', 'Jetta', 'Scirocco', 'Beetle', 'ID.3', 'Lupo', 'Fox', 'Bora'], ['T-Cross', 'T-Roc', 'Taigo', 'Tiguan', 'Touareg', 'ID.4', 'ID.5', 'ID.7', 'ID. Buzz', 'Touran', 'Sharan', 'Caddy', 'Transporter', 'Multivan', 'Amarok', 'Golf Plus', 'Golf Sportsvan']],
   ['Volvo', ['V40', 'S60', 'V60', 'S90', 'V90', 'C30', 'S40', 'S80'], ['XC40', 'EX30', 'XC60', 'XC90', 'EX40', 'EX90', 'C40']],
+  // Λοιπές μάρκες ελληνικής αγοράς (κινεζικές, premium, παλιές)
+  ['Aixam', ['City', 'Crossline', 'Coupé', 'Minauto'], []],
+  ['Alpine', ['A110', 'A290'], []],
+  ['Aston Martin', ['Vantage', 'DB11', 'DB12', 'DBS'], ['DBX']],
+  ['Bentley', ['Continental GT', 'Flying Spur'], ['Bentayga']],
+  ['Cadillac', ['CTS', 'ATS'], ['Escalade', 'XT4', 'XT5', 'Lyriq']],
+  ['Chery', ['Arrizo'], ['Tiggo 4', 'Tiggo 7', 'Tiggo 8']],
+  ['Chrysler', ['300C', 'PT Cruiser'], ['Voyager', 'Grand Voyager', 'Pacifica']],
+  ['Dodge', ['Charger', 'Challenger'], ['Journey', 'Durango', 'Ram', 'Nitro']],
+  ['DFSK', [], ['Seres 3', 'Fengon 500', 'Fengon 580', 'Glory']],
+  ['Ferrari', ['Roma', '296', 'F8', 'SF90', '812', 'Portofino', '488', 'California'], ['Purosangue']],
+  ['Geely', ['Emgrand', 'Geometry A'], ['Coolray', 'EX5', 'Atlas']],
+  ['Genesis', ['G70', 'G80'], ['GV60', 'GV70', 'GV80']],
+  ['Great Wall', [], ['Steed', 'Hover', 'Wingle', 'Poer']],
+  ['Infiniti', ['Q30', 'Q50', 'Q60'], ['QX30', 'QX50', 'QX70']],
+  ['Ineos', [], ['Grenadier']],
+  ['Isuzu', [], ['D-Max', 'Trooper']],
+  ['Iveco', [], ['Daily']],
+  ['Jaecoo', [], ['J7', 'J8']],
+  ['Lada', ['Vesta', 'Granta', 'Samara'], ['Niva', 'Niva Legend', 'Largus']],
+  ['Lamborghini', ['Huracán', 'Revuelto', 'Aventador', 'Temerario'], ['Urus']],
+  ['Leapmotor', ['T03'], ['C10', 'B10']],
+  ['Ligier', ['JS50', 'Myli'], []],
+  ['Lotus', ['Elise', 'Exige', 'Emira', 'Emeya'], ['Eletre']],
+  ['Lynk & Co', [], ['01', '02']],
+  ['Maserati', ['Ghibli', 'Quattroporte', 'GranTurismo', 'MC20'], ['Levante', 'Grecale']],
+  ['Maxus', [], ['eDeliver 3', 'T90', 'Mifa 9', 'Euniq 6']],
+  ['Microcar', ['M.Go', 'Due'], []],
+  ['Omoda', [], ['5', 'E5', '7']],
+  ['Rolls-Royce', ['Ghost', 'Phantom', 'Wraith', 'Spectre'], ['Cullinan']],
+  ['Rover', ['25', '45', '75', 'Streetwise'], []],
+  ['Saab', ['9-3', '9-5', '900'], []],
+  ['Xpeng', [], ['G6', 'G9', 'P7']],
+  ['Zeekr', [], ['001', '7X', 'X']],
+  ['Daewoo', ['Matiz', 'Lanos', 'Nubira', 'Kalos'], ['Tacuma']],
+  ['Proton', ['Persona', 'Satria', 'Savvy'], []],
+  ['Tata', ['Indica', 'Indigo'], ['Safari', 'Xenon']],
+  ['Mahindra', [], ['Scorpio', 'XUV500', 'Goa', 'Pik Up']],
+  ['UAZ', [], ['Hunter', 'Patriot']],
 ]
 
-export type CarModel = { make: string; model: string; size: SizeClass; label: string }
+// Μοτοσικλέτες/scooter (ίδια αναζήτηση με τα αυτοκίνητα).
+const MOTO: [string, string[]][] = [
+  ['Honda', ['SH 125', 'SH 150', 'SH 300', 'SH 350', 'PCX 125', 'Forza 125', 'Forza 350', 'Forza 750', 'X-ADV', 'NC 750', 'Africa Twin', 'CB 500', 'CB 650R', 'CBR 500R', 'CBR 650R', 'CBR 1000RR', 'Transalp', 'Hornet', 'Vision 110', 'Innova', 'Astrea', 'Supra', 'Wave', 'Rebel', 'Gold Wing', 'ADV 350', 'MSX 125']],
+  ['Yamaha', ['TMAX', 'XMAX 125', 'XMAX 300', 'NMAX 125', 'NMAX 155', 'Tricity', 'Crypton', 'MT-03', 'MT-07', 'MT-09', 'MT-10', 'MT-125', 'Tracer 7', 'Tracer 9', 'Ténéré 700', 'R1', 'R3', 'R7', 'R125', 'XSR 700', 'XSR 900', 'Aerox', 'D\'elight', 'Neo\'s', 'X-City']],
+  ['Kymco', ['Agility', 'People', 'People S', 'Downtown', 'Xciting', 'AK 550', 'Like', 'DT X360', 'Super 8', 'Dink']],
+  ['SYM', ['Symphony', 'Joymax', 'GTS', 'Maxsym', 'Jet 14', 'Fiddle', 'Orbit', 'Cruisym', 'ADX', 'VF 185']],
+  ['Piaggio', ['Beverly', 'Liberty', 'Medley', 'MP3', 'Zip', 'Fly', 'X10', 'X-Evo', '1']],
+  ['Vespa', ['Primavera', 'Sprint', 'GTS', 'GTV', 'LX', 'Elettrica']],
+  ['Suzuki', ['Burgman 125', 'Burgman 200', 'Burgman 400', 'Address', 'Avenis', 'V-Strom 650', 'V-Strom 800', 'V-Strom 1050', 'GSX-R', 'GSX-S', 'SV 650', 'Hayabusa']],
+  ['Kawasaki', ['Ninja 400', 'Ninja 650', 'Ninja ZX-6R', 'Ninja ZX-10R', 'Z400', 'Z650', 'Z900', 'Versys 650', 'Versys 1000', 'Vulcan', 'Eliminator']],
+  ['BMW Motorrad', ['R 1250 GS', 'R 1300 GS', 'F 800 GS', 'F 900 R', 'F 900 XR', 'S 1000 RR', 'C 400 X', 'C 400 GT', 'CE 04', 'G 310 R', 'R nineT']],
+  ['KTM', ['Duke 125', 'Duke 390', 'Duke 790', 'Duke 890', '390 Adventure', '890 Adventure', '1290 Super Adventure', 'RC 390']],
+  ['Ducati', ['Monster', 'Multistrada', 'Scrambler', 'Panigale', 'Diavel', 'Hypermotard', 'DesertX', 'Streetfighter']],
+  ['Triumph', ['Tiger', 'Street Triple', 'Speed Triple', 'Trident', 'Bonneville', 'Speed Twin', 'Scrambler']],
+  ['Aprilia', ['SR GT', 'SR 50', 'Tuono', 'RS 660', 'RSV4', 'Tuareg', 'Scarabeo']],
+  ['Harley-Davidson', ['Sportster', 'Street Glide', 'Road Glide', 'Fat Boy', 'Softail', 'Pan America', 'Nightster']],
+  ['Benelli', ['TRK 502', 'Leoncino', 'BN 125', '752S']],
+  ['Royal Enfield', ['Classic 350', 'Himalayan', 'Interceptor', 'Meteor', 'Hunter']],
+  ['Modenas', ['Kriss']],
+  ['Daytona', ['Velos']],
+  ['CFMOTO', ['450 MT', '700 MT', '300 NK', '800 NK']],
+  ['Voge', ['300 Rally', '525 DSX', 'SR4']],
+  ['Zontes', ['ZT 350', 'ZT 125']],
+  ['Moto Guzzi', ['V7', 'V85 TT', 'Stelvio']],
+  ['MV Agusta', ['Brutale', 'Dragster', 'F3']],
+  ['Niu', ['NQi', 'MQi', 'UQi']],
+]
 
-export const CAR_MODELS: CarModel[] = DATA.flatMap(([make, ix, suv]) => [
+export type CarModel = { make: string; model: string; size: VehicleClass; label: string }
+
+export const CAR_MODELS: CarModel[] = DATA.flatMap<CarModel>(([make, ix, suv]) => [
   ...ix.map(model => ({ make, model, size: 'ΙΧ' as SizeClass, label: `${make} ${model}` })),
   ...suv.map(model => ({ make, model, size: 'SUV' as SizeClass, label: `${make} ${model}` })),
-])
+]).concat(MOTO.flatMap(([make, models]) => models.map(model => ({ make, model, size: 'Μοτοσικλέτα' as VehicleClass, label: `${make} ${model}` }))))
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9α-ω]+/g, '')
 
@@ -72,7 +140,7 @@ const GR_ALIASES: [string, string][] = [
 const ALIAS_MAKE: Record<string, string> = { vw: 'volkswagen', mercedes: 'mercedesbenz' }
 
 /** Αναζήτηση (μάρκα ή μοντέλο, χωρίς τόνους/κενά, και ελληνικά). */
-export function searchCarModels(q: string, limit = 8): CarModel[] {
+export function searchCarModels(q: string, limit = 8, only?: 'car' | 'moto'): CarModel[] {
   let lq = q.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
   for (const [gr, en] of GR_ALIASES) lq = lq.replace(new RegExp(gr, 'g'), en)
   let n = norm(lq)
@@ -80,6 +148,8 @@ export function searchCarModels(q: string, limit = 8): CarModel[] {
   if (n.length < 2) return []
   const starts: CarModel[] = [], has: CarModel[] = []
   for (const c of CAR_MODELS) {
+    if (only === 'car' && c.size === 'Μοτοσικλέτα') continue
+    if (only === 'moto' && c.size !== 'Μοτοσικλέτα') continue
     const full = norm(c.label), model = norm(c.model)
     if (full.startsWith(n) || model.startsWith(n)) starts.push(c)
     else if (full.includes(n)) has.push(c)
@@ -89,7 +159,7 @@ export function searchCarModels(q: string, limit = 8): CarModel[] {
 }
 
 /** Ακριβής αντιστοίχιση ετικέτας → κατηγορία (null = άγνωστο μοντέλο). */
-export function sizeOfModel(label: string | null | undefined): SizeClass | null {
+export function sizeOfModel(label: string | null | undefined): VehicleClass | null {
   if (!label) return null
   const n = norm(label)
   return CAR_MODELS.find(c => norm(c.label) === n)?.size ?? null
