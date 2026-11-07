@@ -77,8 +77,6 @@ export function VehiclePickerSheet({ open, onClose, onPick, locale = 'el' }: {
             </button>
           )}
         </div>
-        <button type="button" onClick={() => pick({ kind: 'moto' })}
-          className="mt-3 w-full h-11 rounded-[14px] border border-washio-border text-[14px] font-semibold text-washio-navy">{t.moto}</button>
       </div>
     </div>
   )
