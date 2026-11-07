@@ -95,6 +95,8 @@ export async function POST(req: NextRequest) {
     // Μάρκα/μοντέλο → κατηγορία τιμής (ΙΧ/SUV) αποφασίζεται ΕΔΩ (lib/car-models) — όχι από τον client.
     const carModel = String(rawModel || '').replace(/[<>]/g, '').trim().slice(0, 60)
     const isTaxi = rawTaxi === true
+    // Όχημα για το πλυντήριο: «Nissan Qashqai · ΚΒΖ-1234 · 🚕 ΤΑΞΙ»
+    const vehicleLine = [carModel, String(rawPlate || '').toUpperCase().replace(/[^A-ZΑ-Ω0-9 \-]/g, '').slice(0, 12), isTaxi ? '🚕 ΤΑΞΙ' : ''].filter(Boolean).join(' · ')
     const modelSize = sizeOfModel(carModel)
     const vehicleType = modelSize || rawVehicleType
     // Πινακίδα: μόνο γράμματα/αριθμοί/κενό/παύλα, έως 12 χαρακτήρες (μπαίνει σε email/push).
@@ -297,7 +299,7 @@ export async function POST(req: NextRequest) {
         const dPush = new Date(slotDate)
         await sendPush(ownerId, {
           title: '💵 Νέα κράτηση — ΜΕΤΡΗΤΑ',
-          body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις €${payable.toFixed(2)} στο κατάστημα`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${carPlate ? ' • ' + carPlate : ''}`,
+          body: `${isRange ? `Εκτίμηση επιτόπου (€${rangeText})` : `Εισπράττεις €${payable.toFixed(2)} στο κατάστημα`} • ${service.name || 'Πλύσιμο'} • ${dPush.getDate()} ${MONTHS_SHORT[dPush.getMonth()]} ${(slotStartTime as string)?.slice(0, 5) || ''}${vehicleLine ? ' • ' + vehicleLine : ''}`,
           url: `/dashboard?booking=${inserted.id}`,
         })
       }
@@ -311,7 +313,7 @@ export async function POST(req: NextRequest) {
       serviceName: service.name,
       slotDate,
       slotStartTime: slotStartTime as string,
-      carPlate,
+      carPlate: vehicleLine,
       // Στο πλυντήριο λέμε ΜΟΝΟ το τελικό ποσό που εισπράττει (τιμή − κουπόνι).
       total: payable,
       isCash: true,

@@ -215,6 +215,12 @@ export async function GET(req: Request) {
     new Date(now.getTime() + 20 * 60 * 1000),
   )
 
+  // Ταξί (στήλη bookings.is_taxi — supabase/vehicle_models.sql). Ξεχωριστό query: αν λείπει η στήλη, απλώς χωρίς.
+  const taxiIds = new Set<string>()
+  if (opReminders.length) {
+    const { data: tx, error: txErr } = await supabase.from('bookings').select('id').in('id', opReminders.map((b: { id: string }) => b.id)).eq('is_taxi', true)
+    if (!txErr) for (const r of tx || []) taxiIds.add(r.id)
+  }
   await inChunks(opReminders, 5, async (booking) => {
     if (!(await claim(booking.id, 'operator_reminder_sent'))) return
     const location = booking.locations as { name?: string; owner_id?: string } | null
@@ -234,7 +240,7 @@ export async function GET(req: Request) {
       const money = paid
         ? `💳 Πληρωμένο online ${eur(due)} — μην ζητήσεις χρήματα`
         : `💶 Πληρώνει εκεί ${eur(due)}${coupon > 0 ? ` (κουπόνι −${eur(coupon)})` : ''}`
-      const car = [booking.car_plate, booking.car_model].filter(Boolean).join(' · ')
+      const car = ['🚗', booking.car_model, booking.car_plate, taxiIds.has(booking.id) ? '🚕 ΤΑΞΙ' : ''].filter(Boolean).join(' ').replace(/^🚗$/, '')
       const lines = [
         [name || 'Πελάτης', prof?.phone].filter(Boolean).join(' · '),
         [service?.name || 'Πλύσιμο', addonNames.length ? '+ ' + addonNames.join(', ') : ''].filter(Boolean).join(' '),

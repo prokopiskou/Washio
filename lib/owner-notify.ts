@@ -88,7 +88,7 @@ function ownerEmailHtml(data: {
             ${addonRows}
             <tr><td style="color:#999;padding:6px 0;border-bottom:1px solid #EFEFEF;">Ημερομηνία</td><td style="color:#0A0A0A;font-weight:500;text-align:right;padding:6px 0;border-bottom:1px solid #EFEFEF;">${data.date}</td></tr>
             <tr><td style="color:#999;padding:6px 0;border-bottom:1px solid #EFEFEF;">Ώρα</td><td style="color:#0A0A0A;font-weight:500;text-align:right;padding:6px 0;border-bottom:1px solid #EFEFEF;">${data.time}</td></tr>
-            <tr><td style="color:#999;padding:6px 0;">Πινακίδα</td><td style="color:#0A0A0A;font-weight:500;text-align:right;padding:6px 0;">${data.plate || '—'}</td></tr>
+            <tr><td style="color:#999;padding:6px 0;">Όχημα</td><td style="color:#0A0A0A;font-weight:500;text-align:right;padding:6px 0;">${data.plate || '—'}</td></tr>
           </table>
         </div>
         ${payBox}

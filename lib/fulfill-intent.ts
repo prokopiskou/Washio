@@ -245,13 +245,15 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
       .eq('id', m.locationId)
       .single()
 
+    // Όχημα για το πλυντήριο: «Nissan Qashqai · ΚΒΖ-1234 · 🚕 ΤΑΞΙ»
+    const vehicleLine = [m.carModel, m.carPlate, m.taxi === '1' ? '🚕 ΤΑΞΙ' : ''].filter(Boolean).join(' · ')
     // Push στον πρατηριούχο: νέα κράτηση (κάρτα).
     // ΜΟΝΟ αν είναι για σήμερα ΚΑΙ το πλυντήριο είναι ανοιχτό τώρα.
     // (Μελλοντικές/εκτός ωραρίου → τις βλέπει στο πρόγραμμα, καμία push.)
     if (await shouldNotifyOwnerNow(supabase, m.locationId, m.slotDate)) {
       await sendPush((locationData as { owner_id?: string })?.owner_id, {
         title: '💳 Νέα κράτηση — ΠΛΗΡΩΜΕΝΗ με κάρτα',
-        body: `Μη ζητήσεις χρήματα, €${Math.max(0, parseFloat(m.amount) - (parseFloat(m.appliedCredit || '0') || 0)).toFixed(2)} εξοφλημένα online • ${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${m.carPlate ? ' • ' + m.carPlate : ''}`,
+        body: `Μη ζητήσεις χρήματα, €${Math.max(0, parseFloat(m.amount) - (parseFloat(m.appliedCredit || '0') || 0)).toFixed(2)} εξοφλημένα online • ${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${vehicleLine ? ' • ' + vehicleLine : ''}`,
         url: `/dashboard?booking=${inserted.id}`,
       })
     }
@@ -267,7 +269,7 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
       serviceName: m.serviceName,
       slotDate: m.slotDate,
       slotStartTime: m.slotStartTime,
-      carPlate: m.carPlate,
+      carPlate: vehicleLine,
       total: parseFloat(m.amount),
       isCash: false,
       addons: (() => { try { return (JSON.parse(m.addons || '[]') as { n: string; p: number }[]).map(x => ({ name: x.n, price: Number(x.p) || 0 })) } catch { return [] } })(),

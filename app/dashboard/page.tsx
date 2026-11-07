@@ -526,7 +526,7 @@ export default function DashboardPage() {
       const loadBookings = async () => {
         const r = await bkQuery(BK_COLS + ', checked_in_at, car_plate, car_model, is_taxi')
         if (!r.error) return r
-        const r2 = await bkQuery(BK_COLS + ', checked_in_at, car_plate')
+        const r2 = await bkQuery(BK_COLS + ', checked_in_at, car_plate, car_model')
         return r2.error ? await bkQuery(BK_COLS) : r2
       }
 
