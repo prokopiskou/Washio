@@ -24,7 +24,7 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
-import { VehicleChip, VehiclePickerSheet } from '@/components/VehiclePicker'
+import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
 import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
 
@@ -347,7 +347,7 @@ function MapPageContent() {
   // Όχημα: «Ποιο αμάξι έχεις;» (μάρκα/μοντέλο → ΙΧ/SUV). Χωρίς επιλογή → καμία τιμή στο sheet.
   const [carChoice, setCarChoice] = useCarChoice()
   const vehicleType = vehicleTypeOf(carChoice)
-  const [showCarPicker, setShowCarPicker] = useState(false)
+  const carPickerRef = useRef<VehicleSelectorHandle>(null)
   const pendingSvcRef = useRef<string | null>(null)
   const onCarPicked = (c: CarChoice) => {
     setCarChoice(c)
@@ -1590,7 +1590,7 @@ function MapPageContent() {
               {/* Γραμμή 2: τύπος οχήματος · φωτογραφία (ίδια γραμμή, ίδιο ύψος) */}
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div className="flex gap-2 shrink-0 min-w-0">
-                  <VehicleChip choice={carChoice} onClick={() => setShowCarPicker(true)} locale={locale === 'en' ? 'en' : 'el'} />
+                  <VehicleSelector ref={carPickerRef} choice={carChoice} onPick={onCarPicked} onClose={() => { pendingSvcRef.current = null }} locale={locale === 'en' ? 'en' : 'el'} />
                 </div>
                 {/* Διακριτική φωτογραφία — tap → σελίδα πλυντηρίου (όλες οι φωτό). */}
                 {selectedLocation.photos && selectedLocation.photos.length > 0 && (
@@ -1679,7 +1679,7 @@ function MapPageContent() {
                   const disc = discFor(s)
                   const isSelected = selectedService === s.id
                   return (
-                    <button key={s.id} onClick={() => { if (!carChoice) { pendingSvcRef.current = s.id; setShowCarPicker(true); return } userPickedSlotRef.current = false; setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
+                    <button key={s.id} onClick={() => { if (!carChoice) { pendingSvcRef.current = s.id; carPickerRef.current?.open(); return } userPickedSlotRef.current = false; setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
                       className={`flex-1 py-2.5 rounded-[14px] border text-center transition-all ${
                         isSelected ? 'border-washio-navy' : 'bg-white border-washio-border'
                       }`}
@@ -1800,8 +1800,6 @@ function MapPageContent() {
       </div>
 
       {/* «Ειδοποίησέ με» capture — κενό κάλυψης */}
-      <VehiclePickerSheet open={showCarPicker} onClose={() => { setShowCarPicker(false); pendingSvcRef.current = null }}
-        onPick={onCarPicked} locale={locale === 'en' ? 'en' : 'el'} />
 
       {showWaitlist && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">

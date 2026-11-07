@@ -18,7 +18,7 @@ import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
 import { applyPromo } from '@/lib/promotions'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
 import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
-import { VehicleChip, VehiclePickerSheet } from '@/components/VehiclePicker'
+import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
 
 const T = {
   el: {
@@ -156,7 +156,7 @@ export default function LocationPage() {
   const vehicleType = vehicleTypeOf(carChoice)
   // Μία μόνο υπηρεσία για το όχημα (π.χ. μηχανή) → επιλεγμένη αυτόματα, κατευθείαν μέρα/ώρα.
   const selectedServiceId = pickedServiceId ?? (carChoice ? soleServiceId(services, vehicleType, isMotoService) : null)
-  const [showCarPicker, setShowCarPicker] = useState(false)
+  const carPickerRef = useRef<VehicleSelectorHandle>(null)
   const pendingSvcRef = useRef<string | null>(null)
   const onCarPicked = (c: CarChoice) => {
     setCarChoice(c)
@@ -546,10 +546,8 @@ export default function LocationPage() {
             {t.vehicle}
           </p>
           <div className="flex gap-2">
-            <VehicleChip choice={carChoice} onClick={() => setShowCarPicker(true)} locale={locale === 'en' ? 'en' : 'el'} />
+            <VehicleSelector ref={carPickerRef} choice={carChoice} onPick={onCarPicked} onClose={() => { pendingSvcRef.current = null }} locale={locale === 'en' ? 'en' : 'el'} />
           </div>
-          <VehiclePickerSheet open={showCarPicker} onClose={() => { setShowCarPicker(false); pendingSvcRef.current = null }}
-            onPick={onCarPicked} locale={locale === 'en' ? 'en' : 'el'} />
 
           {/* Services */}
           <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-6 mb-2.5">
@@ -568,7 +566,7 @@ export default function LocationPage() {
               return (
                 <button
                   key={s.id}
-                  onClick={() => { if (!carChoice) { pendingSvcRef.current = s.id; setShowCarPicker(true); return } setSelectedServiceId(s.id); lightTap(); funnel('service_select', { locationId: location?.id, meta: { src: 'page', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
+                  onClick={() => { if (!carChoice) { pendingSvcRef.current = s.id; carPickerRef.current?.open(); return } setSelectedServiceId(s.id); lightTap(); funnel('service_select', { locationId: location?.id, meta: { src: 'page', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
                   className={`flex items-center gap-3.5 p-3.5 min-h-[72px] rounded-[20px] border transition-all text-left ${
                     selected
                       ? 'border-washio-navy text-white'

@@ -1,6 +1,7 @@
 'use client'
-// Chip «🚗 Ποιο αμάξι έχεις;» + sheet επιλογής μοντέλου (αντικαθιστά το ΙΧ / SUV / Μοτοσικλέτα).
-import { useEffect, useRef, useState } from 'react'
+// «Τι όχημα έχεις;» — chip + παράθυρο αναζήτησης μοντέλου (αντικαθιστά το ΙΧ / SUV / Μοτοσικλέτα).
+import { forwardRef, useImperativeHandle, useRef, useState, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { searchCarModels } from '@/lib/car-models'
 import { choiceFromModel, type CarChoice } from '@/lib/car-choice'
@@ -38,54 +39,75 @@ export function VehicleChip({ choice, onClick, locale = 'el' }: { choice: CarCho
   )
 }
 
-export function VehiclePickerSheet({ open, onClose, onPick, locale = 'el' }: {
-  open: boolean; onClose: () => void; onPick: (c: CarChoice) => void; locale?: 'el' | 'en'
-}) {
+export type VehicleSelectorHandle = { open: () => void }
+
+/**
+ * Chip + παράθυρο «Τι όχημα έχεις;». Το παράθυρο είναι ΗΔΗ στη σελίδα (κρυφό) → στο πάτημα
+ * εμφανίζεται αμέσως (χωρίς re-render του χάρτη) και το πληκτρολόγιο ανοίγει μαζί του.
+ * Πάνω στην οθόνη (όχι κάτω) → το πληκτρολόγιο δεν το σπρώχνει/κρύβει.
+ */
+export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
+  choice: CarChoice | null; onPick: (c: CarChoice) => void; onClose?: () => void; locale?: 'el' | 'en'
+}>(function VehicleSelector({ choice, onPick, onClose, locale = 'el' }, ref) {
   const t = T[locale]
+  const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
+  const wrapRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   useBodyScrollLock(open)
-  // Πρώτα εμφανίζεται το παράθυρο, ΜΕΤΑ ανοίγει το πληκτρολόγιο (όχι autoFocus).
-  useEffect(() => {
-    if (!open) return
-    let r2 = 0
-    const r1 = requestAnimationFrame(() => { r2 = requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true })) })
-    return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2) }
-  }, [open])
-  if (!open) return null
-  const results = searchCarModels(q, 40)
-  const pick = (c: CarChoice) => { onPick(c); setQ(''); onClose() }
+  // Portal στο body: το chip ζει μέσα σε sheet με transform → αλλιώς το «fixed» δεν καλύπτει την οθόνη.
+  const isClient = useSyncExternalStore(() => () => {}, () => true, () => false)
+
+  const show = () => {
+    // Συγχρονισμένα μέσα στο πάτημα: εμφάνιση + focus (iOS ανοίγει πληκτρολόγιο μόνο έτσι).
+    if (wrapRef.current) wrapRef.current.style.display = 'flex'
+    inputRef.current?.focus({ preventScroll: true })
+    setOpen(true)
+  }
+  const hide = () => {
+    if (wrapRef.current) wrapRef.current.style.display = 'none'
+    inputRef.current?.blur()
+    setOpen(false); setQ('')
+  }
+  const close = () => { hide(); onClose?.() }
+  useImperativeHandle(ref, () => ({ open: show }))
+
+  const results = open ? searchCarModels(q, 40) : []
+  const pick = (c: CarChoice) => { onPick(c); hide() }
   const typed = q.trim()
   // Μοντέλο που δεν έχουμε στη λίστα → κρατάμε ό,τι έγραψε (τιμή ΙΧ) και το καταγράφουμε για να το προσθέσουμε.
   const useTyped = () => { funnel('car_model_unknown', { meta: { model: typed.slice(0, 60) } }); pick({ kind: 'car', label: typed.slice(0, 60), size: 'ΙΧ', known: false }) }
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40" onClick={onClose}>
-      <div className="w-full max-w-md bg-white rounded-t-[24px] p-5 pb-[calc(var(--safe-bottom,0px)+20px)]" onClick={e => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <p className="text-[18px] font-bold tracking-tight text-washio-navy">{t.title}</p>
-            <p className="text-[13px] text-gray-500 mt-0.5">{t.sub}</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"><X size={16} /></button>
-        </div>
 
-        <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder={t.ph}
-          className="w-full h-[52px] px-4 rounded-[14px] border border-washio-border text-[16px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan" />
-        <div className="mt-2 min-h-[44px] max-h-[44vh] overflow-y-auto">
-          {results.map(c => (
-            <button key={c.label} type="button" onClick={() => { const ch = choiceFromModel(c.label); if (ch) pick(ch) }}
-              className="w-full text-left px-3 py-3 rounded-xl text-[15px] text-washio-navy active:bg-gray-50 border-b border-gray-100 last:border-0">
-              {c.label}
-            </button>
-          ))}
-          {typed.length >= 3 && results.length === 0 && (
-            <button type="button" onClick={useTyped}
-              className="w-full text-left px-3 py-3 rounded-xl text-[15px] text-washio-navy active:bg-gray-50">
-              «{typed}» <span className="text-[12px] text-gray-400">· {t.useTyped}</span>
-            </button>
-          )}
+  return (
+    <>
+      <VehicleChip choice={choice} onClick={show} locale={locale} />
+      {isClient && createPortal(<div ref={wrapRef} style={{ display: 'none' }} className="fixed inset-0 z-[80] items-start justify-center bg-black/40" onClick={close}>
+        <div className="w-full max-w-md bg-white rounded-b-[24px] px-5 pb-5 pt-[calc(var(--safe-top,0px)+16px)]" onClick={e => e.stopPropagation()}>
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <p className="text-[18px] font-bold tracking-tight text-washio-navy">{t.title}</p>
+              <p className="text-[13px] text-gray-500 mt-0.5">{t.sub}</p>
+            </div>
+            <button type="button" onClick={close} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"><X size={16} /></button>
+          </div>
+          <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder={t.ph} enterKeyHint="search" autoComplete="off"
+            className="w-full h-[52px] px-4 rounded-[14px] border border-washio-border text-[16px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan" />
+          <div className="mt-2 max-h-[40vh] overflow-y-auto">
+            {results.map(c => (
+              <button key={c.label} type="button" onClick={() => { const ch = choiceFromModel(c.label); if (ch) pick(ch) }}
+                className="w-full text-left px-3 py-3 rounded-xl text-[15px] text-washio-navy active:bg-gray-50 border-b border-gray-100 last:border-0">
+                {c.label}
+              </button>
+            ))}
+            {typed.length >= 3 && results.length === 0 && (
+              <button type="button" onClick={useTyped}
+                className="w-full text-left px-3 py-3 rounded-xl text-[15px] text-washio-navy active:bg-gray-50">
+                «{typed}» <span className="text-[12px] text-gray-400">· {t.useTyped}</span>
+              </button>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+      </div>, document.body)}
+    </>
   )
-}
+})
