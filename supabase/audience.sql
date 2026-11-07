@@ -65,7 +65,7 @@ select us.user_id, us.email, us.signed_up_at, us.internal,
        b.last_wash_date, b.first_booking_at,
        (pw.user_id is not null) push_web, (pn.user_id is not null) push_native,
        (pw.user_id is not null or pn.user_id is not null) can_push,
-       (us.email is not null and us.email not like '%privaterelay%' and not us.email_opt_out) can_email,
+       (us.email is not null and not us.email_opt_out) can_email,  -- Apple relay: washio.gr + send.washio.gr + noreply@ δηλωμένα στην Apple (SPF ✓)
        us.email_opt_out
 from users us
 left join home h on h.user_id = us.user_id
