@@ -1,6 +1,11 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+  // Γραμματοσειρές (ελληνικά) για τα PDF συμβολαίων — να μπαίνουν στις serverless functions.
+  outputFileTracingIncludes: {
+    '/api/contract/**': ['./lib/fonts/**'],
+    '/api/admin/applications': ['./lib/fonts/**'],
+  },
   // Client router cache: επιστροφή σε οθόνη που είδες πρόσφατα = άμεση
   // (χωρίς νέο fetch του route payload από το Vercel).
   experimental: {

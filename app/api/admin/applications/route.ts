@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
 import { activateOnboarding } from '@/lib/onboarding-activate'
+import { createAndSendContract, sendContractLink } from '@/lib/contracts'
+import type { ContractFields } from '@/lib/contract-text'
 
 // Admin → Αιτήσεις: στάδια διαδικασίας για αιτήσεις πλυντηρίων (apply / Meta leads).
 //  POST { id, action, ... }
@@ -37,7 +39,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
   const b = await req.json().catch(() => ({})) as {
     id?: string; action?: string; at?: string; afm?: string; doy?: string; address?: string; iban?: string; ibanHolder?: string; text?: string; answered?: boolean
-    businessName?: string; contactName?: string; phone?: string; email?: string; city?: string
+    businessName?: string; contactName?: string; phone?: string; email?: string; city?: string; promoMonths?: number
   }
   const { data: app } = await admin.from('applications').select('*').eq('id', b.id || '').maybeSingle()
   if (!app) return NextResponse.json({ error: 'Η αίτηση δεν βρέθηκε' }, { status: 404 })
@@ -67,6 +69,37 @@ export async function POST(req: NextRequest) {
       return set({ stage: 'lost', status: 'rejected' })
     case 'reopen':
       return set({ stage: 'new', status: 'pending' })
+    // Υποβολή → ηλεκτρονικό συμφωνητικό (υπογεγραμμένο από Washio) στο email του συνεργάτη.
+    case 'send_contract': {
+      const afm = String(b.afm || '').replace(/\D/g, '')
+      const fields: Omit<ContractFields, 'date'> = {
+        afm, doy: String(b.doy || '').trim(), businessName: String(b.businessName || '').trim(),
+        address: String(b.address || '').trim(), contactName: String(b.contactName || '').trim(),
+        promoMonths: Math.max(0, Math.min(12, Math.round(Number(b.promoMonths) || 0))),
+      }
+      const email = String(b.email || app.email || '').trim().toLowerCase()
+      const phone = String(b.phone || app.phone || '').trim()
+      const iban = String(b.iban || '').replace(/\s/g, '').toUpperCase()
+      if (afm.length !== 9) return NextResponse.json({ error: 'Το ΑΦΜ πρέπει να έχει 9 ψηφία' }, { status: 400 })
+      if (!fields.doy) return NextResponse.json({ error: 'Συμπλήρωσε ΔΟΥ' }, { status: 400 })
+      if (!fields.businessName) return NextResponse.json({ error: 'Συμπλήρωσε επωνυμία' }, { status: 400 })
+      if (!fields.address) return NextResponse.json({ error: 'Συμπλήρωσε διεύθυνση έδρας' }, { status: 400 })
+      if (fields.contactName.length < 3) return NextResponse.json({ error: 'Συμπλήρωσε υπεύθυνο' }, { status: 400 })
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'Λάθος email' }, { status: 400 })
+      if (iban && !/^GR\d{25}$/.test(iban)) return NextResponse.json({ error: 'Λάθος IBAN (GR + 25 ψηφία)' }, { status: 400 })
+      if (app.location_id) return NextResponse.json({ error: 'Έχει ήδη γίνει onboarding' }, { status: 409 })
+      const r = await createAndSendContract(admin, { applicationId: app.id, fields, email, phone, iban, sentBy: user.email || '' })
+      if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 })
+      return set({ stage: 'done', contract_id: r.id, contract_status: 'sent', afm, doy: fields.doy, address: fields.address,
+        business_name: fields.businessName, owner_name: fields.contactName, email, phone })
+    }
+    case 'resend_contract': {
+      if (!app.contract_id) return NextResponse.json({ error: 'Δεν υπάρχει συμβόλαιο' }, { status: 400 })
+      const { data: c } = await admin.from('partner_contracts').select('token, email, fields, status').eq('id', app.contract_id).maybeSingle()
+      if (!c || c.status !== 'sent') return NextResponse.json({ error: 'Το συμβόλαιο δεν περιμένει υπογραφή' }, { status: 400 })
+      const r = await sendContractLink({ token: c.token, email: c.email, fields: c.fields })
+      return r.ok ? NextResponse.json({ ok: true }) : NextResponse.json({ error: r.error }, { status: 500 })
+    }
     case 'delete': {
       const { error } = await admin.from('applications').delete().eq('id', app.id)
       return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })

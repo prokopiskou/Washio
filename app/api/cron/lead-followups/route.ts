@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { sendPush } from '@/lib/push'
 import { ADMIN_EMAILS } from '@/lib/admins'
+import { expireCommissionPromos } from '@/lib/contracts'
 
 // Υπενθύμιση follow-up αιτήσεων πλυντηρίων: email (+ push) ~15' πριν, σε όποιον όρισε το follow-up.
 // Τρέχει από το /api/cron/emails (κάθε 15') → παράθυρο 0–20' → φτάνει ~5–20' πριν. Μία φορά (followup_notified_at).
@@ -58,5 +59,7 @@ export async function GET(req: Request) {
       await Promise.all(ids.map(uid => sendPush(uid, { title, body: `${a.owner_name || ''} ${a.phone || ''}`.trim(), url: '/admin?tab=applications' })))
     } catch { /* best-effort */ }
   }
-  return NextResponse.json({ ok: true, sent })
+  // Προνομιακή προμήθεια 5% (από το συμβόλαιο) → 10% μόλις λήξει.
+  const promosExpired = await expireCommissionPromos(db).catch(() => 0)
+  return NextResponse.json({ ok: true, sent, promosExpired })
 }
