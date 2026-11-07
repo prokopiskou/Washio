@@ -200,6 +200,15 @@ function triggerNewBookingAlert(locationName: string) {
   showBrowserNotification(locationName)
 }
 
+// Κλειδί ταξινόμησης κράτησης: ημερομηνία + ώρα πλυσίματος (YYYY-MM-DD HH:MM).
+const slotKey = (b: { slot_date?: string | null; slot_start_time?: string | null }) =>
+  `${String(b.slot_date || '').slice(0, 10)} ${String(b.slot_start_time || '').slice(0, 5)}`
+const nowSlotKey = () => {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(new Date()).map(x => [x.type, x.value]))
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   // Γλώσσα dashboard (Ρυθμίσεις → Γλώσσα). Ελληνικά = αυτούσια, English = λεξικό DASH_EN.
@@ -248,7 +257,6 @@ export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   // Κρατήσεις: «Σήμερα» (default) ή «Όλες» (με φίλτρο κατάστασης + ταξινόμηση).
   const [bookingsView, setBookingsView] = useState<'today' | 'all'>('today')
-  const [sortBy, setSortBy] = useState<'created_at' | 'slot_date'>('created_at')
   // Μόλις φορτωθούν οι κρατήσεις: άνοιξε την καρτέλα, φέρε την κράτηση στην οθόνη και τόνισέ την για λίγο.
   // Απαλό μπλε πλαίσιο στην κράτηση για 10'' (ή μέχρι να αλλάξει καρτέλα).
   const focusDoneRef = useRef<string | null>(null)
@@ -256,7 +264,7 @@ export default function DashboardPage() {
     if (!focusBookingId || focusDoneRef.current === focusBookingId || !bookings.some(b => b.id === focusBookingId)) return
     focusDoneRef.current = focusBookingId
     const fb = bookings.find(b => b.id === focusBookingId)
-    setActiveTab('bookings'); setFilterStatus('all'); setSortBy('slot_date')
+    setActiveTab('bookings'); setFilterStatus('all')
     setBookingsView(fb?.slot_date === ymdFromLocalDate(new Date()) ? 'today' : 'all')
     const t1 = setTimeout(() => document.getElementById(`bk-${focusBookingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350)
     return () => clearTimeout(t1)
@@ -961,6 +969,21 @@ export default function DashboardPage() {
     }
     return st
   }
+  // «Όλες»: άνοιξε στην επόμενη κράτηση (από τώρα) (πάνω οι προηγούμενες, κάτω οι επόμενες).
+  useEffect(() => {
+    if (activeTab !== 'bookings' || bookingsView !== 'all' || focusBookingId) return
+    const now = nowSlotKey()
+    const list = bookings.filter(b => filterStatus === 'all' || effStatus(b) === filterStatus).sort((a, b) => slotKey(a).localeCompare(slotKey(b)))
+    const target = list.find(b => slotKey(b) >= now) || list[list.length - 1]
+    if (!target) return
+    const t1 = setTimeout(() => {
+      const el = document.getElementById(`bk-${target.id}`)
+      if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 120, behavior: 'auto' })
+    }, 60)
+    return () => clearTimeout(t1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- μόνο όταν ανοίγει η «Όλες» ή αλλάζει το φίλτρο
+  }, [activeTab, bookingsView, filterStatus])
+
 
   const openManualForm = () => {
     setEditingManual(null)
@@ -1387,15 +1410,11 @@ export default function DashboardPage() {
             const filtered = bookingsView === 'today'
               // Σήμερα: όλες οι κρατήσεις της ημέρας, από την πρώτη ώρα μέχρι την τελευταία.
               ? [...todayBookings].sort((a, b) => String(a.slot_start_time || '').localeCompare(String(b.slot_start_time || '')))
+              // Όλες: χρονολογικά με την ώρα πλυσίματος — πάνω οι προηγούμενες, κάτω οι επόμενες.
+              // Ανοίγει στη σημερινή/επόμενη: thumb up → επόμενες, thumb down → προηγούμενες.
               : [...bookings]
               .filter(b => filterStatus === 'all' || effStatus(b) === filterStatus)
-              .sort((a, b) => {
-                if (sortBy === 'created_at') {
-                  return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
-                }
-                return new Date(b.slot_date || '').getTime() - new Date(a.slot_date || '').getTime()
-              })
-
+              .sort((a, b) => slotKey(a).localeCompare(slotKey(b)))
             const statusCounts = {
               all: bookings.length,
               confirmed: bookings.filter(b => effStatus(b) === 'confirmed').length,
@@ -1458,20 +1477,6 @@ export default function DashboardPage() {
                         <option key={opt.value} value={opt.value}>{opt.label} ({(statusCounts as Record<string, number>)[opt.value] ?? 0})</option>
                       ))}
                     </select>
-                    <div className="flex gap-1 bg-white border border-gray-200 p-0.5 rounded-lg">
-                      <button
-                        onClick={() => { setSortBy('slot_date'); lightTap() }}
-                        className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${sortBy === 'slot_date' ? 'bg-gray-900 text-white' : 'text-gray-500'}`}
-                      >
-                        {t('Πλύσιμο')}
-                      </button>
-                      <button
-                        onClick={() => { setSortBy('created_at'); lightTap() }}
-                        className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${sortBy === 'created_at' ? 'bg-gray-900 text-white' : 'text-gray-500'}`}
-                      >
-                        {t('Κλείσιμο')}
-                      </button>
-                    </div>
                   </div>
                 )}
 
