@@ -11,6 +11,7 @@ import { computeRedeemable, isCreditEligible } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
 import { loyaltyDiscountFor } from '@/lib/loyalty'
 import { adConsentFrom } from '@/lib/consent-server'
+import { sizeOfModel } from '@/lib/car-models'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -24,8 +25,13 @@ export async function POST(req: NextRequest) {
   try {
     const {
       serviceId, locationId, slotId, slotDate,
-      slotStartTime, carPlate: rawPlate, vehicleType, addonIds,
+      slotStartTime, carPlate: rawPlate, vehicleType: rawVehicleType, addonIds, carModel: rawModel, isTaxi: rawTaxi,
     } = await req.json()
+    // Μάρκα/μοντέλο → κατηγορία τιμής (ΙΧ/SUV) αποφασίζεται ΕΔΩ (lib/car-models) — όχι από τον client.
+    const carModel = String(rawModel || '').replace(/[<>]/g, '').trim().slice(0, 60)
+    const isTaxi = rawTaxi === true
+    const modelSize = sizeOfModel(carModel)
+    const vehicleType = rawVehicleType === 'Μοτοσικλέτα' ? rawVehicleType : (modelSize || rawVehicleType)
     // Πινακίδα: μόνο γράμματα/αριθμοί/κενό/παύλα, έως 12 χαρακτήρες (μπαίνει σε email/push).
     const carPlate = String(rawPlate || '').toUpperCase().replace(/[^A-ZΑ-Ω0-9 \-]/g, '').slice(0, 12)
 
@@ -193,6 +199,7 @@ export async function POST(req: NextRequest) {
         slotDate: slotDate || '',
         slotStartTime: slotStartTime || '',
         carPlate: carPlate || '',
+        carModel, taxi: isTaxi ? '1' : '',
         userId: user.id,
         userEmail: user.email || '',
         serviceName: service.name || '', // ΜΟΝΟ από τη βάση — όχι από τον client

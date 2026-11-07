@@ -47,6 +47,9 @@ type Booking = {
   customer_phone?: string | null
   duration_minutes?: number | null
   checked_in_at?: string | null
+  car_plate?: string | null
+  car_model?: string | null
+  is_taxi?: boolean | null
   profiles?: { full_name?: string; phone?: string; email?: string } | null
   services?: ({ name?: string } & NonNullable<RangeSvc>) | null
 }
@@ -521,8 +524,10 @@ export default function DashboardPage() {
         .range(0, 4999)
       // checked_in_at (QR check-in) — αν δεν έχει τρέξει ακόμα το supabase/checkin.sql, χωρίς αυτό.
       const loadBookings = async () => {
-        const r = await bkQuery(BK_COLS + ', checked_in_at')
-        return r.error ? await bkQuery(BK_COLS) : r
+        const r = await bkQuery(BK_COLS + ', checked_in_at, car_plate, car_model, is_taxi')
+        if (!r.error) return r
+        const r2 = await bkQuery(BK_COLS + ', checked_in_at, car_plate')
+        return r2.error ? await bkQuery(BK_COLS) : r2
       }
 
       const [bookingsRes, addonsRes, servicesRes, locationAddonsRes, hoursRes, staffRes, reviewsRes] = await Promise.all([
@@ -1562,6 +1567,15 @@ export default function DashboardPage() {
                               </div>
                             )
                           })()}
+                          {/* Όχημα: μοντέλο · πινακίδα · ταξί */}
+                          {(b.car_model || b.car_plate || b.is_taxi) && (
+                            <p className="mt-1 text-[12px] text-gray-700 flex flex-wrap items-center gap-x-1.5">
+                              <span>🚗</span>
+                              {b.car_model && <span className="font-semibold">{b.car_model}</span>}
+                              {b.car_plate && <span className="text-gray-500" style={{ fontFamily: 'ui-monospace, monospace' }}>{b.car_plate}</span>}
+                              {b.is_taxi && <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">🚕 {t('ΤΑΞΙ')}</span>}
+                            </p>
+                          )}
                           {/* Τι πλήρωσε ο πελάτης: υπηρεσία + πρόσθετα με την τιμή του καθενός */}
                           {b.source !== 'manual' && (b.services?.name || (b.addons && b.addons.length > 0)) && (
                             <div className="mt-2 rounded-lg bg-gray-50 px-2.5 py-2 space-y-0.5">

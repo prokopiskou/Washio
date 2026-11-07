@@ -21,6 +21,7 @@ import { SERVICE_FEE_EUR } from '@/lib/pricing'
 import { computeRedeemable, isCreditEligible, WELCOME_DISCOUNT } from '@/lib/referral'
 import { phoneOk } from '@/lib/phone'
 import { ensureDeviceId } from '@/lib/device'
+import { searchCarModels, sizeOfModel, type CarModel } from '@/lib/car-models'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -60,6 +61,8 @@ const T = {
     serviceForA: 'Η υπηρεσία είναι για', vehicleWillBeSavedAs: '. Το όχημα που θα προσθέσεις θα καταχωρηθεί ως',
     plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
     backToMyVehicles: '← Επιστροφή στα οχήματά μου',
+    carModel: 'Μάρκα & μοντέλο', carModelPh: 'π.χ. Toyota Yaris, Nissan Qashqai', taxi: 'Ταξί',
+    isSuvNote: 'είναι SUV/MPV — εφαρμόζεται τιμή SUV.', isCarNote: 'είναι κανονικό αυτοκίνητο — εφαρμόζεται τιμή ΙΧ.',
     phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonProducts: 'Προϊόντα & εξαρτήματα', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
     clubReward: '💧 3 σταγόνες · δώρο',
     clubNote: 'Μάζεψες 3 σταγόνες σε αυτό το πλυντήριο. Το κουπόνι σου μένει για την επόμενη.',
@@ -105,6 +108,8 @@ const T = {
     serviceForA: 'This service is for', vehicleWillBeSavedAs: '. The vehicle you add will be saved as',
     plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
     backToMyVehicles: '← Back to my vehicles',
+    carModel: 'Make & model', carModelPh: 'e.g. Toyota Yaris, Nissan Qashqai', taxi: 'Taxi',
+    isSuvNote: 'is an SUV/MPV — SUV price applies.', isCarNote: 'is a regular car — standard price applies.',
     phone: 'Phone', addons: 'Add-on services', addonProducts: 'Products & accessories', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
     clubReward: '💧 3 drops · gift',
     clubNote: 'You collected 3 drops at this car wash. Your coupon stays for next time.',
@@ -143,6 +148,8 @@ type Vehicle = {
   id: string
   plate: string
   type: string
+  car_model?: string | null
+  is_taxi?: boolean | null
 }
 
 type Service = {
@@ -485,7 +492,14 @@ function BookingPageContent() {
   }, [locationId])
   const dateStr = params.get('date') || athensToday()
   const slotTime = decodeURIComponent(params.get('slot') || '09:00')
-  const vehicleType = decodeURIComponent(params.get('vehicleType') || 'ΙΧ')
+  const urlVehicleType = decodeURIComponent(params.get('vehicleType') || 'ΙΧ')
+  // Κατηγορία τιμής: ξεκινά από την επιλογή του χάρτη, αλλά την ορίζει το μοντέλο (lib/car-models) όταν είναι γνωστό.
+  const [vehicleType, setVehicleType] = useState(urlVehicleType)
+  const [carModel, setCarModel] = useState('')
+  const [isTaxi, setIsTaxi] = useState(false)
+  const [modelOpen, setModelOpen] = useState(false)
+  const [sizeNote, setSizeNote] = useState<{ model: string; size: string } | null>(null)
+  const promoRef = useRef<Parameters<typeof applyPromo>[1] | null>(null)
 
   const date = new Date(dateStr)
   const formattedDate = `${date.getDate()} ${MONTHS_SHORT[locale][date.getMonth()]}`
@@ -502,7 +516,7 @@ function BookingPageContent() {
   type IntentResult = { clientSecret?: string; customerSessionClientSecret?: string; bookingRef?: string; appliedCredit?: number; error?: string }
 
   const fetchIntent = (serviceArg: Service, plateArg: string, addonsArg: string[]): Promise<IntentResult> => {
-    const key = JSON.stringify([serviceArg.id, locationId, dateStr, slotTime, plateArg, vehicleType, [...addonsArg].sort()])
+    const key = JSON.stringify([serviceArg.id, locationId, dateStr, slotTime, plateArg, vehicleType, carModel, isTaxi, [...addonsArg].sort()])
     if (intentCacheRef.current?.key === key) return intentCacheRef.current.promise
     const promise: Promise<IntentResult> = fetch('/api/payments/create-intent', {
       method: 'POST',
@@ -516,6 +530,8 @@ function BookingPageContent() {
         carPlate: plateArg,
         serviceName: serviceArg.name,
         vehicleType,
+        carModel,
+        isTaxi,
         addonIds: addonsArg,
       }),
     })
@@ -604,7 +620,8 @@ function BookingPageContent() {
           ? supabase.from('location_addons').select('addon_id, price_override, addons(name, price, sort_order)').eq('location_id', locationId)
           : none,
         user ? supabase.from('profiles').select('phone, referral_credit, full_name').eq('id', user.id).single() : none,
-        user ? supabase.from('vehicles').select('id, plate, type').eq('user_id', user.id).order('created_at', { ascending: false }) : none,
+        user ? supabase.from('vehicles').select('id, plate, type, car_model, is_taxi').eq('user_id', user.id).order('created_at', { ascending: false })
+          .then(r => r.error ? supabase.from('vehicles').select('id, plate, type').eq('user_id', user.id).order('created_at', { ascending: false }) : r) : none,
       ])
 
       {
@@ -627,7 +644,7 @@ function BookingPageContent() {
               fetch(`/api/promotions?location=${locationId}`).then(r => r.json()).then(j => {
                 const pr = (j.promotions || []).find((p: { service_id: string; starts_on: string; ends_on: string }) =>
                   p.service_id === serviceData.id && p.starts_on <= dateStr && dateStr <= p.ends_on)
-                if (pr) { setListPrice(Number(price) || 0); setServicePrice(applyPromo(Number(price) || 0, pr)) }
+                if (pr) { promoRef.current = pr; setListPrice(Number(price) || 0); setServicePrice(applyPromo(Number(price) || 0, pr)) }
               }).catch(() => {})
             }
           }
@@ -663,18 +680,17 @@ function BookingPageContent() {
       }
 
       const vList = (vehiclesData as Vehicle[]) || []
-      const filteredVehicles = vList.filter(v => {
-        if (vehicleType === 'Μοτοσικλέτα') return v.type === 'Μοτοσικλέτα'
-        // For ΙΧ booking: only show ΙΧ vehicles (not Motorcycles, not legacy SUV/Truck)
-        return v.type === 'ΙΧ'
-      })
+      // Μηχανή → μόνο μηχανές · αυτοκίνητο (ΙΧ ή SUV) → όλα τα αυτοκίνητα.
+      const filteredVehicles = vList.filter(v => vehicleType === 'Μοτοσικλέτα' ? v.type === 'Μοτοσικλέτα' : v.type !== 'Μοτοσικλέτα')
       setVehicles(filteredVehicles)
 
       if (filteredVehicles.length > 0) {
         const matchingVehicle = filteredVehicles.find(v => v.type === vehicleType) || filteredVehicles[0]
         setSelectedVehicleId(matchingVehicle.id)
         setPlate(matchingVehicle.plate)
-        setVehicleFormType(matchingVehicle.type as 'ΙΧ' | 'Μοτοσικλέτα')
+        setVehicleFormType(matchingVehicle.type)
+        setCarModel(matchingVehicle.car_model || ''); setIsTaxi(!!matchingVehicle.is_taxi)
+        if (serviceData) applyModelSize(matchingVehicle.car_model, serviceData, false)
       } else {
         setSelectedVehicleId('new')
         setVehicleFormType(vehicleType)
@@ -831,11 +847,15 @@ function BookingPageContent() {
     if (selectedVehicleId === 'new' && plate.trim()) {
       const existing = vehicles.find(v => v.plate === plate.trim())
       if (!existing) {
-        await supabase.from('vehicles').insert({
-          user_id: session?.user?.id,
-          plate: plate.trim(),
-          type: vehicleFormType,
-        })
+        const row = { user_id: session?.user?.id, plate: plate.trim(), type: vehicleType === 'Μοτοσικλέτα' ? 'Μοτοσικλέτα' : vehicleType }
+        const { error } = await supabase.from('vehicles').insert({ ...row, car_model: carModel.trim() || null, is_taxi: isTaxi })
+        if (error) await supabase.from('vehicles').insert(row)
+      }
+    } else if (selectedVehicleId && selectedVehicleId !== 'new') {
+      // Αποθηκευμένο όχημα: κράτα μοντέλο/ταξί για την επόμενη φορά
+      const v = vehicles.find(x => x.id === selectedVehicleId)
+      if (v && ((v.car_model || '') !== carModel.trim() || !!v.is_taxi !== isTaxi)) {
+        await supabase.from('vehicles').update({ car_model: carModel.trim() || null, is_taxi: isTaxi, ...(vehicleType !== 'Μοτοσικλέτα' ? { type: vehicleType } : {}) }).eq('id', v.id)
       }
     }
 
@@ -906,6 +926,8 @@ function BookingPageContent() {
           carPlate: plate,
           serviceName: service.name,
           vehicleType,
+          carModel,
+          isTaxi,
           addonIds: selectedAddons,
         }),
       })
@@ -932,14 +954,40 @@ function BookingPageContent() {
   const handleVehicleChange = (value: string) => {
     setSelectedVehicleId(value)
     if (value === 'new') {
-      setPlate('')
+      setPlate(''); setCarModel(''); setIsTaxi(false); setSizeNote(null)
       setVehicleFormType(vehicleType)
     } else {
       const v = vehicles.find(v => v.id === value)
       setPlate(v?.plate || '')
       setVehicleFormType(v?.type || vehicleType)
+      setCarModel(v?.car_model || ''); setIsTaxi(!!v?.is_taxi)
+      applyModelSize(v?.car_model)
     }
   }
+
+  // Μοντέλο → κατηγορία τιμής (ΙΧ / SUV). Άγνωστο μοντέλο ή μηχανή → μένει η επιλογή του χάρτη.
+  function applyModelSize(model: string | null | undefined, svc: Service | null = service, note = true) {
+    if (vehicleType === 'Μοτοσικλέτα' || !svc) return
+    const size = sizeOfModel(model)
+    if (!size) { setSizeNote(null); return }
+    if (note) setSizeNote({ model: String(model), size })
+    if (size === vehicleType) return
+    setVehicleType(size)
+    const s = svc as Service & Record<string, unknown>
+    if (s.is_range) {
+      const min = size === 'SUV' ? s.price_min_suv : s.price_min
+      const max = size === 'SUV' ? s.price_max_suv : s.price_max
+      setServicePrice(((Number(min) || 0) + (Number(max) || 0)) / 2)
+    } else {
+      const base = Number(size === 'SUV' && s.price_suv ? s.price_suv : s.price) || 0
+      if (promoRef.current) { setListPrice(base); setServicePrice(applyPromo(base, promoRef.current)) }
+      else setServicePrice(base)
+    }
+    // Άλλο ποσό → παλιό intent άκυρο
+    intentCacheRef.current = null
+    if (showPayment) { setShowPayment(false); setClientSecret('') }
+  }
+  const pickModel = (c: CarModel) => { setCarModel(c.label); setModelOpen(false); applyModelSize(c.label) }
 
   if (sessionLoading) {
     return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><WashioLoader /></main>
@@ -1059,6 +1107,46 @@ function BookingPageContent() {
                   >
                     {t.backToMyVehicles}
                   </button>
+                )}
+              </div>
+            )}
+            {/* Μάρκα & μοντέλο → ορίζει την κατηγορία τιμής (ΙΧ / SUV) · Ταξί */}
+            {vehicleType !== 'Μοτοσικλέτα' && (
+              <div className="mt-2.5">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={carModel}
+                      onChange={e => { setCarModel(e.target.value); setModelOpen(true); setSizeNote(null) }}
+                      onFocus={() => setModelOpen(true)}
+                      onBlur={() => setTimeout(() => { setModelOpen(false); applyModelSize(carModel) }, 150)}
+                      placeholder={t.carModelPh}
+                      aria-label={t.carModel}
+                      className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
+                    />
+                    {modelOpen && searchCarModels(carModel).length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-washio-border rounded-[14px] overflow-hidden" style={{ boxShadow: '0 8px 24px rgba(16,24,42,0.12)' }}>
+                        {searchCarModels(carModel).map(c => (
+                          <button key={c.label} type="button" onMouseDown={e => e.preventDefault()} onClick={() => pickModel(c)}
+                            className="w-full text-left px-4 py-2.5 text-[14px] text-gray-900 flex justify-between items-center hover:bg-gray-50">
+                            <span>{c.label}</span>
+                            <span className="text-[11px] font-semibold text-gray-400">{c.size}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" onClick={() => { setIsTaxi(v => !v); selectionHaptic() }}
+                    className={`shrink-0 h-[52px] px-3.5 rounded-[14px] border text-[13px] font-semibold flex items-center gap-1.5 ${isTaxi ? 'bg-amber-50 border-amber-400 text-amber-800' : 'bg-white border-washio-border text-gray-500'}`}>
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center ${isTaxi ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{isTaxi && <Check size={11} className="text-white" />}</span>
+                    🚕 {t.taxi}
+                  </button>
+                </div>
+                {sizeNote && (
+                  <p className={`mt-1.5 text-[12px] leading-snug ${sizeNote.size === 'SUV' ? 'text-amber-700' : 'text-green-700'}`}>
+                    {sizeNote.model} {sizeNote.size === 'SUV' ? t.isSuvNote : t.isCarNote}
+                  </p>
                 )}
               </div>
             )}

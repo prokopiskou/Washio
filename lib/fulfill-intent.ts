@@ -221,6 +221,8 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
     // Το +3€ του referrer ΔΕΝ δίνεται εδώ — μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards).
     const appliedCredit = parseFloat(m.appliedCredit || '0')
     if (m.userId && appliedCredit > 0 && m.loyalty !== '1') await redeemCredit(supabase, m.userId, appliedCredit, inserted.id)
+    // Μοντέλο οχήματος / ταξί (για το πλυντήριο) — στήλες: supabase/vehicle_models.sql
+    if (m.carModel || m.taxi === '1') { try { await supabase.from('bookings').update({ car_model: m.carModel || null, is_taxi: m.taxi === '1' }).eq('id', inserted.id) } catch { /* ignore */ } }
     if (m.loyalty === '1' && appliedCredit > 0) { try { await supabase.from('bookings').update({ loyalty_discount: appliedCredit }).eq('id', inserted.id) } catch { /* στήλη: supabase/loyalty.sql */ } }
 
     // Meta CAPI Purchase (server-side, dedup με event_id = booking_ref).

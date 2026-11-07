@@ -17,6 +17,7 @@ import { couponBlockReason } from '@/lib/coupon-guard'
 import { loyaltyDiscountFor } from '@/lib/loyalty'
 import { platformFeeFor, addonsTotalOf } from '@/lib/commission'
 import { checkinEmailBlock } from '@/lib/checkin'
+import { sizeOfModel } from '@/lib/car-models'
 
 // Κράτηση με ΜΕΤΡΗΤΑ στο κατάστημα — δεν περνάει από Stripe.
 // Το ραντεβού δημιουργείται κατευθείαν (pay_at_venue). Το platform_fee
@@ -89,8 +90,13 @@ export async function POST(req: NextRequest) {
   try {
     const {
       serviceId, locationId, slotId, slotDate,
-      slotStartTime, carPlate: rawPlate, vehicleType, addonIds,
+      slotStartTime, carPlate: rawPlate, vehicleType: rawVehicleType, addonIds, carModel: rawModel, isTaxi: rawTaxi,
     } = await req.json()
+    // Μάρκα/μοντέλο → κατηγορία τιμής (ΙΧ/SUV) αποφασίζεται ΕΔΩ (lib/car-models) — όχι από τον client.
+    const carModel = String(rawModel || '').replace(/[<>]/g, '').trim().slice(0, 60)
+    const isTaxi = rawTaxi === true
+    const modelSize = sizeOfModel(carModel)
+    const vehicleType = rawVehicleType === 'Μοτοσικλέτα' ? rawVehicleType : (modelSize || rawVehicleType)
     // Πινακίδα: μόνο γράμματα/αριθμοί/κενό/παύλα, έως 12 χαρακτήρες (μπαίνει σε email/push).
     const carPlate = String(rawPlate || '').toUpperCase().replace(/[^A-ZΑ-Ω0-9 \-]/g, '').slice(0, 12)
 
@@ -269,6 +275,9 @@ export async function POST(req: NextRequest) {
       )
       return NextResponse.json({ error: inserted.message }, { status: 500 })
     }
+
+    // Μοντέλο οχήματος / ταξί (για το πλυντήριο) — στήλες: supabase/vehicle_models.sql
+    if (carModel || isTaxi) { try { await admin.from('bookings').update({ car_model: carModel || null, is_taxi: isTaxi }).eq('id', inserted.id) } catch { /* ignore */ } }
 
     // Referral: το +3€ του referrer μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards), όχι εδώ.
     // Εξαργύρωση κουπονιού (μετά την επιτυχή δημιουργία).
