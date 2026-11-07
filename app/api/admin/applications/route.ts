@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
   const b = await req.json().catch(() => ({})) as {
     id?: string; action?: string; at?: string; afm?: string; doy?: string; address?: string; iban?: string; ibanHolder?: string; text?: string; answered?: boolean
+    businessName?: string; contactName?: string; phone?: string; email?: string; city?: string
   }
   const { data: app } = await admin.from('applications').select('*').eq('id', b.id || '').maybeSingle()
   if (!app) return NextResponse.json({ error: 'Η αίτηση δεν βρέθηκε' }, { status: 404 })
@@ -79,22 +80,34 @@ export async function POST(req: NextRequest) {
       if (afm.length !== 9) return NextResponse.json({ error: 'Το ΑΦΜ πρέπει να έχει 9 ψηφία' }, { status: 400 })
       if (!doy) return NextResponse.json({ error: 'Συμπλήρωσε ΔΟΥ' }, { status: 400 })
       if (app.location_id) return NextResponse.json({ error: 'Έχει ήδη γίνει onboarding' }, { status: 409 })
+      // Τελικά στοιχεία (final check με τον πελάτη) — υπερισχύουν της αίτησης.
+      const businessName = String(b.businessName ?? app.business_name ?? '').trim()
+      const contactName = String(b.contactName ?? app.owner_name ?? '').trim()
+      const phone = String(b.phone ?? app.phone ?? '').trim()
+      const email = String(b.email ?? app.email ?? '').trim().toLowerCase()
+      const city = String(b.city ?? app.city ?? '').trim()
+      const iban = String(b.iban || '').replace(/\s/g, '').toUpperCase()
+      if (!businessName) return NextResponse.json({ error: 'Συμπλήρωσε επωνυμία' }, { status: 400 })
+      if (phone.replace(/\D/g, '').length < 10) return NextResponse.json({ error: 'Λάθος κινητό' }, { status: 400 })
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'Λάθος email' }, { status: 400 })
+      if (iban && !/^GR\d{25}$/.test(iban)) return NextResponse.json({ error: 'Λάθος IBAN (GR + 25 ψηφία)' }, { status: 400 })
       const { data: ob, error: obErr } = await admin.from('partner_onboarding').insert({
-        business_name: String(app.business_name || '').trim() || 'Νέο πλυντήριο',
+        business_name: businessName,
         afm, doy, address,
         iban_holder: String(b.ibanHolder || '').trim(),
-        iban: String(b.iban || '').replace(/\s/g, '').toUpperCase(),
-        contact_name: String(app.owner_name || '').trim() || '—',
-        phone: String(app.phone || '').trim() || '—',
-        email: String(app.email || '').trim().toLowerCase() || '—',
+        iban,
+        contact_name: contactName || '—',
+        phone,
+        email: email || '—',
         declaration_accepted: false,
         status: 'pending',
       }).select('*').single()
       if (obErr || !ob) return NextResponse.json({ error: obErr?.message || 'Αποτυχία onboarding' }, { status: 500 })
-      const r = await activateOnboarding(admin, ob)
+      const r = await activateOnboarding(admin, ob, { city })
       if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 })
       await admin.from('applications').update({
-        ...callLog, stage: 'done', status: 'approved', afm, doy, address, onboarding_id: ob.id, location_id: r.locationId, stage_updated_at: now,
+        ...callLog, stage: 'done', status: 'approved', afm, doy, address,
+        business_name: businessName, owner_name: contactName, phone, email: email || app.email, city, iban: iban || app.iban, onboarding_id: ob.id, location_id: r.locationId, stage_updated_at: now,
       }).eq('id', app.id)
       return NextResponse.json({ ok: true, locationId: r.locationId })
     }

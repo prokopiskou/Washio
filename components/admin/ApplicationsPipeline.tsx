@@ -19,13 +19,20 @@ const STAGES: { key: string; label: string }[] = [
 const stageOf = (a: App) => a.stage === 'answered' ? 'new' : a.stage === 'onboarding' ? 'done' : a.stage || (a.status === 'approved' ? 'done' : a.status === 'rejected' ? 'lost' : 'new')
 const fmt = (iso?: string | null) => iso ? new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)) : '—'
 const isMeta = (a: App) => a.wash_type === 'Meta lead'
+type Ob = { businessName: string; contactName: string; phone: string; email: string; address: string; city: string; afm: string; doy: string; iban: string; ibanHolder: string }
+const obFrom = (a: App): Ob => ({
+  businessName: a.business_name || '', contactName: a.owner_name || '', phone: a.phone || '', email: a.email || '',
+  address: a.address || '', city: a.city || '', afm: a.afm || '', doy: a.doy || '', iban: a.iban || '', ibanHolder: '',
+})
+const ibanOk = (v: string) => { const x = v.replace(/\s/g, '').toUpperCase(); return !x || /^GR\d{25}$/.test(x) }
+const emailOk = (v: string) => !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
 
 export function ApplicationsPipeline({ applications, reload }: { applications: App[]; reload: () => void }) {
   // null = δεν διάλεξε ακόμα → ανοίγει στο πρώτο στάδιο με αιτήσεις (Νέες → Δεν σήκωσε → Follow-up → …)
   const [picked0, setStage] = useState<string | null>(null)
   const [busy, setBusy] = useState('')
   const [fu, setFu] = useState<Record<string, string>>({})
-  const [ob, setOb] = useState<Record<string, { afm: string; doy: string; address: string; iban: string; ibanHolder: string }>>({})
+  const [ob, setOb] = useState<Record<string, Ob>>({})
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [err, setErr] = useState<Record<string, string>>({})
   const [nowMs] = useState(() => Date.now())
@@ -73,7 +80,8 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
         const st = stageOf(a)
         const wasAnswered = a.stage === 'answered' // παλιό στάδιο «Σήκωσε» → ανοιχτές οι 3 επιλογές, η κλήση έχει ήδη μετρηθεί
         const open = picked[a.id] ?? wasAnswered
-        const o = ob[a.id] || { afm: a.afm || '', doy: a.doy || '', address: a.address || '', iban: '', ibanHolder: '' }
+        const o = ob[a.id] || obFrom(a)
+        const obValid = o.businessName.trim() && o.contactName.trim() && o.phone.replace(/\D/g, '').length >= 10 && emailOk(o.email) && o.afm.replace(/\D/g, '').length === 9 && o.doy.trim() && ibanOk(o.iban)
         const setO = (k: keyof typeof o, v: string) => setOb(m => ({ ...m, [a.id]: { ...o, [k]: v } }))
         const due = a.followup_at && new Date(a.followup_at).getTime() < nowMs
         return (
@@ -129,17 +137,30 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
                     <button disabled={!!busy} onClick={() => setClosing(c => ({ ...c, [a.id]: true }))} className={btn + ' h-10 bg-gray-900 text-white'}>✓ Κλείνει → Onboarding</button>
                   ) : (
                     <div className="rounded-lg border border-gray-900 bg-white p-2.5 flex flex-col gap-2">
+                      <p className="text-[12px] font-semibold text-gray-800">Final check με τον πελάτη</p>
                       <div className="grid grid-cols-2 gap-2">
-                        <input autoFocus value={o.afm} onChange={e => setO('afm', e.target.value)} placeholder="ΑΦΜ *" inputMode="numeric" className="h-9 px-2 rounded-lg border border-gray-200 text-[13px]" />
-                        <input value={o.doy} onChange={e => setO('doy', e.target.value)} placeholder="ΔΟΥ *" className="h-9 px-2 rounded-lg border border-gray-200 text-[13px]" />
+                        <label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">ΑΦΜ *</span><input autoFocus value={o.afm} onChange={e => setO('afm', e.target.value)} inputMode="numeric" className={'h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0 ' + (o.afm && o.afm.replace(/\D/g, '').length !== 9 ? 'border-red-400' : '')} /></label>
+                        <label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">ΔΟΥ *</span><input value={o.doy} onChange={e => setO('doy', e.target.value)} className="h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0" /></label>
                       </div>
-                      <div className="flex gap-2">
-                        <button disabled={!!busy || o.afm.replace(/\D/g, '').length !== 9 || !o.doy.trim()}
-                          onClick={() => act(a, 'onboard', { ...o, ...call })}
-                          className={btn + ' flex-1 h-10 bg-green-600 text-white'}>{busy === a.id + 'onboard' ? '...' : 'Προχωράμε →'}</button>
+                        <label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Επωνυμία πλυντηρίου *</span><input value={o.businessName} onChange={e => setO('businessName', e.target.value)} className="h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0" /></label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Υπεύθυνος *</span><input value={o.contactName} onChange={e => setO('contactName', e.target.value)} className="h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0" /></label>
+                        <label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Κινητό *</span><input value={o.phone} onChange={e => setO('phone', e.target.value)} inputMode="tel" className="h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0" /></label>
+                      </div>
+                        <label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Email</span><input value={o.email} onChange={e => setO('email', e.target.value)} inputMode="email" className={'h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0 ' + (!emailOk(o.email) ? 'border-red-400' : '')} /></label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="col-span-2"><label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Διεύθυνση</span><input value={o.address} onChange={e => setO('address', e.target.value)} className="h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0" /></label></div>
+                        <label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Πόλη</span><input value={o.city} onChange={e => setO('city', e.target.value)} className="h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0" /></label>
+                      </div>
+                        <label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">IBAN</span><input value={o.iban} onChange={e => setO('iban', e.target.value)} placeholder="GR.." className={'h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0 ' + (!ibanOk(o.iban) ? 'border-red-400' : '')} style={{ fontFamily: 'ui-monospace, monospace' }} /></label>
+                        <label className="flex flex-col gap-0.5"><span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Δικαιούχος IBAN</span><input value={o.ibanHolder} onChange={e => setO('ibanHolder', e.target.value)} className="h-9 px-2 rounded-lg border border-gray-200 text-[13px] w-full min-w-0" /></label>
+                      <div className="flex gap-2 pt-1">
+                        <button disabled={!!busy || !obValid}
+                          onClick={() => { if (confirm(`Αποστολή onboarding για «${o.businessName}»;\n\nΑΦΜ ${o.afm} · ΔΟΥ ${o.doy}\n${o.contactName} · ${o.phone}\n${o.email || '—'}\n${[o.address, o.city].filter(Boolean).join(', ') || '—'}\nIBAN ${o.iban || '—'}`)) act(a, 'onboard', { ...o, ...call }) }}
+                          className={btn + ' flex-1 h-10 bg-green-600 text-white'}>{busy === a.id + 'onboard' ? '...' : 'Αποστολή →'}</button>
                         <button onClick={() => setClosing(c => ({ ...c, [a.id]: false }))} className="text-[12px] text-gray-500 underline px-2">Άκυρο</button>
                       </div>
-                      <p className="text-[11px] text-gray-400">Δημιουργείται το πρατήριο (ανενεργό) στα Πλυντήρια.</p>
+                      <p className="text-[11px] text-gray-400">Δημιουργείται το πρατήριο (ανενεργό) στα Πλυντήρια με αυτά τα στοιχεία.</p>
                     </div>
                   )}
                   <div className="flex gap-2">
