@@ -954,19 +954,8 @@ function MapPageContent() {
     funnel('washer_open', { locationId: loc.id, meta: { avail: !!loc.hasAvailability, km: loc.distance ?? -1, timing, src } })
   }
 
-  const visibleSlots = (() => {
-    const available = slots.filter(s => s.available)
-    if (timing === 'now') return available
-
-    if (timing === 'later' && selectedSlot) {
-      const idx = available.findIndex(s => s.time === selectedSlot)
-      if (idx === -1) return available
-      const start = Math.max(0, idx - 2)
-      const end = Math.min(available.length, idx + 3)
-      return available.slice(start, end)
-    }
-    return available
-  })()
+  // ΟΛΕΣ οι διαθέσιμες ώρες της μέρας (ποτέ κομμένο «παράθυρο» γύρω από την επιλεγμένη ώρα).
+  const visibleSlots = slots.filter(s => s.available)
 
   // Μέτρηση: διάλεξε πλυντήριο + υπηρεσία αλλά δεν βγαίνει καμία ώρα.
   const noSlotsKey = selectedLocation && selectedService && !findingNext && visibleSlots.length === 0
