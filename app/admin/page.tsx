@@ -184,6 +184,12 @@ export default function AdminPage() {
 
   useEffect(() => { if (authorized) fetchData() }, [authorized])
 
+  // Αιτήσεις: ήσυχο refresh (χωρίς loading) → δεν χάνεται το scroll σε κάθε αλλαγή σταδίου.
+  const reloadApplications = useCallback(async () => {
+    const { data } = await createClient().from('applications').select('*').order('created_at', { ascending: false })
+    if (data) setApplications(data)
+  }, [])
+
   // Τα έσοδα μετράνε ΜΟΝΟ τις κρατήσεις της πλατφόρμας — οι χειροκίνητες
   // (source='manual', εκτός πλατφόρμας) δεν προσμετρώνται στα δικά μας έσοδα.
   const platformBookings = bookings.filter(b => b.source !== 'manual')
@@ -1340,8 +1346,14 @@ export default function AdminPage() {
 
                 return (
                   <div className="space-y-2.5">
-                    {/* ── ΝΕΕΣ ΑΙΤΗΣΕΙΣ ONBOARDING (/onboarding → partner_onboarding) ── */}
+                    {/* ── ΑΙΤΗΣΕΙΣ ΠΛΥΝΤΗΡΙΩΝ (apply + Meta) → στάδια ── */}
                     <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 py-1">
+                      Αιτήσεις πλυντηρίων · κλήσεις → follow-up → onboarding
+                    </p>
+                    <ApplicationsPipeline applications={applications} reload={reloadApplications} />
+
+                    {/* ── ΝΕΕΣ ΑΙΤΗΣΕΙΣ ONBOARDING (/onboarding → partner_onboarding) ── */}
+                    <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 py-1 pt-6">
                       Onboarding (φόρμα /onboarding) · περνάνε αυτόματα στα Πλυντήρια
                     </p>
                     {onboardings.length === 0 && (
@@ -1385,12 +1397,6 @@ export default function AdminPage() {
                         </div>
                       )
                     })}
-
-                    {/* ── ΑΙΤΗΣΕΙΣ ΠΛΥΝΤΗΡΙΩΝ (apply + Meta) → στάδια ── */}
-                    <p className="text-[11px] font-semibold tracking-[1.6px] uppercase text-gray-500 py-1 pt-4">
-                      Αιτήσεις πλυντηρίων · κλήσεις → follow-up → onboarding
-                    </p>
-                    <ApplicationsPipeline applications={applications} reload={fetchData} />
                   </div>
                 )
               })()}
