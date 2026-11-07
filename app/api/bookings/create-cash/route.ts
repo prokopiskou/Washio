@@ -284,7 +284,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Μοντέλο οχήματος / ταξί (για το πλυντήριο) — στήλες: supabase/vehicle_models.sql
-    if (carModel || isTaxi) { try { await admin.from('bookings').update({ car_model: carModel || null, is_taxi: isTaxi }).eq('id', inserted.id) } catch { /* ignore */ } }
+    // Χωριστά: αν λείπει η στήλη is_taxi, το μοντέλο αποθηκεύεται κανονικά.
+    if (carModel) { try { await admin.from('bookings').update({ car_model: carModel }).eq('id', inserted.id) } catch { /* ignore */ } }
+    if (isTaxi) { try { await admin.from('bookings').update({ is_taxi: true }).eq('id', inserted.id) } catch { /* ignore */ } }
 
     // Referral: το +3€ του referrer μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards), όχι εδώ.
     // Εξαργύρωση κουπονιού (μετά την επιτυχή δημιουργία).
