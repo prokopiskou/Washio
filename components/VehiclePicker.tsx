@@ -52,7 +52,7 @@ export type VehicleSelectorHandle = { open: () => void }
 /**
  * Chip + παράθυρο «Τι όχημα έχεις;». Το παράθυρο είναι ΗΔΗ στη σελίδα (κρυφό) → στο πάτημα
  * εμφανίζεται αμέσως (χωρίς re-render του χάρτη) και το πληκτρολόγιο ανοίγει μαζί του.
- * Στο κέντρο (λίγο πιο πάνω) → φαίνεται καθαρά και πάνω από το πληκτρολόγιο.
+ * Σταθερή θέση στο πάνω-μεσαίο μέρος (σε px) → δεν μετακινείται όταν ανοίγει το πληκτρολόγιο.
  */
 export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
   choice: CarChoice | null; onPick: (c: CarChoice) => void; onClose?: () => void; locale?: 'el' | 'en'; big?: boolean
@@ -61,6 +61,7 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
   const wrapRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   useBodyScrollLock(open)
   // Portal στο body: το chip ζει μέσα σε sheet με transform → αλλιώς το «fixed» δεν καλύπτει την οθόνη.
@@ -68,6 +69,9 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
 
   const show = () => {
     // Συγχρονισμένα μέσα στο πάτημα: εμφάνιση + focus (iOS ανοίγει πληκτρολόγιο μόνο έτσι).
+    // Σταθερή θέση σε px (υπολογισμένη ΤΩΡΑ, πριν ανοίξει το πληκτρολόγιο) → δεν «πηδάει» όταν
+    // το πληκτρολόγιο μικραίνει την οθόνη (με κεντράρισμα ξανα-κεντραριζόταν και ανέβαινε).
+    if (panelRef.current) panelRef.current.style.marginTop = `${Math.round(window.innerHeight * 0.16)}px`
     if (wrapRef.current) wrapRef.current.style.display = 'flex'
     inputRef.current?.focus({ preventScroll: true })
     setOpen(true)
@@ -89,8 +93,8 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
   return (
     <>
       <VehicleChip choice={choice} onClick={show} locale={locale} big={big} />
-      {isClient && createPortal(<div ref={wrapRef} style={{ display: 'none' }} className="fixed inset-0 z-[80] items-center justify-center bg-black/40 px-4" onClick={close}>
-        <div className="w-full max-w-md bg-white rounded-[24px] p-5 -mt-[12vh]" onClick={e => e.stopPropagation()}>
+      {isClient && createPortal(<div ref={wrapRef} style={{ display: 'none' }} className="fixed inset-0 z-[80] items-start justify-center bg-black/40 px-4" onClick={close}>
+        <div ref={panelRef} className="w-full max-w-md bg-white rounded-[24px] p-5" style={{ marginTop: '16vh' }} onClick={e => e.stopPropagation()}>
           <div className="flex items-start justify-between mb-3">
             <div>
               <p className="text-[18px] font-bold tracking-tight text-washio-navy">{t.title}</p>
