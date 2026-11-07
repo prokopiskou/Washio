@@ -255,9 +255,15 @@ export default function DashboardPage() {
     focusDoneRef.current = focusBookingId
     setActiveTab('bookings'); setFilterStatus('all'); setSortBy('slot_date')
     const t1 = setTimeout(() => document.getElementById(`bk-${focusBookingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350)
-    const t2 = setTimeout(() => setFocusBookingId(null), 10_000) // το πλαίσιο σβήνει μετά από 10''
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    return () => clearTimeout(t1)
   }, [focusBookingId, bookings])
+  // Το πλαίσιο σβήνει 10'' αφού εμφανιστεί (ξεχωριστό timer — δεν ακυρώνεται όταν ανανεωθούν οι κρατήσεις).
+  const focusVisible = !!focusBookingId && bookings.some(b => b.id === focusBookingId)
+  useEffect(() => {
+    if (!focusVisible) return
+    const t = setTimeout(() => setFocusBookingId(null), 10_000)
+    return () => clearTimeout(t)
+  }, [focusVisible])
   const [calendarDate, setCalendarDate] = useState<Date>(new Date())
   const [calendarBookings, setCalendarBookings] = useState<Booking[]>([])
   const [calendarLoading, setCalendarLoading] = useState(false)
