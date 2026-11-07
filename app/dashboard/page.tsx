@@ -246,6 +246,8 @@ export default function DashboardPage() {
   const [newStaffPhone, setNewStaffPhone] = useState('')
   const [newBookingsCount, setNewBookingsCount] = useState(0)
   const [filterStatus, setFilterStatus] = useState<string>('all')
+  // Κρατήσεις: «Σήμερα» (default) ή «Όλες» (με φίλτρο κατάστασης + ταξινόμηση).
+  const [bookingsView, setBookingsView] = useState<'today' | 'all'>('today')
   const [sortBy, setSortBy] = useState<'created_at' | 'slot_date'>('created_at')
   // Μόλις φορτωθούν οι κρατήσεις: άνοιξε την καρτέλα, φέρε την κράτηση στην οθόνη και τόνισέ την για λίγο.
   // Απαλό μπλε πλαίσιο στην κράτηση για 10'' (ή μέχρι να αλλάξει καρτέλα).
@@ -253,7 +255,9 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!focusBookingId || focusDoneRef.current === focusBookingId || !bookings.some(b => b.id === focusBookingId)) return
     focusDoneRef.current = focusBookingId
+    const fb = bookings.find(b => b.id === focusBookingId)
     setActiveTab('bookings'); setFilterStatus('all'); setSortBy('slot_date')
+    setBookingsView(fb?.slot_date === ymdFromLocalDate(new Date()) ? 'today' : 'all')
     const t1 = setTimeout(() => document.getElementById(`bk-${focusBookingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350)
     return () => clearTimeout(t1)
   }, [focusBookingId, bookings])
@@ -1380,7 +1384,10 @@ export default function DashboardPage() {
           )}
 
           {activeTab === 'bookings' && (() => {
-            const filtered = [...bookings]
+            const filtered = bookingsView === 'today'
+              // Σήμερα: όλες οι κρατήσεις της ημέρας, από την πρώτη ώρα μέχρι την τελευταία.
+              ? [...todayBookings].sort((a, b) => String(a.slot_start_time || '').localeCompare(String(b.slot_start_time || '')))
+              : [...bookings]
               .filter(b => filterStatus === 'all' || effStatus(b) === filterStatus)
               .sort((a, b) => {
                 if (sortBy === 'created_at') {
@@ -1425,56 +1432,52 @@ export default function DashboardPage() {
 
             return (
               <div className="space-y-3">
-                {/* Status filter chips */}
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1">
-                  {[
-                    { value: 'all', label: t('Όλες') },
-                    { value: 'completed', label: t('Ολοκληρωμένες') },
-                    { value: 'no_show', label: t('Δεν ήρθαν') },
-                    { value: 'cancelled', label: t('Ακυρωμένες') },
-                    { value: 'pending', label: t('Εκκρεμείς') },
-                  ].map(opt => {
-                    const active = filterStatus === opt.value
-                    const count = (statusCounts as any)[opt.value]
-                    return (
-                      <button
-                        key={opt.value}
-                        onClick={() => { setFilterStatus(opt.value); lightTap() }}
-                        className={`shrink-0 px-3.5 py-2 rounded-full border whitespace-nowrap text-[13px] font-semibold tracking-tight inline-flex items-center gap-1.5 transition-colors ${
-                          active ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'
-                        }`}
-                      >
-                        {opt.label}
-                        <span className={`px-1.5 rounded-full text-[11px] font-semibold ${
-                          active ? 'bg-white/20 text-white' : 'bg-gray-50 text-gray-500'
-                        }`}>{count}</span>
-                      </button>
-                    )
-                  })}
+                {/* Σήμερα | Όλες */}
+                <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+                  {([['today', `${t('Σήμερα')} (${todayBookings.length})`], ['all', `${t('Όλες')} (${bookings.length})`]] as const).map(([k, label]) => (
+                    <button key={k} onClick={() => { setBookingsView(k); lightTap() }}
+                      className={`flex-1 h-9 rounded-lg text-[13px] font-semibold tracking-tight transition-all ${bookingsView === k ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
 
-                {/* Sort row */}
-                <div className="flex items-center justify-end gap-2 pb-1">
-                  <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{t('Ταξινόμηση')}</span>
-                  <div className="flex gap-1 bg-white border border-gray-200 p-0.5 rounded-lg">
-                    <button
-                      onClick={() => { setSortBy('slot_date'); lightTap() }}
-                      className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${
-                        sortBy === 'slot_date' ? 'bg-gray-900 text-white' : 'text-gray-500'
-                      }`}
-                    >
-                      {t('Πλύσιμο')}
-                    </button>
-                    <button
-                      onClick={() => { setSortBy('created_at'); lightTap() }}
-                      className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${
-                        sortBy === 'created_at' ? 'bg-gray-900 text-white' : 'text-gray-500'
-                      }`}
-                    >
-                      {t('Κλείσιμο')}
-                    </button>
+                {bookingsView === 'all' && (
+                  <div className="flex items-center justify-between gap-2 pb-1">
+                    {/* Κατάσταση — dropdown */}
+                    <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); lightTap() }}
+                      className="h-9 px-3 rounded-lg border border-gray-200 bg-white text-[13px] font-semibold text-gray-700">
+                      {[
+                        { value: 'all', label: t('Όλες') },
+                        { value: 'confirmed', label: t('Επιβεβαιωμένες') },
+                        { value: 'completed', label: t('Ολοκληρωμένες') },
+                        { value: 'pending', label: t('Εκκρεμείς') },
+                        { value: 'no_show', label: t('Δεν ήρθαν') },
+                        { value: 'cancelled', label: t('Ακυρωμένες') },
+                      ].map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label} ({(statusCounts as Record<string, number>)[opt.value] ?? 0})</option>
+                      ))}
+                    </select>
+                    <div className="flex gap-1 bg-white border border-gray-200 p-0.5 rounded-lg">
+                      <button
+                        onClick={() => { setSortBy('slot_date'); lightTap() }}
+                        className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${sortBy === 'slot_date' ? 'bg-gray-900 text-white' : 'text-gray-500'}`}
+                      >
+                        {t('Πλύσιμο')}
+                      </button>
+                      <button
+                        onClick={() => { setSortBy('created_at'); lightTap() }}
+                        className={`text-[12px] px-2.5 py-1 rounded-md font-semibold tracking-tight transition-all ${sortBy === 'created_at' ? 'bg-gray-900 text-white' : 'text-gray-500'}`}
+                      >
+                        {t('Κλείσιμο')}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {bookingsView === 'today' && filtered.length === 0 && (
+                  <div className="text-center py-10 text-[14px] text-gray-400">{t('Καμία κράτηση σήμερα')}</div>
+                )}
 
                 {/* Booking cards */}
                 <div className="space-y-2">

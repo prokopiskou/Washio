@@ -2,6 +2,29 @@
 // Κλειδί = το ελληνικό κείμενο όπως είναι στον κώδικα. Ό,τι λείπει εμφανίζεται στα ελληνικά.
 // Χρήση στο dashboard: t('Κρατήσεις') → 'Bookings' όταν locale === 'en'.
 export const DASH_EN: Record<string, string> = {
+  // Κρατήσεις: Σήμερα/Όλες · Προωθήσεις
+  'Επιβεβαιωμένες': 'Confirmed',
+  'Καμία κράτηση σήμερα': 'No bookings today',
+  'Προωθήσεις': 'Promotions',
+  'Η προώθηση δημιουργήθηκε': 'Promotion created',
+  'Σε παύση': 'Paused',
+  'Έληξε': 'Ended',
+  'Προγραμματισμένη': 'Scheduled',
+  'Ενεργή': 'Active',
+  'Δώσε έκπτωση σε μία υπηρεσία. Οι πελάτες βλέπουν την προσφορά στην εφαρμογή και η τιμή εφαρμόζεται αυτόματα στην κράτηση.': 'Discount one service. Customers see the offer in the app and the price applies automatically at booking.',
+  'Υπηρεσία': 'Service',
+  'Επίλεξε υπηρεσία…': 'Choose a service…',
+  'Έκπτωση': 'Discount',
+  'Αρχική τιμή': 'Original price',
+  'Τελική τιμή': 'Final price',
+  'Για ΙΧ. Μοτοσικλέτα/SUV: ίδια έκπτωση στην τιμή τους.': 'For cars. Motorbike/SUV: same discount on their price.',
+  'Από': 'From',
+  'Έως': 'To',
+  'Ισχύει για ραντεβού μέσα σε αυτές τις ημέρες (μαζί με την τελευταία).': 'Applies to appointments on these days (inclusive).',
+  'Δημιουργία προώθησης': 'Create promotion',
+  'Οι προωθήσεις σου': 'Your promotions',
+  'Παύση': 'Pause',
+  'Ενεργοποίηση': 'Activate',
   // Ειδοποιήσεις
   'Χρειάζεται να είσαι συνδεδεμένος.': 'You need to be signed in.',
   'άγνωστο': 'unknown',
