@@ -1123,7 +1123,7 @@ function BookingPageContent() {
                 )}
               </div>
             )}
-            {/* Μάρκα & μοντέλο → ορίζει την κατηγορία τιμής (ΙΧ / SUV) · Ταξί */}
+            {/* Μάρκα & μοντέλο → ορίζει την κατηγορία τιμής (ΙΧ / SUV). (Ταξί: κρυφό προς το παρόν) */}
             {vehicleType !== 'Μοτοσικλέτα' && (
               <div className="mt-2.5">
                 <div className="flex gap-2">
@@ -1150,11 +1150,6 @@ function BookingPageContent() {
                       </div>
                     )}
                   </div>
-                  <button type="button" onClick={() => { setIsTaxi(v => !v); selectionHaptic() }}
-                    className={`shrink-0 h-[52px] px-3.5 rounded-[14px] border text-[13px] font-semibold flex items-center gap-1.5 ${isTaxi ? 'bg-amber-50 border-amber-400 text-amber-800' : 'bg-white border-washio-border text-gray-500'}`}>
-                    <span className={`w-4 h-4 rounded border flex items-center justify-center ${isTaxi ? 'bg-amber-500 border-amber-500' : 'border-gray-300'}`}>{isTaxi && <Check size={11} className="text-white" />}</span>
-                    🚕 {t.taxi}
-                  </button>
                 </div>
                 {sizeNote && (
                   <p className={`mt-1.5 text-[12px] leading-snug ${sizeNote.size === 'SUV' ? 'text-amber-700' : 'text-green-700'}`}>
