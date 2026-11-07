@@ -206,22 +206,45 @@ export async function GET(req: Request) {
     }
   })
 
-  // ── Operator reminder (push): ραντεβού σε ≤10' — μία φορά ανά κράτηση.
+  // ── Operator reminder (push): ραντεβού σε 10–20' — μία φορά ανά κράτηση, με ΟΛΑ τα στοιχεία.
+  // Παράθυρο 20' (το cron τρέχει κάθε 15') → φτάνει πάντα ~10–20' πριν, ποτέ την ώρα του ραντεβού.
   const opReminders = await bookingsInWindow(
-    'id, booking_ref, car_plate, slot_start_time, slot_date, locations(name, owner_id), services(name)',
+    'id, booking_ref, car_plate, car_model, customer_name, slot_start_time, slot_date, total_amount, coupon_amount, stripe_payment_intent_id, addons, locations(name, owner_id), services(name), profiles(full_name, phone)',
     'operator_reminder_sent',
     now,
-    new Date(now.getTime() + 10 * 60 * 1000),
+    new Date(now.getTime() + 20 * 60 * 1000),
   )
 
   await inChunks(opReminders, 5, async (booking) => {
     if (!(await claim(booking.id, 'operator_reminder_sent'))) return
     const location = booking.locations as { name?: string; owner_id?: string } | null
     const service = booking.services as { name?: string } | null
+    const prof = booking.profiles as { full_name?: string; phone?: string } | null
     if (location?.owner_id) {
+      const hhmm = String(booking.slot_start_time || '').slice(0, 5)
+      const mins = Math.max(0, Math.round((athensEpoch(booking.slot_date, hhmm) - now.getTime()) / 60000))
+      const name = String(booking.customer_name || prof?.full_name || '').trim()
+      const addonNames = (Array.isArray(booking.addons) ? booking.addons : [])
+        .map((a: { name?: string; n?: string }) => String(a?.name || a?.n || '').trim()).filter(Boolean)
+      const total = Number(booking.total_amount) || 0
+      const coupon = Number(booking.coupon_amount) || 0
+      const due = Math.max(0, total - coupon)
+      const eur = (n: number) => n.toFixed(2).replace('.', ',').replace(',00', '') + '€'
+      const paid = !!booking.stripe_payment_intent_id
+      const money = paid
+        ? `💳 Πληρωμένο online ${eur(due)} — μην ζητήσεις χρήματα`
+        : `💶 Πληρώνει εκεί ${eur(due)}${coupon > 0 ? ` (κουπόνι −${eur(coupon)})` : ''}`
+      const car = [booking.car_plate, booking.car_model].filter(Boolean).join(' · ')
+      const lines = [
+        [name || 'Πελάτης', prof?.phone].filter(Boolean).join(' · '),
+        [service?.name || 'Πλύσιμο', addonNames.length ? '+ ' + addonNames.join(', ') : ''].filter(Boolean).join(' '),
+        car,
+        money,
+        booking.booking_ref,
+      ].filter(Boolean)
       await sendPush(location.owner_id, {
-        title: "Ραντεβού σε ~10' ⏰",
-        body: `${service?.name || 'Πλύσιμο'} • ${booking.slot_start_time?.slice(0, 5) || ''}${booking.car_plate ? ' • ' + booking.car_plate : ''}`,
+        title: `Ραντεβού σε ${mins}' ⏰ · ${hhmm}`,
+        body: lines.join('\n'),
         url: '/dashboard',
       }).catch(() => null)
       stats.operatorReminders++
