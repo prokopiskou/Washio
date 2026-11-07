@@ -64,7 +64,7 @@ export default function ApplyPage() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setSubmitted(false)
+    if (loading || submitted) return // 2ο/3ο πάτημα όσο στέλνεται → αγνοείται
     setSubmitError('')
 
     if (!validate()) return
@@ -80,8 +80,8 @@ export default function ApplyPage() {
       if (!res.ok) throw new Error('Submit failed')
 
       setSubmitted(true)
-      setValues(initialValues)
       setErrors({})
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
       setSubmitError('Παρουσιάστηκε σφάλμα. Δοκίμασε ξανά σε λίγο.')
     } finally {
@@ -108,6 +108,17 @@ export default function ApplyPage() {
           </p>
         </div>
 
+        {submitted ? (
+          <div className="flex flex-col items-center text-center py-10 gap-4">
+            <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#15803D" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+            </div>
+            <h2 className="text-[22px] font-bold text-gray-900">Η αίτησή σου στάλθηκε!</h2>
+            <p className="text-[15px] text-gray-600 leading-relaxed">Τη λάβαμε για το <b>{values.businessName}</b>.<br />Θα σε καλέσουμε στο <b>{values.phone}</b> σύντομα.</p>
+            <p className="text-[13px] text-gray-400">Δεν χρειάζεται να τη στείλεις ξανά.</p>
+            <button onClick={() => router.push('/')} className="mt-2 h-12 px-8 rounded-xl bg-gray-900 text-white text-sm font-semibold">Επιστροφή</button>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           <section>
             <h2 className="text-xs font-medium tracking-widest text-gray-400 uppercase mb-3">Στοιχεία πλυντηρίου</h2>
@@ -221,16 +232,12 @@ export default function ApplyPage() {
             disabled={loading}
             className="w-full bg-gray-900 text-white text-sm font-medium py-3.5 rounded-xl disabled:opacity-40"
           >
-            {loading ? 'Υποβολή...' : 'Υποβολή αίτησης'}
+            {loading ? 'Αποστολή…' : 'Υποβολή αίτησης'}
           </button>
 
-          {submitted && (
-            <p className="text-sm text-green-600">
-              Η αίτησή σου ελήφθη! Θα επικοινωνήσουμε μαζί σου σύντομα.
-            </p>
-          )}
           {submitError && <p className="text-red-500 text-xs">{submitError}</p>}
         </form>
+        )}
       </div>
     </main>
   )

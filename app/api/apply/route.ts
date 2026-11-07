@@ -77,6 +77,23 @@ export async function POST(req: Request) {
       </div>
     `
 
+    // Διπλή υποβολή (ίδιο κινητό ή email τις τελευταίες 24 ώρες) → δεν φτιάχνουμε νέα αίτηση,
+    // ενημερώνουμε την υπάρχουσα και ΔΕΝ ξαναστέλνουμε email.
+    const digits = String(phone).replace(/\D/g, '').slice(-10)
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+    const { data: recent } = await supabaseAdmin.from('applications')
+      .select('id, phone, email').gte('created_at', since).neq('wash_type', 'Meta lead')
+    const dup = (recent || []).find(r =>
+      (digits.length >= 10 && String(r.phone || '').replace(/\D/g, '').slice(-10) === digits) ||
+      (String(r.email || '').trim().toLowerCase() === String(email).trim().toLowerCase()))
+    if (dup) {
+      await supabaseAdmin.from('applications').update({
+        business_name: businessName, address, city, afm: taxId, owner_name: contactName,
+        phone, email, hours, lanes, wash_type: washType,
+      }).eq('id', dup.id)
+      return NextResponse.json({ ok: true, duplicate: true })
+    }
+
     const { error: dbError } = await supabaseAdmin.from('applications').insert({
       business_name: businessName,
       address,
