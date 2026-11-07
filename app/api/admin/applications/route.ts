@@ -51,6 +51,10 @@ export async function POST(req: NextRequest) {
       return set({ stage: 'lost', status: 'rejected' })
     case 'reopen':
       return set({ stage: 'new', status: 'pending' })
+    case 'delete': {
+      const { error } = await admin.from('applications').delete().eq('id', app.id)
+      return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })
+    }
     case 'note':
       return set({ pipeline_notes: String(b.text || '').slice(0, 2000) })
     case 'onboard': {

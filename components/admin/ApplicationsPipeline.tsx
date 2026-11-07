@@ -157,6 +157,10 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
               <button disabled={!!busy} onClick={() => act(a, 'reopen')} className={btn + ' mt-2.5 bg-white border border-gray-300 text-gray-700'}>↺ Ξανά ανοιχτή</button>
             )}
 
+            {!a.location_id && (
+              <button disabled={!!busy} onClick={() => { if (confirm(`Διαγραφή της αίτησης «${a.business_name}»;\n\nΔεν αναιρείται.`)) act(a, 'delete') }}
+                className="mt-2 text-[11px] text-red-600 underline">Διαγραφή</button>
+            )}
             {err[a.id] && <p className="mt-2 text-[12px] text-red-600">{err[a.id]}</p>}
           </div>
         )
