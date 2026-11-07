@@ -274,7 +274,7 @@ export default function BookingDetailPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select(`id, booking_ref, slot_date, slot_start_time, status, total_amount, coupon_amount, car_plate, stripe_payment_intent_id, stripe_payment_status, created_at, location_id, service_id, duration_minutes, locations(id, slug, name, address, city, lat, lng, extra_instructions), services(name, ${RANGE_SVC_COLS})`)
+        .select(`id, booking_ref, slot_date, slot_start_time, status, total_amount, service_price, coupon_amount, car_plate, stripe_payment_intent_id, stripe_payment_status, created_at, location_id, service_id, duration_minutes, locations(id, slug, name, address, city, lat, lng, extra_instructions), services(name, ${RANGE_SVC_COLS})`)
         .eq('id', bookingId)
         .single()
 
@@ -635,8 +635,8 @@ export default function BookingDetailPage() {
             <InfoRow
               icon={<CreditCard size={18} strokeWidth={1.75} />}
               label={t.total}
-              value={rangeLabel(booking.total_amount, booking.services as RangeSvc)
-                ? `€${rangeLabel(booking.total_amount, booking.services as RangeSvc)} (${locale === 'en' ? 'final price after inspection' : 'τελική τιμή μετά την εκτίμηση'})`
+              value={rangeLabel(booking.total_amount, booking.services as RangeSvc, (booking as { service_price?: number | null }).service_price)
+                ? `€${rangeLabel(booking.total_amount, booking.services as RangeSvc, (booking as { service_price?: number | null }).service_price)} (${locale === 'en' ? 'final price after inspection' : 'τελική τιμή μετά την εκτίμηση'})`
                 : Number(booking.coupon_amount) > 0
                 ? `€${Math.max(0, Number(booking.total_amount || 0) - Number(booking.coupon_amount)).toFixed(2)} (κουπόνι −€${Number(booking.coupon_amount).toFixed(0)})`
                 : `€${Number(booking.total_amount || 0).toFixed(2)}`}

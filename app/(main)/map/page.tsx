@@ -299,7 +299,7 @@ function MapPageContent() {
   // = η πρώτη μέρα με ελεύθερη ώρα (π.χ. αύριο), ώστε ο χρήστης να κλείσει αμέσως.
   const [sheetDate, setSheetDate] = useState<string | null>(null)
   // Ενεργές προωθήσεις όλων των πλυντηρίων (χρυσή πινέζα, χρυσό πλαίσιο στη λίστα, κάρτα προσφοράς).
-  const [promos, setPromos] = useState<{ id: string; location_id: string; service_id: string; discount_type: 'percent' | 'amount'; discount_value: number; starts_on: string; ends_on: string }[]>([])
+  const [promos, setPromos] = useState<{ id: string; location_id: string; service_id: string; discount_type: 'percent' | 'amount' | 'fixed'; discount_value: number; starts_on: string; ends_on: string }[]>([])
   useEffect(() => {
     let alive = true
     fetch('/api/promotions?all=1').then(r => r.json()).then(j => { if (alive) setPromos(j.promotions || []) }).catch(() => {})
@@ -405,20 +405,26 @@ function MapPageContent() {
   }
   // Προωθήσεις πλυντηρίων (dashboard → Προωθήσεις). Η κράτηση εφαρμόζει την τιμή server-side.
   const promoDate = sheetDate || activeDate
-  const promoForSvc = (s: Service) => s.is_range ? undefined : promos.find(p => p.service_id === s.id && p.starts_on <= promoDate && promoDate <= p.ends_on)
+  // Υπηρεσία εύρους (βιολογικός): μόνο προσφορά σταθερής τιμής («μόνο 120€») — το εύρος σβήνει.
+  const promoForSvc = (s: Service) => promos.find(p => p.service_id === s.id && p.starts_on <= promoDate && promoDate <= p.ends_on && (!s.is_range || p.discount_type === 'fixed'))
+  const rangeText = (s: Service) => { const [a, b] = rangeFor(s); return `€${a}–${b}` }
+  const promoTag = (p: { discount_type: string; discount_value: number }) => p.discount_type === 'fixed'
+    ? (locale === 'en' ? `only €${eur(Number(p.discount_value))}` : `μόνο €${eur(Number(p.discount_value))}`)
+    : `−${p.discount_type === 'percent' ? `${Number(p.discount_value)}%` : `€${eur(Number(p.discount_value))}`}`
   const priceFor = (s: Service) => {
     const lp = listPriceFor(s)
     const pr = promoForSvc(s)
     return pr ? applyPromo(Number(lp) || 0, pr) : lp
   }
   const priceLabel = (s: Service) => {
+    if (s.is_range && promoForSvc(s)) return `€${eur(Number(priceFor(s)) || 0)}`
     if (s.is_range) { const [a, b] = rangeFor(s); return `€${a}–${b}` }
     return `€${priceFor(s)}`
   }
   // Κουπόνι ήδη μέσα στην τιμή (~~15€~~ 12€) — ίδιοι κανόνες με το checkout.
   const coupon = useCouponCredit()
   // Συνολική έκπτωση που βλέπει ο πελάτης = προώθηση + κουπόνι (το κουπόνι στην τιμή μετά την προώθηση).
-  const discFor = (s: Service) => ((Number(listPriceFor(s)) || 0) - (Number(priceFor(s)) || 0)) + couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range)
+  const discFor = (s: Service) => s.is_range ? 0 : ((Number(listPriceFor(s)) || 0) - (Number(priceFor(s)) || 0)) + couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range)
 
   const visibleServices = locationServices.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
@@ -1424,7 +1430,7 @@ function MapPageContent() {
                       >
                         {lp && (
                           <span className="absolute -top-2 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold text-white tracking-wide" style={{ background: 'linear-gradient(135deg,#D4AF37,#B8901F)' }}>
-                            ★ {locale === 'en' ? 'OFFER' : 'ΠΡΟΣΦΟΡΑ'} · −{lp.discount_type === 'percent' ? `${Number(lp.discount_value)}%` : `€${eur(Number(lp.discount_value))}`}
+                            ★ {locale === 'en' ? 'OFFER' : 'ΠΡΟΣΦΟΡΑ'} · {promoTag(lp)}
                           </span>
                         )}
                         <div className="w-[72px] h-[72px] rounded-[14px] overflow-hidden shrink-0 bg-washio-navy flex items-center justify-center">
@@ -1656,13 +1662,13 @@ function MapPageContent() {
                     style={{ background: 'linear-gradient(135deg,#FFF8E1 0%,#FCEBB6 100%)', border: '1.5px solid #C9A227', boxShadow: '0 6px 16px rgba(201,162,39,0.22)' }}>
                     <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-[18px]" style={{ background: 'linear-gradient(135deg,#D4AF37,#B8901F)' }}>★</div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-bold tracking-[1.2px] uppercase" style={{ color: '#8A6A0C' }}>{locale === 'en' ? 'Offer' : 'Προσφορά'} · −{p.discount_type === 'percent' ? `${Number(p.discount_value)}%` : `€${eur(Number(p.discount_value))}`}</p>
+                      <p className="text-[10px] font-bold tracking-[1.2px] uppercase" style={{ color: '#8A6A0C' }}>{locale === 'en' ? 'Offer' : 'Προσφορά'} · {promoTag(p)}</p>
                       <p className="text-[14px] font-semibold text-washio-navy truncate">{translateCatalogName(s.name, locale)}</p>
                       <p className="text-[11px]" style={{ color: '#8A6A0C' }}>{started ? (locale === 'en' ? `until ${Number(ed)} ${MON[Number(em) - 1]}` : `έως ${Number(ed)} ${MON[Number(em) - 1]}`) : (locale === 'en' ? `${Number(sd)} ${MON[Number(sm) - 1]} – ${Number(ed)} ${MON[Number(em) - 1]}` : `${Number(sd)} ${MON[Number(sm) - 1]} – ${Number(ed)} ${MON[Number(em) - 1]}`)}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-[12px] line-through text-gray-400 leading-none">€{eur(lp)}</p>
-                      <p className="text-[19px] font-bold leading-tight" style={{ color: '#8A6A0C' }}>€{eur(np)}</p>
+                      <p className="text-[12px] line-through text-gray-400 leading-none">{s.is_range ? rangeText(s) : `€${eur(lp)}`}</p>
+                      <p className="text-[19px] font-bold leading-tight" style={{ color: '#8A6A0C' }}>€{eur(np)}{p.discount_type === 'fixed' && <span className="text-[11px] font-semibold ml-1">{locale === 'en' ? 'only' : 'μόνο'}</span>}</p>
                       <p className="text-[11px] font-semibold text-washio-navy underline">{locale === 'en' ? 'Book' : 'Κλείσε'}</p>
                     </div>
                   </button>
@@ -1688,6 +1694,11 @@ function MapPageContent() {
                       <p className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-washio-navy'}`}>{translateCatalogName(s.name, locale)}</p>
                       {!carChoice ? (
                         <p className="text-[11px] mt-0.5 font-medium text-washio-cyan-dark">{locale === 'en' ? 'see price' : 'δες τιμή'}</p>
+                      ) : s.is_range && promoForSvc(s) ? (
+                        <p className="text-xs mt-0.5 font-semibold">
+                          <span className={`line-through mr-1 font-medium ${isSelected ? 'text-white/50' : 'text-gray-400'}`}>{rangeText(s)}</span>
+                          <span className={isSelected ? 'text-washio-cyan' : 'text-washio-cyan-dark'}>€{eur(Number(priceFor(s)) || 0)} {locale === 'en' ? 'only' : 'μόνο'}</span>
+                        </p>
                       ) : disc > 0 ? (
                         <p className="text-xs mt-0.5 font-semibold">
                           <span className={`line-through mr-1 font-medium ${isSelected ? 'text-white/50' : 'text-gray-400'}`}>€{eur(base)}</span>

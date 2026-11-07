@@ -1,4 +1,4 @@
-// Προωθήσεις πλυντηρίων: έκπτωση σε μία υπηρεσία, για συγκεκριμένες ημέρες ραντεβού (από–έως).
+// Προωθήσεις πλυντηρίων: έκπτωση (ή σταθερή τιμή «fixed») σε μία υπηρεσία, για συγκεκριμένες ημέρες ραντεβού (από–έως).
 // Η τελική τιμή υπολογίζεται ΠΑΝΤΑ server-side (create-cash / create-intent) — ο client μόνο τη δείχνει.
 // Πίνακας: public.promotions (supabase/promotions.sql). Αν λείπει ο πίνακας → καμία προώθηση (ασφαλές).
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -7,7 +7,7 @@ export type Promotion = {
   id: string
   location_id: string
   service_id: string
-  discount_type: 'percent' | 'amount'
+  discount_type: 'percent' | 'amount' | 'fixed'   // fixed = τελική τιμή (π.χ. βιολογικός «μόνο 120€»)
   discount_value: number
   starts_on: string   // YYYY-MM-DD (ημέρα ραντεβού)
   ends_on: string     // YYYY-MM-DD (συμπεριλαμβάνεται)
@@ -19,6 +19,7 @@ export const round2 = (n: number) => Math.round(n * 100) / 100
 /** Τελική τιμή μετά την έκπτωση (ποτέ κάτω από 0). */
 export function applyPromo(price: number, p: Pick<Promotion, 'discount_type' | 'discount_value'>): number {
   const v = Number(p.discount_value) || 0
+  if (p.discount_type === 'fixed') return Math.max(0, round2(v))
   const out = p.discount_type === 'percent' ? price * (1 - Math.min(Math.max(v, 0), 90) / 100) : price - Math.max(v, 0)
   return Math.max(0, round2(out))
 }
@@ -38,3 +39,6 @@ export async function activePromotionFor(admin: SupabaseClient, serviceId: strin
     return (data as Promotion[]).sort((a, b) => applyPromo(basePrice, a) - applyPromo(basePrice, b))[0]
   } catch { return null }
 }
+
+/** Σταθερή τιμή σε υπηρεσία εύρους (βιολογικός): το εύρος «σβήνει», χρεώνεται/δείχνεται μόνο αυτή. */
+export const isFixedPromo = (p: { discount_type?: string } | null | undefined) => p?.discount_type === 'fixed'

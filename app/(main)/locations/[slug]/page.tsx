@@ -366,19 +366,21 @@ export default function LocationPage() {
       : s.price
   }
   // Προώθηση πλυντηρίου για την επιλεγμένη ημέρα (η κράτηση την εφαρμόζει server-side).
-  const promoFor = (s: Service) => s.is_range ? undefined : promos.find(p => p.service_id === s.id && p.starts_on <= selYmd && selYmd <= p.ends_on)
+  // Βιολογικός (εύρος): μόνο προσφορά σταθερής τιμής («μόνο 120€») — το εύρος σβήνει.
+  const promoFor = (s: Service) => promos.find(p => p.service_id === s.id && p.starts_on <= selYmd && selYmd <= p.ends_on && (!s.is_range || p.discount_type === 'fixed'))
   const priceFor = (s: Service) => {
     const lp = listPriceFor(s)
     const pr = promoFor(s)
     return pr ? applyPromo(Number(lp) || 0, pr) : lp
   }
   const priceLabel = (s: Service) => {
+    if (s.is_range && promoFor(s)) return `€${eur(Number(priceFor(s)) || 0)}`
     if (s.is_range) { const [a, b] = rangeFor(s); return `€${a}–${b}` }
     return `€${priceFor(s)}`
   }
   // Κουπόνι ήδη μέσα στην τιμή (~~15€~~ 12€) — ίδιοι κανόνες με το checkout.
   const coupon = useCouponCredit()
-  const [promos, setPromos] = useState<{ service_id: string; discount_type: 'percent' | 'amount'; discount_value: number; starts_on: string; ends_on: string }[]>([])
+  const [promos, setPromos] = useState<{ service_id: string; discount_type: 'percent' | 'amount' | 'fixed'; discount_value: number; starts_on: string; ends_on: string }[]>([])
   useEffect(() => {
     if (!location?.id) return
     let alive = true
@@ -386,7 +388,7 @@ export default function LocationPage() {
     return () => { alive = false }
   }, [location?.id])
   // Συνολική έκπτωση που βλέπει ο πελάτης = προώθηση + κουπόνι (το κουπόνι στην τιμή μετά την προώθηση).
-  const discFor = (s: Service) => ((Number(listPriceFor(s)) || 0) - (Number(priceFor(s)) || 0)) + couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range)
+  const discFor = (s: Service) => s.is_range ? 0 : ((Number(listPriceFor(s)) || 0) - (Number(priceFor(s)) || 0)) + couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range)
 
   const visibleServices = services.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
@@ -608,6 +610,12 @@ export default function LocationPage() {
                   </div>
                   {!carChoice ? (
                     <p className="text-[12px] font-semibold text-washio-cyan-dark shrink-0">{locale === 'en' ? 'see price' : 'δες τιμή'}</p>
+                  ) : s.is_range && promo ? (
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-red-500 leading-none mb-1">{locale === 'en' ? 'Offer' : 'Προσφορά'}</p>
+                      <p className={`text-[12px] font-medium line-through leading-none ${selected ? 'text-white/50' : 'text-gray-400'}`}>€{rangeFor(s)[0]}–{rangeFor(s)[1]}</p>
+                      <p className={`text-[17px] font-bold tracking-tight mt-0.5 ${selected ? 'text-washio-cyan' : 'text-washio-cyan-dark'}`}>€{eur(Number(priceFor(s)) || 0)} <span className="text-[11px] font-semibold">{locale === 'en' ? 'only' : 'μόνο'}</span></p>
+                    </div>
                   ) : disc > 0 ? (
                     <div className="text-right shrink-0">
                       {promo && <p className="text-[10px] font-bold uppercase tracking-wide text-red-500 leading-none mb-1">{locale === 'en' ? 'Offer' : 'Προσφορά'}</p>}

@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   const user = locationId ? await canManage(locationId) : null
   if (!user) return NextResponse.json({ error: 'Χωρίς πρόσβαση' }, { status: 403 })
 
-  const type = b.discountType === 'amount' ? 'amount' : 'percent'
+  const type = b.discountType === 'amount' ? 'amount' : b.discountType === 'fixed' ? 'fixed' : 'percent'
   const value = Math.round(Number(b.discountValue) * 100) / 100
   const startsOn = String(b.startsOn || ''), endsOn = String(b.endsOn || '')
   if (!YMD.test(startsOn) || !YMD.test(endsOn) || endsOn < startsOn) return NextResponse.json({ error: 'Λάθος ημερομηνίες' }, { status: 400 })
@@ -46,8 +46,10 @@ export async function POST(req: NextRequest) {
 
   const { data: svc } = await admin.from('services').select('id, price, is_range').eq('id', b.serviceId || '').eq('location_id', locationId).maybeSingle()
   if (!svc) return NextResponse.json({ error: 'Η υπηρεσία δεν βρέθηκε' }, { status: 400 })
-  if (svc.is_range) return NextResponse.json({ error: 'Δεν γίνεται προώθηση σε υπηρεσία με εύρος τιμής' }, { status: 400 })
+  // Υπηρεσία εύρους (βιολογικός): μόνο σταθερή τιμή («μόνο 120€»).
+  if (svc.is_range && type !== 'fixed') return NextResponse.json({ error: 'Σε υπηρεσία με εύρος τιμής γίνεται μόνο σταθερή τιμή προσφοράς' }, { status: 400 })
   if (type === 'amount' && value >= Number(svc.price)) return NextResponse.json({ error: 'Η έκπτωση είναι μεγαλύτερη από την τιμή' }, { status: 400 })
+  if (type === 'fixed' && !svc.is_range && value >= Number(svc.price)) return NextResponse.json({ error: 'Η τιμή προσφοράς πρέπει να είναι μικρότερη από την κανονική' }, { status: 400 })
 
   const { data, error } = await admin.from('promotions').insert({
     location_id: locationId, service_id: svc.id, discount_type: type, discount_value: value,

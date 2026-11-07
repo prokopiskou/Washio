@@ -143,7 +143,14 @@ export async function POST(req: NextRequest) {
     // Υπηρεσία ΕΥΡΟΥΣ (βιολογικός): μετρητά μόνο, εκτίμηση επιτόπου. Το total_amount
     // = μεσοσταθμικό εύρους → η προμήθεια (payout: rate × total_amount) βγαίνει σταθερή.
     // Καμία πρόσθετη υπηρεσία εδώ — η τελική τιμή ορίζεται στο κατάστημα.
-    const isRange = svc.is_range === true
+    // Προώθηση πλυντηρίου για την ημέρα του ραντεβού — server-side. Σε υπηρεσία εύρους ισχύει ΜΟΝΟ
+    // σταθερή τιμή («fixed», π.χ. βιολογικός μόνο 120€) → τότε η κράτηση γίνεται κανονική, με αυτή την τιμή.
+    const baseForPromo = isMoto && svc.price_moto != null ? Number(svc.price_moto) : isSuv && svc.price_suv != null ? Number(svc.price_suv) : Number(svc.price) || 0
+    const promoRow = await activePromotionFor(admin, serviceId, slotDate, baseForPromo)
+    const promo = svc.is_range === true ? (promoRow?.discount_type === 'fixed' ? promoRow : null) : promoRow
+    const isRange = svc.is_range === true && !promo
+    // Κουπόνι / loyalty: ποτέ σε βιολογικό (ούτε με προσφορά) — ίδιος κανόνας με την εφαρμογή.
+    const noCredit = svc.is_range === true
     let amount: number
     let servicePrice: number | null = null
     const addonLines: { name: string; price: number }[] = []
@@ -160,8 +167,6 @@ export async function POST(req: NextRequest) {
       amount = isMoto && svc.price_moto != null ? Number(svc.price_moto)
         : isSuv && svc.price_suv != null ? Number(svc.price_suv)
         : Number(svc.price)
-      // Προώθηση πλυντηρίου (dashboard → Προωθήσεις) για την ημέρα του ραντεβού — server-side.
-      const promo = await activePromotionFor(admin, serviceId, slotDate, amount)
       if (promo) amount = applyPromo(amount, promo)
       servicePrice = amount
 
@@ -225,9 +230,9 @@ export async function POST(req: NextRequest) {
     // Συσκευή (cookie ws_dev) — για το «ένα −3€ ανά συσκευή/κινητό/πινακίδα» (lib/coupon-guard).
     const deviceId = (req.cookies.get('ws_dev')?.value || '').slice(0, 64) || null
     // Washio Club: 4ο, 8ο… πλύσιμο στο ίδιο πλυντήριο → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
-    const loyalty = isRange ? 0 : await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount })
+    const loyalty = noCredit ? 0 : await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount })
     if (loyalty > 0) couponAmount = loyalty
-    else if (!isRange && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
+    else if (!noCredit && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
       const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
       couponAmount = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
     }

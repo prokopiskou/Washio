@@ -958,7 +958,7 @@ export default function DashboardPage() {
   // Πολύ αχνό φόντο γραμμής: πράσινο = ολοκληρώθηκε · κόκκινο = δεν ήρθε.
   // Ποσό προς εμφάνιση: υπηρεσία εύρους → «€50–80» (ΟΧΙ ο μέσος όρος· η προμήθεια υπολογίζεται στο backend).
   const amountLabel = (b: Booking): string => {
-    const rl = rangeLabel(b.total_amount, b.services)
+    const rl = rangeLabel(b.total_amount, b.services, b.service_price)
     return rl ? `€${rl}` : `€${Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0)).toFixed(0)}`
   }
   const rowBg = (es: string) => es === 'completed' ? '#F3FBF6' : es === 'no_show' ? '#FDF4F4' : undefined
@@ -1443,7 +1443,7 @@ export default function DashboardPage() {
               if (b.source === 'manual') return { bg: '#F3F4F6', fg: '#4B5563', label: t('Εκτός πλατφόρμας') }
               if (b.stripe_payment_status === 'pay_at_venue') {
                 // «Πλήρωσε εκεί» με κουπόνι Washio: εισπράττεις τιμή − κουπόνι (αυτό είναι το ποσό, χωρίς επιστροφή).
-                const rl = rangeLabel(b.total_amount, b.services)
+                const rl = rangeLabel(b.total_amount, b.services, b.service_price)
                 if (rl) return { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εκτίμηση επιτόπου')} €${rl}` }
                 const cp = Number(b.coupon_amount) || 0
                 const collect = Math.max(0, Number(b.total_amount || 0) - cp)

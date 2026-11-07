@@ -161,7 +161,7 @@ function BookingCard({
         <p className="text-[15px] font-bold tracking-tight text-gray-900">
           {/* Ό,τι ΠΛΗΡΩΝΕΙ ο πελάτης: τιμή − κουπόνι */}
           {/* Υπηρεσία εύρους (βιολογικός): το εύρος, όχι ο μέσος όρος */}
-          {rangeLabel(booking.total_amount, booking.services) ? `€${rangeLabel(booking.total_amount, booking.services)}` : `€${Math.max(0, Number(booking.total_amount || 0) - (Number(booking.coupon_amount) || 0)).toFixed(2)}`}
+          {rangeLabel(booking.total_amount, booking.services, (booking as { service_price?: number | null }).service_price) ? `€${rangeLabel(booking.total_amount, booking.services, (booking as { service_price?: number | null }).service_price)}` : `€${Math.max(0, Number(booking.total_amount || 0) - (Number(booking.coupon_amount) || 0)).toFixed(2)}`}
         </p>
       </div>
     </button>
@@ -188,7 +188,7 @@ export default function ProfileBookingsPage() {
 
       const { data } = await supabase
         .from('bookings')
-        .select(`id, booking_ref, slot_date, slot_start_time, total_amount, coupon_amount, status, locations(name), services(name, ${RANGE_SVC_COLS})`)
+        .select(`id, booking_ref, slot_date, slot_start_time, total_amount, service_price, coupon_amount, status, locations(name), services(name, ${RANGE_SVC_COLS})`)
         .eq('user_id', user.id)
         .order('slot_date', { ascending: false })
 

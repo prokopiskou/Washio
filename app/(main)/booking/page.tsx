@@ -482,6 +482,7 @@ function BookingPageContent() {
   const [vehicleFormType, setVehicleFormType] = useState('ΙΧ')
   const [servicePrice, setServicePrice] = useState(0)
   const [listPrice, setListPrice] = useState(0) // τιμή πριν την προώθηση (0 = καμία προώθηση)
+  const [rangeFixed, setRangeFixed] = useState(false) // βιολογικός με προσφορά σταθερής τιμής
 
   const serviceId = params.get('service') || ''
   const locationId = params.get('location') || ''
@@ -634,6 +635,14 @@ function BookingPageContent() {
             const min = vehicleType === 'SUV' ? serviceData.price_min_suv : serviceData.price_min
             const max = vehicleType === 'SUV' ? serviceData.price_max_suv : serviceData.price_max
             setServicePrice(((Number(min) || 0) + (Number(max) || 0)) / 2)
+            // Προσφορά σταθερής τιμής (π.χ. «μόνο 120€»): σβήνει το εύρος → κανονική κράτηση με αυτή την τιμή.
+            if (locationId) {
+              fetch(`/api/promotions?location=${locationId}`).then(r => r.json()).then(j => {
+                const pr = (j.promotions || []).find((p: { service_id: string; discount_type: string; starts_on: string; ends_on: string }) =>
+                  p.service_id === serviceData.id && p.discount_type === 'fixed' && p.starts_on <= dateStr && dateStr <= p.ends_on)
+                if (pr) { promoRef.current = pr; setRangeFixed(true); setServicePrice(applyPromo(0, pr)) }
+              }).catch(() => {})
+            }
           } else {
             const price = vehicleType === 'Μοτοσικλέτα' && serviceData.price_moto
               ? serviceData.price_moto
@@ -735,7 +744,9 @@ function BookingPageContent() {
   const total = servicePrice + addonTotal
   // Υπηρεσία εύρους (βιολογικός): μετρητά μόνο, εκτίμηση επιτόπου. Ο πελάτης βλέπει
   // εύρος (min–max) — η τελική τιμή λέγεται στο κατάστημα. Καμία χρέωση κάρτας.
-  const isRange = service?.is_range === true
+  const isRange = service?.is_range === true && !rangeFixed
+  // Βιολογικός (και με προσφορά): ποτέ κουπόνι/loyalty — ίδιος κανόνας με τον server.
+  const noCredit = service?.is_range === true
   const rangeMin = service ? Number(vehicleType === 'SUV' ? service.price_min_suv : service.price_min) || 0 : 0
   const rangeMax = service ? Number(vehicleType === 'SUV' ? service.price_max_suv : service.price_max) || 0 : 0
   // Χρέωση κάρτας = (τιμή − κουπόνι) + τέλος υπηρεσίας (μόνο κάρτα). Τα μετρητά
@@ -744,9 +755,9 @@ function BookingPageContent() {
   const cardTotal = Math.max(0, total - appliedCredit) + SERVICE_FEE_EUR
   // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: ≥12€, έως 3€ — κάρτα ΚΑΙ μετρητά).
   // Washio Club (4ο πλύσιμο στο ίδιο πλυντήριο −3€) έχει προτεραιότητα και ΔΕΝ ξοδεύει το κουπόνι.
-  const loyaltyNow = !isRange && !!loyalty?.rewardNext && isCreditEligible(total)
+  const loyaltyNow = !noCredit && !!loyalty?.rewardNext && isCreditEligible(total)
   const previewCredit = loyaltyNow ? Math.min(loyalty!.amount, total)
-    : !isRange && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
+    : !noCredit && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
   // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())
   // Όσο ελέγχεται το email ή περιμένουμε κωδικό (υπάρχων λογαριασμός) → ΟΧΙ κράτηση.
@@ -1098,7 +1109,7 @@ function BookingPageContent() {
                   placeholder={vehicleType === 'Μοτοσικλέτα' ? t.plateExampleMoto : t.plateExampleCar}
                   className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] font-mono tracking-wider text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
                 />
-                {couponBlock === 'plate' && !isRange && isCreditEligible(total) && walletCredit > 0 && (
+                {couponBlock === 'plate' && !noCredit && isCreditEligible(total) && walletCredit > 0 && (
                   <p className="text-[11px] text-amber-700 -mt-1 leading-snug">{t.plateCouponUsed}</p>
                 )}
 
@@ -1248,7 +1259,7 @@ function BookingPageContent() {
             />
             {phone.replace(/\D/g, '').length >= 10 && !phoneValid ? (
               <p className="text-[11px] text-red-600 mt-1.5 leading-snug">{t.phoneInvalid}</p>
-            ) : (couponBlock === 'phone' || couponBlock === 'device') && !isRange && isCreditEligible(total) && walletCredit > 0 ? (
+            ) : (couponBlock === 'phone' || couponBlock === 'device') && !noCredit && isCreditEligible(total) && walletCredit > 0 ? (
               <p className="text-[11px] text-amber-700 mt-1.5 leading-snug">
                 {couponBlock === 'phone' ? t.phoneCouponUsed : t.deviceCouponUsed}
               </p>
@@ -1318,8 +1329,9 @@ function BookingPageContent() {
                 <div className="flex justify-between items-center py-3 border-b border-washio-border">
                   <span className="text-[13px] text-gray-500">{translateCatalogName(service.name, locale)}</span>
                   <span className="text-[14px] font-medium text-gray-900">
-                    {listPrice > servicePrice && <span className="line-through text-gray-400 mr-1.5 text-[12px]">{eur2(listPrice)}</span>}
-                    {eur2(servicePrice)}
+                    {rangeFixed && <span className="line-through text-gray-400 mr-1.5 text-[12px]">{rangeMin.toFixed(0)}–{rangeMax.toFixed(0)} €</span>}
+                    {!rangeFixed && listPrice > servicePrice && <span className="line-through text-gray-400 mr-1.5 text-[12px]">{eur2(listPrice)}</span>}
+                    {eur2(servicePrice)}{rangeFixed && <span className="ml-1 text-[11px] font-semibold text-washio-cyan-dark">{locale === 'en' ? 'offer' : 'προσφορά'}</span>}
                   </span>
                 </div>
                 {selectedAddons.length > 0 && (

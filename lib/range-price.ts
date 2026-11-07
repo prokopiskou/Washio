@@ -10,8 +10,10 @@ export type RangeSvc = {
 export const RANGE_SVC_COLS = 'is_range, price_min, price_max, price_min_suv, price_max_suv'
 
 /** «50–80» αν η κράτηση είναι υπηρεσία εύρους, αλλιώς null. Διαλέγει κανονικό/SUV από τον μέσο όρο. */
-export function rangeLabel(total: number | null | undefined, svc: RangeSvc): string | null {
+export function rangeLabel(total: number | null | undefined, svc: RangeSvc, servicePrice?: number | null): string | null {
   if (!svc?.is_range) return null
+  // Προσφορά σταθερής τιμής (π.χ. «μόνο 120€»): η κράτηση έχει service_price → όχι εύρος.
+  if (Number(servicePrice) > 0) return null
   const t = Number(total) || 0
   const opts: [number, number][] = []
   const a = Number(svc.price_min) || 0, b = Number(svc.price_max) || 0

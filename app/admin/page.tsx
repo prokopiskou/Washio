@@ -196,7 +196,7 @@ export default function AdminPage() {
   // Έσοδα = ό,τι πλήρωσε ο πελάτης για το πλύσιμο: τιμή − κουπόνι (π.χ. 20 − 3 = 17).
   // Υπηρεσία εύρους (βιολογικός): δείχνουμε το εύρος, όχι τον μέσο όρο (πάνω στον οποίο μπαίνει η προμήθεια).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const amtLabel = (b: any) => { const rl = rangeLabel(b.total_amount, b.services); return rl ? `€${rl}` : `€${netAmt(b).toFixed(0)}` }
+  const amtLabel = (b: any) => { const rl = rangeLabel(b.total_amount, b.services, b.service_price); return rl ? `€${rl}` : `€${netAmt(b).toFixed(0)}` }
   const netAmt = (b: any) => Math.max(0, Number(b.total_amount || 0) - (Number(b.coupon_amount) || 0))
   const totalRevenue = platformBookings.reduce((sum, b) => sum + netAmt(b), 0)
   const totalCommission = platformBookings.reduce((sum, b) => sum + Number(b.platform_fee || 0), 0)

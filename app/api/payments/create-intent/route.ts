@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     ] = await Promise.all([
       // Υπηρεσία ΤΟΥ πλυντηρίου και ενεργή — όχι id από άλλο πλυντήριο.
       admin.from('services')
-        .select('id, name, price, price_moto, price_suv')
+        .select('id, name, price, price_moto, price_suv, is_range')
         .eq('id', serviceId)
         .eq('location_id', locationId)
         .eq('is_active', true)
@@ -133,7 +133,11 @@ export async function POST(req: NextRequest) {
       : Number(service.price)
 
     // Προώθηση πλυντηρίου (dashboard → Προωθήσεις) για την ημέρα του ραντεβού — server-side.
-    const promo = await activePromotionFor(admin, serviceId, slotDate, amount)
+    // Υπηρεσία εύρους (βιολογικός): με κάρτα ΜΟΝΟ αν έχει προσφορά σταθερής τιμής («fixed»).
+    const promoRow = await activePromotionFor(admin, serviceId, slotDate, amount)
+    const isRangeSvc = (service as { is_range?: boolean }).is_range === true
+    const promo = isRangeSvc ? (promoRow?.discount_type === 'fixed' ? promoRow : null) : promoRow
+    if (isRangeSvc && !promo) return NextResponse.json({ error: 'Η υπηρεσία πληρώνεται στο κατάστημα' }, { status: 400 })
     if (promo) amount = applyPromo(amount, promo)
 
     const servicePrice = amount
@@ -173,9 +177,10 @@ export async function POST(req: NextRequest) {
     const deviceId = (req.cookies.get('ws_dev')?.value || '').slice(0, 64)
     // Washio Club: 4ο, 8ο… πλύσιμο στο ίδιο πλυντήριο → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
     let loyalty = 0
-    try { loyalty = await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount }) } catch { loyalty = 0 }
+    // Βιολογικός (και με προσφορά): χωρίς loyalty/κουπόνι — ίδιος κανόνας με την εφαρμογή.
+    if (!isRangeSvc) try { loyalty = await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount }) } catch { loyalty = 0 }
     if (loyalty > 0) appliedCredit = loyalty
-    else try {
+    else if (!isRangeSvc) try {
       // Μόνο σε πλήρες πλύσιμο (Μέσα-Έξω) ≥12€ — αλλιώς κανένα κουπόνι.
       if (isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
         const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()

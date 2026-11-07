@@ -6,7 +6,7 @@ import { applyPromo } from '@/lib/promotions'
 // Dashboard → «Προωθήσεις»: έκπτωση σε μία υπηρεσία για ραντεβού από–έως.
 // Ο πελάτης βλέπει την παλιά τιμή διαγραμμένη και τη νέα· η τιμή εφαρμόζεται αυτόματα στην κράτηση.
 type Svc = { id: string; service_name: string; price: number; is_active: boolean; is_range?: boolean }
-type Promo = { id: string; service_id: string; discount_type: 'percent' | 'amount'; discount_value: number; starts_on: string; ends_on: string; is_active: boolean }
+type Promo = { id: string; service_id: string; discount_type: 'percent' | 'amount' | 'fixed'; discount_value: number; starts_on: string; ends_on: string; is_active: boolean }
 
 const eur = (n: number) => n.toFixed(2).replace('.', ',') + '€'
 const todayYmd = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(new Date())
@@ -14,9 +14,10 @@ const addDays = (ymd: string, d: number) => { const t = new Date(ymd + 'T12:00:0
 const gr = (ymd: string) => { const [y, m, d] = ymd.split('-'); return `${d}/${m}/${y}` }
 
 export function PromotionsPanel({ locationId, services, t }: { locationId: string; services: Svc[]; t: (s: string) => string }) {
-  const usable = useMemo(() => services.filter(s => s.is_active && !s.is_range && Number(s.price) > 0), [services])
+  // Υπηρεσίες εύρους (βιολογικός): μόνο «σταθερή τιμή» (π.χ. μόνο 120€) — το εύρος σβήνει στην εφαρμογή.
+  const usable = useMemo(() => services.filter(s => s.is_active && (s.is_range || Number(s.price) > 0)), [services])
   const [serviceId, setServiceId] = useState('')
-  const [type, setType] = useState<'percent' | 'amount'>('percent')
+  const [type, setType] = useState<'percent' | 'amount' | 'fixed'>('percent')
   const [value, setValue] = useState('')
   const [from, setFrom] = useState(todayYmd())
   const [to, setTo] = useState(addDays(todayYmd(), 7))
@@ -34,16 +35,18 @@ export function PromotionsPanel({ locationId, services, t }: { locationId: strin
   const svc = usable.find(s => s.id === serviceId)
   const base = Number(svc?.price || 0)
   const v = Number(String(value).replace(',', '.')) || 0
-  const final = svc && v > 0 ? applyPromo(base, { discount_type: type, discount_value: v }) : base
+  const isRangeSvc = !!svc?.is_range
+  const effType = isRangeSvc ? 'fixed' : type
+  const final = svc && v > 0 ? applyPromo(base, { discount_type: effType, discount_value: v }) : base
   const off = base - final
-  const valid = !!svc && v > 0 && final > 0 && (type === 'amount' || v <= 90) && from <= to && to >= todayYmd()
+  const valid = !!svc && v > 0 && final > 0 && (effType !== 'percent' || v <= 90) && (effType !== 'fixed' || isRangeSvc || v < base) && from <= to && to >= todayYmd()
 
   const create = async () => {
     if (!valid || busy) return
     setBusy(true); setMsg('')
     const r = await fetch('/api/dashboard/promotions', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ locationId, serviceId, discountType: type, discountValue: v, startsOn: from, endsOn: to }),
+      body: JSON.stringify({ locationId, serviceId, discountType: effType, discountValue: v, startsOn: from, endsOn: to }),
     })
     const j = await r.json().catch(() => ({}))
     setBusy(false)
@@ -77,28 +80,30 @@ export function PromotionsPanel({ locationId, services, t }: { locationId: strin
         <label className="text-[12px] font-semibold text-gray-500">{t('Υπηρεσία')}
           <select value={serviceId} onChange={e => setServiceId(e.target.value)} className={input + ' mt-1'}>
             <option value="">{t('Επίλεξε υπηρεσία…')}</option>
-            {usable.map(s => <option key={s.id} value={s.id}>{s.service_name} · {eur(Number(s.price))}</option>)}
+            {usable.map(s => <option key={s.id} value={s.id}>{s.service_name} · {s.is_range ? t('εύρος τιμής') : eur(Number(s.price))}</option>)}
           </select>
         </label>
 
         <div>
-          <p className="text-[12px] font-semibold text-gray-500 mb-1">{t('Έκπτωση')}</p>
+          <p className="text-[12px] font-semibold text-gray-500 mb-1">{effType === 'fixed' ? t('Τιμή προσφοράς (€)') : t('Έκπτωση')}</p>
           <div className="flex gap-2">
-            <div className="flex rounded-xl border border-gray-200 overflow-hidden shrink-0">
-              {(['percent', 'amount'] as const).map(k => (
-                <button key={k} onClick={() => setType(k)} className={`w-12 h-11 text-[15px] font-semibold ${type === k ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'}`}>{k === 'percent' ? '%' : '€'}</button>
-              ))}
-            </div>
-            <input value={value} onChange={e => setValue(e.target.value)} inputMode="decimal" placeholder={type === 'percent' ? 'π.χ. 20' : 'π.χ. 3'} className={input} />
+            {!isRangeSvc && (
+              <div className="flex rounded-xl border border-gray-200 overflow-hidden shrink-0">
+                {(['percent', 'amount', 'fixed'] as const).map(k => (
+                  <button key={k} onClick={() => setType(k)} className={`${k === 'fixed' ? 'px-2.5' : 'w-12'} h-11 text-[14px] font-semibold ${type === k ? 'bg-gray-900 text-white' : 'bg-white text-gray-700'}`}>{k === 'percent' ? '%' : k === 'amount' ? '−€' : t('Τιμή')}</button>
+                ))}
+              </div>
+            )}
+            <input value={value} onChange={e => setValue(e.target.value)} inputMode="decimal" placeholder={effType === 'percent' ? 'π.χ. 20' : effType === 'fixed' ? 'π.χ. 120' : 'π.χ. 3'} className={input} />
           </div>
         </div>
 
         {svc && (
           <div className="rounded-xl bg-gray-50 p-3 text-[14px] flex flex-col gap-1.5">
-            <div className="flex justify-between"><span className="text-gray-500">{t('Αρχική τιμή')}</span><span className={v > 0 ? 'line-through text-gray-400' : 'font-semibold'}>{eur(base)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">{t('Έκπτωση')}</span><span className="text-red-600 font-semibold">{off > 0 ? `−${eur(off)} (${Math.round(off / base * 100)}%)` : '—'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">{t('Αρχική τιμή')}</span><span className={v > 0 ? 'line-through text-gray-400' : 'font-semibold'}>{isRangeSvc ? t('εύρος τιμής') : eur(base)}</span></div>
+            {!isRangeSvc && <div className="flex justify-between"><span className="text-gray-500">{t('Έκπτωση')}</span><span className="text-red-600 font-semibold">{off > 0 ? `−${eur(off)} (${Math.round(off / base * 100)}%)` : '—'}</span></div>}
             <div className="flex justify-between border-t border-gray-200 pt-1.5"><span className="font-semibold text-gray-900">{t('Τελική τιμή')}</span><span className="font-bold text-gray-900 text-[16px]">{eur(final)}</span></div>
-            <p className="text-[11px] text-gray-400">{t('Για ΙΧ. Μοτοσικλέτα/SUV: ίδια έκπτωση στην τιμή τους.')}</p>
+            <p className="text-[11px] text-gray-400">{effType === 'fixed' ? t('Σταθερή τιμή για όλα τα οχήματα (ΙΧ & SUV). Στην εφαρμογή φαίνεται «μόνο» αυτή η τιμή.') : t('Για ΙΧ. Μοτοσικλέτα/SUV: ίδια έκπτωση στην τιμή τους.')}</p>
           </div>
         )}
 
@@ -125,7 +130,9 @@ export function PromotionsPanel({ locationId, services, t }: { locationId: strin
               <div key={p.id} className="bg-white rounded-2xl border border-gray-200 p-3.5 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-semibold text-gray-900 truncate">{s?.service_name || t('Υπηρεσία')}</p>
-                  <p className="text-[13px] mt-0.5"><span className="line-through text-gray-400">{eur(b)}</span> <span className="font-semibold text-gray-900">{eur(applyPromo(b, p))}</span> <span className="text-red-600">({p.discount_type === 'percent' ? `−${Number(p.discount_value)}%` : `−${eur(Number(p.discount_value))}`})</span></p>
+                  <p className="text-[13px] mt-0.5">{p.discount_type === 'fixed'
+                    ? <><span className="line-through text-gray-400">{s?.is_range ? t('εύρος τιμής') : eur(b)}</span> <span className="font-semibold text-gray-900">{t('μόνο')} {eur(Number(p.discount_value))}</span></>
+                    : <><span className="line-through text-gray-400">{eur(b)}</span> <span className="font-semibold text-gray-900">{eur(applyPromo(b, p))}</span> <span className="text-red-600">({p.discount_type === 'percent' ? `−${Number(p.discount_value)}%` : `−${eur(Number(p.discount_value))}`})</span></>}</p>
                   <p className="text-[12px] text-gray-500 mt-0.5">{gr(p.starts_on)} – {gr(p.ends_on)}</p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5 shrink-0">
