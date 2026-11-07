@@ -42,7 +42,12 @@ export default function PushInit() {
             } catch { /* ignore */ }
             try { navigator.vibrate?.([200, 100, 200]) } catch { /* ignore */ }
           })
-          removeListener = () => { h.remove() }
+          // Πάτημα σε ειδοποίηση (app στο παρασκήνιο/κλειστό) → άνοιγμα της σωστής σελίδας (π.χ. /dashboard?booking=…).
+          const h2 = await FirebaseMessaging.addListener('notificationActionPerformed', ({ notification }) => {
+            const u = ((notification?.data || {}) as { url?: string }).url
+            if (u && u.startsWith('/')) window.location.href = u
+          })
+          removeListener = () => { h.remove(); h2.remove() }
         } catch { /* παλιό build χωρίς plugin */ }
         return
       }
