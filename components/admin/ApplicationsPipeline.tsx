@@ -110,22 +110,18 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
             />
 
             {/* Ενέργειες ανά στάδιο */}
-            {(st === 'new' || st === 'no_answer') && !open && (
+            {(st === 'new' || st === 'no_answer' || st === 'followup') && !open && (
               <div className="flex gap-2 mt-2.5">
                 <button disabled={!!busy} onClick={() => setPicked(p => ({ ...p, [a.id]: true }))} className={btn + ' flex-1 bg-green-600 text-white'}>✓ Σήκωσε</button>
                 <button disabled={!!busy} onClick={() => act(a, 'no_answer')} className={btn + ' flex-1 bg-white border border-gray-300 text-gray-700'}>✕ Δεν σήκωσε</button>
               </div>
             )}
 
-            {(((st === 'new' || st === 'no_answer') && open) || st === 'followup') && (() => {
-              const call = st !== 'followup' && !wasAnswered ? { answered: true } : {}
+            {(st === 'new' || st === 'no_answer' || st === 'followup') && open && (() => {
+              const call = !wasAnswered ? { answered: true } : {}
               return (
                 <div className="mt-2.5 flex flex-col gap-2 rounded-xl bg-gray-50 p-3">
-                  {st === 'followup' && (
-                    <button disabled={!!busy} onClick={() => act(a, 'no_answer')} className={btn + ' bg-white border border-gray-300 text-gray-700'}>✕ Δεν σήκωσε — υπενθύμιση αύριο 10:00</button>
-                  )}
-                  {st === 'followup' && <p className="text-[11px] text-gray-400 -mb-1">Σήκωσε:</p>}
-                  {st !== 'followup' && <p className="text-[12px] font-semibold text-gray-700">{wasAnswered ? 'Σήκωσε — εκκρεμεί απόφαση' : 'Σήκωσε — τι έγινε;'}</p>}
+                  {<p className="text-[12px] font-semibold text-gray-700">{wasAnswered ? 'Σήκωσε — εκκρεμεί απόφαση' : 'Σήκωσε — τι έγινε;'}</p>}
                   {!closing[a.id] ? (
                     <button disabled={!!busy} onClick={() => setClosing(c => ({ ...c, [a.id]: true }))} className={btn + ' h-10 bg-gray-900 text-white'}>✓ Κλείνει → Onboarding</button>
                   ) : (
@@ -151,7 +147,7 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
                   </div>
                   <div className="flex items-center justify-between">
                     <button disabled={!!busy} onClick={() => act(a, 'lost', call)} className={btn + ' bg-white border border-gray-300 text-gray-600'}>Δεν ενδιαφέρεται</button>
-                    {st !== 'followup' && !wasAnswered && <button onClick={() => setPicked(p => ({ ...p, [a.id]: false }))} className="text-[12px] text-gray-500 underline">Πίσω</button>}
+                    {!wasAnswered && <button onClick={() => setPicked(p => ({ ...p, [a.id]: false }))} className="text-[12px] text-gray-500 underline">Πίσω</button>}
                   </div>
                 </div>
               )
