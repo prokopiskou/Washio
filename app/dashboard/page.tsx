@@ -248,14 +248,15 @@ export default function DashboardPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [sortBy, setSortBy] = useState<'created_at' | 'slot_date'>('created_at')
   // Μόλις φορτωθούν οι κρατήσεις: άνοιξε την καρτέλα, φέρε την κράτηση στην οθόνη και τόνισέ την για λίγο.
-  // Το απαλό μπλε πλαίσιο ΜΕΝΕΙ στην κράτηση (μέχρι να αλλάξει καρτέλα / άλλη ειδοποίηση).
+  // Απαλό μπλε πλαίσιο στην κράτηση για 10'' (ή μέχρι να αλλάξει καρτέλα).
   const focusDoneRef = useRef<string | null>(null)
   useEffect(() => {
     if (!focusBookingId || focusDoneRef.current === focusBookingId || !bookings.some(b => b.id === focusBookingId)) return
     focusDoneRef.current = focusBookingId
     setActiveTab('bookings'); setFilterStatus('all'); setSortBy('slot_date')
     const t1 = setTimeout(() => document.getElementById(`bk-${focusBookingId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350)
-    return () => clearTimeout(t1)
+    const t2 = setTimeout(() => setFocusBookingId(null), 10_000) // το πλαίσιο σβήνει μετά από 10''
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [focusBookingId, bookings])
   const [calendarDate, setCalendarDate] = useState<Date>(new Date())
   const [calendarBookings, setCalendarBookings] = useState<Booking[]>([])
