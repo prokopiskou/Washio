@@ -3,7 +3,7 @@
 import { formatDuration } from '@/lib/duration'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check, Car, Bike } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Star, MapPin, Heart, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@vercel/analytics'
 import { athensToday, athensMinutesOfDay, ymdFromLocalDate } from '@/lib/time'
@@ -17,6 +17,8 @@ import { funnel } from '@/lib/funnel'
 import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
 import { applyPromo } from '@/lib/promotions'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
+import { useCarChoice, vehicleTypeOf, type CarChoice } from '@/lib/car-choice'
+import { VehicleChip, VehiclePickerSheet } from '@/components/VehiclePicker'
 
 const T = {
   el: {
@@ -149,7 +151,15 @@ export default function LocationPage() {
   const [wx, setWx] = useState<WxDay[]>([])
   const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
-  const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'SUV' | 'Μοτοσικλέτα'>('ΙΧ')
+  // Όχημα: «Ποιο αμάξι έχεις;» (μάρκα/μοντέλο → ΙΧ/SUV). Χωρίς επιλογή → καμία τιμή.
+  const [carChoice, setCarChoice] = useCarChoice()
+  const vehicleType = vehicleTypeOf(carChoice)
+  const [showCarPicker, setShowCarPicker] = useState(false)
+  const pendingSvcRef = useRef<string | null>(null)
+  const onCarPicked = (c: CarChoice) => {
+    setCarChoice(c)
+    if (pendingSvcRef.current) { setSelectedServiceId(pendingSvcRef.current); pendingSvcRef.current = null }
+  }
   // Πρώτη ελεύθερη ώρα ΗΔΗ επιλεγμένη (ένα πάτημα για κράτηση). Αν η μέρα δεν έχει
   // ελεύθερη ώρα, πάμε αυτόματα στην επόμενη (έως 7 μέρες) — μόνο αν ο χρήστης
   // δεν έχει διαλέξει ο ίδιος μέρα.
@@ -534,30 +544,16 @@ export default function LocationPage() {
             {t.vehicle}
           </p>
           <div className="flex gap-2">
-            {(['ΙΧ', 'SUV', 'Μοτοσικλέτα'] as const).map(type => {
-              const active = vehicleType === type
-              return (
-                <button
-                  key={type}
-                  onClick={() => { setVehicleType(type); lightTap() }}
-                  className={`px-3.5 py-2.5 rounded-full text-[13px] font-semibold border flex items-center gap-1.5 transition-all ${
-                    active
-                      ? 'bg-washio-cyan text-white border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
-                      : 'bg-white text-washio-navy border-washio-border'
-                  }`}
-                >
-                  {type === 'Μοτοσικλέτα' ? <Bike size={15} /> : <Car size={15} />}
-                  {type === 'ΙΧ' ? t.car : type === 'SUV' ? 'SUV' : t.moto}
-                </button>
-              )
-            })}
+            <VehicleChip choice={carChoice} onClick={() => setShowCarPicker(true)} locale={locale === 'en' ? 'en' : 'el'} />
           </div>
+          <VehiclePickerSheet open={showCarPicker} onClose={() => { setShowCarPicker(false); pendingSvcRef.current = null }}
+            onPick={onCarPicked} locale={locale === 'en' ? 'en' : 'el'} />
 
           {/* Services */}
           <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-6 mb-2.5">
             {t.service}
           </p>
-          {visibleServices.some(s => discFor(s) > 0) && (
+          {carChoice && visibleServices.some(s => discFor(s) > 0) && (
             <p className="text-[12px] font-semibold text-washio-cyan-dark -mt-1 mb-2.5">{coupon.guest ? t.couponGuest : t.couponUser}</p>
           )}
           <div className="flex flex-col gap-2.5">
@@ -570,7 +566,7 @@ export default function LocationPage() {
               return (
                 <button
                   key={s.id}
-                  onClick={() => { setSelectedServiceId(s.id); lightTap(); funnel('service_select', { locationId: location?.id, meta: { src: 'page', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
+                  onClick={() => { if (!carChoice) { pendingSvcRef.current = s.id; setShowCarPicker(true); return } setSelectedServiceId(s.id); lightTap(); funnel('service_select', { locationId: location?.id, meta: { src: 'page', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
                   className={`flex items-center gap-3.5 p-3.5 min-h-[72px] rounded-[20px] border transition-all text-left ${
                     selected
                       ? 'border-washio-navy text-white'
@@ -610,7 +606,9 @@ export default function LocationPage() {
                       </p>
                     )}
                   </div>
-                  {disc > 0 ? (
+                  {!carChoice ? (
+                    <p className="text-[12px] font-semibold text-washio-cyan-dark shrink-0">{locale === 'en' ? 'see price' : 'δες τιμή'}</p>
+                  ) : disc > 0 ? (
                     <div className="text-right shrink-0">
                       {promo && <p className="text-[10px] font-bold uppercase tracking-wide text-red-500 leading-none mb-1">{locale === 'en' ? 'Offer' : 'Προσφορά'}</p>}
                       <p className={`text-[12px] font-medium line-through leading-none ${selected ? 'text-white/50' : 'text-gray-400'}`}>€{eur(base)}</p>
@@ -774,7 +772,7 @@ export default function LocationPage() {
         >
           {canBook ? (
             <button
-              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}`) }}
+              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}${carChoice?.kind === 'car' && carChoice.known ? `&carModel=${encodeURIComponent(carChoice.label)}` : ''}`) }}
               className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
               style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.38)' }}
             >

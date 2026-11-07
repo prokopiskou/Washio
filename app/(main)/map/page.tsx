@@ -23,6 +23,8 @@ import { isNativeApp } from '@/lib/native-auth'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
+import { useCarChoice, vehicleTypeOf, type CarChoice } from '@/lib/car-choice'
+import { VehicleChip, VehiclePickerSheet } from '@/components/VehiclePicker'
 import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
 
@@ -342,7 +344,15 @@ function MapPageContent() {
   const [selectedDate, setSelectedDate] = useState(getTodayValue())
   const [selectedTime, setSelectedTime] = useState('')
   const [showTimePicker, setShowTimePicker] = useState(false)
-  const [vehicleType, setVehicleType] = useState<'ΙΧ' | 'SUV' | 'Μοτοσικλέτα'>('ΙΧ')
+  // Όχημα: «Ποιο αμάξι έχεις;» (μάρκα/μοντέλο → ΙΧ/SUV). Χωρίς επιλογή → καμία τιμή στο sheet.
+  const [carChoice, setCarChoice] = useCarChoice()
+  const vehicleType = vehicleTypeOf(carChoice)
+  const [showCarPicker, setShowCarPicker] = useState(false)
+  const pendingSvcRef = useRef<string | null>(null)
+  const onCarPicked = (c: CarChoice) => {
+    setCarChoice(c)
+    if (pendingSvcRef.current) { userPickedSlotRef.current = false; setSelectedService(pendingSvcRef.current); pendingSvcRef.current = null }
+  }
   const timePickerRef = useRef<HTMLDivElement>(null)
 
   const activeDate = timing === 'now' ? getTodayValue() : selectedDate
@@ -976,7 +986,7 @@ function MapPageContent() {
     funnel('book_click', { locationId: selectedLocation.id, meta: { src: 'map', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } })
 
     const bookDate = sheetDate || activeDate
-    const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${bookDate}&vehicleType=${encodeURIComponent(vehicleType)}`
+    const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${bookDate}&vehicleType=${encodeURIComponent(vehicleType)}${carChoice?.kind === 'car' && carChoice.known ? `&carModel=${encodeURIComponent(carChoice.label)}` : ''}`
 
     if (timing === 'now' && bookDate === getTodayValue()) {
       const minutes = getMinutesUntilSlot(selectedSlot!)
@@ -1399,7 +1409,7 @@ function MapPageContent() {
                   .sort((a, b) => (locPromoNow(b.id) ? 1 : 0) - (locPromoNow(a.id) ? 1 : 0) || (a.hasAvailability ? 0 : a.laterSlot ? 1 : 2) - (b.hasAvailability ? 0 : b.laterSlot ? 1 : 2))
                   .map(loc => {
                     const r = ratingByLocRef.current[loc.id]
-                    const from = fromPrice(loc.id)
+                    const from = carChoice ? fromPrice(loc.id) : null
                     const open = !!loc.hasAvailability || !!loc.laterSlot
                     const lp = locPromoNow(loc.id)
                     return (
@@ -1577,17 +1587,8 @@ function MapPageContent() {
 
               {/* Γραμμή 2: τύπος οχήματος · φωτογραφία (ίδια γραμμή, ίδιο ύψος) */}
               <div className="flex items-center justify-between gap-3 mb-3">
-                <div className="flex gap-2 shrink-0">
-                  {(['ΙΧ', 'SUV', 'Μοτοσικλέτα'] as const).map(type => (
-                    <button key={type} onClick={() => setVehicleType(type)}
-                      className={`h-9 px-3.5 rounded-full text-[13px] font-semibold border whitespace-nowrap transition-all ${
-                        vehicleType === type
-                          ? 'bg-washio-cyan text-white border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)]'
-                          : 'bg-white text-washio-navy border-washio-border'
-                      }`}>
-                      {type === 'ΙΧ' ? 'ΙΧ' : type === 'SUV' ? 'SUV' : t.moto}
-                    </button>
-                  ))}
+                <div className="flex gap-2 shrink-0 min-w-0">
+                  <VehicleChip choice={carChoice} onClick={() => setShowCarPicker(true)} locale={locale === 'en' ? 'en' : 'el'} />
                 </div>
                 {/* Διακριτική φωτογραφία — tap → σελίδα πλυντηρίου (όλες οι φωτό). */}
                 {selectedLocation.photos && selectedLocation.photos.length > 0 && (
@@ -1631,7 +1632,7 @@ function MapPageContent() {
               )}
 
               {/* Προσφορά πλυντηρίου — χρυσή κάρτα, πάνω από τις υπηρεσίες */}
-              {selectedLocation && promos.filter(p => p.location_id === selectedLocation.id).map(p => {
+              {selectedLocation && carChoice && promos.filter(p => p.location_id === selectedLocation.id).map(p => {
                 const s = visibleServices.find(x => x.id === p.service_id)
                 if (!s) return null
                 const lp = Number(listPriceFor(s)) || 0
@@ -1666,7 +1667,7 @@ function MapPageContent() {
               })}
 
               {/* Services */}
-              {visibleServices.some(s => discFor(s) > 0) && (
+              {carChoice && visibleServices.some(s => discFor(s) > 0) && (
                 <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}</p>
               )}
               <div className="flex gap-2 mb-3">
@@ -1676,13 +1677,15 @@ function MapPageContent() {
                   const disc = discFor(s)
                   const isSelected = selectedService === s.id
                   return (
-                    <button key={s.id} onClick={() => { userPickedSlotRef.current = false; setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
+                    <button key={s.id} onClick={() => { if (!carChoice) { pendingSvcRef.current = s.id; setShowCarPicker(true); return } userPickedSlotRef.current = false; setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
                       className={`flex-1 py-2.5 rounded-[14px] border text-center transition-all ${
                         isSelected ? 'border-washio-navy' : 'bg-white border-washio-border'
                       }`}
                       style={isSelected ? { background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 6px 16px rgba(16,24,42,0.20)' } : undefined}>
                       <p className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-washio-navy'}`}>{translateCatalogName(s.name, locale)}</p>
-                      {disc > 0 ? (
+                      {!carChoice ? (
+                        <p className="text-[11px] mt-0.5 font-medium text-washio-cyan-dark">{locale === 'en' ? 'see price' : 'δες τιμή'}</p>
+                      ) : disc > 0 ? (
                         <p className="text-xs mt-0.5 font-semibold">
                           <span className={`line-through mr-1 font-medium ${isSelected ? 'text-white/50' : 'text-gray-400'}`}>€{eur(base)}</span>
                           <span className={isSelected ? 'text-washio-cyan' : 'text-washio-cyan-dark'}>€{eur(base - disc)}</span>
@@ -1795,6 +1798,9 @@ function MapPageContent() {
       </div>
 
       {/* «Ειδοποίησέ με» capture — κενό κάλυψης */}
+      <VehiclePickerSheet open={showCarPicker} onClose={() => { setShowCarPicker(false); pendingSvcRef.current = null }}
+        onPick={onCarPicked} locale={locale === 'en' ? 'en' : 'el'} />
+
       {showWaitlist && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowWaitlist(false)} />

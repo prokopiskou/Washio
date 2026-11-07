@@ -22,6 +22,7 @@ import { computeRedeemable, isCreditEligible, WELCOME_DISCOUNT } from '@/lib/ref
 import { phoneOk } from '@/lib/phone'
 import { ensureDeviceId } from '@/lib/device'
 import { searchCarModels, sizeOfModel, type CarModel } from '@/lib/car-models'
+import { choiceFromModel, setCarChoice } from '@/lib/car-choice'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -493,9 +494,10 @@ function BookingPageContent() {
   const dateStr = params.get('date') || athensToday()
   const slotTime = decodeURIComponent(params.get('slot') || '09:00')
   const urlVehicleType = decodeURIComponent(params.get('vehicleType') || 'ΙΧ')
+  const urlCarModel = (params.get('carModel') || '').slice(0, 60)
   // Κατηγορία τιμής: ξεκινά από την επιλογή του χάρτη, αλλά την ορίζει το μοντέλο (lib/car-models) όταν είναι γνωστό.
   const [vehicleType, setVehicleType] = useState(urlVehicleType)
-  const [carModel, setCarModel] = useState('')
+  const [carModel, setCarModel] = useState(urlCarModel)
   const [isTaxi, setIsTaxi] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [sizeNote, setSizeNote] = useState<{ model: string; size: string } | null>(null)
@@ -689,7 +691,7 @@ function BookingPageContent() {
         setSelectedVehicleId(matchingVehicle.id)
         setPlate(matchingVehicle.plate)
         setVehicleFormType(matchingVehicle.type)
-        setCarModel(matchingVehicle.car_model || ''); setIsTaxi(!!matchingVehicle.is_taxi)
+        setCarModel(matchingVehicle.car_model || urlCarModel); setIsTaxi(!!matchingVehicle.is_taxi)
         if (serviceData) applyModelSize(matchingVehicle.car_model, serviceData, false)
       } else {
         setSelectedVehicleId('new')
@@ -987,7 +989,7 @@ function BookingPageContent() {
     intentCacheRef.current = null
     if (showPayment) { setShowPayment(false); setClientSecret('') }
   }
-  const pickModel = (c: CarModel) => { setCarModel(c.label); setModelOpen(false); applyModelSize(c.label) }
+  const pickModel = (c: CarModel) => { setCarModel(c.label); setModelOpen(false); applyModelSize(c.label); const ch = choiceFromModel(c.label); if (ch) setCarChoice(ch) }
 
   if (sessionLoading) {
     return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><WashioLoader /></main>
