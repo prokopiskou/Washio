@@ -12,11 +12,11 @@ const STAGES: { key: string; label: string }[] = [
   { key: 'new', label: 'Νέες' },
   { key: 'no_answer', label: 'Δεν σήκωσε' },
   { key: 'followup', label: 'Follow-up' },
-  { key: 'onboarding', label: 'Onboarding' },
   { key: 'done', label: 'Ολοκληρώθηκαν' },
   { key: 'lost', label: 'Δεν ενδιαφέρονται' },
 ]
-const stageOf = (a: App) => a.stage === 'answered' ? 'new' : a.stage || (a.status === 'approved' ? 'done' : a.status === 'rejected' ? 'lost' : 'new')
+// «Onboarding» και «Ολοκληρώθηκαν» = ένα στάδιο: όσα δεν έχουν ακόμα πρατήριο δείχνουν τη φόρμα ΑΦΜ/ΔΟΥ.
+const stageOf = (a: App) => a.stage === 'answered' ? 'new' : a.stage === 'onboarding' ? 'done' : a.stage || (a.status === 'approved' ? 'done' : a.status === 'rejected' ? 'lost' : 'new')
 const fmt = (iso?: string | null) => iso ? new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)) : '—'
 const isMeta = (a: App) => a.wash_type === 'Meta lead'
 
@@ -125,7 +125,7 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
                   )}
                   {st === 'followup' && <p className="text-[11px] text-gray-400 -mb-1">Σήκωσε:</p>}
                   {st !== 'followup' && <p className="text-[12px] font-semibold text-gray-700">{wasAnswered ? 'Σήκωσε — εκκρεμεί απόφαση' : 'Σήκωσε — τι έγινε;'}</p>}
-                  <button disabled={!!busy} onClick={() => act(a, 'to_onboarding', call)} className={btn + ' h-10 bg-gray-900 text-white'}>✓ Κλείνει → Onboarding</button>
+                  <button disabled={!!busy} onClick={() => act(a, 'to_onboarding', call)} className={btn + ' h-10 bg-gray-900 text-white'}>✓ Κλείνει</button>
                   <div className="flex gap-2">
                     <input type="datetime-local" value={fu[a.id] || ''} onChange={e => setFu(f => ({ ...f, [a.id]: e.target.value }))}
                       className="flex-1 min-w-0 h-9 px-2 rounded-lg border border-gray-200 text-[13px] bg-white" />
@@ -140,7 +140,7 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
               )
             })()}
 
-            {st === 'onboarding' && (
+            {st === 'done' && !a.location_id && (
               <div className="mt-2.5 rounded-xl bg-gray-50 p-3 flex flex-col gap-2">
                 <div className="grid grid-cols-2 gap-2">
                   <input value={o.afm} onChange={e => setO('afm', e.target.value)} placeholder="ΑΦΜ *" inputMode="numeric" className="h-9 px-2 rounded-lg border border-gray-200 text-[13px] bg-white" />
@@ -157,14 +157,15 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
                 <button disabled={!!busy || o.afm.replace(/\D/g, '').length !== 9 || !o.doy.trim()}
                   onClick={() => { if (confirm(`Onboarding κομπλέ για «${a.business_name}»;\n\nΔημιουργείται το πρατήριο (ανενεργό) στα Πλυντήρια, περιμένει την ενεργοποίησή σου.`)) act(a, 'onboard', o) }}
                   className={btn + ' h-10 bg-green-600 text-white'}>✓ Onboarding κομπλέ</button>
+                <p className="text-[11px] text-gray-400">Ή στείλε του τη φόρμα /onboarding — μόλις τη συμπληρώσει, δημιουργείται μόνο του.</p>
                 <button disabled={!!busy} onClick={() => act(a, 'lost')} className="text-[12px] text-gray-500 underline self-start">Δεν ενδιαφέρεται</button>
               </div>
             )}
 
-            {st === 'done' && (
+            {st === 'done' && a.location_id && (
               <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl bg-green-50 px-3 py-2.5">
                 <p className="text-[12px] text-green-800 font-semibold">✓ Στα Πλυντήρια — περιμένει ενεργοποίηση</p>
-                {a.location_id && <a href={`/admin/locations/${a.location_id}/edit`} className="text-[12px] font-semibold text-green-800 underline shrink-0">Άνοιγμα</a>}
+                {<a href={`/admin/locations/${a.location_id}/edit`} className="text-[12px] font-semibold text-green-800 underline shrink-0">Άνοιγμα</a>}
               </div>
             )}
 
