@@ -2,7 +2,7 @@ import { PDFDocument, rgb, type PDFFont, type PDFPage } from 'pdf-lib'
 import fontkit from '@pdf-lib/fontkit'
 import { readFile } from 'fs/promises'
 import path from 'path'
-import { renderContract, WASHIO_PARTY, CONTRACT_VERSION, type ContractFields } from '@/lib/contract-text'
+import { renderContract, commissionSummary, WASHIO_PARTY, CONTRACT_VERSION, type ContractFields } from '@/lib/contract-text'
 
 // PDF Συμφωνητικού Συνεργασίας: κείμενο + υπογραφές (Washio: ψηφιακή σφραγίδα · Συνεργάτης: υπογραφή με το δάχτυλο)
 // + σελίδα «Πιστοποιητικό υπογραφής» (audit trail). Ελληνικά → DejaVu Sans (lib/fonts).
@@ -124,7 +124,7 @@ export async function buildContractPdf(f: ContractFields, opts: { signaturePng?:
       ['Αριθμός συμβολαίου', a.contractId],
       ['Συνεργάτης', `${f.businessName} · ΑΦΜ ${f.afm} · Δ.Ο.Υ. ${f.doy}`],
       ['Έδρα', f.address],
-      ['Μήνες προμήθειας 5%', String(f.promoMonths)],
+      ['Προμήθεια (Άρθρο 4)', commissionSummary(f.promoMonths)],
       ['Υπογραφή Washio', `${WASHIO_PARTY.name} — ${fmtAthens(a.washioSignedAt)}`],
       ['Υπογράφων', a.signerName],
       ['Email', a.signerEmail],

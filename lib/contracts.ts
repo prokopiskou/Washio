@@ -4,7 +4,7 @@ import { createHash, randomBytes, randomInt } from 'crypto'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { ADMIN_EMAILS } from '@/lib/admins'
-import { CONTRACT_VERSION, renderContract, type ContractFields } from '@/lib/contract-text'
+import { CONTRACT_VERSION, renderContract, commissionSummary, type ContractFields } from '@/lib/contract-text'
 import { buildContractPdf } from '@/lib/contract-pdf'
 import { activateOnboarding } from '@/lib/onboarding-activate'
 
@@ -180,7 +180,7 @@ export async function signContract(db: SupabaseClient, c: ContractRow, input: {
       from: FROM, to: ADMIN_EMAILS, subject: `✍️ Υπογράφηκε: ${c.fields.businessName} (ΑΦΜ ${c.fields.afm})`, attachments: att,
       html: shell('Νέο υπογεγραμμένο συμφωνητικό', `<p style="margin:0 0 10px;"><b>${esc(c.fields.businessName)}</b> · ΑΦΜ ${esc(c.fields.afm)} · ${esc(c.fields.doy)}</p>
         <p style="margin:0 0 10px;">${esc(signerName)} · ${esc(c.email)} · ${esc(when)}</p>
-        <p style="margin:0 0 10px;">Προμήθεια 5% για ${c.fields.promoMonths} μήνες, μετά 10%.</p>
+        <p style="margin:0 0 10px;">Προμήθεια: ${commissionSummary(c.fields.promoMonths)}.</p>
         <p style="margin:0;">${locationId ? `Το πρατήριο δημιουργήθηκε (ανενεργό) — <a href="${SITE}/admin/locations/${locationId}/edit">άνοιγμα</a>` : 'Δημιούργησε το πρατήριο χειροκίνητα.'}</p>`),
     })
   } catch { /* best-effort */ }
