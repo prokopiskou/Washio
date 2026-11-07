@@ -21,7 +21,8 @@ const fmt = (iso?: string | null) => iso ? new Intl.DateTimeFormat('el-GR', { ti
 const isMeta = (a: App) => a.wash_type === 'Meta lead'
 
 export function ApplicationsPipeline({ applications, reload }: { applications: App[]; reload: () => void }) {
-  const [stage, setStage] = useState('new')
+  // null = δεν διάλεξε ακόμα → ανοίγει στο πρώτο στάδιο με αιτήσεις (Νέες → Δεν σήκωσε → Follow-up → …)
+  const [picked0, setStage] = useState<string | null>(null)
   const [busy, setBusy] = useState('')
   const [fu, setFu] = useState<Record<string, string>>({})
   const [ob, setOb] = useState<Record<string, { afm: string; doy: string; address: string; iban: string; ibanHolder: string }>>({})
@@ -36,6 +37,8 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
     for (const a of applications) c[stageOf(a)] = (c[stageOf(a)] || 0) + 1
     return c
   }, [applications])
+
+  const stage = picked0 ?? (STAGES.find(s => counts[s.key])?.key || 'new')
 
   const list = useMemo(() => {
     const l = applications.filter(a => stageOf(a) === stage)
