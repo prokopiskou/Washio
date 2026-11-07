@@ -67,6 +67,8 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
 
       {list.map(a => {
         const st = stageOf(a)
+        const wasAnswered = a.stage === 'answered' // παλιό στάδιο «Σήκωσε» → ανοιχτές οι 3 επιλογές, η κλήση έχει ήδη μετρηθεί
+        const open = picked[a.id] ?? wasAnswered
         const o = ob[a.id] || { afm: a.afm || '', doy: a.doy || '', address: a.address || '', iban: '', ibanHolder: '' }
         const setO = (k: keyof typeof o, v: string) => setOb(m => ({ ...m, [a.id]: { ...o, [k]: v } }))
         const due = a.followup_at && new Date(a.followup_at).getTime() < nowMs
@@ -103,18 +105,18 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
             />
 
             {/* Ενέργειες ανά στάδιο */}
-            {(st === 'new' || st === 'no_answer') && !picked[a.id] && (
+            {(st === 'new' || st === 'no_answer') && !open && (
               <div className="flex gap-2 mt-2.5">
                 <button disabled={!!busy} onClick={() => setPicked(p => ({ ...p, [a.id]: true }))} className={btn + ' flex-1 bg-green-600 text-white'}>✓ Σήκωσε</button>
                 <button disabled={!!busy} onClick={() => act(a, 'no_answer')} className={btn + ' flex-1 bg-white border border-gray-300 text-gray-700'}>✕ Δεν σήκωσε</button>
               </div>
             )}
 
-            {(((st === 'new' || st === 'no_answer') && picked[a.id]) || st === 'followup') && (() => {
-              const call = st !== 'followup' ? { answered: true } : {}
+            {(((st === 'new' || st === 'no_answer') && open) || st === 'followup') && (() => {
+              const call = st !== 'followup' && !wasAnswered ? { answered: true } : {}
               return (
                 <div className="mt-2.5 flex flex-col gap-2 rounded-xl bg-gray-50 p-3">
-                  {st !== 'followup' && <p className="text-[12px] font-semibold text-gray-700">Σήκωσε — τι έγινε;</p>}
+                  {st !== 'followup' && <p className="text-[12px] font-semibold text-gray-700">{wasAnswered ? 'Σήκωσε — εκκρεμεί απόφαση' : 'Σήκωσε — τι έγινε;'}</p>}
                   <button disabled={!!busy} onClick={() => act(a, 'to_onboarding', call)} className={btn + ' h-10 bg-gray-900 text-white'}>✓ Κλείνει → Onboarding</button>
                   <div className="flex gap-2">
                     <input type="datetime-local" value={fu[a.id] || ''} onChange={e => setFu(f => ({ ...f, [a.id]: e.target.value }))}
@@ -124,7 +126,7 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
                   </div>
                   <div className="flex items-center justify-between">
                     <button disabled={!!busy} onClick={() => act(a, 'lost', call)} className={btn + ' bg-white border border-gray-300 text-gray-600'}>Δεν ενδιαφέρεται</button>
-                    {st !== 'followup' && <button onClick={() => setPicked(p => ({ ...p, [a.id]: false }))} className="text-[12px] text-gray-500 underline">Πίσω</button>}
+                    {st !== 'followup' && !wasAnswered && <button onClick={() => setPicked(p => ({ ...p, [a.id]: false }))} className="text-[12px] text-gray-500 underline">Πίσω</button>}
                   </div>
                 </div>
               )
