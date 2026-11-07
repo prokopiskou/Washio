@@ -146,16 +146,18 @@ export function searchCarModels(q: string, limit = 8, only?: 'car' | 'moto'): Ca
   let n = norm(lq)
   for (const [a, full] of Object.entries(ALIAS_MAKE)) if (n.startsWith(a)) n = full + n.slice(a.length)
   if (n.length < 2) return []
-  const starts: CarModel[] = [], has: CarModel[] = []
-  for (const c of CAR_MODELS) {
-    if (only === 'car' && c.size === 'Μοτοσικλέτα') continue
-    if (only === 'moto' && c.size !== 'Μοτοσικλέτα') continue
+  const pool = CAR_MODELS.filter(c => !(only === 'car' && c.size === 'Μοτοσικλέτα') && !(only === 'moto' && c.size !== 'Μοτοσικλέτα'))
+  // Έγραψε σκέτη μάρκα (π.χ. «bmw») → ΟΛΑ τα μοντέλα της (X1, X5, Σειρά 3…), όχι μόνο τα πρώτα.
+  const makeHits = pool.filter(c => norm(c.make) === n)
+  if (makeHits.length) return makeHits
+  const starts: CarModel[] = [], modelStarts: CarModel[] = [], has: CarModel[] = []
+  for (const c of pool) {
     const full = norm(c.label), model = norm(c.model)
-    if (full.startsWith(n) || model.startsWith(n)) starts.push(c)
+    if (full.startsWith(n)) starts.push(c)          // «bmw x» → BMW X1…X7
+    else if (model.startsWith(n)) modelStarts.push(c) // «x5» → BMW X5
     else if (full.includes(n)) has.push(c)
-    if (starts.length >= limit) break
   }
-  return [...starts, ...has].slice(0, limit)
+  return [...starts, ...modelStarts, ...has].slice(0, limit)
 }
 
 /** Ακριβής αντιστοίχιση ετικέτας → κατηγορία (null = άγνωστο μοντέλο). */

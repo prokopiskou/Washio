@@ -45,7 +45,7 @@ export function VehiclePickerSheet({ open, onClose, onPick, locale = 'el' }: {
   const [q, setQ] = useState('')
   useBodyScrollLock(open)
   if (!open) return null
-  const results = searchCarModels(q, 7)
+  const results = searchCarModels(q, 40)
   const pick = (c: CarChoice) => { onPick(c); setQ(''); onClose() }
   const typed = q.trim()
   // Μοντέλο που δεν έχουμε στη λίστα → κρατάμε ό,τι έγραψε (τιμή ΙΧ) και το καταγράφουμε για να το προσθέσουμε.

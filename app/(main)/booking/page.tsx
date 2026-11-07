@@ -1127,9 +1127,9 @@ function BookingPageContent() {
                       aria-label={t.carModel}
                       className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
                     />
-                    {modelOpen && searchCarModels(carModel, 8, 'car').length > 0 && (
-                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-washio-border rounded-[14px] overflow-hidden" style={{ boxShadow: '0 8px 24px rgba(16,24,42,0.12)' }}>
-                        {searchCarModels(carModel, 8, 'car').map(c => (
+                    {modelOpen && searchCarModels(carModel, 30, 'car').length > 0 && (
+                      <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-washio-border rounded-[14px] max-h-[300px] overflow-y-auto" style={{ boxShadow: '0 8px 24px rgba(16,24,42,0.12)' }}>
+                        {searchCarModels(carModel, 30, 'car').map(c => (
                           <button key={c.label} type="button" onMouseDown={e => e.preventDefault()} onClick={() => pickModel(c)}
                             className="w-full text-left px-4 py-2.5 text-[14px] text-gray-900 flex justify-between items-center hover:bg-gray-50">
                             <span>{c.label}</span>
