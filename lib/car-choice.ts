@@ -68,3 +68,16 @@ export function useCarChoice(): [CarChoice | null, (c: CarChoice | null) => void
 /** Τύπος οχήματος για τις τιμές/κράτηση (ΙΧ / SUV / Μοτοσικλέτα). */
 export const vehicleTypeOf = (c: CarChoice | null): 'ΙΧ' | 'SUV' | 'Μοτοσικλέτα' =>
   !c ? 'ΙΧ' : c.kind === 'moto' ? 'Μοτοσικλέτα' : c.size
+
+type SvcLite = { id: string; name: string; price?: number | null; price_moto?: number | null; price_suv?: number | null; is_range?: boolean | null; price_min?: number | null; price_max?: number | null; price_min_suv?: number | null; price_max_suv?: number | null; is_active?: boolean | null }
+/** Αν για τον τύπο οχήματος υπάρχει ΜΟΝΟ μία υπηρεσία (π.χ. μηχανή) → αυτή (επιλέγεται αυτόματα). */
+export function soleServiceId(services: SvcLite[], vt: 'ΙΧ' | 'SUV' | 'Μοτοσικλέτα', isMoto: (name: string) => boolean): string | null {
+  const ok = services.filter(s => {
+    if (s.is_active === false) return false
+    if (vt === 'Μοτοσικλέτα') return !s.is_range && isMoto(s.name) && Number(s.price_moto || s.price) > 0
+    if (isMoto(s.name)) return false
+    if (s.is_range) return Number(vt === 'SUV' ? s.price_min_suv : s.price_min) > 0 && Number(vt === 'SUV' ? s.price_max_suv : s.price_max) > 0
+    return Number(vt === 'SUV' && s.price_suv ? s.price_suv : s.price) > 0
+  })
+  return ok.length === 1 ? ok[0].id : null
+}

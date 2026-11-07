@@ -23,7 +23,7 @@ import { isNativeApp } from '@/lib/native-auth'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
-import { useCarChoice, vehicleTypeOf, type CarChoice } from '@/lib/car-choice'
+import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
 import { VehicleChip, VehiclePickerSheet } from '@/components/VehiclePicker'
 import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
@@ -293,7 +293,7 @@ function MapPageContent() {
   const ratingByLocRef = useRef<Record<string, { avg: number; count: number }>>({})
   const availCacheRef = useRef<{ date: string; hours: Record<string, any>; exceptions: Record<string, any>; bookings: Record<string, OccupancyBooking[]>; capacity: Record<string, number> } | null>(null)
   const [selectedRating, setSelectedRating] = useState<{ avg: number; count: number } | null>(null)
-  const [selectedService, setSelectedService] = useState<string | null>(null)
+  const [pickedService, setSelectedService] = useState<string | null>(null)
   const [slots, setSlots] = useState<Slot[]>([])
   // Η μέρα στην οποία αναφέρονται οι ώρες του sheet. Για μη διαθέσιμο πλυντήριο
   // = η πρώτη μέρα με ελεύθερη ώρα (π.χ. αύριο), ώστε ο χρήστης να κλείσει αμέσως.
@@ -451,6 +451,8 @@ function MapPageContent() {
     return best
   }
 
+  // Μία μόνο υπηρεσία για το όχημα (π.χ. μηχανή) → επιλεγμένη αυτόματα, κατευθείαν μέρα/ώρα.
+  const selectedService = pickedService ?? (carChoice ? soleServiceId(locationServices, vehicleType, isMotoService) : null)
   const service = visibleServices.find(s => s.id === selectedService)
   const selectedServicePrice = service ? priceFor(service) : undefined
   const canBook = selectedService && selectedSlot

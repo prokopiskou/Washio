@@ -17,7 +17,7 @@ import { funnel } from '@/lib/funnel'
 import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
 import { applyPromo } from '@/lib/promotions'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
-import { useCarChoice, vehicleTypeOf, type CarChoice } from '@/lib/car-choice'
+import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
 import { VehicleChip, VehiclePickerSheet } from '@/components/VehiclePicker'
 
 const T = {
@@ -149,11 +149,13 @@ export default function LocationPage() {
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [selectedDate, setSelectedDate] = useState(today)
   const [wx, setWx] = useState<WxDay[]>([])
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null)
+  const [pickedServiceId, setSelectedServiceId] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   // Όχημα: «Ποιο αμάξι έχεις;» (μάρκα/μοντέλο → ΙΧ/SUV). Χωρίς επιλογή → καμία τιμή.
   const [carChoice, setCarChoice] = useCarChoice()
   const vehicleType = vehicleTypeOf(carChoice)
+  // Μία μόνο υπηρεσία για το όχημα (π.χ. μηχανή) → επιλεγμένη αυτόματα, κατευθείαν μέρα/ώρα.
+  const selectedServiceId = pickedServiceId ?? (carChoice ? soleServiceId(services, vehicleType, isMotoService) : null)
   const [showCarPicker, setShowCarPicker] = useState(false)
   const pendingSvcRef = useRef<string | null>(null)
   const onCarPicked = (c: CarChoice) => {
