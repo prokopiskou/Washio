@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Resend } from 'resend'
 import { unsubHeaders, unsubFooterLink, isOptedOut } from '@/lib/unsubscribe'
-import { sendPush } from '@/lib/push'
 
 // Πραγματική λήξη του −3€ καλωσορίσματος: ισχύει έως το τέλος (23:59 Ελλάδας) της 7ης μέρας
 // μετά την εγγραφή. Την ημέρα της λήξης, 13:00–21:59, φεύγει ΕΝΑ email «λήγει σήμερα».
@@ -105,7 +104,8 @@ async function personalLink(admin: SupabaseClient, email: string): Promise<strin
  * Τρέχει σε κάθε cron (κάθε 15'): backfill ημερομηνιών, email «λήγει σήμερα», λήξη.
  * Αγγίζει ΜΟΝΟ όσους έχουν ≥3€ στο wallet, πήραν welcome και ΔΕΝ έχουν ενεργή κράτηση.
  */
-export async function processCouponExpiry(admin: SupabaseClient, resend: Resend, opts: { dryRun?: boolean } = {}) {
+// push: περνιέται από το cron (το lib/push είναι server-only — αυτό το αρχείο το εισάγει και client κώδικας μέσω lib/referral).
+export async function processCouponExpiry(admin: SupabaseClient, resend: Resend, opts: { dryRun?: boolean; push?: (userId: string, p: { title: string; body: string; url?: string }) => Promise<void> } = {}) {
   const now = Date.now()
   const stats = { backfilled: 0, reminded: 0, expired: 0, reminderErrors: 0, holders: 0, toRemindNow: 0, toExpireNow: 0, pushed: 0 }
 
@@ -156,11 +156,11 @@ export async function processCouponExpiry(admin: SupabaseClient, resend: Resend,
 
     // 2β) Μέρα ΠΡΙΝ τη λήξη, 13:00–21:59 → ΕΝΑ push «λήγει αύριο» (όσοι έχουν push· το βλέπουν σίγουρα).
     const isDayBefore = athensDate(new Date(now + 864e5)) === athensDate(new Date(expMs))
-    if (isDayBefore && hour >= REMIND_FROM_H && hour <= REMIND_TO_H && !meta.coupon_push_at && stats.pushed < 60) {
+    if (opts.push && isDayBefore && hour >= REMIND_FROM_H && hour <= REMIND_TO_H && !meta.coupon_push_at && stats.pushed < 60) {
       if (!opts.dryRun) {
         await admin.auth.admin.updateUserById(u.id, { app_metadata: { coupon_push_at: new Date().toISOString() } })
         try {
-          await sendPush(u.id, {
+          await opts.push(u.id, {
             title: 'Το −3€ σου λήγει αύριο ⏳',
             body: 'Κλείσε έως αύριο 23:59 για όποια μέρα θες — η έκπτωση κλειδώνει.',
             url: '/map?utm_source=push&utm_medium=auto&utm_campaign=coupon_expiry_tomorrow',

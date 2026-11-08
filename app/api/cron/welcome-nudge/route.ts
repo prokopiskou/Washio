@@ -1,3 +1,4 @@
+import { sendPush } from '@/lib/push'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
@@ -166,7 +167,7 @@ export async function GET(req: NextRequest) {
   }
   // Λήξη κουπονιού 7 ημερών: backfill / «λήγει σήμερα» (13:00–22:00) / αφαίρεση μετά τη λήξη.
   let expiry: unknown = null
-  try { expiry = await processCouponExpiry(admin, resend) } catch (e) { expiry = { error: e instanceof Error ? e.message : 'err' } }
+  try { expiry = await processCouponExpiry(admin, resend, { push: sendPush }) } catch (e) { expiry = { error: e instanceof Error ? e.message : 'err' } }
 
   const h = athensHour()
   if (h < SEND_FROM_H || h > SEND_TO_H) return NextResponse.json({ ok: true, sent: 0, quiet: true, expiry })
