@@ -14,11 +14,15 @@ const DISMISS_KEY = 'washio_coupon_banner_dismissed'
 const T = {
   el: {
     title: (a: string) => `Το κουπόνι σου −${a}€ ενεργοποιήθηκε`,
+    welcome: (a: string) => `🎁 Πήρες −${a}€ για το πρώτο σου πλύσιμο`,
+    valid: (d: string) => `Ισχύει για 7 μέρες · έως ${d}, 23:59`,
     sub: (m: number) => `Αυτόματα στο επόμενο πλύσιμο από ${m}€ — πληρώνεις στο πλυντήριο ή με κάρτα.`,
     close: 'Κλείσιμο',
   },
   en: {
     title: (a: string) => `Your −€${a} coupon is active`,
+    welcome: (a: string) => `🎁 You got −€${a} for your first wash`,
+    valid: (d: string) => `Valid for 7 days · until ${d}, 23:59`,
     sub: (m: number) => `Applied automatically on your next wash from €${m} — pay at the venue or by card.`,
     close: 'Close',
   },
@@ -27,6 +31,7 @@ const T = {
 export function CouponActiveBanner() {
   const t = useT(T)
   const [amount, setAmount] = useState(0)
+  const [expiresAt, setExpiresAt] = useState<string | null>(null)
 
   useEffect(() => {
     try { if (localStorage.getItem(DISMISS_KEY)) return } catch { /* ignore */ }
@@ -36,10 +41,13 @@ export function CouponActiveBanner() {
         const supabase = createClient()
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.user) return
-        const { data: prof } = await supabase.from('profiles')
-          .select('referral_credit').eq('id', session.user.id).maybeSingle()
+        const [{ data: prof }, { data: { user } }] = await Promise.all([
+          supabase.from('profiles').select('referral_credit').eq('id', session.user.id).maybeSingle(),
+          supabase.auth.getUser(),
+        ])
         const credit = Number(prof?.referral_credit) || 0
-        if (alive && credit > 0) setAmount(Math.min(credit, MAX_CREDIT_PER_BOOKING))
+        const exp = (user?.app_metadata?.coupon_expires_at as string | undefined) || null
+        if (alive && credit > 0) { setAmount(Math.min(credit, MAX_CREDIT_PER_BOOKING)); if (exp && new Date(exp).getTime() > Date.now()) setExpiresAt(exp) }
       } catch { /* fail-safe */ }
     })()
     return () => { alive = false }
@@ -66,8 +74,9 @@ export function CouponActiveBanner() {
           <Check size={16} strokeWidth={3} className="text-washio-success" />
         </div>
         <Link href="/profile/rewards" className="flex-1 min-w-0">
-          <p className="text-[13px] font-bold text-washio-navy leading-tight">{t.title(a)}</p>
-          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{t.sub(MIN_ELIGIBLE_EUR)}</p>
+          {/* Κουπόνι καλωσορίσματος (με λήξη): «Πήρες −3€ · ισχύει για 7 μέρες, έως …» */}
+          <p className="text-[13px] font-bold text-washio-navy leading-tight">{expiresAt ? t.welcome(a) : t.title(a)}</p>
+          <p className="text-[11px] text-gray-500 mt-0.5 leading-snug">{expiresAt ? t.valid(new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', weekday: 'long', day: 'numeric', month: 'numeric' }).format(new Date(expiresAt))) : t.sub(MIN_ELIGIBLE_EUR)}</p>
         </Link>
         <button onClick={dismiss} aria-label={t.close} className="shrink-0 w-7 h-7 flex items-center justify-center text-gray-400">
           <X size={15} />

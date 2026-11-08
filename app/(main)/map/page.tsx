@@ -13,7 +13,7 @@ import { computeSlots, toMinutes, type OccupancyBooking, type HoursException } f
 import { getCurrentPosition, getFastPosition } from '@/lib/geo'
 import { startMapOpenLog } from '@/lib/map-open-log'
 import { funnel } from '@/lib/funnel'
-import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
+import { useCouponCredit, couponDiscount, eur, couponExpiryLabel } from '@/lib/use-coupon-credit'
 import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
@@ -1667,7 +1667,7 @@ function MapPageContent() {
 
               {/* Services */}
               {carChoice && visibleServices.some(s => discFor(s) > 0) && (
-                <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}</p>
+                <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}{!coupon.guest && (() => { const ex = couponExpiryLabel(coupon.expiresAt, locale); return ex ? <span className={ex.urgent ? 'text-red-600' : ''}> · {ex.text}</span> : null })()}</p>
               )}
               {/* Χωρίς όχημα → καμία υπηρεσία (πρώτα «Τι όχημα έχεις;») */}
               {carChoice && <div className="flex gap-2 mb-3">

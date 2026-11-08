@@ -23,6 +23,7 @@ import { phoneOk } from '@/lib/phone'
 import { ensureDeviceId } from '@/lib/device'
 import { searchCarModels, sizeOfModel, type CarModel } from '@/lib/car-models'
 import { choiceFromModel, setCarChoice } from '@/lib/car-choice'
+import { useCouponCredit, couponExpiryLabel } from '@/lib/use-coupon-credit'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -482,6 +483,7 @@ function BookingPageContent() {
   const [vehicleFormType, setVehicleFormType] = useState('ΙΧ')
   const [servicePrice, setServicePrice] = useState(0)
   const [listPrice, setListPrice] = useState(0) // τιμή πριν την προώθηση (0 = καμία προώθηση)
+  const couponInfo = useCouponCredit() // λήξη κουπονιού (coupon_expires_at)
   const [rangeFixed, setRangeFixed] = useState(false) // βιολογικός με προσφορά σταθερής τιμής
 
   const serviceId = params.get('service') || ''
@@ -1295,7 +1297,7 @@ function BookingPageContent() {
                 )}
                 {previewCredit > 0 && (
                   <div className="flex justify-between items-center py-3 border-b border-washio-border">
-                    <span className="text-[13px] font-semibold text-green-600">{loyaltyNow ? t.clubReward : t.couponCard}</span>
+                    <span className="text-[13px] font-semibold text-green-600">{loyaltyNow ? t.clubReward : t.couponCard}{!loyaltyNow && (() => { const ex = couponExpiryLabel(couponInfo.expiresAt, locale); return ex ? <span className={`ml-1 text-[11px] font-semibold ${ex.urgent ? 'text-red-600' : 'text-gray-400'}`}>· {ex.text}</span> : null })()}</span>
                     <span className="text-[14px] font-semibold text-green-600">−{eur2(previewCredit)}</span>
                   </div>
                 )}

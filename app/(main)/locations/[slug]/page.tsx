@@ -14,7 +14,7 @@ import { lightTap, selectionHaptic } from '@/lib/haptics'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { funnel } from '@/lib/funnel'
-import { useCouponCredit, couponDiscount, eur } from '@/lib/use-coupon-credit'
+import { useCouponCredit, couponDiscount, eur, couponExpiryLabel } from '@/lib/use-coupon-credit'
 import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
 import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
@@ -558,7 +558,7 @@ export default function LocationPage() {
             {t.service}
           </p>
           {carChoice && visibleServices.some(s => discFor(s) > 0) && (
-            <p className="text-[12px] font-semibold text-washio-cyan-dark -mt-1 mb-2.5">{coupon.guest ? t.couponGuest : t.couponUser}</p>
+            <p className="text-[12px] font-semibold text-washio-cyan-dark -mt-1 mb-2.5">{coupon.guest ? t.couponGuest : t.couponUser}{!coupon.guest && (() => { const ex = couponExpiryLabel(coupon.expiresAt, locale); return ex ? <span className={ex.urgent ? 'text-red-600' : ''}> · {ex.text}</span> : null })()}</p>
           )}
           <div className="flex flex-col gap-2.5">
             {visibleServices.map(s => {
