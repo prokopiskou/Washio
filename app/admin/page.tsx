@@ -3,6 +3,7 @@
 import { ApplicationsPipeline } from '@/components/admin/ApplicationsPipeline'
 import { CheckoutExperimentPanel } from '@/components/admin/CheckoutExperimentPanel'
 import { MetricsPanel } from '@/components/admin/MetricsPanel'
+import { AnnouncementsPanel } from '@/components/admin/AnnouncementsPanel'
 import { formatDuration } from '@/lib/duration'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -57,7 +58,7 @@ export default function AdminPage() {
   const router = useRouter()
   const [authorized, setAuthorized] = useState(false)
   const [authChecking, setAuthChecking] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons' | 'payouts' | 'metrics'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons' | 'payouts' | 'metrics' | 'announcements'>('overview')
   // Επιστροφή από επεξεργασία/νέο πλυντήριο → ίδια καρτέλα (/admin?tab=locations), όχι η αρχική.
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab')
@@ -649,6 +650,7 @@ export default function AdminPage() {
               { key: 'users', label: 'Χρήστες', count: users.length },
               { key: 'applications', label: 'Αιτήσεις', count: pendingApplications, highlight: pendingApplications > 0 },
               { key: 'metrics', label: 'Μετρήσεις' },
+              { key: 'announcements', label: 'Ενημερώσεις' },
               { key: 'financials', label: 'Οικονομικά' },
               { key: 'payouts', label: 'Εκκαθαρίσεις' },
               { key: 'addons', label: 'Υπηρεσίες', count: addons.length },
@@ -1359,6 +1361,7 @@ export default function AdminPage() {
               })()}
 
               {activeTab === 'metrics' && <MetricsPanel />}
+              {activeTab === 'announcements' && <AnnouncementsPanel locations={locations} />}
               {activeTab === 'financials' && <div className="mb-4"><CheckoutExperimentPanel /></div>}
               {activeTab === 'financials' && (() => {
                 // Εύρος ημερομηνιών βάσει περιόδου (ζώνη Ελλάδας).

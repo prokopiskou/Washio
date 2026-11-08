@@ -23,8 +23,9 @@ import PushInit from '@/components/PushInit'
 import CheckinScanner from '@/components/CheckinScanner'
 import { StoreScannerLink } from '@/components/StoreScannerLink'
 import { rangeLabel, RANGE_SVC_COLS, type RangeSvc } from '@/lib/range-price'
+import { WasherUpdates } from '@/components/dashboard/WasherUpdates'
 
-type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'promotions' | 'hours' | 'settings' | 'staff' | 'feedback'
+type TabKey = 'overview' | 'bookings' | 'calendar' | 'services' | 'promotions' | 'hours' | 'settings' | 'staff' | 'feedback' | 'updates'
 type Period = '7D' | '30D' | '3M' | '6M' | '12M'
 type Metric = 'revenue' | 'bookings'
 
@@ -238,7 +239,9 @@ export default function DashboardPage() {
     setCopiedPhoneId(id)
     setTimeout(() => setCopiedPhoneId(c => (c === id ? null : c)), 1500)
   }
-  const [activeTab, setActiveTab] = useState<TabKey>('overview')
+  // ?tab=updates (από push/email ενημέρωσης) → ανοίγει κατευθείαν τις Ενημερώσεις
+  const [activeTab, setActiveTab] = useState<TabKey>(() => (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('tab') === 'updates') ? 'updates' : 'overview')
+  const [unreadUpdates, setUnreadUpdates] = useState(0)
   // Άνοιγμα από ειδοποίηση: /dashboard?booking=<id> → καρτέλα Κρατήσεις, scroll + τονισμός της κράτησης.
   const [focusBookingId, setFocusBookingId] = useState<string | null>(null)
   useEffect(() => {
@@ -1273,12 +1276,13 @@ export default function DashboardPage() {
             ['hours', t('Ωράριο')],
             ['settings', t('Ρυθμίσεις')],
             ['feedback', 'Feedback'],
+            ['updates', `${t('Ενημερώσεις')}${unreadUpdates > 0 ? ` (${unreadUpdates})` : ''}`],
           ] as [TabKey, string][]).map(([key, label]) => (
             <button key={key}
               onClick={() => { setActiveTab(key); if (key !== 'bookings') setFocusBookingId(null); if (key === 'bookings') setNewBookingsCount(0); lightTap() }}
               className={`shrink-0 py-3 text-[13px] tracking-tight transition-all border-b-2 ${
                 activeTab === key ? 'border-gray-900 text-gray-900 font-semibold' : 'border-transparent text-gray-400 font-medium'
-              } ${key === 'bookings' && newBookingsCount > 0 ? 'text-blue-600' : ''}`}
+              } ${key === 'bookings' && newBookingsCount > 0 ? 'text-blue-600' : ''} ${key === 'updates' && unreadUpdates > 0 ? 'text-red-600' : ''}`}
             >
               {label}
             </button>
@@ -1287,6 +1291,10 @@ export default function DashboardPage() {
         </div>
 
         <div className="px-5 py-5">
+
+          {/* Ενημερώσεις Washio: σημαντική → καλύπτει την οθόνη · κανονική → banner (μέχρι «Το διάβασα») */}
+          {activeTab !== 'updates' && <WasherUpdates mode="gate" onCount={setUnreadUpdates} onOpenList={() => setActiveTab('updates')} t={t} />}
+          {activeTab === 'updates' && <WasherUpdates mode="list" onCount={setUnreadUpdates} t={t} />}
 
           {activeTab === 'overview' && (
             <div className="space-y-3">
