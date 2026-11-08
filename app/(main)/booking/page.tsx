@@ -58,7 +58,7 @@ const T = {
     confirm: 'Επιβεβαίωση',
     noMoto: 'Δεν έχεις μοτοσικλέτα καταχωρημένη', noCar: 'Δεν έχεις ΙΧ καταχωρημένο',
     addPlateBelow: 'Πρόσθεσε την πινακίδα παρακάτω για να συνεχίσεις την κράτηση.',
-    plate: 'Πινακίδα', newVehicle: '+ Νέο όχημα',
+    plate: 'Πινακίδα', vehicleLabel: 'Όχημα', motoLabel: 'Μοτοσικλέτα', newVehicle: '+ Νέο όχημα',
     serviceForA: 'Η υπηρεσία είναι για', vehicleWillBeSavedAs: '. Το όχημα που θα προσθέσεις θα καταχωρηθεί ως',
     plateExampleMoto: 'π.χ. ΑΒ-1234', plateExampleCar: 'π.χ. ΑΒΓ-1234',
     backToMyVehicles: '← Επιστροφή στα οχήματά μου',
@@ -105,7 +105,7 @@ const T = {
     confirm: 'Confirmation',
     noMoto: 'You have no motorcycle registered', noCar: 'You have no car registered',
     addPlateBelow: 'Add the plate below to continue with your booking.',
-    plate: 'Plate', newVehicle: '+ New vehicle',
+    plate: 'Plate', vehicleLabel: 'Vehicle', motoLabel: 'Motorcycle', newVehicle: '+ New vehicle',
     serviceForA: 'This service is for', vehicleWillBeSavedAs: '. The vehicle you add will be saved as',
     plateExampleMoto: 'e.g. AB-1234', plateExampleCar: 'e.g. ABC-1234',
     backToMyVehicles: '← Back to my vehicles',
@@ -698,7 +698,6 @@ function BookingPageContent() {
       if (filteredVehicles.length > 0) {
         const matchingVehicle = filteredVehicles.find(v => v.type === vehicleType) || filteredVehicles[0]
         setSelectedVehicleId(matchingVehicle.id)
-        setPlate(matchingVehicle.plate)
         setVehicleFormType(matchingVehicle.type)
         setCarModel(matchingVehicle.car_model || urlCarModel); setIsTaxi(!!matchingVehicle.is_taxi)
         if (serviceData) applyModelSize(matchingVehicle.car_model, serviceData, false)
@@ -859,18 +858,14 @@ function BookingPageContent() {
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
 
-    if (selectedVehicleId === 'new' && plate.trim()) {
-      const existing = vehicles.find(v => v.plate === plate.trim())
-      if (!existing) {
-        const row = { user_id: session?.user?.id, plate: plate.trim(), type: vehicleType === 'Μοτοσικλέτα' ? 'Μοτοσικλέτα' : vehicleType }
-        const { error } = await supabase.from('vehicles').insert({ ...row, car_model: carModel.trim() || null, is_taxi: isTaxi })
-        if (error) await supabase.from('vehicles').insert(row)
-      }
-    } else if (selectedVehicleId && selectedVehicleId !== 'new') {
-      // Αποθηκευμένο όχημα: κράτα μοντέλο/ταξί για την επόμενη φορά
-      const v = vehicles.find(x => x.id === selectedVehicleId)
-      if (v && ((v.car_model || '') !== carModel.trim() || !!v.is_taxi !== isTaxi)) {
-        await supabase.from('vehicles').update({ car_model: carModel.trim() || null, is_taxi: isTaxi, ...(vehicleType !== 'Μοτοσικλέτα' ? { type: vehicleType } : {}) }).eq('id', v.id)
+    // Αποθήκευση οχήματος με ΜΑΡΚΑ & ΜΟΝΤΕΛΟ (χωρίς πινακίδα). Ίδιο μοντέλο → ενημέρωση, όχι διπλό.
+    if (session?.user?.id && carModel.trim()) {
+      const model = carModel.trim()
+      const same = vehicles.find(v => (v.car_model || '').toLowerCase() === model.toLowerCase())
+      if (!same) {
+        await supabase.from('vehicles').insert({ user_id: session.user.id, plate: '', type: vehicleType === 'Μοτοσικλέτα' ? 'Μοτοσικλέτα' : vehicleType, car_model: model })
+      } else if (vehicleType !== 'Μοτοσικλέτα' && same.type !== vehicleType) {
+        await supabase.from('vehicles').update({ type: vehicleType }).eq('id', same.id)
       }
     }
 
@@ -1073,56 +1068,14 @@ function BookingPageContent() {
           {/* RIGHT (desktop): φόρμα κράτησης */}
           <div className="flex flex-col gap-5 md:flex-1">
 
-          {/* Vehicle */}
+          {/* Όχημα: ΜΟΝΟ μάρκα & μοντέλο (χωρίς πινακίδα) — ορίζει ΙΧ/SUV και το βλέπει το πλυντήριο */}
           <div>
             <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
-              {t.plate} <span className="normal-case tracking-normal font-medium text-gray-400">· {t.optional}</span>
+              {t.vehicleLabel}
             </p>
-
-            {vehicles.length > 0 && selectedVehicleId !== 'new' ? (
-              <div className="bg-white rounded-[14px] h-[52px] border border-washio-border px-4 flex items-center justify-between">
-                <span className="text-[15px] font-semibold text-gray-900 font-mono tracking-wider">
-                  {plate}
-                </span>
-                <select
-                  value={selectedVehicleId}
-                  onChange={e => handleVehicleChange(e.target.value)}
-                  className="text-[12px] font-semibold text-washio-cyan-dark bg-transparent focus:outline-none"
-                >
-                  {vehicles.map(v => (
-                    <option key={v.id} value={v.id}>{v.plate} · {v.type}</option>
-                  ))}
-                  <option value="new">{t.newVehicle}</option>
-                </select>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {/* Locked vehicle type info */}
-                <div className="bg-washio-cyan-light border border-washio-cyan/25 rounded-[14px] px-4 py-3">
-                  <p className="text-[12px] text-blue-900 leading-snug">
-                    {t.serviceForA} <strong>{vehicleType}</strong>{t.vehicleWillBeSavedAs} {vehicleType}.
-                  </p>
-                </div>
-
-                <input
-                  type="text"
-                  value={plate}
-                  onChange={e => setPlate(e.target.value.toUpperCase())}
-                  placeholder={vehicleType === 'Μοτοσικλέτα' ? t.plateExampleMoto : t.plateExampleCar}
-                  className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] font-mono tracking-wider text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
-                />
-                {couponBlock === 'plate' && !noCredit && isCreditEligible(total) && walletCredit > 0 && (
-                  <p className="text-[11px] text-amber-700 -mt-1 leading-snug">{t.plateCouponUsed}</p>
-                )}
-
-                {vehicles.length > 0 && (
-                  <button
-                    onClick={() => handleVehicleChange(vehicles[0].id)}
-                    className="text-xs text-blue-600 font-medium"
-                  >
-                    {t.backToMyVehicles}
-                  </button>
-                )}
+            {vehicleType === 'Μοτοσικλέτα' && (
+              <div className="bg-white rounded-[14px] h-[52px] border border-washio-border px-4 flex items-center text-[15px] text-gray-900">
+                {carModel || t.motoLabel}
               </div>
             )}
             {/* Μάρκα & μοντέλο → ορίζει την κατηγορία τιμής (ΙΧ / SUV). (Ταξί: κρυφό προς το παρόν) */}

@@ -11,6 +11,7 @@ import { openConsentSettings } from '@/lib/consent'
 import { WashioLoader } from '@/components/WashioLoader'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { readPageCache, writePageCache, clearPageCache } from '@/lib/page-cache'
+import { searchCarModels, sizeOfModel } from '@/lib/car-models'
 
 const T = {
   el: {
@@ -21,7 +22,7 @@ const T = {
     profileDetails: 'Στοιχεία προφίλ', name: 'Όνομα', phone: 'Τηλέφωνο',
     saved: 'Αποθηκεύτηκε', saving: 'Αποθήκευση...', save: 'Αποθήκευση',
     myVehicle: 'Το όχημά μου', noVehicles: 'Δεν υπάρχουν αποθηκευμένα οχήματα.',
-    mainTag: 'ΚΥΡΙΟ', main: 'Κύριο', plate: 'Πινακίδα', cancel: 'Άκυρο', addVehicle: 'Προσθήκη οχήματος',
+    mainTag: 'ΚΥΡΙΟ', main: 'Κύριο', plate: 'Μάρκα & μοντέλο (π.χ. Toyota Yaris)', cancel: 'Άκυρο', addVehicle: 'Προσθήκη οχήματος',
     notifications: 'Ειδοποιήσεις', support: 'Επικοινωνία & Support', logout: 'Έξοδος',
     deleteAccount: 'Διαγραφή λογαριασμού', language: 'Γλώσσα',
     terms: 'Όροι', privacy: 'Απόρρητο', cookies: 'Cookies', cookieSettings: 'Ρυθμίσεις cookies',
@@ -38,7 +39,7 @@ const T = {
     profileDetails: 'Profile details', name: 'Name', phone: 'Phone',
     saved: 'Saved', saving: 'Saving...', save: 'Save',
     myVehicle: 'My vehicle', noVehicles: 'No saved vehicles.',
-    mainTag: 'MAIN', main: 'Main', plate: 'Plate', cancel: 'Cancel', addVehicle: 'Add vehicle',
+    mainTag: 'MAIN', main: 'Main', plate: 'Make & model (e.g. Toyota Yaris)', cancel: 'Cancel', addVehicle: 'Add vehicle',
     notifications: 'Notifications', support: 'Contact & Support', logout: 'Log out',
     deleteAccount: 'Delete account', language: 'Language',
     terms: 'Terms', privacy: 'Privacy', cookies: 'Cookies', cookieSettings: 'Cookie settings',
@@ -59,7 +60,7 @@ function formatDate(dateStr: string, locale: Locale) {
   return `${d.getDate()} ${MONTHS[locale][d.getMonth()]}`
 }
 
-type Vehicle = { id: string; plate: string; type: string; is_primary?: boolean }
+type Vehicle = { id: string; plate: string; type: string; is_primary?: boolean; car_model?: string | null }
 type Booking = {
   id: string; booking_ref: string; slot_date: string; slot_start_time: string
   status: string; total_amount: number
@@ -120,7 +121,7 @@ export default function ProfilePage() {
 
   const loadVehicles = async (id: string) => {
     const supabase = createClient()
-    const { data } = await supabase.from('vehicles').select('id, plate, type, is_primary').eq('user_id', id).order('is_primary', { ascending: false }).order('created_at', { ascending: false })
+    const { data } = await supabase.from('vehicles').select('id, plate, type, is_primary, car_model').eq('user_id', id).order('is_primary', { ascending: false }).order('created_at', { ascending: false })
     setVehicles((data as Vehicle[]) || [])
   }
 
@@ -147,7 +148,7 @@ export default function ProfilePage() {
       }
 
       const [v, b, f, p] = await Promise.all([
-        supabase.from('vehicles').select('id, plate, type, is_primary').eq('user_id', user.id)
+        supabase.from('vehicles').select('id, plate, type, is_primary, car_model').eq('user_id', user.id)
           .order('is_primary', { ascending: false }).order('created_at', { ascending: false }),
         supabase.from('bookings')
           .select('id, booking_ref, slot_date, slot_start_time, status, total_amount, locations(name), services(name)')
@@ -203,14 +204,16 @@ export default function ProfilePage() {
   }
 
   const handleSaveVehicle = async () => {
-    if (!userId || !plate.trim()) return
+    // Μόνο μάρκα & μοντέλο (χωρίς πινακίδα) — η κατηγορία (ΙΧ/SUV/Μοτοσικλέτα) βγαίνει από το μοντέλο.
+    if (!userId || plate.trim().length < 2) return
     setVehicleSaving(true)
     const supabase = createClient()
-    const { error } = await supabase.from('vehicles').insert({ user_id: userId, plate: plate.trim().toUpperCase(), type: vehicleType })
+    const model = plate.trim()
+    const { error } = await supabase.from('vehicles').insert({ user_id: userId, plate: '', type: sizeOfModel(model) || 'ΙΧ', car_model: model })
     setVehicleSaving(false)
     if (!error) {
       await loadVehicles(userId)
-      setPlate(''); setVehicleType('ΙΧ'); setSavedCar(true)
+      setPlate(''); setSavedCar(true)
       setTimeout(() => setSavedCar(false), 2000); setShowVehicleForm(false); successHaptic()
     }
   }
@@ -372,7 +375,7 @@ export default function ProfilePage() {
                 ) : (
                   vehicles.map((vehicle) => (
                     <div key={vehicle.id} className="flex items-center gap-2.5 px-3.5 py-3 rounded-xl bg-washio-cyan-light/60 border border-washio-border">
-                      <span className="font-mono text-[14px] font-semibold tracking-wider text-washio-navy">{vehicle.plate}</span>
+                      <span className="text-[14px] font-semibold text-washio-navy">{vehicle.car_model || vehicle.plate}</span>
                       <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] font-semibold text-gray-500">{vehicle.type}</span>
                       <button
                         onClick={() => { if (!vehicle.is_primary) handleSetPrimary(vehicle.id) }}
@@ -387,13 +390,16 @@ export default function ProfilePage() {
                 )}
                 {showVehicleForm ? (
                   <div className="flex flex-col gap-2 pt-1">
-                    <input type="text" value={plate} onChange={e => setPlate(e.target.value.toUpperCase())} placeholder={t.plate}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400 font-mono tracking-wider" />
-                    <select value={vehicleType} onChange={e => setVehicleType(e.target.value)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:border-gray-400">
-                      <option value="ΙΧ">ΙΧ</option>
-                      <option value="Μοτοσικλέτα">Μοτοσικλέτα</option>
-                    </select>
+                    <input type="text" value={plate} onChange={e => setPlate(e.target.value)} placeholder={t.plate}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400" />
+                    {plate.trim().length >= 2 && !sizeOfModel(plate) && searchCarModels(plate, 6).length > 0 && (
+                      <div className="border border-gray-200 rounded-lg overflow-hidden">
+                        {searchCarModels(plate, 6).map(c => (
+                          <button key={c.label} type="button" onClick={() => setPlate(c.label)}
+                            className="w-full text-left px-3 py-2 text-sm text-gray-900 border-b border-gray-100 last:border-0 active:bg-gray-50">{c.label}</button>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex gap-2">
                       <button onClick={handleSaveVehicle} disabled={vehicleSaving || savedCar || !userId}
                         className="bg-gray-900 text-white text-xs rounded-lg px-4 py-2.5 disabled:opacity-40">
