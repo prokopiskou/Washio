@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     // Αν δεν μπορέσαμε να διαβάσουμε τα στοιχεία (λείπει token), κράτα τουλάχιστον το lead id.
     // Ο πίνακας έχει NOT NULL σε όλα τα πεδία της αίτησης → κενό string όπου δεν έχουμε τιμή.
-    const { error } = await admin.from('applications').insert({
+    let { error } = await admin.from('applications').insert({
       business_name: business || `Meta lead ${id}`,
       address: '',
       city: '',
@@ -90,7 +90,17 @@ export async function POST(req: NextRequest) {
       wash_type: 'Meta lead',
       status: 'pending',
     })
-    if (error) console.error('meta lead insert', error.message)
+    // Αποτυχία → 2η προσπάθεια· αν ξαναποτύχει, το email το λέει ΡΗΤΑ (να μη «χάνεται» lead από το admin).
+    if (error) {
+      console.error('meta lead insert', error.message)
+      await new Promise(r => setTimeout(r, 800))
+      ;({ error } = await admin.from('applications').insert({
+        business_name: business || `Meta lead ${id}`, address: '', city: '', afm: '', owner_name: name || '', phone: phone || '',
+        email: email || '', hours: '', lanes: cars || '', wash_type: 'Meta lead', status: 'pending',
+      }))
+      if (error) console.error('meta lead insert retry', error.message)
+    }
+    const insertFailed = !!error
 
     const summary = [business || 'Πλυντήριο', name, phone, cars ? `${cars} αυτ./μέρα` : ''].filter(Boolean).join(' · ')
 
@@ -106,9 +116,10 @@ export async function POST(req: NextRequest) {
       await resend.emails.send({
         from: 'Washio <noreply@washio.gr>',
         to: ADMIN_EMAILS,
-        subject: `🧽 Νέα αίτηση πλυντηρίου · ${business || name || 'Meta lead'}`,
+        subject: `${insertFailed ? '⚠️ ΔΕΝ μπήκε στο admin · ' : '🧽 Νέα αίτηση πλυντηρίου · '}${business || name || 'Meta lead'}`,
         html: `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:480px;margin:0 auto;padding:20px;">
           <h2 style="margin:0 0 12px;color:#10182A;">Νέα αίτηση από διαφήμιση</h2>
+          ${insertFailed ? `<p style="margin:0 0 12px;padding:10px;border-radius:10px;background:#FEF2F2;color:#991B1B;font-size:13px;"><b>⚠️ Δεν αποθηκεύτηκε στις Αιτήσεις του admin</b> (${String(error?.message || '').replace(/[<>]/g, '')}). Πέρασέ την χειροκίνητα.</p>` : ''}
           <table style="width:100%;font-size:14px;border-collapse:collapse;">
             <tr><td style="color:#6B7280;padding:6px 0;">Πλυντήριο / περιοχή</td><td style="text-align:right;font-weight:600;">${business || '—'}</td></tr>
             <tr><td style="color:#6B7280;padding:6px 0;">Όνομα</td><td style="text-align:right;font-weight:600;">${name || '—'}</td></tr>
