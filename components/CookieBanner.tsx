@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { CONSENT_OPEN_EVENT, getConsent, isNativeClient, setConsent } from '@/lib/consent'
 import { useLocale } from '@/lib/i18n'
+import { funnel } from '@/lib/funnel'
 
 const T = {
   el: {
@@ -63,6 +64,7 @@ export function CookieBanner() {
 
   const done = (analytics: boolean, marketing: boolean) => {
     setConsent({ analytics, marketing: native ? false : marketing })
+    try { funnel(analytics && marketing ? 'consent_all' : !analytics && !marketing ? 'consent_reject' : 'consent_custom', { meta: { native } }) } catch { /* ignore */ }
     setOpen(false); setDetails(false)
   }
 

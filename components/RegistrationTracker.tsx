@@ -1,6 +1,6 @@
 'use client'
 
-import { marketingAllowed } from '@/lib/consent'
+import { marketingAllowed, CONSENT_EVENT } from '@/lib/consent'
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@/lib/analytics'
@@ -16,6 +16,22 @@ import { ensureDeviceId } from '@/lib/device'
 // που δεν έστελνε τίποτα. Χωρίς αυτό, τα Meta ads δεν μπορούν να βελτιστοποιήσουν
 // για sign-ups. Κεντρικό σημείο = πιάνει όλες τις ροές.
 const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID
+
+const PENDING_KEY = 'wsx_reg_pending'
+
+function fireRegistration(userId: string, method: string) {
+  // Client Pixel — eventId σταθερό ανά χρήστη.
+  track('CompleteRegistration', { method }, { eventId: 'reg_' + userId })
+  // Server-side CAPI backup (iOS ATT / ad-blockers) — ΙΔΙΟ eventId → dedup.
+  try {
+    fetch('/api/capi/registration', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: window.location.href }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch { /* ignore */ }
+}
 
 export function RegistrationTracker() {
   useEffect(() => {
@@ -117,22 +133,31 @@ export function RegistrationTracker() {
 
       const method =
         (u.app_metadata as { provider?: string } | undefined)?.provider || 'otp'
-      // Client Pixel — eventId σταθερό ανά χρήστη.
-      track('CompleteRegistration', { method }, { eventId: 'reg_' + u.id })
-      // Server-side CAPI backup (iOS ATT / ad-blockers) — ΙΔΙΟ eventId → dedup.
-      try {
-        if (marketingAllowed()) fetch('/api/capi/registration', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: window.location.href }),
-          keepalive: true,
-        }).catch(() => {})
-      } catch { /* ignore */ }
-
+      // Χωρίς συγκατάθεση ΑΚΟΜΑ (συχνά γράφεται πριν πατήσει το banner) → κράτα το και
+      // στείλ' το μόλις δώσει συγκατάθεση (ίδιο eventId → χωρίς διπλομέτρηση).
+      if (!marketingAllowed()) {
+        try { localStorage.setItem(PENDING_KEY, JSON.stringify({ id: u.id, method, at: Date.now() })) } catch { /* ignore */ }
+        return
+      }
+      fireRegistration(u.id, method)
     })
+
+    // Συγκατάθεση δόθηκε αργότερα → στείλε την εκκρεμή εγγραφή (έως 7 μέρες πίσω).
+    const onConsent = () => {
+      if (!marketingAllowed()) return
+      let p: { id?: string; method?: string; at?: number } | null = null
+      try { p = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null') } catch { p = null }
+      if (!p?.id || !p.at || Date.now() - p.at > 7 * 864e5) return
+      try { localStorage.removeItem(PENDING_KEY) } catch { /* ignore */ }
+      // Το Pixel φορτώνει μόλις δοθεί συγκατάθεση → περίμενε λίγο.
+      setTimeout(() => fireRegistration(p!.id!, p!.method || 'otp'), 2000)
+    }
+    window.addEventListener(CONSENT_EVENT, onConsent)
+    onConsent()
 
     return () => {
       sub.subscription.unsubscribe()
+      window.removeEventListener(CONSENT_EVENT, onConsent)
     }
   }, [])
 

@@ -13,6 +13,8 @@ export type FunnelStep =
   | 'car_model_unknown'
   // «Τι όχημα έχεις;»: άνοιξε / διάλεξε / έκλεισε χωρίς επιλογή
   | 'car_picker_open' | 'car_picked' | 'car_picker_close'
+  // Banner cookies: τι διάλεξε (χωρίς προσωπικά στοιχεία) → πόσοι επιτρέπουν μέτρηση Meta
+  | 'consent_all' | 'consent_reject' | 'consent_custom'
 
 function storageId(store: 'local' | 'session', key: string): string {
   try {
