@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
       "img-src 'self' data: blob: " + SUPA + " https://*.supabase.co https://*.googleapis.com https://maps.gstatic.com https://*.gstatic.com https://*.ggpht.com https://*.googleusercontent.com https://www.facebook.com",
       "font-src 'self' data: https://fonts.gstatic.com",
       // fetch/XHR/WebSocket: Supabase (+realtime wss), Stripe, Maps/Places, geocoding, καιρός, FCM, Vercel.
-      "connect-src 'self' " + SUPA + " wss://cnifsqeyujwozxhcctrd.supabase.co https://*.supabase.co https://api.stripe.com https://m.stripe.network https://maps.googleapis.com https://places.googleapis.com https://nominatim.openstreetmap.org https://api.open-meteo.com https://*.googleapis.com https://*.google.com https://graph.facebook.com https://www.google-analytics.com https://*.analytics.google.com https://stats.g.doubleclick.net https://va.vercel-scripts.com https://vitals.vercel-insights.com",
+      "connect-src 'self' " + SUPA + " wss://cnifsqeyujwozxhcctrd.supabase.co https://*.supabase.co https://api.stripe.com https://m.stripe.network https://maps.googleapis.com https://places.googleapis.com https://nominatim.openstreetmap.org https://api.open-meteo.com https://*.googleapis.com https://*.google.com https://graph.facebook.com https://www.facebook.com https://www.google-analytics.com https://*.analytics.google.com https://stats.g.doubleclick.net https://va.vercel-scripts.com https://vitals.vercel-insights.com",
       // iframes: Stripe (PaymentElement + 3DS) και OAuth popups (Google/Facebook).
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://m.stripe.network https://*.stripe.com https://accounts.google.com https://www.facebook.com",
       "worker-src 'self' blob:",
