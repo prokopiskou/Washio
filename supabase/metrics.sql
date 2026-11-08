@@ -69,7 +69,7 @@ returns table (
   commission numeric, ad_spend numeric
 ) language sql stable security definer set search_path = public as $$
   select g.d, w.*
-  from generate_series((now() at time zone 'Europe/Athens')::date - (p_days - 1), (now() at time zone 'Europe/Athens')::date, '1 day') as g(d)
+  from (select gs::date as d from generate_series((now() at time zone 'Europe/Athens')::date - (p_days - 1), (now() at time zone 'Europe/Athens')::date, '1 day') gs) g
   cross join lateral public.metrics_window(
     (g.d::timestamp at time zone 'Europe/Athens'), ((g.d + 1)::timestamp at time zone 'Europe/Athens')
   ) w
