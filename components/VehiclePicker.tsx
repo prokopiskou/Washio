@@ -114,11 +114,17 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-0.5 px-0.5 py-0.5">
           {garage.map(v => {
             const on = !!choice && choiceKey(v) === choiceKey(choice)
+            const label = v.kind === 'moto' ? (v.label || t.moto) : v.label
             return (
-              <button key={choiceKey(v)} type="button" onClick={() => { if (!on) onPick(v) }}
-                className={`shrink-0 h-9 max-w-[180px] px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap truncate border transition-all ${on ? 'bg-washio-cyan text-white border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)]' : 'bg-white text-washio-navy border-washio-border'}`}>
-                {v.kind === 'moto' ? (v.label || t.moto) : v.label}
-              </button>
+              <div key={choiceKey(v)} className={`shrink-0 h-9 max-w-[200px] pl-3.5 pr-1 rounded-full text-[13px] font-semibold border flex items-center gap-1 transition-all ${on ? 'bg-washio-cyan text-white border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)]' : 'bg-white text-washio-navy border-washio-border'}`}>
+                <button type="button" onClick={() => { if (!on) onPick(v) }} className="truncate whitespace-nowrap">{label}</button>
+                {/* × διαγραφή οχήματος (με επιβεβαίωση — να μη σβηστεί κατά λάθος) */}
+                <button type="button" aria-label={`${t.remove} ${label}`}
+                  onClick={e => { e.stopPropagation(); if (confirm(`${t.remove} «${label}»;`)) removeFromGarage(v) }}
+                  className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${on ? 'text-white/80 active:bg-white/20' : 'text-gray-400 active:bg-gray-100'}`}>
+                  <X size={13} strokeWidth={2.5} />
+                </button>
+              </div>
             )
           })}
           <button type="button" onClick={show}
