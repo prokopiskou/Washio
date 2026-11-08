@@ -1587,7 +1587,7 @@ function MapPageContent() {
 
               {/* Γραμμή 2: τύπος οχήματος · φωτογραφία (ίδια γραμμή, ίδιο ύψος) */}
               <div className="flex items-center justify-between gap-3 mb-3">
-                <div className={carChoice ? 'flex gap-2 shrink-0 min-w-0' : 'flex-1 min-w-0'}>
+                <div className="flex-1 min-w-0">
                   <VehicleSelector ref={carPickerRef} choice={carChoice} big={!carChoice} onPick={onCarPicked} onClose={() => { pendingSvcRef.current = null }} locale={locale === 'en' ? 'en' : 'el'} />
                 </div>
                 {/* Διακριτική φωτογραφία — tap → σελίδα πλυντηρίου (όλες οι φωτό). */}

@@ -42,27 +42,75 @@ const subscribe = (cb: () => void) => {
   return () => { window.removeEventListener(EVT, cb); window.removeEventListener('storage', cb) }
 }
 
+// ── «Τα οχήματά μου» (garage): ΟΛΑ τα οχήματα του χρήστη (π.χ. αυτοκίνητο + μηχανή + της γυναίκας του).
+// Το ενεργό = η τρέχουσα επιλογή (KEY). Εναλλαγή με ΕΝΑ πάτημα, προσθήκη χωρίς να χάνεται το προηγούμενο.
+const GKEY = 'washio_garage_v1'
+let gcache: { raw: string | null; val: CarChoice[] } = { raw: null, val: [] }
+export const choiceKey = (c: CarChoice) => c.kind === 'moto' ? `moto:${(c.label || '').toLowerCase()}` : `car:${c.label.toLowerCase()}`
+
+function readGarage(): CarChoice[] {
+  if (typeof window === 'undefined') return gcache.val
+  let raw: string | null = null
+  try { raw = localStorage.getItem(GKEY) } catch { return gcache.val }
+  if (raw === gcache.raw) return gcache.val
+  let val: CarChoice[] = []
+  try { val = raw ? (JSON.parse(raw) as CarChoice[]).filter(Boolean) : [] } catch { val = [] }
+  // Μετάβαση: παλιοί χρήστες με μία επιλογή → γίνεται το πρώτο όχημα
+  if (!val.length) { const c = read(); if (c) val = [c] }
+  gcache = { raw, val }
+  return val
+}
+function writeGarage(list: CarChoice[]) {
+  try { localStorage.setItem(GKEY, JSON.stringify(list.slice(0, 8))) } catch { /* ignore */ }
+  window.dispatchEvent(new Event(EVT))
+}
+/** Προσθήκη (ή ενημέρωση) στα οχήματά μου + ενεργό. */
+export function addToGarage(c: CarChoice) {
+  const list = readGarage()
+  const i = list.findIndex(x => choiceKey(x) === choiceKey(c))
+  // Υπάρχει ήδη → ίδια θέση (σταθερή σειρά στα κουμπιά) · νέο → στο τέλος
+  writeGarage(i >= 0 ? list.map((x, k) => k === i ? c : x) : [...list, c])
+  setCarChoice(c)
+}
+export function removeFromGarage(c: CarChoice) {
+  const list = readGarage().filter(x => choiceKey(x) !== choiceKey(c))
+  writeGarage(list)
+  const cur = read()
+  if (cur && choiceKey(cur) === choiceKey(c)) setCarChoice(list[0] || null)
+}
+export function useGarage(): CarChoice[] {
+  return useSyncExternalStore(subscribe, readGarage, () => gcache.val)
+}
+
+const choiceFromVehicle = (v: { type?: string; car_model?: string | null }): CarChoice | null =>
+  v.type === 'Μοτοσικλέτα' ? (v.car_model ? { kind: 'moto', label: v.car_model } : { kind: 'moto' })
+    : v.car_model ? (choiceFromModel(v.car_model) || { kind: 'car', label: v.car_model, size: v.type === 'SUV' ? 'SUV' : 'ΙΧ', known: false }) : null
+
 let triedSaved = false
 export function useCarChoice(): [CarChoice | null, (c: CarChoice | null) => void] {
   const choice = useSyncExternalStore(subscribe, read, () => null)
-  // Συνδεδεμένος χωρίς τοπική επιλογή → πάρε το αποθηκευμένο του όχημα (μία φορά).
+  // Συνδεδεμένος → φέρε ΟΛΑ τα αποθηκευμένα του οχήματα στα «οχήματά μου» (μία φορά ανά φόρτωση).
   useEffect(() => {
-    if (choice || triedSaved) return
+    if (triedSaved) return
     triedSaved = true
     ;(async () => {
       const sb = createClient()
       const { data: { session } } = await sb.auth.getSession()
       if (!session?.user) return
       const { data, error } = await sb.from('vehicles').select('type, car_model, is_primary').eq('user_id', session.user.id)
-        .order('is_primary', { ascending: false }).order('created_at', { ascending: false }).limit(1)
-      if (error || !data?.length || read()) return
-      const v = data[0] as { type?: string; car_model?: string | null }
-      if (v.type === 'Μοτοσικλέτα') return setCarChoice(v.car_model ? { kind: 'moto', label: v.car_model } : { kind: 'moto' })
-      const fromModel = v.car_model ? choiceFromModel(v.car_model) : null
-      if (fromModel) setCarChoice(fromModel)
+        .order('is_primary', { ascending: false }).order('created_at', { ascending: false }).limit(8)
+      if (error || !data?.length) return
+      const saved = (data as { type?: string; car_model?: string | null }[]).map(choiceFromVehicle).filter(Boolean) as CarChoice[]
+      if (!saved.length) return
+      const have = readGarage()
+      const merged = [...have, ...saved.filter(s => !have.some(h => choiceKey(h) === choiceKey(s)))]
+      if (merged.length !== have.length) writeGarage(merged)
+      if (!read()) setCarChoice(merged[0])
     })().catch(() => {})
-  }, [choice])
-  return [choice, setCarChoice]
+  }, [])
+  // Κάθε επιλογή μπαίνει και στα οχήματά μου (δεν χάνεται το προηγούμενο).
+  const set = (c: CarChoice | null) => { if (c) addToGarage(c); else setCarChoice(null) }
+  return [choice, set]
 }
 
 /** Τύπος οχήματος για τις τιμές/κράτηση (ΙΧ / SUV / Μοτοσικλέτα). */

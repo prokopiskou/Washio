@@ -4,7 +4,7 @@ import { forwardRef, useImperativeHandle, useRef, useState, useSyncExternalStore
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { searchCarModels } from '@/lib/car-models'
-import { choiceFromModel, type CarChoice } from '@/lib/car-choice'
+import { choiceFromModel, useGarage, removeFromGarage, choiceKey, type CarChoice } from '@/lib/car-choice'
 import { funnel } from '@/lib/funnel'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { Capacitor } from '@capacitor/core'
@@ -24,11 +24,13 @@ const T = {
     ask: 'Τι όχημα έχεις;', change: 'αλλαγή', moto: 'Μοτοσικλέτα', title: 'Τι όχημα έχεις;',
     sub: 'Για να σου δείξουμε τη σωστή τιμή.', ph: 'π.χ. Toyota Yaris, Qashqai, Honda SH',
     useTyped: 'χρήση αυτού', regular: 'Αυτοκίνητο', big: 'SUV / MPV', tapHint: 'Πάτα για να δεις υπηρεσίες & τιμές',
+    add: 'Όχημα', mine: 'Τα οχήματά μου', addTitle: 'Πρόσθεσε άλλο όχημα', remove: 'Αφαίρεση',
   },
   en: {
     ask: 'What vehicle do you have?', change: 'change', moto: 'Motorcycle', title: 'What vehicle do you have?',
     sub: 'So we can show you the right price.', ph: 'e.g. Toyota Yaris, Qashqai, Honda SH',
     useTyped: 'use this', regular: 'Car', big: 'SUV / MPV', tapHint: 'Tap to see services & prices',
+    add: 'Vehicle', mine: 'My vehicles', addTitle: 'Add another vehicle', remove: 'Remove',
   },
 }
 
@@ -71,6 +73,7 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
   const t = T[locale]
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
+  const garage = useGarage()
   const wrapRef = useRef<HTMLDivElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -106,16 +109,42 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
 
   return (
     <>
-      <VehicleChip choice={choice} onClick={show} locale={locale} big={big} />
+      {/* Χωρίς οχήματα → μεγάλο «Τι όχημα έχεις;». Με οχήματα → ένα κουμπί ανά όχημα (εναλλαγή με 1 πάτημα) + «+ Όχημα». */}
+      {garage.length === 0 ? <VehicleChip choice={choice} onClick={show} locale={locale} big={big} /> : (
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-0.5 px-0.5 py-0.5">
+          {garage.map(v => {
+            const on = !!choice && choiceKey(v) === choiceKey(choice)
+            return (
+              <button key={choiceKey(v)} type="button" onClick={() => { if (!on) onPick(v) }}
+                className={`shrink-0 h-9 max-w-[180px] px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap truncate border transition-all ${on ? 'bg-washio-cyan text-white border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)]' : 'bg-white text-washio-navy border-washio-border'}`}>
+                {v.kind === 'moto' ? (v.label || t.moto) : v.label}
+              </button>
+            )
+          })}
+          <button type="button" onClick={show}
+            className="shrink-0 h-9 px-3 rounded-full text-[13px] font-semibold whitespace-nowrap border border-dashed border-washio-cyan text-washio-cyan-dark bg-white">+ {t.add}</button>
+        </div>
+      )}
       {isClient && createPortal(<div ref={wrapRef} style={{ display: 'none' }} className="fixed inset-0 z-[80] items-start justify-center bg-black/40 px-4" onClick={close}>
         <div ref={panelRef} className="w-full max-w-md bg-white rounded-[24px] p-5" style={{ marginTop: '16vh' }} onClick={e => e.stopPropagation()}>
           <div className="flex items-start justify-between mb-3">
             <div>
-              <p className="text-[18px] font-bold tracking-tight text-washio-navy">{t.title}</p>
+              <p className="text-[18px] font-bold tracking-tight text-washio-navy">{garage.length ? t.addTitle : t.title}</p>
               <p className="text-[13px] text-gray-500 mt-0.5">{t.sub}</p>
             </div>
             <button type="button" onClick={close} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"><X size={16} /></button>
           </div>
+          {garage.length > 0 && !q && (
+            <div className="mb-3">
+              <p className="text-[11px] font-bold tracking-[1.2px] uppercase text-gray-400 mb-1.5">{t.mine}</p>
+              {garage.map(v => (
+                <div key={choiceKey(v)} className="flex items-center gap-2 border-b border-gray-100 last:border-0">
+                  <button type="button" onClick={() => pick(v)} className="flex-1 text-left px-1 py-2.5 text-[15px] text-washio-navy">{v.kind === 'moto' ? (v.label || t.moto) : v.label}</button>
+                  <button type="button" aria-label={t.remove} onClick={() => removeFromGarage(v)} className="w-8 h-8 rounded-full text-gray-400 flex items-center justify-center active:bg-gray-100"><X size={15} /></button>
+                </div>
+              ))}
+            </div>
+          )}
           <input ref={inputRef} value={q} onChange={e => setQ(e.target.value)} placeholder={t.ph} enterKeyHint="search" autoComplete="off"
             className="w-full h-[52px] px-4 rounded-[14px] border border-washio-border text-[16px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan" />
           <div className="mt-2 max-h-[30vh] overflow-y-auto">

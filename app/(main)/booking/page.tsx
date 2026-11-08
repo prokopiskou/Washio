@@ -21,7 +21,7 @@ import { computeRedeemable, isCreditEligible, WELCOME_DISCOUNT } from '@/lib/ref
 import { phoneOk } from '@/lib/phone'
 import { ensureDeviceId } from '@/lib/device'
 import { searchCarModels, sizeOfModel, type CarModel } from '@/lib/car-models'
-import { choiceFromModel, setCarChoice } from '@/lib/car-choice'
+import { choiceFromModel, addToGarage } from '@/lib/car-choice'
 import { useCouponCredit, couponExpiryLabel } from '@/lib/use-coupon-credit'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -1017,7 +1017,7 @@ function BookingPageContent() {
     intentCacheRef.current = null
     if (showPayment) { setShowPayment(false); setClientSecret('') }
   }
-  const pickModel = (c: CarModel) => { setCarModel(c.label); setModelOpen(false); applyModelSize(c.label); const ch = choiceFromModel(c.label); if (ch) setCarChoice(ch) }
+  const pickModel = (c: CarModel) => { setCarModel(c.label); setModelOpen(false); applyModelSize(c.label); const ch = choiceFromModel(c.label); if (ch) addToGarage(ch) }
 
   if (sessionLoading) {
     return <main className="min-h-screen bg-gray-50 flex items-center justify-center"><WashioLoader /></main>
