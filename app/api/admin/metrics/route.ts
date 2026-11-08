@@ -16,8 +16,17 @@ async function adminUser() {
   return user && isAdminEmail(user.email) ? user : null
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!(await adminUser())) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
+  // «Ανά διαφήμιση»: ?view=ads&days=7
+  if (req.nextUrl.searchParams.get('view') === 'ads') {
+    const days = Math.min(90, Math.max(1, Number(req.nextUrl.searchParams.get('days')) || 7))
+    const to = new Date(), from = new Date(Date.now() - days * 864e5)
+    const { data, error } = await db.rpc('ads_by_ad', { p_from: from.toISOString(), p_to: to.toISOString() })
+    if (error) return NextResponse.json({ error: 'Τρέξε το supabase/ads_by_ad.sql — ' + error.message }, { status: 500 })
+    const { data: last } = await db.from('ad_spend_by_ad').select('updated_at').order('updated_at', { ascending: false }).limit(1).maybeSingle()
+    return NextResponse.json({ ads: data || [], days, spendSyncedAt: last?.updated_at || null, apiConnected: !!process.env.META_ADS_TOKEN })
+  }
   const [{ data: daily, error: dErr }, { data: changes }] = await Promise.all([
     db.rpc('metrics_daily', { p_days: 21 }),
     db.from('change_log').select('*').order('at', { ascending: false }).limit(25),
@@ -52,6 +61,18 @@ export async function POST(req: NextRequest) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.day)) || !(Number(b.amount) >= 0)) return NextResponse.json({ error: 'Λάθος μέρα/ποσό' }, { status: 400 })
     const { error } = await db.from('ad_spend').upsert({ day: b.day, amount: Number(b.amount), source: 'manual', updated_at: new Date().toISOString() })
     return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })
+  }
+  // Χειροκίνητα έξοδα ανά διαφήμιση (μέχρι να συνδεθεί το Meta API): γραμμές «Όνομα διαφήμισης ; ποσό».
+  if (b.action === 'ad_spend_paste') {
+    const text = String((b as { text?: string }).text || '')
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.day))) return NextResponse.json({ error: 'Λάθος μέρα' }, { status: 400 })
+    const rows = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+      const m = /^(.+?)[\t;]+\s*([0-9]+(?:[.,][0-9]+)?)\s*€?$/.exec(l)
+      return m ? { day: b.day!, campaign: 'manual', ad_name: m[1].trim().slice(0, 120), spend: Number(m[2].replace(',', '.')), clicks: 0, updated_at: new Date().toISOString() } : null
+    }).filter(Boolean) as { day: string; campaign: string; ad_name: string; spend: number; clicks: number; updated_at: string }[]
+    if (!rows.length) return NextResponse.json({ error: 'Γράψε γραμμές «Όνομα διαφήμισης ; ποσό»' }, { status: 400 })
+    const { error } = await db.from('ad_spend_by_ad').upsert(rows)
+    return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true, saved: rows.length })
   }
   if (b.action === 'delete_change') {
     const { error } = await db.from('change_log').delete().eq('id', b.id || '')
