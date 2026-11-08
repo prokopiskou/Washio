@@ -1,6 +1,7 @@
 'use client'
 
 import { ApplicationsPipeline } from '@/components/admin/ApplicationsPipeline'
+import { CheckoutExperimentPanel } from '@/components/admin/CheckoutExperimentPanel'
 import { formatDuration } from '@/lib/duration'
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
@@ -1355,6 +1356,7 @@ export default function AdminPage() {
                 )
               })()}
 
+              {activeTab === 'financials' && <div className="mb-4"><CheckoutExperimentPanel /></div>}
               {activeTab === 'financials' && (() => {
                 // Εύρος ημερομηνιών βάσει περιόδου (ζώνη Ελλάδας).
                 const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' })

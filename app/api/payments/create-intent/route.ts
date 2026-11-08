@@ -6,7 +6,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { alertCritical } from '@/lib/alert'
 import { checkSlotAvailability } from '@/lib/availability-server'
 import { ipFrom } from '@/lib/throttle'
-import { SERVICE_FEE_EUR } from '@/lib/pricing'
+import { getCheckoutConfig } from '@/lib/checkout-config'
 import { computeRedeemable, isCreditEligible } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
 import { loyaltyDiscountFor } from '@/lib/loyalty'
@@ -188,8 +188,9 @@ export async function POST(req: NextRequest) {
       }
     } catch { /* χωρίς credit αν αποτύχει */ }
 
-    // Χρέωση κάρτας = (τιμή − πίστωση) + τέλος υπηρεσίας.
-    const chargeAmount = (amount - appliedCredit) + SERVICE_FEE_EUR
+    // Χρέωση κάρτας = (τιμή − πίστωση) + τέλος υπηρεσίας (αν είναι ενεργό από το admin — app_settings).
+    const serviceFeeEur = (await getCheckoutConfig(admin)).fee
+    const chargeAmount = (amount - appliedCredit) + serviceFeeEur
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(chargeAmount * 100),
@@ -209,7 +210,7 @@ export async function POST(req: NextRequest) {
         userEmail: user.email || '',
         serviceName: service.name || '', // ΜΟΝΟ από τη βάση — όχι από τον client
         amount: amount.toString(),           // ΒΑΣΗ (booking + settlement)
-        serviceFee: SERVICE_FEE_EUR.toString(),
+        serviceFee: serviceFeeEur.toString(),
         appliedCredit: appliedCredit.toString(),
         loyalty: loyalty > 0 ? '1' : '',
         servicePrice: servicePrice.toString(),
@@ -239,7 +240,7 @@ export async function POST(req: NextRequest) {
       customerSessionClientSecret,
       bookingRef,
       appliedCredit,                 // πόσο κουπόνι εφαρμόστηκε (για εμφάνιση στο checkout)
-      serviceFee: SERVICE_FEE_EUR,
+      serviceFee: serviceFeeEur,
     })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'

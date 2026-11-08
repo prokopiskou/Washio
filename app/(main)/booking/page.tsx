@@ -17,7 +17,6 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { AddonIcon, addonMeta } from '@/components/AddonIcon'
 import { athensToday } from '@/lib/time'
-import { SERVICE_FEE_EUR } from '@/lib/pricing'
 import { computeRedeemable, isCreditEligible, WELCOME_DISCOUNT } from '@/lib/referral'
 import { phoneOk } from '@/lib/phone'
 import { ensureDeviceId } from '@/lib/device'
@@ -209,7 +208,8 @@ function MapThumb() {
   )
 }
 
-function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef }: {
+function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef, serviceFee }: {
+  serviceFee: number
   total: number
   baseTotal: number
   appliedCredit: number
@@ -390,10 +390,12 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
             <span>−{eur2(appliedCredit)}</span>
           </div>
         )}
-        <div className="flex justify-between items-center text-[12px] text-gray-500 mt-1">
-          <span>{t.serviceFee}</span>
-          <span>{eur2(SERVICE_FEE_EUR)}</span>
-        </div>
+        {serviceFee > 0 && (
+          <div className="flex justify-between items-center text-[12px] text-gray-500 mt-1">
+            <span>{t.serviceFee}</span>
+            <span>{eur2(serviceFee)}</span>
+          </div>
+        )}
         <div className="flex justify-between items-center text-[13px] font-bold text-washio-navy mt-1.5 pt-1.5 border-t border-washio-border">
           <span>{t.total}</span>
           <span>{eur2(total)}</span>
@@ -448,7 +450,23 @@ function BookingPageContent() {
   // Washio Club — σφραγίδες σε αυτό το πλυντήριο (μόνο για συνδεδεμένους).
   const [loyalty, setLoyalty] = useState<{ drops: number; need: number; rewardNext: boolean; amount: number } | null>(null)
   // Τρόπος πληρωμής: 'venue' (Κλείσε τώρα, πλήρωσε εκεί — default) ή 'card'.
-  const [payMethod, setPayMethod] = useState<'venue' | 'card'>('venue')
+  // Προεπιλογή πληρωμής + τέλος κάρτας: από το admin (app_settings → /api/checkout-config).
+  const [payMethod, setPayMethodRaw] = useState<'venue' | 'card'>('card')
+  const [serviceFee, setServiceFee] = useState(0)
+  const [payDefault, setPayDefault] = useState<'venue' | 'card'>('card')
+  const payTouchedRef = useRef(false)
+  const setPayMethod = (m: 'venue' | 'card') => { payTouchedRef.current = true; setPayMethodRaw(m) }
+  useEffect(() => {
+    let alive = true
+    fetch('/api/checkout-config').then(r => r.json()).then(j => {
+      if (!alive) return
+      setServiceFee(Number(j?.fee) || 0)
+      const d = j?.defaultPay === 'venue' ? 'venue' : 'card'
+      setPayDefault(d)
+      if (!payTouchedRef.current) setPayMethodRaw(d)
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [])
   const [bookingRef, setBookingRef] = useState('')
   const [cashLoading, setCashLoading] = useState(false)
   // Guest checkout: χωρίς σελίδα εγγραφής. Ο λογαριασμός φτιάχνεται τη στιγμή της κράτησης
@@ -753,7 +771,7 @@ function BookingPageContent() {
   // Χρέωση κάρτας = (τιμή − κουπόνι) + τέλος υπηρεσίας (μόνο κάρτα). Τα μετρητά
   // πληρώνουν την καθαρή τιμή στο κατάστημα. Το appliedCredit το γυρίζει το
   // create-intent (ισχύει μόνο σε Μέσα-Έξω ≥12€) — 0 μέχρι να απαντήσει.
-  const cardTotal = Math.max(0, total - appliedCredit) + SERVICE_FEE_EUR
+  const cardTotal = Math.max(0, total - appliedCredit) + serviceFee
   // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: ≥12€, έως 3€ — κάρτα ΚΑΙ μετρητά).
   // Washio Club (κάθε 4ο πλύσιμο μέσω Washio, σε όποιο πλυντήριο −3€) έχει προτεραιότητα και ΔΕΝ ξοδεύει το κουπόνι.
   const loyaltyNow = !noCredit && !!loyalty?.rewardNext && isCreditEligible(total)
@@ -911,7 +929,7 @@ function BookingPageContent() {
     setShowPayment(true)
     // Έφτασε στην οθόνη πληρωμής (κάρτα).
     trackEvent('InitiateCheckout', { value: total, currency: 'EUR', content_ids: [locationId || serviceId] })
-    funnel('pay_click', { locationId, meta: { method: 'card', total } })
+    funnel('pay_click', { locationId, meta: { method: 'card', total, def: payDefault, fee: serviceFee } })
   }
 
   const handleCashBooking = async () => {
@@ -925,7 +943,7 @@ function BookingPageContent() {
       }
       try { await saveContact() } catch { /* best-effort — δεν μπλοκάρει την κράτηση */ }
       trackEvent('InitiateCheckout', { value: total - previewCredit, currency: 'EUR', content_ids: [locationId || serviceId] })
-      funnel('pay_click', { locationId, meta: { method: 'cash', total } })
+      funnel('pay_click', { locationId, meta: { method: 'cash', total, def: payDefault, fee: serviceFee } })
       const res = await fetch('/api/bookings/create-cash', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1302,15 +1320,15 @@ function BookingPageContent() {
                   </div>
                 )}
                 {/* Κάρτα: το τέλος υπηρεσίας φαίνεται ξεκάθαρα ΜΕΣΑ στο σύνολο */}
-                {payMethod === 'card' && (
+                {payMethod === 'card' && serviceFee > 0 && (
                   <div className="flex justify-between items-center py-3 border-b border-washio-border">
                     <span className="text-[13px] text-gray-500">{t.serviceFee}</span>
-                    <span className="text-[14px] font-medium text-gray-900">{eur2(SERVICE_FEE_EUR)}</span>
+                    <span className="text-[14px] font-medium text-gray-900">{eur2(serviceFee)}</span>
                   </div>
                 )}
                 <div className="flex justify-between items-center py-3.5">
                   <span className="text-[15px] font-bold text-washio-navy">{previewCredit > 0 ? t.totalWithCoupon : t.total}</span>
-                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">{eur2(total - previewCredit + (payMethod === 'card' ? SERVICE_FEE_EUR : 0))}</span>
+                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">{eur2(total - previewCredit + (payMethod === 'card' ? serviceFee : 0))}</span>
                 </div>
                 {previewCredit > 0 && (
                   <p className="text-[11px] text-gray-400 -mt-2 pb-3 leading-snug">{loyaltyNow ? t.clubNote : t.couponNote(total.toFixed(2))}</p>
@@ -1393,7 +1411,7 @@ function BookingPageContent() {
             <CheckoutForm
               total={cardTotal} baseTotal={total} appliedCredit={appliedCredit} email={email} phone={phone} service={service}
               formattedDate={formattedDate} slotTime={slotTime}
-              clientSecret={clientSecret} plate={plate} bookingRef={bookingRef}
+              clientSecret={clientSecret} plate={plate} bookingRef={bookingRef} serviceFee={serviceFee}
             />
           </Elements>
 
@@ -1448,7 +1466,7 @@ function BookingPageContent() {
                   <>
                     <span>{payMethod === 'venue' ? t.bookPayThere : t.continueCard}</span>
                     <span className="w-px h-4 bg-white/25" />
-                    <span>{eur2(payMethod === "venue" ? total - previewCredit : total - previewCredit + SERVICE_FEE_EUR)}</span>
+                    <span>{eur2(payMethod === "venue" ? total - previewCredit : total - previewCredit + serviceFee)}</span>
                   </>
                 )}
               </button>
