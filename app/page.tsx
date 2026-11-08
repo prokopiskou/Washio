@@ -15,6 +15,7 @@ import { CouponActiveBanner } from '@/components/CouponActiveBanner'
 import { OwnWashBanner } from '@/components/OwnWashBanner'
 import { WashioLoader } from '@/components/WashioLoader'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
+import { RateLastWash } from '@/components/RateLastWash'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
@@ -566,6 +567,9 @@ export default function HomePage() {
               <p className="text-[13px] font-semibold text-washio-cyan-dark">{t.seeAll}</p>
             </Link>
           </div>
+
+          {/* Κριτική για το τελευταίο πλύσιμο (μέχρι να βαθμολογήσει) */}
+          <RateLastWash />
 
           {/* Upcoming booking */}
           {upcomingBooking && upcomingDate && (

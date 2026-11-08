@@ -165,46 +165,7 @@ export async function GET(req: Request) {
     }
   })
 
-  // ── Follow-up («πώς πήγε;»): slot πριν 50'–180' (πιάνει και αργοπορημένα runs).
-  const followups = await bookingsInWindow(
-    'id, booking_ref, slot_start_time, slot_date, locations(name), services(name), profiles(id, email, full_name)',
-    'followup_sent',
-    new Date(now.getTime() - 180 * 60 * 1000),
-    new Date(now.getTime() - 50 * 60 * 1000),
-  )
-
-  // Χρήστες που έχουν ΗΔΗ βαθμολογήσει → δεν τους ξαναζητάμε review.
-  const reviewedUsers = new Set<string>()
-  {
-    const { data: rv } = await supabase.from('profiles').select('id').eq('has_reviewed', true)
-    for (const p of rv || []) reviewedUsers.add((p as { id: string }).id)
-  }
-
-  await inChunks(followups, 5, async (booking) => {
-    const location = booking.locations as { name?: string } | null
-    const service = booking.services as { name?: string } | null
-    const profile = booking.profiles as { id?: string; email?: string; full_name?: string } | null
-    if (!profile?.email || (profile.id && reviewedUsers.has(profile.id))) {
-      await claim(booking.id, 'followup_sent') // κλείσε ως done, χωρίς email
-      return
-    }
-    if (!(await claim(booking.id, 'followup_sent'))) return
-
-    const ok = await sendEmail({
-      type: 'followup',
-      to: profile.email,
-      bookingRef: booking.booking_ref,
-      locationName: location?.name || '',
-      service: service?.name || '',
-      firstName: profile.full_name?.split(' ')[0] || '',
-    })
-    if (ok) { stats.followups++ }
-    else {
-      await unclaim(booking.id, 'followup_sent')
-      stats.followupFailures++
-      await alertCritical('Αποτυχία followup email', `booking: ${booking.booking_ref}\nto: ${profile.email}`).catch(() => null)
-    }
-  })
+  // ── Follow-up / αίτημα κριτικής → /api/cron/review-requests (push → email → SMS, ανά πλυντήριο).
 
   // ── Operator reminder (push): ραντεβού σε 10–20' — μία φορά ανά κράτηση, με ΟΛΑ τα στοιχεία.
   // Παράθυρο 20' (το cron τρέχει κάθε 15') → φτάνει πάντα ~10–20' πριν, ποτέ την ώρα του ραντεβού.
@@ -263,7 +224,7 @@ export async function GET(req: Request) {
   // Τα υπόλοιπα crons τρέχουν μαζί με αυτό (ό,τι χτυπά το /api/cron/emails κάθε 15' —
   // το GitHub workflow είναι απενεργοποιημένο, οπότε rebook / welcome-nudge / push δεν έτρεχαν ΠΟΤΕ).
   // Παράλληλα, best-effort· το καθένα έχει δικούς του κανόνες (ώρες, 1 φορά ανά χρήστη, claim).
-  const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders', 'loyalty-drops', 'washer-morning', 'lead-followups', 'campaigns', 'metrics-daily', 'announcement-reminders'] as const
+  const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders', 'loyalty-drops', 'washer-morning', 'lead-followups', 'campaigns', 'metrics-daily', 'announcement-reminders', 'review-requests'] as const
   const athH = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Athens', hour: '2-digit', hourCycle: 'h23' }).format(new Date()))
   const callSub = async (name: string) => {
     // Push «ώρα για πλύσιμο»: μόνο 10:00–20:59 (δεν έχει δικό του έλεγχο ώρας).

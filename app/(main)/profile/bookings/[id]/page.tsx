@@ -305,21 +305,12 @@ export default function BookingDetailPage() {
     if (!booking || ratingValue < 1) return
     setSubmittingRating(true)
 
-    const supabase = createClient()
-    const { data: userData } = await supabase.auth.getUser()
-    const userId = userData.user?.id
-    if (!userId) {
-      setSubmittingRating(false)
-      return
-    }
-
-    const { error } = await supabase.from('reviews').insert({
-      location_id: booking.location_id,
-      user_id: userId,
-      booking_id: booking.id,
-      rating: ratingValue,
-      comment: ratingComment.trim() || null,
-    })
+    // Μέσω API (service role): το RLS του reviews επιτρέπει μόνο ανάγνωση από τον browser.
+    const res = await fetch('/api/review', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ref: booking.booking_ref, rating: ratingValue, comment: ratingComment.trim() || undefined }),
+    }).catch(() => null)
+    const error = !res || !res.ok
 
     setSubmittingRating(false)
     if (!error) {
