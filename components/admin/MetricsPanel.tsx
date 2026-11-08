@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { AdsByAdPanel } from '@/components/admin/AdsByAdPanel'
 
 // Admin → «Μετρήσεις»: πορεία ανά μέρα + ημερολόγιο αλλαγών με αυτόματο «πριν / μετά».
 type Day = {
@@ -48,9 +47,6 @@ export function MetricsPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Ανά διαφήμιση — δικά μας νούμερα (πηγή αλήθειας για αποφάσεις budget) */}
-      <AdsByAdPanel />
-
       {/* Ημερολόγιο αλλαγών */}
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <p className="text-[15px] font-bold text-gray-900">Αλλαγές · τι έκαναν</p>
