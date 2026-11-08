@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
 import { getCheckoutConfig } from '@/lib/checkout-config'
+import { logChange } from '@/lib/metrics'
 
 // Admin: ρύθμιση checkout + αναφορά «πριν / μετά» την τελευταία αλλαγή.
 //  GET            → { config, report: { after, before } }
@@ -62,5 +63,6 @@ export async function POST(req: NextRequest) {
   const value = { default_pay: b.defaultPay === 'venue' ? 'venue' : 'card', card_fee: b.cardFee === true, since: new Date().toISOString() }
   const { error } = await db.from('app_settings').upsert({ key: 'checkout', value, updated_at: new Date().toISOString(), updated_by: user.email })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  await logChange(db, { title: `Checkout: προεπιλογή ${value.default_pay === 'card' ? 'κάρτα' : 'στο πλυντήριο'}, τέλος κάρτας ${value.card_fee ? 'ναι' : 'όχι'}`, area: 'checkout', source: 'admin', by: user.email })
   return NextResponse.json({ ok: true })
 }

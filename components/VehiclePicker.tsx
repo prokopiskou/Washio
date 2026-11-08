@@ -83,6 +83,7 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
     // Σταθερή θέση σε px (υπολογισμένη ΤΩΡΑ, πριν ανοίξει το πληκτρολόγιο) → δεν «πηδάει» όταν
     // το πληκτρολόγιο μικραίνει την οθόνη (με κεντράρισμα ξανα-κεντραριζόταν και ανέβαινε).
     void keyboardResize('none')
+    funnel('car_picker_open', { meta: { had: !!choice } })
     if (panelRef.current) panelRef.current.style.marginTop = `${Math.round(window.innerHeight * 0.16)}px`
     if (wrapRef.current) wrapRef.current.style.display = 'flex'
     inputRef.current?.focus({ preventScroll: true })
@@ -94,11 +95,11 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
     setOpen(false); setQ('')
     void keyboardResize('native')
   }
-  const close = () => { hide(); onClose?.() }
+  const close = () => { funnel('car_picker_close', { meta: { q: q.trim().slice(0, 40) } }); hide(); onClose?.() }
   useImperativeHandle(ref, () => ({ open: show }))
 
   const results = open ? searchCarModels(q, 40) : []
-  const pick = (c: CarChoice) => { onPick(c); hide() }
+  const pick = (c: CarChoice) => { funnel('car_picked', { meta: { model: c.kind === 'car' ? c.label : (c.label || 'moto'), known: c.kind === 'moto' || c.known } }); onPick(c); hide() }
   const typed = q.trim()
   // Μοντέλο που δεν έχουμε στη λίστα → κρατάμε ό,τι έγραψε (τιμή ΙΧ) και το καταγράφουμε για να το προσθέσουμε.
   const useTyped = () => { funnel('car_model_unknown', { meta: { model: typed.slice(0, 60) } }); pick({ kind: 'car', label: typed.slice(0, 60), size: 'ΙΧ', known: false }) }

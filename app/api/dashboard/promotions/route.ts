@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
+import { logChange } from '@/lib/metrics'
 
 // Dashboard πλυντηρίου → «Προωθήσεις».
 //  GET    ?location=<id>                 → λίστα προωθήσεων
@@ -56,6 +57,8 @@ export async function POST(req: NextRequest) {
     starts_on: startsOn, ends_on: endsOn, is_active: true, created_by: user.id,
   }).select('id').single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const { data: locRow } = await admin.from('locations').select('name').eq('id', locationId).maybeSingle()
+  await logChange(admin, { title: `Προσφορά ${locRow?.name || ''}: ${type === 'fixed' ? `σταθερή ${value}€` : type === 'percent' ? `−${value}%` : `−${value}€`} (${startsOn} – ${endsOn})`, area: 'πλυντήρια', source: 'admin', by: user.email, at: new Date(startsOn + 'T00:00:00+02:00') > new Date() ? new Date(startsOn + 'T00:00:00+02:00').toISOString() : undefined })
   return NextResponse.json({ ok: true, id: data.id })
 }
 

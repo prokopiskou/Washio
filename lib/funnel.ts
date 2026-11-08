@@ -11,6 +11,8 @@ export type FunnelStep =
   | 'list_open'
   // «Ποιο αμάξι έχεις;»: μοντέλο που δεν υπάρχει στη λίστα (lib/car-models) → να προστεθεί.
   | 'car_model_unknown'
+  // «Τι όχημα έχεις;»: άνοιξε / διάλεξε / έκλεισε χωρίς επιλογή
+  | 'car_picker_open' | 'car_picked' | 'car_picker_close'
 
 function storageId(store: 'local' | 'session', key: string): string {
   try {
