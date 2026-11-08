@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { sendPush } from '@/lib/push'
-import { ADMIN_EMAILS } from '@/lib/admins'
+const LEADS_OWNER_EMAIL = 'giwrgos2070@gmail.com'
 import { expireCommissionPromos } from '@/lib/contracts'
 
 // Υπενθύμιση follow-up αιτήσεων πλυντηρίων: email (+ push) ~15' πριν, σε όποιον όρισε το follow-up.
@@ -30,7 +30,8 @@ export async function GET(req: Request) {
     if (!claimed?.length) continue
     const when = new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(a.followup_at))
     const mins = Math.max(0, Math.round((new Date(a.followup_at).getTime() - now.getTime()) / 60000))
-    const toEmail = a.followup_by && ADMIN_EMAILS.includes(String(a.followup_by).toLowerCase()) ? [a.followup_by] : ADMIN_EMAILS
+    // Follow-up / «ξαναπάρε» αιτήσεων πλυντηρίων → ΠΑΝΤΑ στον Γιώργο (αυτός κάνει τις κλήσεις).
+    const toEmail = [LEADS_OWNER_EMAIL]
     const name = String(a.business_name || 'Πλυντήριο').trim()
     const retry = a.stage === 'no_answer' // δεν σήκωσε χθες → ξαναπάρ' τον
     const title = retry ? `📞 Ξαναπάρε · ${name} (δεν σήκωσε${a.call_attempts ? `, ${a.call_attempts}η προσπάθεια` : ''})` : `📞 Follow-up σε ${mins}' · ${name}`
