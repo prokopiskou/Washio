@@ -4,14 +4,15 @@ import { Resend } from 'resend'
 import { sendPush } from '@/lib/push'
 import { sendSms, smsConfigured } from '@/lib/sms'
 import { athensEpoch, athensToday } from '@/lib/time'
-import { reviewPath, reviewUrl } from '@/lib/review-link'
+import { reviewDueAt, reviewPath, reviewUrl } from '@/lib/review-link'
 import { isOptedOut } from '@/lib/unsubscribe'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
 
 // Αίτημα κριτικής ΠΛΥΝΤΗΡΙΟΥ μετά το πλύσιμο — μία φορά ανά κράτηση, ΕΝΑ κανάλι:
 //   push (αν έχει app/web push) → αλλιώς email → αλλιώς SMS.
-// Πότε: 30' μετά το σκανάρισμα QR · χωρίς σκανάρισμα → 60' μετά το τέλος του ραντεβού.
+// Πότε: κανονικό πλύσιμο 1 ώρα μετά (σκανάρισμα QR, αλλιώς ώρα ραντεβού) · βιολογικός 7 ώρες μετά.
+// Αν πέφτει εκτός 09:00–21:59 → φεύγει το επόμενο πρωί στις 09:00.
 // Δεν ζητάμε αν έχει ήδη αφήσει κριτική σε ΑΥΤΟ το πλυντήριο (σε άλλο πλυντήριο → ζητάμε).
 // Ώρες αποστολής: 09:00–21:59 (Ελλάδα). Τρέχει από /api/cron/emails κάθε 15'.
 // GET (cron) · POST (admin) { mode: 'preview' } → τι θα σταλεί, χωρίς αποστολή.
@@ -22,6 +23,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 type Row = {
   id: string; booking_ref: string; user_id: string; location_id: string; slot_date: string; slot_start_time: string
   duration_minutes: number | null; checked_in_at: string | null; customer_phone: string | null
+  services: { name?: string | null; is_range?: boolean | null } | null
   locations: { name?: string } | null; profiles: { email?: string | null; phone?: string | null; full_name?: string | null } | null
 }
 
@@ -47,7 +49,7 @@ async function run(dry: boolean) {
   if (!dry && (athH < 9 || athH > 21)) return { ok: true, skipped: 'hours' }
 
   const { data, error } = await db.from('bookings')
-    .select('id, booking_ref, user_id, location_id, slot_date, slot_start_time, duration_minutes, checked_in_at, customer_phone, locations(name), profiles(email, phone, full_name)')
+    .select('id, booking_ref, user_id, location_id, slot_date, slot_start_time, duration_minutes, checked_in_at, customer_phone, services(name, is_range), locations(name), profiles(email, phone, full_name)')
     .gte('slot_date', ymdMinus(1)).lte('slot_date', athensToday())
     .is('review_requested_at', null).not('user_id', 'is', null)
     .not('status', 'in', '(cancelled,no_show)')
@@ -58,9 +60,7 @@ async function run(dry: boolean) {
   const now = Date.now()
   const due = ((data || []) as unknown as Row[]).filter(b => {
     if (!b.slot_date || !b.slot_start_time) return false
-    const at = b.checked_in_at
-      ? new Date(b.checked_in_at).getTime() + 30 * 60_000
-      : athensEpoch(b.slot_date, b.slot_start_time) + ((Number(b.duration_minutes) || 30) + 60) * 60_000
+    const at = reviewDueAt({ checked_in_at: b.checked_in_at, slot_start_ms: athensEpoch(b.slot_date, b.slot_start_time), service: b.services })
     return now >= at
   })
   if (!due.length) return { ok: true, due: 0, sent: 0 }
