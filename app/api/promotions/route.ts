@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ipFrom, isThrottled } from '@/lib/throttle'
 import { createClient } from '@supabase/supabase-js'
 
 // Δημόσιο: ενεργές προωθήσεις (που δεν έχουν λήξει) για ένα πλυντήριο → εμφάνιση στη σελίδα/κράτηση.
@@ -7,6 +8,8 @@ const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SU
 const athensToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(new Date())
 
 export async function GET(req: NextRequest) {
+  // Όριο ανά IP: κόβει bots που «τραβάνε» μαζικά τα δημόσια δεδομένα (κανονικός χρήστης δεν το πλησιάζει).
+  if (await isThrottled('pub:promos:' + ipFrom(req), 120, 60_000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   const location = req.nextUrl.searchParams.get('location') || ''
   // ?all=1 → όλες οι ενεργές προωθήσεις (χάρτης: χρυσή πινέζα + λίστα).
   if (req.nextUrl.searchParams.get('all')) {

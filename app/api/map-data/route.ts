@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ipFrom, isThrottled } from '@/lib/throttle'
+import { WATERMARK, CANARY_LOCATION } from '@/lib/canary'
 import { createClient } from '@supabase/supabase-js'
 
 // Δεδομένα χάρτη σε ΕΝΑ αίτημα, cached στο CDN της Vercel (dub1, δίπλα στη Supabase eu-west-1).
@@ -13,6 +15,8 @@ const admin = createClient(
 )
 
 export async function GET(req: NextRequest) {
+  // Όριο ανά IP: κόβει bots που «τραβάνε» μαζικά τα δημόσια δεδομένα (κανονικός χρήστης δεν το πλησιάζει).
+  if (await isThrottled('pub:map:' + ipFrom(req), 120, 60_000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   const date = req.nextUrl.searchParams.get('date') || ''
   const dow = Number(req.nextUrl.searchParams.get('dow'))
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(dow >= 1 && dow <= 7)) {
@@ -34,7 +38,8 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json(
-    { locations: locs.data, hours: hours.data, busy: busy.data, exceptions: exc.data, at: Date.now() },
+    // Παγίδες αντιγραφής (lib/canary): αόρατο υδατογράφημα στα ονόματα + ένα «ψεύτικο» πλυντήριο που ο χάρτης κρύβει.
+    { locations: [...(locs.data || []).map(l => ({ ...l, name: `${l.name}${WATERMARK}` })), CANARY_LOCATION], hours: hours.data, busy: busy.data, exceptions: exc.data, at: Date.now() },
     // 20″ φρέσκο, μετά σερβίρεται το παλιό ενώ ανανεώνεται στο παρασκήνιο (έως 5').
     // Η τελική διαθεσιμότητα ελέγχεται ΠΑΝΤΑ στον server κατά την κράτηση.
     { headers: { 'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=300' } }

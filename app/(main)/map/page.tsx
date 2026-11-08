@@ -24,6 +24,7 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
+import { isCanary, stripWatermark } from '@/lib/canary'
 import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
 import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
@@ -484,7 +485,8 @@ function MapPageContent() {
       const r = await fetch(`/api/map-data?date=${checkDate}&dow=${dayOfWeek}`)
       if (!r.ok) throw new Error('map-data ' + r.status)
       const j = await r.json()
-      locsData = j.locations; hoursData = j.hours; bookingsData = j.busy; exceptionsData = j.exceptions
+      // Παγίδες αντιγραφής (lib/canary): κρύψε το «ψεύτικο» πλυντήριο και αφαίρεσε το αόρατο υδατογράφημα.
+      locsData = (j.locations || []).filter((l: { id: string }) => !isCanary(l.id)).map((l: { name: string }) => ({ ...l, name: stripWatermark(l.name || '') })); hoursData = j.hours; bookingsData = j.busy; exceptionsData = j.exceptions
     } catch {
       const [a, b, c, d] = await Promise.all([
         supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos, services(id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv, is_active, sort_order), reviews(rating)').eq('is_active', true),
