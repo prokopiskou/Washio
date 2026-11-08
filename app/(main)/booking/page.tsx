@@ -1299,9 +1299,16 @@ function BookingPageContent() {
                     <span className="text-[14px] font-semibold text-green-600">−{eur2(previewCredit)}</span>
                   </div>
                 )}
+                {/* Κάρτα: το τέλος υπηρεσίας φαίνεται ξεκάθαρα ΜΕΣΑ στο σύνολο */}
+                {payMethod === 'card' && (
+                  <div className="flex justify-between items-center py-3 border-b border-washio-border">
+                    <span className="text-[13px] text-gray-500">{t.serviceFee}</span>
+                    <span className="text-[14px] font-medium text-gray-900">{eur2(SERVICE_FEE_EUR)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between items-center py-3.5">
                   <span className="text-[15px] font-bold text-washio-navy">{previewCredit > 0 ? t.totalWithCoupon : t.total}</span>
-                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">{eur2(total - previewCredit)}</span>
+                  <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">{eur2(total - previewCredit + (payMethod === 'card' ? SERVICE_FEE_EUR : 0))}</span>
                 </div>
                 {previewCredit > 0 && (
                   <p className="text-[11px] text-gray-400 -mt-2 pb-3 leading-snug">{loyaltyNow ? t.clubNote : t.couponNote(total.toFixed(2))}</p>
