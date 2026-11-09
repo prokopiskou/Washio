@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
   const b = await req.json().catch(() => ({})) as {
-    id?: string; action?: string; at?: string; afm?: string; doy?: string; address?: string; iban?: string; ibanHolder?: string; text?: string; answered?: boolean
+    id?: string; action?: string; at?: string; afm?: string; doy?: string; address?: string; iban?: string; ibanHolder?: string; storeName?: string; text?: string; answered?: boolean
     businessName?: string; contactName?: string; phone?: string; email?: string; city?: string; promoMonths?: number; legacy?: boolean
   }
   const { data: app } = await admin.from('applications').select('*').eq('id', b.id || '').maybeSingle()
@@ -77,12 +77,14 @@ export async function POST(req: NextRequest) {
         address: String(b.address || '').trim(), contactName: String(b.contactName || '').trim(),
         promoMonths: Math.max(0, Math.min(12, Math.round(Number(b.promoMonths) || 0))),
         ibanHolder: String(b.ibanHolder || '').trim().slice(0, 120),
+        storeName: String(b.storeName || '').trim().slice(0, 80),
       }
       const email = String(b.email || app.email || '').trim().toLowerCase()
       const phone = String(b.phone || app.phone || '').trim()
       const iban = String(b.iban || '').replace(/\s/g, '').toUpperCase()
       if (afm.length !== 9) return NextResponse.json({ error: 'Το ΑΦΜ πρέπει να έχει 9 ψηφία' }, { status: 400 })
       if (!fields.doy) return NextResponse.json({ error: 'Συμπλήρωσε ΔΟΥ' }, { status: 400 })
+      if (!fields.storeName) return NextResponse.json({ error: 'Συμπλήρωσε όνομα πλυντηρίου (όπως στον χάρτη)' }, { status: 400 })
       if (!fields.businessName) return NextResponse.json({ error: 'Συμπλήρωσε επωνυμία' }, { status: 400 })
       if (!fields.address) return NextResponse.json({ error: 'Συμπλήρωσε διεύθυνση έδρας' }, { status: 400 })
       if (fields.contactName.length < 3) return NextResponse.json({ error: 'Συμπλήρωσε υπεύθυνο' }, { status: 400 })
@@ -93,7 +95,7 @@ export async function POST(req: NextRequest) {
       const r = await createAndSendContract(admin, { applicationId: app.id, fields, email, phone, iban, sentBy: user.email || '' })
       if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 })
       return set({ stage: 'done', contract_id: r.id, contract_status: 'sent', afm, doy: fields.doy, address: fields.address,
-        business_name: fields.businessName, owner_name: fields.contactName, email, phone })
+        business_name: fields.storeName || fields.businessName, owner_name: fields.contactName, email, phone })
     }
     case 'resend_contract': {
       if (!app.contract_id) return NextResponse.json({ error: 'Δεν υπάρχει συμβόλαιο' }, { status: 400 })

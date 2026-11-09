@@ -153,11 +153,11 @@ export async function signContract(db: SupabaseClient, c: ContractRow, input: {
       declaration_accepted: true, status: 'pending',
     }).select('*').single()
     if (ob) {
-      const r = await activateOnboarding(db, ob, { commissionRate: f.promoMonths > 0 ? 5 : 10, promoUntil: promoUntil(f.promoMonths) })
+      const r = await activateOnboarding(db, ob, { commissionRate: f.promoMonths > 0 ? 5 : 10, promoUntil: promoUntil(f.promoMonths), storeName: f.storeName })
       if (r.ok) locationId = r.locationId
       if (c.application_id) await db.from('applications').update({
         stage: 'done', status: 'approved', contract_status: 'signed', onboarding_id: ob.id, location_id: locationId,
-        afm: f.afm, doy: f.doy, address: f.address, business_name: f.businessName, owner_name: f.contactName, stage_updated_at: signedAt,
+        afm: f.afm, doy: f.doy, address: f.address, business_name: f.storeName || f.businessName, owner_name: f.contactName, stage_updated_at: signedAt,
       }).eq('id', c.application_id)
     }
     if (locationId) await db.from('partner_contracts').update({ location_id: locationId }).eq('id', c.id)

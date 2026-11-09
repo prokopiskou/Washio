@@ -63,7 +63,7 @@ export const CONTRACT_BLOCKS: ContractBlock[] = [
   { kind: 'p', text: "9.4 Το παρόν καταρτίζεται και υπογράφεται ηλεκτρονικά από αμφότερα τα μέρη (απλή ηλεκτρονική υπογραφή κατά τον Κανονισμό (ΕΕ) 910/2014 – eIDAS), με επιβεβαίωση ταυτότητας του Συνεργάτη μέσω κωδικού μίας χρήσης. Κάθε μέρος λαμβάνει ηλεκτρονικά πανομοιότυπο υπογεγραμμένο αντίτυπο, μαζί με πιστοποιητικό υπογραφής." },
 ]
 
-export type ContractFields = { date: string; businessName: string; afm: string; doy: string; address: string; contactName: string; promoMonths: number; ibanHolder?: string }
+export type ContractFields = { date: string; businessName: string; afm: string; doy: string; address: string; contactName: string; promoMonths: number; ibanHolder?: string; storeName?: string }
 
 const MONTH_WORDS: Record<number, string> = { 1: 'έναν', 2: 'δύο', 3: 'τρεις', 4: 'τέσσερις', 5: 'πέντε', 6: 'έξι', 7: 'επτά', 8: 'οκτώ', 9: 'εννέα', 10: 'δέκα', 11: 'έντεκα', 12: 'δώδεκα' }
 const MONTH_GEN: Record<number, string> = { 1: 'ενός', 2: 'δύο', 3: 'τριών', 4: 'τεσσάρων', 5: 'πέντε', 6: 'έξι', 7: 'επτά', 8: 'οκτώ', 9: 'εννέα', 10: 'δέκα', 11: 'έντεκα', 12: 'δώδεκα' }

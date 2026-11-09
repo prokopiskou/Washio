@@ -19,13 +19,15 @@ export function slugify(input: string): string {
 type Ob = { id: string; business_name?: string | null; address?: string | null; iban?: string | null; afm?: string | null; doy?: string | null; status?: string | null; notes?: string | null }
 
 /** Δημιουργεί ανενεργό πρατήριο για την αίτηση onboarding (αν δεν έχει ήδη). Επιστρέφει το location id. */
-export async function activateOnboarding(admin: SupabaseClient, ob: Ob, opts: { city?: string; commissionRate?: number; promoUntil?: string | null } = {}): Promise<{ ok: true; locationId: string; existed?: boolean } | { ok: false; error: string }> {
+export async function activateOnboarding(admin: SupabaseClient, ob: Ob, opts: { city?: string; commissionRate?: number; promoUntil?: string | null; storeName?: string } = {}): Promise<{ ok: true; locationId: string; existed?: boolean } | { ok: false; error: string }> {
   if (ob.status === 'active' && ob.notes && /^[0-9a-f-]{36}$/i.test(ob.notes)) return { ok: true, locationId: ob.notes, existed: true }
+  // Όνομα στον χάρτη = εμπορικό όνομα (π.χ. «Toxic car wash»), ΟΧΙ η νομική επωνυμία.
+  const display = String(opts.storeName || ob.business_name || 'Νέο πλυντήριο').trim()
   const base = {
-    name: String(ob.business_name || 'Νέο πλυντήριο').trim(),
+    name: display,
     address: ob.address || '',
     city: opts.city || '',
-    slug: slugify(ob.business_name || 'partner'),
+    slug: slugify(display || 'partner'),
     iban: ob.iban || null,
     is_active: false,          // εμφανίζεται στα «Πλυντήρια», περιμένει το τελικό ⏻ από admin
     commission_rate: opts.commissionRate ?? 10,
