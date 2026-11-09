@@ -1124,8 +1124,8 @@ function MapPageContent() {
         disableDefaultUI: true,
         gestureHandling: 'greedy', // μετακίνηση με ΕΝΑ δάχτυλο σε όλους τους browsers
         styles: COOL_MAP_STYLES,
-        // Όχι «πέταγμα» σε όλο τον κόσμο με zoom-out: ελάχιστο zoom ≈ Αττική και όρια γύρω από την Ελλάδα.
-        minZoom: 9,
+        // Zoom-out ως όλη την Ελλάδα (πλυντήρια και εκτός Αττικής, π.χ. Κως) — όχι όλο τον κόσμο.
+        minZoom: 6,
         restriction: { latLngBounds: { north: 41.9, south: 34.7, west: 19.2, east: 28.4 }, strictBounds: false },
       })
       mapInstanceRef.current = map
