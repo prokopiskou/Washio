@@ -1,4 +1,3 @@
-import { activateOnboarding } from '@/lib/onboarding-activate'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
@@ -10,13 +9,38 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const NOTIFY_TO = 'withinsuccess@gmail.com'
+const NOTIFY_TO = ['withinsuccess@gmail.com', 'giwrgos2070@gmail.com']
 
 /**
  * Αν το κάνεις true, το πλήρες IBAN μπαίνει στο email ειδοποίησης.
  * Προτείνεται false: το IBAN είναι ευαίσθητο και βρίσκεται ήδη στη βάση.
  */
 const INCLUDE_FULL_IBAN_IN_EMAIL = false
+
+type ObRow = { id: string; business_name: string; afm: string; doy: string; address: string; iban: string; contact_name: string; phone: string; email: string }
+
+/** Onboarding χωρίς αίτηση → γραμμή στις «Αιτήσεις» (στάδιο self_onboarding). Αν υπάρχει ήδη αίτηση
+ *  με ίδιο κινητό/email (χωρίς πρατήριο), ενημερώνεται εκείνη αντί για διπλή. */
+async function linkToApplication(ob: ObRow) {
+  const digits = String(ob.phone || '').replace(/\D/g, '').slice(-10)
+  const fields = {
+    stage: 'self_onboarding', stage_updated_at: new Date().toISOString(), onboarding_id: ob.id,
+    afm: ob.afm, doy: ob.doy, address: ob.address, owner_name: ob.contact_name, business_name: ob.business_name,
+    iban: ob.iban || null, email: ob.email,
+  }
+  const { data: cands } = await supabaseAdmin.from('applications').select('id, phone, email, location_id')
+    .is('location_id', null).order('created_at', { ascending: false }).limit(500)
+  const match = (cands || []).find((a: { phone?: string; email?: string }) =>
+    (digits.length >= 10 && String(a.phone || '').replace(/\D/g, '').slice(-10) === digits) ||
+    (ob.email && String(a.email || '').trim().toLowerCase() === ob.email))
+  if (match) {
+    await supabaseAdmin.from('applications').update(fields).eq('id', (match as { id: string }).id)
+    return
+  }
+  await supabaseAdmin.from('applications').insert({
+    ...fields, phone: ob.phone, city: '', hours: '', lanes: '', wash_type: 'Onboarding', status: 'pending', call_attempts: 0,
+  })
+}
 
 function normalizeIban(value: string): string {
   return String(value ?? '').replace(/\s+/g, '').toUpperCase()
@@ -120,10 +144,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to save onboarding data' }, { status: 500 })
     }
 
-    // Αυτόματη έγκριση: δημιουργείται ΑΜΕΣΩΣ το πρατήριο (ανενεργό) στα «Πλυντήρια» του admin —
-    // περιμένει μόνο το τελικό ⏻ ενεργοποίησης.
-    try { if (obRow) await activateOnboarding(supabaseAdmin, obRow) } catch (e) { console.error('auto-activate onboarding', e) }
-
+    // ΔΕΝ δημιουργείται πλυντήριο εδώ: μπαίνει στις «Αιτήσεις» → καρτέλα «Onboarding» με τα στοιχεία
+    // συμπληρωμένα → «Αποστολή συμβολαίου». Το πρατήριο δημιουργείται μόλις ΥΠΟΓΡΑΨΕΙ (όπως όλοι).
+    try { if (obRow) await linkToApplication(obRow) } catch (e) { console.error('onboarding → applications', e) }
     const details: [string, string][] = [
       ['Επωνυμία', String(businessName)],
       ['ΑΦΜ', String(afm)],

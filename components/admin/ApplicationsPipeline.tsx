@@ -14,6 +14,8 @@ const STAGES: { key: string; label: string }[] = [
   { key: 'followup', label: 'Follow-up' },
   { key: 'done', label: 'Ολοκληρώθηκαν' },
   { key: 'lost', label: 'Δεν ενδιαφέρονται' },
+  // Έκαναν onboarding μόνοι τους (χωρίς αίτηση/φόρμα) → στοιχεία έτοιμα, μένει «Αποστολή συμβολαίου».
+  { key: 'self_onboarding', label: 'Onboarding' },
 ]
 // «Onboarding» και «Ολοκληρώθηκαν» = ένα στάδιο: όσα δεν έχουν ακόμα πρατήριο δείχνουν τη φόρμα ΑΦΜ/ΔΟΥ.
 const stageOf = (a: App) => a.stage === 'answered' ? 'new' : a.stage === 'onboarding' ? 'done' : a.stage || (a.status === 'approved' ? 'done' : a.status === 'rejected' ? 'lost' : 'new')
@@ -21,8 +23,8 @@ const fmt = (iso?: string | null) => iso ? new Intl.DateTimeFormat('el-GR', { ti
 const isMeta = (a: App) => a.wash_type === 'Meta lead'
 type Ob = { afm: string; doy: string; businessName: string; address: string; contactName: string; email: string; promoMonths: string; iban: string }
 const obFrom = (a: App): Ob => ({
-  afm: a.afm || '', doy: a.doy || '', businessName: '', address: a.address || '', contactName: a.owner_name || '',
-  email: a.email || '', promoMonths: '2', iban: '',
+  afm: a.afm || '', doy: a.doy || '', businessName: a.stage === 'self_onboarding' ? (a.business_name || '') : '', address: a.address || '', contactName: a.owner_name || '',
+  email: a.email || '', promoMonths: '2', iban: a.iban || '',
 })
 const ibanOk = (v: string) => { const x = v.replace(/\s/g, '').toUpperCase(); return !x || /^GR\d{25}$/.test(x) }
 const todayGr = () => new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
@@ -210,6 +212,13 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
                   {a.contract_id && a.contract_status === 'signed' && <a href={`/api/admin/contracts/${a.contract_id}/pdf`} target="_blank" rel="noreferrer" className="text-[12px] font-semibold text-green-800 underline">📄 Συμβόλαιο</a>}
                   <a href={`/admin/locations/${a.location_id}/edit`} className="text-[12px] font-semibold text-green-800 underline">Άνοιγμα</a>
                 </div>
+              </div>
+            )}
+
+            {st === 'self_onboarding' && !a.location_id && (
+              <div className="mt-2.5">
+                <p className="text-[12px] font-semibold text-blue-800 bg-blue-50 rounded-lg px-3 py-2 mb-2">📝 Έκανε onboarding μόνος του — έλεγξε τα στοιχεία και στείλε το συμβόλαιο</p>
+                {contractForm({})}
               </div>
             )}
 
