@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
     const { serviceName, slotDate, slotStartTime, customerName, customerPhone } = body as {
       serviceName?: string; slotDate?: string; slotStartTime?: string; customerName?: string; customerPhone?: string | null
     }
-    if (!serviceName || !slotDate || !slotStartTime || !customerName?.trim()) {
-      return NextResponse.json({ error: 'Συμπλήρωσε υπηρεσία, ημερομηνία, ώρα και όνομα.' }, { status: 400 })
+    if (!serviceName || !slotDate || !slotStartTime) {
+      return NextResponse.json({ error: 'Συμπλήρωσε υπηρεσία, ημερομηνία και ώρα.' }, { status: 400 })
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(slotDate) || !/^\d{2}:\d{2}/.test(slotStartTime)) {
       return NextResponse.json({ error: 'Μη έγκυρη ημερομηνία ή ώρα' }, { status: 400 })
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       slot_start_time: slotStartTime.slice(0, 5),
       duration_minutes: Math.max(30, Number(service.duration_minutes) || 30),
       total_amount: Number(service.price) || 0,
-      customer_name: customerName.trim(),
+      customer_name: (customerName || '').trim() || 'Πελάτης',
       customer_phone: customerPhone ? String(customerPhone).trim() : null,
     }).eq('id', bookingId)
     if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })

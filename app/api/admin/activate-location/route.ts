@@ -1,3 +1,4 @@
+import { geocodeAddress } from '@/lib/geocode'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
@@ -44,6 +45,15 @@ export async function POST(req: NextRequest) {
     if (!active) {
       return NextResponse.json({ success: true, active: false })
     }
+
+    // Χωρίς συντεταγμένες ΔΕΝ φαίνεται στον χάρτη → βρες τες από τη διεύθυνση.
+    try {
+      const { data: loc } = await supabase.from('locations').select('lat, lng, address, city').eq('id', locationId).single()
+      if (loc && (loc.lat == null || loc.lng == null) && loc.address) {
+        const c = await geocodeAddress(loc.address, loc.city || undefined)
+        if (c) { await supabase.from('locations').update({ lat: c.lat, lng: c.lng }).eq('id', locationId) }
+      }
+    } catch { /* best-effort */ }
 
     // Έλεγχος ωραρίου — χωρίς ωράριο ΔΕΝ φαίνεται στον χάρτη.
     const { count: hoursCount } = await supabase

@@ -6,6 +6,9 @@ export const DASH_EN: Record<string, string> = {
   'Επιβεβαιωμένες': 'Confirmed',
   'Καμία κράτηση σήμερα': 'No bookings today',
   'Προωθήσεις': 'Promotions',
+  'προαιρετικό': 'optional',
+  'Διάλεξε υπηρεσία και ώρα.': 'Pick a service and a time.',
+
   'Τιμή 0 → οι πελάτες το βλέπουν «Δωρεάν».': 'Price 0 → customers see it as "Free".',
   'Οι προωθήσεις έρχονται σύντομα': 'Promotions are coming soon',
   'Θέλεις προσφορά για το πλυντήριό σου; Μίλα με την ομάδα της Washio και τη στήνουμε μαζί.': 'Want an offer for your car wash? Talk to the Washio team and we will set it up together.',

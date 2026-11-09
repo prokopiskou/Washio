@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Απαιτείται σύνδεση' }, { status: 401 })
     }
 
-    if (!locationId || (!serviceId && !serviceName) || !slotDate || !slotStartTime || !customerName) {
+    if (!locationId || (!serviceId && !serviceName) || !slotDate || !slotStartTime) {
       return NextResponse.json({ error: 'Λείπουν στοιχεία κράτησης' }, { status: 400 })
     }
 
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       slot_start_time: slotStartTime,
       duration_minutes: Math.max(30, Number(service.duration_minutes) || 30),
       source: 'manual',
-      customer_name: String(customerName).trim(),
+      customer_name: String(customerName || '').trim() || 'Πελάτης',
       customer_phone: customerPhone ? String(customerPhone).trim() : null,
       car_plate: null,
       total_amount: Number(service.price) || 0,

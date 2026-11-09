@@ -997,9 +997,10 @@ export default function DashboardPage() {
 
 
   const openManualForm = () => {
+    // Μετά από επεξεργασία → καθαρή φόρμα. Αλλιώς κράτα ό,τι είχε γράψει (δεν «σβήνεται» το όνομα αν κλείσει/ξανανοίξει).
+    if (editingManual) { setManualFirstName(''); setManualLastName(''); setManualPhone('') }
     setEditingManual(null)
-    setManualServiceName(bookableServices.find(s => s.is_active)?.name || '')
-    setManualFirstName(''); setManualLastName(''); setManualPhone('')
+    setManualServiceName(prev => prev || bookableServices.find(s => s.is_active)?.name || '')
     setManualDate(ymdFromLocalDate(calendarDate))
     setManualError('')
     setShowManualForm(true)
@@ -1048,8 +1049,9 @@ export default function DashboardPage() {
   }
 
   const createManualBooking = async () => {
-    if (!location?.id || !manualServiceName || !manualTime || !manualFirstName.trim()) {
-      setManualError(t('Συμπλήρωσε υπηρεσία, ώρα και όνομα.'))
+    // Υποχρεωτικά ΜΟΝΟ υπηρεσία + ώρα. Όνομα / επίθετο / κινητό: ό,τι έχει (ή τίποτα).
+    if (!location?.id || !manualServiceName || !manualTime) {
+      setManualError(t('Διάλεξε υπηρεσία και ώρα.'))
       return
     }
     setManualSaving(true)
@@ -1060,7 +1062,7 @@ export default function DashboardPage() {
         serviceName: manualServiceName,
         slotDate: dateStr,
         slotStartTime: manualTime,
-        customerName: `${manualFirstName.trim()} ${manualLastName.trim()}`.trim(),
+        customerName: `${manualFirstName.trim()} ${manualLastName.trim()}`.trim() || manualPhone.trim() || t('Πελάτης'),
         customerPhone: manualPhone.trim() || null,
       }
       const res = editingManual
@@ -2060,7 +2062,7 @@ export default function DashboardPage() {
                     />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-1.5">{t('Επίθετο')}</p>
+                    <p className="text-xs text-gray-400 mb-1.5">{t('Επίθετο')} <span className="text-gray-300">({t('προαιρετικό')})</span></p>
                     <input
                       type="text" value={manualLastName}
                       onChange={e => setManualLastName(e.target.value)}

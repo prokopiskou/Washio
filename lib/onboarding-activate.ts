@@ -1,3 +1,4 @@
+import { geocodeAddress } from '@/lib/geocode'
 // Onboarding → πλυντήριο. Δημιουργεί το πρατήριο (ΑΝΕΝΕΡΓΟ, «περιμένει ενεργοποίηση» από admin)
 // από τα στοιχεία της αίτησης onboarding και τη μαρκάρει ως ενεργοποιημένη.
 // Χρήση: /api/onboarding (αυτόματα με την υποβολή), /api/admin/applications (Onboarding κομπλέ),
@@ -33,9 +34,14 @@ export async function activateOnboarding(admin: SupabaseClient, ob: Ob, opts: { 
     commission_rate: opts.commissionRate ?? 10,
     capacity: 1,
     owner_id: null,
-    lat: null,
-    lng: null,
+    lat: null as number | null,
+    lng: null as number | null,
   }
+  // Συντεταγμένες από τη διεύθυνση → εμφανίζεται στον χάρτη μόλις ενεργοποιηθεί (διορθώνεται από «Επεξεργασία»).
+  try {
+    const c = await geocodeAddress(ob.address || '', opts.city || undefined)
+    if (c) { base.lat = c.lat; base.lng = c.lng }
+  } catch { /* best-effort */ }
   // afm/doy υπάρχουν στο locations (supabase/commission_invoices.sql) — αν λείπουν, χωρίς αυτά.
   const extra: Record<string, unknown> = { afm: ob.afm || null, doy: ob.doy || null }
   if (opts.promoUntil) extra.commission_promo_until = opts.promoUntil
