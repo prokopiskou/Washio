@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const { data } = await db.auth.admin.getUserById(bk.user_id)
     const email = data?.user?.email
     if (!email) continue
-    rows.push({ ref: bk.booking_ref, email, optOut: !!(data.user.app_metadata as Record<string, unknown> | undefined)?.email_opt_out })
+    rows.push({ ref: bk.booking_ref, email, optOut: !!(data?.user?.app_metadata as Record<string, unknown> | undefined)?.email_opt_out })
   }
 
   if (b.mode === 'test') {
