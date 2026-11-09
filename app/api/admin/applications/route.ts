@@ -76,6 +76,7 @@ export async function POST(req: NextRequest) {
         afm, doy: String(b.doy || '').trim(), businessName: String(b.businessName || '').trim(),
         address: String(b.address || '').trim(), contactName: String(b.contactName || '').trim(),
         promoMonths: Math.max(0, Math.min(12, Math.round(Number(b.promoMonths) || 0))),
+        ibanHolder: String(b.ibanHolder || '').trim().slice(0, 120),
       }
       const email = String(b.email || app.email || '').trim().toLowerCase()
       const phone = String(b.phone || app.phone || '').trim()
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
       if (fields.contactName.length < 3) return NextResponse.json({ error: 'Συμπλήρωσε υπεύθυνο' }, { status: 400 })
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: 'Λάθος email' }, { status: 400 })
       if (iban && !/^GR\d{25}$/.test(iban)) return NextResponse.json({ error: 'Λάθος IBAN (GR + 25 ψηφία)' }, { status: 400 })
+      if (iban && (fields.ibanHolder || '').length < 3) return NextResponse.json({ error: 'Συμπλήρωσε δικαιούχο του IBAN' }, { status: 400 })
       if (app.location_id) return NextResponse.json({ error: 'Έχει ήδη γίνει onboarding' }, { status: 409 })
       const r = await createAndSendContract(admin, { applicationId: app.id, fields, email, phone, iban, sentBy: user.email || '' })
       if (!r.ok) return NextResponse.json({ error: r.error }, { status: 500 })

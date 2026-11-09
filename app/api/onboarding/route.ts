@@ -17,7 +17,7 @@ const NOTIFY_TO = ['withinsuccess@gmail.com', 'giwrgos2070@gmail.com']
  */
 const INCLUDE_FULL_IBAN_IN_EMAIL = false
 
-type ObRow = { id: string; business_name: string; afm: string; doy: string; address: string; iban: string; contact_name: string; phone: string; email: string }
+type ObRow = { id: string; business_name: string; afm: string; doy: string; address: string; iban: string; iban_holder?: string; contact_name: string; phone: string; email: string }
 
 /** Onboarding χωρίς αίτηση → γραμμή στις «Αιτήσεις» (στάδιο self_onboarding). Αν υπάρχει ήδη αίτηση
  *  με ίδιο κινητό/email (χωρίς πρατήριο), ενημερώνεται εκείνη αντί για διπλή. */
@@ -27,6 +27,7 @@ async function linkToApplication(ob: ObRow) {
     stage: 'self_onboarding', stage_updated_at: new Date().toISOString(), onboarding_id: ob.id,
     afm: ob.afm, doy: ob.doy, address: ob.address, owner_name: ob.contact_name, business_name: ob.business_name,
     iban: ob.iban || null, email: ob.email,
+    ...(ob.iban_holder ? { bank_name: ob.iban_holder } : {}), // δικαιούχος IBAN (προσυμπλήρωση στο συμβόλαιο)
   }
   const { data: cands } = await supabaseAdmin.from('applications').select('id, phone, email, location_id')
     .is('location_id', null).order('created_at', { ascending: false }).limit(500)

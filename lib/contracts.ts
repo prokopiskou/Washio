@@ -149,7 +149,7 @@ export async function signContract(db: SupabaseClient, c: ContractRow, input: {
     const f = c.fields
     const { data: ob } = await db.from('partner_onboarding').insert({
       business_name: f.businessName, afm: f.afm, doy: f.doy, address: f.address,
-      iban_holder: '', iban: c.iban || '', contact_name: f.contactName, phone: c.phone || '—', email: c.email,
+      iban_holder: f.ibanHolder || '', iban: c.iban || '', contact_name: f.contactName, phone: c.phone || '—', email: c.email,
       declaration_accepted: true, status: 'pending',
     }).select('*').single()
     if (ob) {

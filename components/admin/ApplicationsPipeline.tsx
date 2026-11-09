@@ -21,10 +21,10 @@ const STAGES: { key: string; label: string }[] = [
 const stageOf = (a: App) => a.stage === 'answered' ? 'new' : a.stage === 'onboarding' ? 'done' : a.stage || (a.status === 'approved' ? 'done' : a.status === 'rejected' ? 'lost' : 'new')
 const fmt = (iso?: string | null) => iso ? new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso)) : '—'
 const isMeta = (a: App) => a.wash_type === 'Meta lead'
-type Ob = { afm: string; doy: string; businessName: string; address: string; contactName: string; email: string; promoMonths: string; iban: string }
+type Ob = { afm: string; doy: string; businessName: string; address: string; contactName: string; email: string; promoMonths: string; iban: string; ibanHolder: string }
 const obFrom = (a: App): Ob => ({
   afm: a.afm || '', doy: a.doy || '', businessName: a.stage === 'self_onboarding' ? (a.business_name || '') : '', address: a.address || '', contactName: a.owner_name || '',
-  email: a.email || '', promoMonths: '2', iban: a.iban || '',
+  email: a.email || '', promoMonths: '2', iban: a.iban || '', ibanHolder: a.stage === 'self_onboarding' ? (a.bank_name || '') : '',
 })
 const ibanOk = (v: string) => { const x = v.replace(/\s/g, '').toUpperCase(); return !x || /^GR\d{25}$/.test(x) }
 const todayGr = () => new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
@@ -84,7 +84,7 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
         const wasAnswered = a.stage === 'answered' // παλιό στάδιο «Σήκωσε» → ανοιχτές οι 3 επιλογές, η κλήση έχει ήδη μετρηθεί
         const open = picked[a.id] ?? wasAnswered
         const o = ob[a.id] || obFrom(a)
-        const obValid = o.afm.replace(/\D/g, '').length === 9 && o.doy.trim() && o.businessName.trim() && o.address.trim() && o.contactName.trim().length >= 3 && emailOk(o.email) && ibanOk(o.iban)
+        const obValid = o.afm.replace(/\D/g, '').length === 9 && o.doy.trim() && o.businessName.trim() && o.address.trim() && o.contactName.trim().length >= 3 && emailOk(o.email) && ibanOk(o.iban) && (!o.iban.trim() || o.ibanHolder.trim().length >= 3)
         const setO = (k: keyof typeof o, v: string) => setOb(m => ({ ...m, [a.id]: { ...o, [k]: v } }))
         const due = a.followup_at && new Date(a.followup_at).getTime() < nowMs
         const field = (k: keyof Ob, label: string, extra: { bad?: boolean; hint?: string; inputMode?: 'numeric' | 'email'; placeholder?: string } = {}) => (
@@ -117,9 +117,10 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
               </label>
               {field('iban', 'IBAN (προαιρετικό)', { placeholder: 'GR..', bad: !ibanOk(o.iban) })}
             </div>
+            {field('ibanHolder', o.iban.trim() ? 'Δικαιούχος IBAN *' : 'Δικαιούχος IBAN', { hint: 'όπως στην τράπεζα', placeholder: 'π.χ. ΠΑΠΑΔΟΠΟΥΛΟΣ ΓΕΩΡΓΙΟΣ', bad: !!o.iban.trim() && o.ibanHolder.trim().length < 3 })}
             <div className="flex gap-2 pt-1">
               <button disabled={!!busy || !obValid}
-                onClick={() => { if (confirm(`Αποστολή συμφωνητικού στο ${o.email};\n\n${o.businessName}\nΑΦΜ ${o.afm} · ΔΟΥ ${o.doy}\nΈδρα: ${o.address}\nΥπεύθυνος: ${o.contactName}\nΠρομήθεια: ${o.promoMonths === '0' ? '10%' : `5% για ${o.promoMonths} μήνες, μετά 10%`}`)) act(a, 'send_contract', { ...o, promoMonths: Number(o.promoMonths), ...call }) }}
+                onClick={() => { if (confirm(`Αποστολή συμφωνητικού στο ${o.email};\n\n${o.businessName}\nΑΦΜ ${o.afm} · ΔΟΥ ${o.doy}\nΈδρα: ${o.address}\nΥπεύθυνος: ${o.contactName}${o.iban.trim() ? `\nIBAN: ${o.iban} · ${o.ibanHolder}` : ''}\nΠρομήθεια: ${o.promoMonths === '0' ? '10%' : `5% για ${o.promoMonths} μήνες, μετά 10%`}`)) act(a, 'send_contract', { ...o, promoMonths: Number(o.promoMonths), ...call }) }}
                 className={btn + ' flex-1 h-10 bg-green-600 text-white'}>{busy === a.id + 'send_contract' ? 'Αποστολή...' : 'Υποβολή → αποστολή συμβολαίου'}</button>
               {onCancel && <button onClick={onCancel} className="text-[12px] text-gray-500 underline px-2">Άκυρο</button>}
             </div>
