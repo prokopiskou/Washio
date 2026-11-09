@@ -1125,8 +1125,8 @@ function MapPageContent() {
         gestureHandling: 'greedy', // μετακίνηση με ΕΝΑ δάχτυλο σε όλους τους browsers
         styles: COOL_MAP_STYLES,
         // Zoom-out ως όλη την Ελλάδα (πλυντήρια και εκτός Αττικής, π.χ. Κως) — όχι όλο τον κόσμο.
+        // ΧΩΡΙΣ restriction: σε κινητό, με zoom-out η οθόνη ξεπερνούσε τα όρια και ο χάρτης «πεταγόταν» πίσω.
         minZoom: 6,
-        restriction: { latLngBounds: { north: 41.9, south: 34.7, west: 19.2, east: 28.4 }, strictBounds: false },
       })
       mapInstanceRef.current = map
       map.addListener('zoom_changed', () => setMapZoom(map.getZoom() ?? 13))
