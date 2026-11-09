@@ -2362,9 +2362,14 @@ export default function DashboardPage() {
                               style={{ fontVariantNumeric: 'tabular-nums' }}
                             />
                           </div>
-                          {!(Number(service.price_override) > 0) && (
+                          {service.price_override == null && (
                             <p className="text-[11px] text-amber-600 mt-1.5 leading-snug">
                               {t('Βάλε τιμή — χωρίς τιμή δεν εμφανίζεται στους πελάτες.')}
+                            </p>
+                          )}
+                          {service.price_override != null && Number(service.price_override) === 0 && (
+                            <p className="text-[11px] text-green-600 mt-1.5 leading-snug">
+                              {t('Τιμή 0 → οι πελάτες το βλέπουν «Δωρεάν».')}
                             </p>
                           )}
                         </div>

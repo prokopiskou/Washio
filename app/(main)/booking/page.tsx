@@ -689,9 +689,10 @@ function BookingPageContent() {
           id: a.addon_id,
           name: a.addons?.name || '',
           price: a.price_override ?? a.addons?.price ?? 0,
+          set: a.price_override != null,
         }))
-        // Χωρίς τιμή από το πλυντήριο → δεν εμφανίζεται (ποτέ πρόσθετο €0 στο checkout).
-        .filter((a: any) => Number(a.price) > 0)
+        // Χωρίς τιμή από το πλυντήριο → δεν εμφανίζεται. Τιμή 0 που ΕΒΑΛΕ το πλυντήριο → «Δωρεάν».
+        .filter((a: any) => Number(a.price) > 0 || (a.set && Number(a.price) === 0))
         .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)))
       }
 
@@ -1268,9 +1269,10 @@ function BookingPageContent() {
                             </span>
                             {/* Επιλεγμένο: ✓ + τιμή (όχι «−€4», που διαβαζόταν σαν έκπτωση). */}
                             <span className={`inline-flex items-center gap-1.5 text-[14px] font-bold shrink-0 ${selected ? 'text-washio-cyan-dark' : 'text-washio-navy'}`}>
+                              {/* Τιμή 0 → «Δωρεάν» (όχι «+0€») */}
                               {selected
-                                ? <><Check size={15} strokeWidth={3} />{eurN(addon.price)}</>
-                                : <>+ {eurN(addon.price)}</>}
+                                ? <><Check size={15} strokeWidth={3} />{addon.price > 0 ? eurN(addon.price) : (locale === 'en' ? 'Free' : 'Δωρεάν')}</>
+                                : <>{addon.price > 0 ? `+ ${eurN(addon.price)}` : <span className="text-green-600">{locale === 'en' ? 'Free' : 'Δωρεάν'}</span>}</>}
                             </span>
                           </button>
                         )
