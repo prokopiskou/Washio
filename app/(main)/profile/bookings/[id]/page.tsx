@@ -69,6 +69,7 @@ const T = {
     rateSubmitting: 'Υποβολή...',
     rateThanks: 'Ευχαριστούμε!',
     rateAlready: 'Έχεις ήδη βαθμολογήσει',
+    rateYours: 'Η κριτική σου', rateEdit: 'Αλλαγή κριτικής',
     bookAgain: 'Κλείσε ραντεβού ξανά',
   },
   en: {
@@ -124,6 +125,7 @@ const T = {
     rateSubmitting: 'Submitting...',
     rateThanks: 'Thank you!',
     rateAlready: 'You already rated',
+    rateYours: 'Your review', rateEdit: 'Edit review',
     bookAgain: 'Book again',
   },
 }
@@ -284,10 +286,15 @@ export default function BookingDetailPage() {
       if (data) {
         const { data: existingReview } = await supabase
           .from('reviews')
-          .select('id')
+          .select('id, rating, comment')
           .eq('booking_id', (data as unknown as Booking).id)
           .maybeSingle()
-        if (existingReview) setAlreadyRated(true)
+        if (existingReview) {
+          // Υπάρχει κριτική → φαίνεται και μπορεί να την αλλάξει (ίδια κριτική, όχι δεύτερη).
+          setAlreadyRated(true)
+          setRatingValue(Number(existingReview.rating) || 0)
+          setRatingComment(String(existingReview.comment || ''))
+        }
       }
     }
     loadBooking()
@@ -679,9 +686,20 @@ export default function BookingDetailPage() {
                   {t.rateThanks}
                 </div>
               ) : alreadyRated ? (
-                <p className="text-center text-[12px] font-medium text-gray-400">
-                  {t.rateAlready}
-                </p>
+                <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3.5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-medium text-gray-400">{t.rateYours}</p>
+                      <div className="flex items-center gap-0.5 mt-1">
+                        {[1, 2, 3, 4, 5].map(n => <Star key={n} size={16} className={n <= ratingValue ? 'text-amber-400 fill-amber-400' : 'text-gray-200'} />)}
+                      </div>
+                    </div>
+                    <button onClick={() => setShowRating(true)} className="shrink-0 h-9 px-3.5 rounded-xl border border-gray-200 text-[13px] font-semibold text-gray-900">
+                      {t.rateEdit}
+                    </button>
+                  </div>
+                  {ratingComment && <p className="text-[13px] text-gray-600 mt-2 leading-snug line-clamp-3">{ratingComment}</p>}
+                </div>
               ) : (
                 <button
                   onClick={() => setShowRating(true)}
