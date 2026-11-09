@@ -13,11 +13,15 @@ const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SU
 const YMD = /^\d{4}-\d{2}-\d{2}$/
 const athensToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(new Date())
 
-async function canManage(locationId: string) {
+// ΚΛΕΙΔΩΜΕΝΟ προς το παρόν: δημιουργία/παύση προωθήσεων μόνο από admin (τα πλυντήρια βλέπουν μόνο τη λίστα).
+const LOCKED_FOR_OWNERS = true
+
+async function canManage(locationId: string, write = false) {
   const sb = await createServerClient()
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return null
   if (isAdminEmail(user.email)) return user
+  if (write && LOCKED_FOR_OWNERS) return null
   const { data: loc } = await admin.from('locations').select('owner_id').eq('id', locationId).maybeSingle()
   return loc?.owner_id === user.id ? user : null
 }
@@ -35,7 +39,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({})) as { locationId?: string; serviceId?: string; discountType?: string; discountValue?: number; startsOn?: string; endsOn?: string }
   const locationId = String(b.locationId || '')
-  const user = locationId ? await canManage(locationId) : null
+  const user = locationId ? await canManage(locationId, true) : null
   if (!user) return NextResponse.json({ error: 'Χωρίς πρόσβαση' }, { status: 403 })
 
   const type = b.discountType === 'amount' ? 'amount' : b.discountType === 'fixed' ? 'fixed' : 'percent'
@@ -65,7 +69,7 @@ export async function POST(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   const b = await req.json().catch(() => ({})) as { id?: string; isActive?: boolean }
   const { data: p } = await admin.from('promotions').select('id, location_id').eq('id', b.id || '').maybeSingle()
-  if (!p || !(await canManage(p.location_id))) return NextResponse.json({ error: 'Χωρίς πρόσβαση' }, { status: 403 })
+  if (!p || !(await canManage(p.location_id, true))) return NextResponse.json({ error: 'Χωρίς πρόσβαση' }, { status: 403 })
   const { error } = await admin.from('promotions').update({ is_active: !!b.isActive }).eq('id', p.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

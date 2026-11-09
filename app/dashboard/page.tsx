@@ -300,6 +300,8 @@ export default function DashboardPage() {
   const [capacitySaved, setCapacitySaved] = useState(false)
   // Support mode: admin βλέπει/χειρίζεται το dashboard συγκεκριμένου πλυντηρίου.
   const [supportMode, setSupportMode] = useState(false)
+  // «Προωθήσεις» κλειδωμένες προς το παρόν για τα πλυντήρια (ανοιχτές μόνο για admin).
+  const [isAdminUser, setIsAdminUser] = useState(false)
   // Κεντρικός κατάλογος βασικών υπηρεσιών — από τη βάση (admin-managed),
   // με fallback το hardcoded seed μέχρι να τρέξει το SQL.
   const [catalog, setCatalog] = useState<CatalogService[]>(CORE_SERVICES)
@@ -478,6 +480,7 @@ export default function DashboardPage() {
       const supportLocationId = new URLSearchParams(window.location.search).get('location')
       const isSupport = isAdminEmail(user.email) && !!supportLocationId
       setSupportMode(isSupport)
+      setIsAdminUser(isAdminEmail(user.email))
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let ownerLocation: any = null
@@ -1272,7 +1275,7 @@ export default function DashboardPage() {
             ['bookings', `${t('Κρατήσεις')}${newBookingsCount > 0 ? ` (${newBookingsCount})` : ''}`],
             ['calendar', t('Ημερολόγιο')],
             ['services', t('Υπηρεσίες')],
-            ['promotions', t('Προωθήσεις')],
+            ['promotions', `${isAdminUser ? '' : '🔒 '}${t('Προωθήσεις')}`],
             ['hours', t('Ωράριο')],
             ['settings', t('Ρυθμίσεις')],
             ['feedback', 'Feedback'],
@@ -2391,7 +2394,14 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {activeTab === 'promotions' && location?.id && (
+          {activeTab === 'promotions' && !isAdminUser && (
+            <div className="rounded-2xl border border-gray-100 bg-gray-50 px-5 py-10 text-center">
+              <p className="text-[28px]">🔒</p>
+              <p className="text-[16px] font-bold text-gray-900 mt-2">{t('Οι προωθήσεις έρχονται σύντομα')}</p>
+              <p className="text-[13px] text-gray-500 mt-1.5 leading-relaxed">{t('Θέλεις προσφορά για το πλυντήριό σου; Μίλα με την ομάδα της Washio και τη στήνουμε μαζί.')}</p>
+            </div>
+          )}
+          {activeTab === 'promotions' && isAdminUser && location?.id && (
             <PromotionsPanel locationId={location.id} services={bookableServices.map(s => ({ id: s.id, service_name: tn(s.name), price: s.price, is_active: s.is_active, is_range: s.is_range }))} t={t} />
           )}
 

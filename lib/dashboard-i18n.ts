@@ -6,6 +6,8 @@ export const DASH_EN: Record<string, string> = {
   'Επιβεβαιωμένες': 'Confirmed',
   'Καμία κράτηση σήμερα': 'No bookings today',
   'Προωθήσεις': 'Promotions',
+  'Οι προωθήσεις έρχονται σύντομα': 'Promotions are coming soon',
+  'Θέλεις προσφορά για το πλυντήριό σου; Μίλα με την ομάδα της Washio και τη στήνουμε μαζί.': 'Want an offer for your car wash? Talk to the Washio team and we will set it up together.',
   'εύρος τιμής': 'price range',
   'Τιμή προσφοράς (€)': 'Offer price (€)',
   'Σταθερή τιμή για όλα τα οχήματα (ΙΧ & SUV). Στην εφαρμογή φαίνεται «μόνο» αυτή η τιμή.': 'Fixed price for all vehicles (car & SUV). The app shows “only” this price.',
