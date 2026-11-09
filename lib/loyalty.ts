@@ -8,16 +8,16 @@ import { noShowDeadline } from '@/lib/no-show'
 //    (κρατά τον πελάτη στην εφαρμογή αντί να κλείνει απευθείας).
 //    Ολοκληρωμένο = σκαναρίστηκε το QR στο πλυντήριο (αμέσως) Ή όχι ακυρωμένο / no-show ΚΑΙ έκλεισε το
 //    παράθυρο «Δεν εμφανίστηκε» (τέλος της ημέρας του ραντεβού).
-//  • 3 σταγόνες → το επόμενο πλύσιμο (σε όποιο πλυντήριο) −3€ (δηλ. κάθε 4ο).
+//  • 4 σταγόνες (4 πλυσίματα) → το 5ο πλύσιμο (σε όποιο πλυντήριο) −3€.
 //  • Το πλύσιμο με το δώρο δεν δίνει σταγόνα (ο κύκλος ξαναρχίζει).
 // Η έκπτωση αφαιρείται από το ποσό που εισπράττει το πλυντήριο (όπως το κουπόνι) και ΔΕΝ
 // ξοδεύει το υπόλοιπο κουπονιών του πελάτη. Μόνο πλύσιμο ≥12€, όχι υπηρεσία εύρους.
-export const DROPS_FOR_REWARD = 3
+export const DROPS_FOR_REWARD = 4
 export const LOYALTY_EUR = 3
 
 export type LoyaltyStatus = {
-  drops: number        // σταγόνες στον τρέχοντα κύκλο (0..2)
-  need: number         // πόσες χρειάζονται (3)
+  drops: number        // σταγόνες στον τρέχοντα κύκλο (0..3)
+  need: number         // πόσες χρειάζονται (4)
   rewardNext: boolean  // η ΕΠΟΜΕΝΗ κράτηση εδώ παίρνει −3€
   amount: number
 }
@@ -58,7 +58,7 @@ export async function loyaltyStatus(db: SupabaseClient, userId: string | null | 
   } catch { return base }
 }
 
-/** −3€ αν ο πελάτης έχει μαζέψει 3 σταγόνες (σε οποιαδήποτε πλυντήρια) και το ποσό επιτρέπει έκπτωση. */
+/** −3€ αν ο πελάτης έχει μαζέψει 4 σταγόνες (σε οποιαδήποτε πλυντήρια) και το ποσό επιτρέπει έκπτωση. */
 export async function loyaltyDiscountFor(db: SupabaseClient, opts: { userId: string; locationId: string; amount: number; isRange?: boolean }): Promise<number> {
   if (opts.isRange || !isCreditEligible(opts.amount)) return 0
   const s = await loyaltyStatus(db, opts.userId, opts.locationId)

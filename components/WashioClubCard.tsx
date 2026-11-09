@@ -46,7 +46,7 @@ export function WashioClubCard() {
   }, [])
 
   if (!data) return null
-  const need = data.need || 3
+  const need = data.need || 4
   const amount = data.amount || 3
 
   return (

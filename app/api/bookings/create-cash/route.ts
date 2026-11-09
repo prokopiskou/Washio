@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
     let couponAmount = 0
     // Συσκευή (cookie ws_dev) — για το «ένα −3€ ανά συσκευή/κινητό/πινακίδα» (lib/coupon-guard).
     const deviceId = (req.cookies.get('ws_dev')?.value || '').slice(0, 64) || null
-    // Washio Club: 4ο, 8ο… πλύσιμο μέσω Washio (σε όποιο πλυντήριο) → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
+    // Washio Club: 5ο, 10ο… πλύσιμο μέσω Washio (σε όποιο πλυντήριο) → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
     const loyalty = noCredit ? 0 : await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount })
     if (loyalty > 0) couponAmount = loyalty
     else if (!noCredit && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {

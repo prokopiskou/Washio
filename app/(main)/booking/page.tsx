@@ -65,8 +65,8 @@ const T = {
     modelRequired: 'Γράψε τη μάρκα και το μοντέλο του αυτοκινήτου σου.', modelShort: 'Συμπλήρωσε μάρκα & μοντέλο', carModel: 'Μάρκα & μοντέλο', carModelPh: 'π.χ. Toyota Yaris, Nissan Qashqai', taxi: 'Ταξί',
     isSuvNote: 'είναι SUV/MPV — εφαρμόζεται τιμή SUV.', isCarNote: 'είναι κανονικό αυτοκίνητο — εφαρμόζεται τιμή ΙΧ.',
     phone: 'Τηλέφωνο', addons: 'Πρόσθετες υπηρεσίες', addonProducts: 'Προϊόντα & εξαρτήματα', addonsShort: 'Πρόσθετα', total: 'Σύνολο', serviceFee: 'Τέλος υπηρεσίας', coupon: 'Κουπόνι',
-    clubReward: '💧 3 σταγόνες · δώρο',
-    clubNote: 'Μάζεψες 3 σταγόνες με τα πλυσίματά σου στο Washio. Το κουπόνι σου μένει για την επόμενη.',
+    clubReward: '💧 4 σταγόνες · δώρο',
+    clubNote: 'Μάζεψες 4 σταγόνες με τα πλυσίματά σου στο Washio. Το κουπόνι σου μένει για την επόμενη.',
     clubProgress: (drops: number, need: number, amt: number) => `${drops}/${need} σταγόνες · ακόμα ${need - drops} για −${amt} € — μετράνε σε όλα τα πλυντήρια (μετά το πλύσιμο)`,
     couponCard: 'Κουπόνι Washio', totalWithCoupon: 'Πληρώνεις', couponNote: (_full: string) => `Το κουπόνι ισχύει είτε πληρώσεις στο πλυντήριο είτε με κάρτα. Με κάρτα προστίθεται τέλος υπηρεσίας.`,
     bookPayThere: 'Κλείσε τώρα · πλήρωσε εκεί', orPayCard: 'ή πλήρωσε τώρα με κάρτα', payThereHint: 'Πληρώνεις στο πλυντήριο κατά την επίσκεψη.',
@@ -112,8 +112,8 @@ const T = {
     modelRequired: 'Enter your car make and model.', modelShort: 'Add your car make & model', carModel: 'Make & model', carModelPh: 'e.g. Toyota Yaris, Nissan Qashqai', taxi: 'Taxi',
     isSuvNote: 'is an SUV/MPV — SUV price applies.', isCarNote: 'is a regular car — standard price applies.',
     phone: 'Phone', addons: 'Add-on services', addonProducts: 'Products & accessories', addonsShort: 'Add-ons', total: 'Total', serviceFee: 'Service fee', coupon: 'Coupon',
-    clubReward: '💧 3 drops · gift',
-    clubNote: 'You collected 3 drops with your Washio washes. Your coupon stays for next time.',
+    clubReward: '💧 4 drops · gift',
+    clubNote: 'You collected 4 drops with your Washio washes. Your coupon stays for next time.',
     clubProgress: (drops: number, need: number, amt: number) => `${drops}/${need} drops · ${need - drops} more for −${amt} € — count at every car wash (after the wash)`,
     couponCard: 'Washio coupon', totalWithCoupon: 'You pay', couponNote: (_full: string) => `The coupon applies whether you pay at the venue or by card. A service fee is added to card payments.`,
     bookPayThere: 'Book now · pay there', orPayCard: 'or pay now by card', payThereHint: 'You pay at the car wash during your visit.',
@@ -773,7 +773,7 @@ function BookingPageContent() {
   // create-intent (ισχύει μόνο σε Μέσα-Έξω ≥12€) — 0 μέχρι να απαντήσει.
   const cardTotal = Math.max(0, total - appliedCredit) + serviceFee
   // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: ≥12€, έως 3€ — κάρτα ΚΑΙ μετρητά).
-  // Washio Club (κάθε 4ο πλύσιμο μέσω Washio, σε όποιο πλυντήριο −3€) έχει προτεραιότητα και ΔΕΝ ξοδεύει το κουπόνι.
+  // Washio Club (κάθε 5ο πλύσιμο μέσω Washio, σε όποιο πλυντήριο −3€) έχει προτεραιότητα και ΔΕΝ ξοδεύει το κουπόνι.
   const loyaltyNow = !noCredit && !!loyalty?.rewardNext && isCreditEligible(total)
   const previewCredit = loyaltyNow ? Math.min(loyalty!.amount, total)
     : !noCredit && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
