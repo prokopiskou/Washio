@@ -323,7 +323,7 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Washio Club — κοινές σταγόνες σε όλα τα πλυντήρια */}
+          {/* Washio Club — σταγόνες ανά πλυντήριο */}
           <WashioClubCard />
 
           {/* Κουπόνια & Παραπομπές */}

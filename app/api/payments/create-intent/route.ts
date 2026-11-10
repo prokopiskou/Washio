@@ -178,7 +178,7 @@ export async function POST(req: NextRequest) {
     // την επιτυχή πληρωμή), όχι εδώ — για να μη χαθεί αν δεν ολοκληρωθεί.
     let appliedCredit = 0
     const deviceId = (req.cookies.get('ws_dev')?.value || '').slice(0, 64)
-    // Washio Club: 5ο, 10ο… πλύσιμο μέσω Washio (σε όποιο πλυντήριο) → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
+    // Washio Club: 5ο, 10ο… πλύσιμο στο ίδιο πλυντήριο → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
     let loyalty = 0
     // Βιολογικός (και με προσφορά): χωρίς loyalty/κουπόνι — ίδιος κανόνας με την εφαρμογή.
     if (!isRangeSvc) try { loyalty = await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount }) } catch { loyalty = 0 }
