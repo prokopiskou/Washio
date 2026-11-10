@@ -23,6 +23,7 @@ import { ensureDeviceId } from '@/lib/device'
 import { searchCarModels, sizeOfModel, type CarModel } from '@/lib/car-models'
 import { choiceFromModel, addToGarage } from '@/lib/car-choice'
 import { useCouponCredit, couponExpiryLabel } from '@/lib/use-coupon-credit'
+import { flattenRange } from '@/lib/range-price'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -76,7 +77,7 @@ const T = {
     or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Κλείσε τώρα, πλήρωσε εκεί',
     cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
     fillPlatePhone: 'Συμπλήρωσε το τηλέφωνό σου', optional: 'προαιρετικό',
-    estimateRange: 'Εκτιμώμενο εύρος', estimateNote: 'Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.',
+    estimateRange: 'Τιμή', estimateNote: 'Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.',
     bookCash: 'Κράτηση — πληρωμή με μετρητά', cashOnlyHint: 'Πληρώνεις μετρητά στο κατάστημα μετά την εκτίμηση.',
     name: 'Όνομα', namePh: 'Το όνομά σου', emailPh: 'Το email σου',
     guestNote: 'Με το email σου φτιάχνεται αυτόματα ο λογαριασμός σου, χωρίς κωδικό. Εκεί έρχεται και η επιβεβαίωση.',
@@ -123,7 +124,7 @@ const T = {
     or: 'or', confirming: 'Confirming...', payCash: 'Book now, pay there',
     cashHint: 'Book now, pay at the store during your visit.',
     fillPlatePhone: 'Fill in your phone', optional: 'optional',
-    estimateRange: 'Estimated range', estimateNote: 'The final price is set after the on-site estimate.',
+    estimateRange: 'Price', estimateNote: 'The final price is set after the on-site estimate.',
     bookCash: 'Book — pay with cash', cashOnlyHint: 'You pay cash at the store after the estimate.',
     name: 'Name', namePh: 'Your name', emailPh: 'Your email',
     guestNote: 'Your account is created automatically with your email, no code needed. Your confirmation goes there too.',
@@ -626,7 +627,7 @@ function BookingPageContent() {
       // ΟΛΑ τα queries ΠΑΡΑΛΛΗΛΑ (πριν: 5 διαδοχικά round-trips).
       const none = Promise.resolve({ data: null as any })
       const [
-        { data: serviceData },
+        { data: serviceDataRaw },
         { data: locationData },
         { data: addonsData },
         { data: profileData },
@@ -647,6 +648,8 @@ function BookingPageContent() {
           .then(r => r.error ? supabase.from('vehicles').select('id, plate, type').eq('user_id', user.id).order('created_at', { ascending: false }) : r) : none,
       ])
 
+      // Εύρος χωρίς διακύμανση (π.χ. 120–120) = κανονική υπηρεσία: σταθερή τιμή, και με κάρτα.
+      const serviceData = serviceDataRaw ? flattenRange(serviceDataRaw as Service) : serviceDataRaw
       {
         if (serviceData) {
           setService(serviceData)
@@ -1294,7 +1297,7 @@ function BookingPageContent() {
                 <div className="flex justify-between items-center py-3.5">
                   <span className="text-[15px] font-bold text-washio-navy">{t.estimateRange}</span>
                   <span className="text-[22px] font-bold tracking-tight text-washio-cyan-dark">
-                    {rangeMin.toFixed(0)}–{rangeMax.toFixed(0)} €
+                    {locale === 'en' ? 'from' : 'από'} {rangeMin.toFixed(0)} €
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-400 pb-3 leading-snug">{t.estimateNote}</p>

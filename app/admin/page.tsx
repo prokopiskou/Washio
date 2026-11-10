@@ -1898,6 +1898,21 @@ export default function AdminPage() {
                               {(item.vehicles || []).map((v: string) => v === 'Μοτοσικλέτα' ? 'Μοτο' : v).join(' · ')}
                             </p>
                           </div>
+                          {/* Τιμή με εύρος: ο πελάτης βλέπει «από €X» · το πλυντήριο βάζει min–max */}
+                          <button
+                            onClick={async () => {
+                              const next = !item.is_range
+                              if (!confirm(next ? `«${item.name}»: τιμή με ΕΥΡΟΣ;\n\nΟι πελάτες θα βλέπουν «από €X», πληρωμή στο κατάστημα. Κάθε πλυντήριο ορίζει από–έως (αν από = έως, λειτουργεί σαν κανονική τιμή και με κάρτα).` : `«${item.name}»: σταθερή τιμή (χωρίς εύρος);`)) return
+                              const res = await fetch('/api/admin/catalog', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, is_range: next }) })
+                              const json = await res.json().catch(() => ({}))
+                              if (!res.ok) { alert(json.error || 'Κάτι πήγε στραβά'); return }
+                              if (json.item) setCatalogItems(prev => prev.map(c => c.id === item.id ? json.item : c))
+                            }}
+                            className={`shrink-0 h-7 px-2.5 rounded-lg text-[11px] font-semibold border ${item.is_range ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-white text-gray-400 border-gray-200'}`}
+                            title="Τιμή με εύρος (από–έως)"
+                          >
+                            {item.is_range ? 'Εύρος ✓' : 'Εύρος'}
+                          </button>
                           <button
                             onClick={() => toggleCatalogItem(item)}
                             className="relative w-[44px] h-[26px] rounded-full transition-colors shrink-0"

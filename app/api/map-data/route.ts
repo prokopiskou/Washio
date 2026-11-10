@@ -1,3 +1,4 @@
+import { flattenRange } from '@/lib/range-price'
 import { NextRequest, NextResponse } from 'next/server'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 import { WATERMARK, CANARY_LOCATION } from '@/lib/canary'
@@ -39,7 +40,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(
     // Παγίδες αντιγραφής (lib/canary): αόρατο υδατογράφημα στα ονόματα + ένα «ψεύτικο» πλυντήριο που ο χάρτης κρύβει.
-    { locations: [...(locs.data || []).map(l => ({ ...l, name: `${l.name}${WATERMARK}` })), CANARY_LOCATION], hours: hours.data, busy: busy.data, exceptions: exc.data, at: Date.now() },
+    { locations: [...(locs.data || []).map(l => ({ ...l, name: `${l.name}${WATERMARK}`, services: (l.services || []).map(flattenRange) })), CANARY_LOCATION], hours: hours.data, busy: busy.data, exceptions: exc.data, at: Date.now() },
     // 20″ φρέσκο, μετά σερβίρεται το παλιό ενώ ανανεώνεται στο παρασκήνιο (έως 5').
     // Η τελική διαθεσιμότητα ελέγχεται ΠΑΝΤΑ στον server κατά την κράτηση.
     { headers: { 'Cache-Control': 'public, s-maxage=20, stale-while-revalidate=300' } }

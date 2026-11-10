@@ -24,6 +24,7 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
+import { flattenRange, fromPrice as fromPriceLabel } from '@/lib/range-price'
 import { isCanary, stripWatermark } from '@/lib/canary'
 import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
 import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
@@ -408,7 +409,8 @@ function MapPageContent() {
   const promoDate = sheetDate || activeDate
   // Υπηρεσία εύρους (βιολογικός): μόνο προσφορά σταθερής τιμής («μόνο 120€») — το εύρος σβήνει.
   const promoForSvc = (s: Service) => promos.find(p => p.service_id === s.id && promoAppliesTo(p, promoDate, getTodayValue()) && (!s.is_range || p.discount_type === 'fixed'))
-  const rangeText = (s: Service) => { const [a, b] = rangeFor(s); return `€${a}–${b}` }
+  // Πελάτης: «από €120» (μόνο το κάτω όριο).
+  const rangeText = (s: Service) => fromPriceLabel(rangeFor(s)[0], locale === 'en' ? 'en' : 'el')
   const promoTag = (p: { discount_type: string; discount_value: number }) => p.discount_type === 'fixed'
     ? (locale === 'en' ? `only €${eur(Number(p.discount_value))}` : `μόνο €${eur(Number(p.discount_value))}`)
     : `−${p.discount_type === 'percent' ? `${Number(p.discount_value)}%` : `€${eur(Number(p.discount_value))}`}`
@@ -419,7 +421,7 @@ function MapPageContent() {
   }
   const priceLabel = (s: Service) => {
     if (s.is_range && promoForSvc(s)) return `€${eur(Number(priceFor(s)) || 0)}`
-    if (s.is_range) { const [a, b] = rangeFor(s); return `€${a}–${b}` }
+    if (s.is_range) return rangeText(s)
     return `€${priceFor(s)}`
   }
   // Κουπόνι ήδη μέσα στην τιμή (~~15€~~ 12€) — ίδιοι κανόνες με το checkout.
@@ -495,7 +497,7 @@ function MapPageContent() {
         supabase.rpc('busy_slots', { p_from: checkDate, p_to: checkDate }),
         supabase.from('location_hours_exceptions').select('location_id, is_closed, closed_from, closed_to, periods').eq('exception_date', checkDate),
       ])
-      locsData = a.data; hoursData = b.data; bookingsData = c.data as any[] | null; exceptionsData = d.data
+      locsData = (a.data || []).map((l: { services?: Service[] }) => ({ ...l, services: (l.services || []).map(flattenRange) })); hoursData = b.data; bookingsData = c.data as any[] | null; exceptionsData = d.data
     }
 
     const hoursMap: Record<string, any> = {}
@@ -788,7 +790,7 @@ function MapPageContent() {
       const supabase = createClient()
       const { data } = await supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv')
         .eq('location_id', selectedLocation.id).eq('is_active', true).order('sort_order', { ascending: true })
-      setLocationServices(((data as Service[]) || []).sort(compareServices))
+      setLocationServices(((data as Service[]) || []).map(flattenRange).sort(compareServices))
     }
     const loadRating = async () => {
       const supabase = createClient()
@@ -1673,7 +1675,8 @@ function MapPageContent() {
                 <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}{!coupon.guest && (() => { const ex = couponExpiryLabel(coupon.expiresAt, locale); return ex ? <span className={ex.urgent ? 'text-red-600' : ''}> · {ex.text}</span> : null })()}</p>
               )}
               {/* Χωρίς όχημα → καμία υπηρεσία (πρώτα «Τι όχημα έχεις;») */}
-              {carChoice && <div className="flex gap-2 mb-3">
+              {/* Πολλές υπηρεσίες (>3) → οριζόντιο scroll (snap), όχι στριμωγμένα κουτάκια */}
+              {carChoice && <div className={visibleServices.length > 3 ? 'flex gap-2 mb-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory -mx-5 px-5 scroll-px-5 overscroll-x-contain' : 'flex gap-2 mb-3'} style={visibleServices.length > 3 ? { WebkitOverflowScrolling: 'touch' } : undefined}>
                 {visibleServices.map(s => {
                   const price = priceLabel(s)
                   const base = Number(listPriceFor(s)) || 0
@@ -1681,7 +1684,7 @@ function MapPageContent() {
                   const isSelected = selectedService === s.id
                   return (
                     <button key={s.id} onClick={() => { if (!carChoice) { pendingSvcRef.current = s.id; carPickerRef.current?.open(); return } userPickedSlotRef.current = false; setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
-                      className={`flex-1 py-2.5 rounded-[14px] border text-center transition-all ${
+                      className={`${visibleServices.length > 3 ? 'shrink-0 w-[31%] min-w-[104px] snap-start px-1.5' : 'flex-1'} py-2.5 rounded-[14px] border text-center transition-all ${
                         isSelected ? 'border-washio-navy' : 'bg-white border-washio-border'
                       }`}
                       style={isSelected ? { background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 6px 16px rgba(16,24,42,0.20)' } : undefined}>

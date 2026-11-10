@@ -1,3 +1,4 @@
+import { flattenRange } from '@/lib/range-price'
 import { activePromotionFor, applyPromo } from '@/lib/promotions'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 import { NextRequest, NextResponse } from 'next/server'
@@ -134,11 +135,12 @@ export async function POST(req: NextRequest) {
     // Τιμή ανά τύπο οχήματος — ΠΑΝΤΑ server-side από τη DB.
     const isMoto = vehicleType === 'Μοτοσικλέτα'
     const isSuv = vehicleType === 'SUV'
-    const svc = service as {
+    // Εύρος χωρίς διακύμανση (π.χ. 120–120) = κανονική υπηρεσία σταθερής τιμής.
+    const svc = flattenRange(service as {
       name: string; price: number; price_moto: number | null; price_suv: number | null
       is_range?: boolean; price_min?: number | null; price_max?: number | null
       price_min_suv?: number | null; price_max_suv?: number | null
-    }
+    })
 
     // Υπηρεσία ΕΥΡΟΥΣ (βιολογικός): μετρητά μόνο, εκτίμηση επιτόπου. Το total_amount
     // = μεσοσταθμικό εύρους → η προμήθεια (payout: rate × total_amount) βγαίνει σταθερή.

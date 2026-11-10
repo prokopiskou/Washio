@@ -96,6 +96,8 @@ export async function PATCH(req: NextRequest) {
       allowed.vehicles = veh
     }
     if (patch.sort_order !== undefined) allowed.sort_order = Number(patch.sort_order) || 0
+    // Τιμή με ΕΥΡΟΣ (π.χ. βιολογικός, κεραμική): ο πελάτης βλέπει «από €X», το πλυντήριο ορίζει min–max.
+    if (typeof patch.is_range === 'boolean') allowed.is_range = patch.is_range
 
     // Μετονομασία: οι υπηρεσίες των πλυντηρίων (services) δένονται με τον κατάλογο μέσω ΟΝΟΜΑΤΟΣ,
     // άρα αλλάζουν κι αυτές — αλλιώς το πλυντήριο θα «έχανε» την υπηρεσία του.
@@ -124,6 +126,24 @@ export async function PATCH(req: NextRequest) {
 
     if (Object.keys(allowed).length === 0) {
       return NextResponse.json({ error: 'Τίποτα προς ενημέρωση' }, { status: 400 })
+    }
+
+    // Εύρος on/off → και στις υπηρεσίες των πλυντηρίων με αυτό το όνομα (αρχικό εύρος = η τιμή που είχαν).
+    if (typeof allowed.is_range === 'boolean') {
+      const { data: cat } = await admin.from('service_catalog').select('name').eq('id', id).maybeSingle()
+      if (cat?.name) {
+        const { data: rows } = await admin.from('services').select('id, price, price_suv, price_min, price_max, price_min_suv, price_max_suv').eq('name', cat.name)
+        for (const r of (rows || []) as { id: string; price: number | null; price_suv: number | null; price_min: number | null; price_max: number | null; price_min_suv: number | null; price_max_suv: number | null }[]) {
+          const upd: Record<string, unknown> = { is_range: allowed.is_range }
+          if (allowed.is_range) {
+            if (!(Number(r.price_min) > 0)) upd.price_min = r.price || null
+            if (!(Number(r.price_max) > 0)) upd.price_max = r.price || null
+            if (!(Number(r.price_min_suv) > 0)) upd.price_min_suv = r.price_suv || r.price || null
+            if (!(Number(r.price_max_suv) > 0)) upd.price_max_suv = r.price_suv || r.price || null
+          }
+          await admin.from('services').update(upd).eq('id', r.id)
+        }
+      }
     }
 
     const { data, error } = await admin

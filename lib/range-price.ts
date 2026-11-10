@@ -25,3 +25,29 @@ export function rangeLabel(total: number | null | undefined, svc: RangeSvc, serv
   const [lo, hi] = opts[0]
   return `${lo.toFixed(0)}–${hi.toFixed(0)}`
 }
+
+type FlatSvc = {
+  is_range?: boolean | null
+  price?: number | null; price_suv?: number | null
+  price_min?: number | null; price_max?: number | null
+  price_min_suv?: number | null; price_max_suv?: number | null
+}
+/**
+ * Υπηρεσία «εύρους» ΧΩΡΙΣ διακύμανση (π.χ. βιολογικός 120–120) = κανονική υπηρεσία σταθερής τιμής:
+ * φαίνεται «€120», μπαίνει στο καλάθι κανονικά και πληρώνεται και με κάρτα.
+ * Εφαρμόζεται ΟΠΟΥ φορτώνονται υπηρεσίες για τον πελάτη + στον server της κράτησης.
+ */
+export function flattenRange<T extends FlatSvc>(s: T): T {
+  if (!s?.is_range) return s
+  const a = Number(s.price_min) || 0, b = Number(s.price_max) || 0
+  const c = Number(s.price_min_suv) || 0, d = Number(s.price_max_suv) || 0
+  const flatCar = a > 0 && a === b
+  const flatSuv = (c === 0 && d === 0) || (c > 0 && c === d)
+  if (!flatCar || !flatSuv) return s
+  return { ...s, is_range: false, price: a, price_suv: c > 0 ? c : null }
+}
+
+/** Πελάτης: «από €120» (ΜΟΝΟ η κάτω τιμή — η τελική ορίζεται στο κατάστημα). */
+export function fromPrice(min: number, locale: 'el' | 'en' = 'el'): string {
+  return `${locale === 'en' ? 'from' : 'από'} €${Math.round(min)}`
+}

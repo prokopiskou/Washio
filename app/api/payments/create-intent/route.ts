@@ -1,3 +1,4 @@
+import { flattenRange } from '@/lib/range-price'
 import { activePromotionFor, applyPromo } from '@/lib/promotions'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
@@ -95,14 +96,14 @@ export async function POST(req: NextRequest) {
     }
 
     const [
-      { data: service, error: serviceErr },
+      { data: serviceRaw, error: serviceErr },
       { data: locAddons },
       availability,
       { customerId, customerSessionClientSecret },
     ] = await Promise.all([
       // Υπηρεσία ΤΟΥ πλυντηρίου και ενεργή — όχι id από άλλο πλυντήριο.
       admin.from('services')
-        .select('id, name, price, price_moto, price_suv, is_range')
+        .select('id, name, price, price_moto, price_suv, is_range, price_min, price_max, price_min_suv, price_max_suv')
         .eq('id', serviceId)
         .eq('location_id', locationId)
         .eq('is_active', true)
@@ -117,9 +118,11 @@ export async function POST(req: NextRequest) {
       customerSetup(),
     ])
 
-    if (serviceErr || !service) {
+    if (serviceErr || !serviceRaw) {
       return NextResponse.json({ error: 'Άκυρη υπηρεσία' }, { status: 400 })
     }
+    // Εύρος χωρίς διακύμανση (π.χ. 120–120) = σταθερή τιμή → πληρώνεται κανονικά με κάρτα.
+    const service = flattenRange(serviceRaw)
 
     if (!availability.ok) {
       return NextResponse.json({ error: availability.error }, { status: 409 })

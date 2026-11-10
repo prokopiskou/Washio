@@ -18,6 +18,7 @@ import { useCouponCredit, couponDiscount, eur, couponExpiryLabel } from '@/lib/u
 import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
 import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
+import { flattenRange, fromPrice as fromPriceLabel } from '@/lib/range-price'
 import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
 
 const T = {
@@ -209,7 +210,7 @@ export default function LocationPage() {
       setLocation({ id: loc.id, name: loc.name, address: loc.address, city: loc.city, photos: loc.photos, capacity: loc.capacity, lat: loc.lat, lng: loc.lng })
       funnel('washer_page', { locationId: loc.id })
 
-      const svc = ((loc.services || []) as Service[])
+      const svc = ((loc.services || []) as Service[]).map(flattenRange)
         .filter(s => s.is_active !== false)
         .sort(compareServices)
       setServices(svc)
@@ -375,7 +376,7 @@ export default function LocationPage() {
   }
   const priceLabel = (s: Service) => {
     if (s.is_range && promoFor(s)) return `€${eur(Number(priceFor(s)) || 0)}`
-    if (s.is_range) { const [a, b] = rangeFor(s); return `€${a}–${b}` }
+    if (s.is_range) return fromPriceLabel(rangeFor(s)[0], locale === 'en' ? 'en' : 'el')
     return `€${priceFor(s)}`
   }
   // Κουπόνι ήδη μέσα στην τιμή (~~15€~~ 12€) — ίδιοι κανόνες με το checkout.
@@ -615,7 +616,7 @@ export default function LocationPage() {
                   ) : s.is_range && promo ? (
                     <div className="text-right shrink-0">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-red-500 leading-none mb-1">{locale === 'en' ? 'Offer' : 'Προσφορά'}</p>
-                      <p className={`text-[12px] font-medium line-through leading-none ${selected ? 'text-white/50' : 'text-gray-400'}`}>€{rangeFor(s)[0]}–{rangeFor(s)[1]}</p>
+                      <p className={`text-[12px] font-medium line-through leading-none ${selected ? 'text-white/50' : 'text-gray-400'}`}>{fromPriceLabel(rangeFor(s)[0], locale === 'en' ? 'en' : 'el')}</p>
                       <p className={`text-[17px] font-bold tracking-tight mt-0.5 ${selected ? 'text-washio-cyan' : 'text-washio-cyan-dark'}`}>€{eur(Number(priceFor(s)) || 0)} <span className="text-[11px] font-semibold">{locale === 'en' ? 'only' : 'μόνο'}</span></p>
                     </div>
                   ) : disc > 0 ? (
