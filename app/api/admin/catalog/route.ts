@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const user = await requireAdmin()
     if (!user) return NextResponse.json({ error: 'Μόνο για διαχειριστές' }, { status: 403 })
 
-    const { name, durationMinutes, vehicles } = await req.json()
+    const { name, durationMinutes, vehicles, isRange } = await req.json()
 
     const cleanName = String(name || '').trim()
     if (!cleanName) return NextResponse.json({ error: 'Λείπει το όνομα' }, { status: 400 })
@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
         name: cleanName,
         duration_minutes: dur,
         vehicles: veh,
+        is_range: isRange === true,
         sort_order: (count || 0) + 1,
         is_active: true,
       })

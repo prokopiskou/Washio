@@ -78,7 +78,7 @@ export default function AdminPage() {
   const [addons, setAddons] = useState<any[]>([])
   const [catalogItems, setCatalogItems] = useState<any[]>([])
   const [addingCatalog, setAddingCatalog] = useState(false)
-  const [newCatalog, setNewCatalog] = useState({ name: '', duration: 30, vehicles: ['ΙΧ', 'SUV'] as string[] })
+  const [newCatalog, setNewCatalog] = useState({ name: '', duration: 30, vehicles: ['ΙΧ', 'SUV'] as string[], isRange: false })
   const [catalogError, setCatalogError] = useState('')
   const [payouts, setPayouts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -521,12 +521,13 @@ export default function AdminPage() {
           name: newCatalog.name,
           durationMinutes: newCatalog.duration,
           vehicles: newCatalog.vehicles,
+          isRange: newCatalog.isRange,
         }),
       })
       const json = await res.json()
       if (!res.ok) { setCatalogError(json.error || 'Κάτι πήγε στραβά'); return }
       setCatalogItems(prev => [...prev, json.item])
-      setNewCatalog({ name: '', duration: 30, vehicles: ['ΙΧ', 'SUV'] })
+      setNewCatalog({ name: '', duration: 30, vehicles: ['ΙΧ', 'SUV'], isRange: false })
       setAddingCatalog(false)
     } catch {
       setCatalogError('Κάτι πήγε στραβά')
@@ -1847,10 +1848,27 @@ export default function AdminPage() {
                               })}
                             </div>
                           </div>
+                          {/* Τιμή: σταθερή ή εύρος (από–έως, π.χ. βιολογικός / κεραμική) */}
+                          <div>
+                            <p className="text-[10px] font-semibold tracking-[1.2px] uppercase text-gray-400 mb-1">Τιμή</p>
+                            <div className="flex gap-1.5">
+                              {([[false, 'Σταθερή'], [true, 'Εύρος (από–έως)']] as const).map(([v, label]) => (
+                                <button key={label}
+                                  onClick={() => setNewCatalog(n => ({ ...n, isRange: v }))}
+                                  className={`flex-1 h-9 rounded-lg text-[12px] font-semibold border transition-colors ${
+                                    newCatalog.isRange === v ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200'
+                                  }`}
+                                >
+                                  {label}
+                                </button>
+                              ))}
+                            </div>
+                            {newCatalog.isRange && <p className="text-[11px] text-gray-400 mt-1">Ο πελάτης βλέπει «από €X» και πληρώνει στο κατάστημα. Αν το πλυντήριο βάλει από = έως, λειτουργεί σαν σταθερή τιμή (και με κάρτα).</p>}
+                          </div>
                           {catalogError && <p className="text-[12px] text-red-500">{catalogError}</p>}
                           <div className="flex gap-2">
                             <button
-                              onClick={() => { setAddingCatalog(false); setCatalogError(''); setNewCatalog({ name: '', duration: 30, vehicles: ['ΙΧ', 'SUV'] }) }}
+                              onClick={() => { setAddingCatalog(false); setCatalogError(''); setNewCatalog({ name: '', duration: 30, vehicles: ['ΙΧ', 'SUV'], isRange: false }) }}
                               className="flex-1 h-11 rounded-xl border border-gray-200 text-gray-600 text-[13px] font-semibold"
                             >
                               Άκυρο
