@@ -1675,8 +1675,9 @@ function MapPageContent() {
                 <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}{!coupon.guest && (() => { const ex = couponExpiryLabel(coupon.expiresAt, locale); return ex ? <span className={ex.urgent ? 'text-red-600' : ''}> · {ex.text}</span> : null })()}</p>
               )}
               {/* Χωρίς όχημα → καμία υπηρεσία (πρώτα «Τι όχημα έχεις;») */}
-              {/* Πολλές υπηρεσίες (>3) → οριζόντιο scroll (snap), όχι στριμωγμένα κουτάκια */}
-              {carChoice && <div className={visibleServices.length > 3 ? 'flex gap-2 mb-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory -mx-5 px-5 scroll-px-5 overscroll-x-contain' : 'flex gap-2 mb-3'} style={visibleServices.length > 3 ? { WebkitOverflowScrolling: 'touch' } : undefined}>
+              {/* Πάντα ορατές οι 4 πρώτες (Μέσα, Έξω, Μέσα & Έξω, Βιολογικός — compareServices).
+                  Περισσότερες (>4) → οι υπόλοιπες με οριζόντιο scroll (snap) δεξιά. */}
+              {carChoice && <div className={visibleServices.length > 4 ? 'flex gap-2 mb-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory -mx-5 px-5 scroll-px-5 overscroll-x-contain' : 'flex gap-2 mb-3'} style={visibleServices.length > 4 ? { WebkitOverflowScrolling: 'touch' } : undefined}>
                 {visibleServices.map(s => {
                   const price = priceLabel(s)
                   const base = Number(listPriceFor(s)) || 0
@@ -1684,7 +1685,7 @@ function MapPageContent() {
                   const isSelected = selectedService === s.id
                   return (
                     <button key={s.id} onClick={() => { if (!carChoice) { pendingSvcRef.current = s.id; carPickerRef.current?.open(); return } userPickedSlotRef.current = false; setSelectedService(s.id); funnel('service_select', { locationId: selectedLocation?.id, meta: { src: 'map', svc: s.name, price: base, shown: base - disc, disc, range: !!s.is_range, guest: coupon.guest } }) }}
-                      className={`${visibleServices.length > 3 ? 'shrink-0 w-[31%] min-w-[104px] snap-start px-1.5' : 'flex-1'} py-2.5 rounded-[14px] border text-center transition-all ${
+                      className={`${visibleServices.length > 4 ? 'shrink-0 w-[calc(25%-6px)] min-w-[80px] snap-start px-1' : 'flex-1 min-w-0 px-1'} py-2.5 rounded-[14px] border text-center transition-all ${
                         isSelected ? 'border-washio-navy' : 'bg-white border-washio-border'
                       }`}
                       style={isSelected ? { background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 6px 16px rgba(16,24,42,0.20)' } : undefined}>
