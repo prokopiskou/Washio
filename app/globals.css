@@ -186,3 +186,14 @@ button:active, a:active, [role="button"]:active {
 @media (prefers-reduced-motion: reduce) {
   .washio-dot { animation-duration: 2.2s; }
 }
+
+/* «Τι όχημα έχεις;» — ελαφρύ bounce όταν εμφανίζεται (να πέσει το μάτι εκεί), 2 φορές. */
+@keyframes washio-attn {
+  0%, 100% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-7px) scale(1.02); }
+  50% { transform: translateY(0) scale(1); }
+  70% { transform: translateY(-3px) scale(1.01); }
+  85% { transform: translateY(0) scale(1); }
+}
+.washio-attn { animation: washio-attn 0.9s cubic-bezier(.28,.84,.42,1) 0.35s 2 both; }
+@media (prefers-reduced-motion: reduce) { .washio-attn { animation: none; } }

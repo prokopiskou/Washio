@@ -39,14 +39,14 @@ export function VehicleChip({ choice, onClick, locale = 'el', big = false }: { c
   // Χωρίς όχημα: ΜΕΓΑΛΟ κουμπί (το μόνο που πρέπει να κάνει πριν δει υπηρεσίες/τιμές).
   if (!choice && big) return (
     <button type="button" onClick={onClick}
-      className="w-full h-[76px] px-4 rounded-2xl bg-washio-cyan text-white text-left flex flex-col justify-center shadow-[0_6px_16px_rgba(25,168,199,0.35)] active:opacity-90">
+      className="washio-attn w-full h-[76px] px-4 rounded-2xl bg-washio-cyan text-white text-left flex flex-col justify-center shadow-[0_6px_16px_rgba(25,168,199,0.35)] active:opacity-90">
       <span className="text-[16px] font-bold leading-tight">{t.ask}</span>
       <span className="text-[12px] font-medium text-white/85 mt-0.5">{t.tapHint}</span>
     </button>
   )
   if (!choice) return (
     <button type="button" onClick={onClick}
-      className="h-9 px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap bg-washio-cyan text-white border border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)] animate-pulse">
+      className="h-9 px-3.5 rounded-full text-[13px] font-semibold whitespace-nowrap bg-washio-cyan text-white border border-washio-cyan shadow-[0_4px_12px_rgba(25,168,199,0.30)] washio-attn">
       {t.ask}
     </button>
   )
