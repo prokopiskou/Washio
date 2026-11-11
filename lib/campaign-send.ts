@@ -1,7 +1,8 @@
 // Στοχευμένες καμπάνιες πλυντηρίων (πίνακας campaigns — supabase/audience.sql).
 // Κανόνας καναλιού: όποιος έχει push → ΜΟΝΟ push · email ΜΟΝΟ σε όσους δεν έχουν push (ποτέ και τα δύο).
 // Κάθε κύμα = μία γραμμή campaigns με ΕΝΑ κανάλι ('email' ή 'push') και scheduled_at.
-// segment (jsonb): { km, days, viewed_days, booked, favorite, svc_like, exclude_booked_since, exclude_campaign_bookers }
+// segment (jsonb): { all, km, days, viewed_days, booked, favorite, svc_like, exclude_booked_since, exclude_campaign_bookers }
+//   all: true → ΟΛΟΙ οι χρήστες (π.χ. ανακοίνωση Washio Club) — χωρίς πλυντήριο
 // offer (jsonb):   { url, cta, preheader, kicker, headline, bullets[], footnote }
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
@@ -14,7 +15,7 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&am
 export type Campaign = {
   id: string; location_id: string | null; title: string; body: string | null
   offer: { url?: string; cta?: string; preheader?: string; kicker?: string; headline?: string; bullets?: string[]; footnote?: string } | null
-  segment: { km?: number; days?: number; viewed_days?: number; booked?: boolean; favorite?: boolean; svc_like?: string; exclude_booked_since?: string } | null
+  segment: { all?: boolean; km?: number; days?: number; viewed_days?: number; booked?: boolean; favorite?: boolean; svc_like?: string; exclude_booked_since?: string } | null
   channels: string[]; status: string; scheduled_at: string | null
 }
 type Person = { user_id: string; email: string | null; can_push: boolean; can_email: boolean }
@@ -47,6 +48,14 @@ export async function campaignAudience(db: SupabaseClient, c: Campaign): Promise
     if (devs.size) {
       const { data: dl } = await db.from('device_links').select('user_id').in('device_id', [...devs])
       for (const r of (dl || []) as { user_id: string }[]) if (r.user_id) ids.add(r.user_id)
+    }
+  }
+  // Όλοι οι χρήστες (γενική ανακοίνωση, π.χ. Washio Club).
+  if (seg.all) {
+    for (let from = 0; from < 50000; from += 1000) {
+      const { data } = await db.from('audience_profiles').select('user_id').range(from, from + 999)
+      for (const r of (data || []) as { user_id: string }[]) ids.add(r.user_id)
+      if (!data || data.length < 1000) break
     }
   }
   if (!ids.size) return []
