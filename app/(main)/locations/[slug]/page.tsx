@@ -38,7 +38,7 @@ const T = {
     selectPrompt: 'Επίλεξε υπηρεσία, ημερομηνία και ώρα',
     today: 'Σήμερα', tomorrow: 'Αύριο',
     reassure: 'Πληρώνεις στο πλυντήριο · Ακυρώνεις δωρεάν',
-    bestDay: 'Ιδανική', bestHint: 'Καλύτερη μέρα για πλύσιμο', bestWhy: 'χωρίς βροχή και την επόμενη μέρα', rainWarn: 'Πιθανή βροχή', rainTry: 'Δοκίμασε', pick: 'Επιλογή',
+    bestDay: 'Ιδανική', bestHint: 'Καλύτερη μέρα για πλύσιμο', bestWhy: 'χωρίς βροχή', rainWarn: 'Πιθανή βροχή', rainTry: 'Δοκίμασε', pick: 'Επιλογή',
   },
   en: {
     loading: 'Loading...',
@@ -56,7 +56,7 @@ const T = {
     selectPrompt: 'Choose a service, date and time',
     today: 'Today', tomorrow: 'Tomorrow',
     reassure: 'Pay at the car wash · Free cancellation',
-    bestDay: 'Best', bestHint: 'Best day to wash', bestWhy: 'no rain the day after either', rainWarn: 'Rain likely', rainTry: 'Try', pick: 'Pick',
+    bestDay: 'Best', bestHint: 'Best day to wash', bestWhy: 'no rain expected', rainWarn: 'Rain likely', rainTry: 'Try', pick: 'Pick',
   },
 }
 

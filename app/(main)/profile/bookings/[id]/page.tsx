@@ -397,8 +397,21 @@ export default function BookingDetailPage() {
       const mm = String(tomorrow.getMonth() + 1).padStart(2, '0')
       const dd = String(tomorrow.getDate()).padStart(2, '0')
       setNewDate(`${yyyy}-${mm}-${dd}`)
+      // Από ειδοποίηση βροχής: ?reschedule=1&to=YYYY-MM-DD → προεπιλεγμένη η προτεινόμενη μέρα.
+      const to = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('to') : null
+      if (to && /^\d{4}-\d{2}-\d{2}$/.test(to)) setNewDate(to)
     }
   }
+
+  // ?reschedule=1 (ειδοποίηση «αύριο βρέχει») → ανοίγει κατευθείαν η μετάθεση.
+  const autoResRef = useRef(false)
+  useEffect(() => {
+    if (!booking || autoResRef.current || typeof window === 'undefined') return
+    if (new URLSearchParams(window.location.search).get('reschedule') !== '1') return
+    autoResRef.current = true
+    handleRescheduleClick()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booking])
 
   useEffect(() => {
     if (!showReschedule || !newDate || !booking) return

@@ -9,9 +9,8 @@ type Day = { date: string; kind: 'sun' | 'cloud' | 'rain' | 'storm'; prob: numbe
 
 function kindOf(code: number, prob: number, mm: number): Day['kind'] {
   if (code >= 95) return 'storm'
-  // Βροχή (εικονίδιο 🌧️) μόνο αν όντως βρέχει: ≥1mm και (πιθανότητα ≥40% ή κωδικός βροχής), ή ≥3mm.
-  const rainCode = (code >= 51 && code <= 67) || (code >= 80 && code <= 82)
-  if ((mm >= 1 && (prob >= 40 || rainCode)) || mm >= 3) return 'rain'
+  // Εικονίδιο 🌧️ μόνο για ουσιαστική βροχή: ≥5mm, ή 2–5mm με πιθανότητα ≥60% (βλ. lib/weather.ts).
+  if (mm >= 5 || (mm >= 2 && prob >= 60)) return 'rain'
   if (code <= 1) return 'sun'
   return 'cloud'
 }
