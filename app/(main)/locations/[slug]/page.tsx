@@ -16,7 +16,7 @@ import { translateCatalogName } from '@/lib/catalog-i18n'
 import { funnel } from '@/lib/funnel'
 import { useCouponCredit, couponDiscount, eur, couponExpiryLabel } from '@/lib/use-coupon-credit'
 import { applyPromo, promoAppliesTo } from '@/lib/promotions'
-import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
+import { type WxDay, bestWashDay, isWet, wxEmoji, dayMeta } from '@/lib/weather'
 import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
 import { flattenRange, fromPrice as fromPriceLabel } from '@/lib/range-price'
 import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
@@ -351,6 +351,7 @@ export default function LocationPage() {
     userPickedDateRef.current = true
     setViewMonth(d.getMonth()); setViewYear(d.getFullYear())
     setSelectedDate(d); setSelectedSlot(null); lightTap()
+    funnel('date_select', { locationId: location?.id, meta: { src: 'page_hint', ...dayMeta(ymd, athensToday(), bestYmd, wxBy.get(ymd)) } })
   }
 
   // Τιμή ανά τύπο οχήματος: ΙΧ = βασική, SUV = price_suv, Μοτο = price_moto.
@@ -671,7 +672,7 @@ export default function LocationPage() {
               return (
                 <button
                   key={i}
-                  onClick={() => { userPickedDateRef.current = true; setSelectedDate(d); setSelectedSlot(null); lightTap() }}
+                  onClick={() => { userPickedDateRef.current = true; setSelectedDate(d); setSelectedSlot(null); lightTap(); funnel('date_select', { locationId: location?.id, meta: { src: 'page', ...dayMeta(ymd, athensToday(), bestYmd, w) } }) }}
                   className={`relative shrink-0 w-14 ${w ? 'h-[84px]' : 'h-[72px]'} rounded-[14px] border flex flex-col items-center justify-center gap-0.5 transition-all ${
                     selected
                       ? 'border-washio-cyan text-white'
@@ -784,7 +785,7 @@ export default function LocationPage() {
         >
           {canBook ? (
             <button
-              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}${carChoice?.label ? `&carModel=${encodeURIComponent(carChoice.label)}` : ''}`) }}
+              onClick={() => { funnel('book_click', { locationId: location.id, meta: { src: 'page', ...dayMeta(selYmd, athensToday(), bestYmd, selWx), svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } }); router.push(`/booking?location=${location.id}&service=${selectedServiceId}&slot=${encodeURIComponent(selectedSlot!)}&date=${ymdFromLocalDate(selectedDate)}&vehicleType=${encodeURIComponent(vehicleType)}${carChoice?.label ? `&carModel=${encodeURIComponent(carChoice.label)}` : ''}`) }}
               className="w-full h-14 rounded-2xl text-white text-[15px] font-semibold tracking-tight flex items-center justify-center gap-2 active:scale-[0.99] transition-transform"
               style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 24px rgba(25,168,199,0.38)' }}
             >

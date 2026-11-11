@@ -4,7 +4,7 @@ import { isInternalDevice } from '@/lib/internal'
 
 export type FunnelStep =
   | 'map_open' | 'washer_open' | 'washer_page' | 'no_slots' | 'service_select' | 'slot_select'
-  | 'book_click' | 'login_wall' | 'booking_page' | 'pay_click' | 'booked'
+  | 'book_click' | 'login_wall' | 'booking_page' | 'pay_click' | 'booked' | 'date_select'
   // Μετά την κράτηση: ακύρωση vs αλλαγή ώρας.
   | 'cancel_open' | 'cancel_save_click' | 'rescheduled' | 'cancelled'
   // Χάρτης: άνοιξε τη λίστα όλων των πλυντηρίων (swipe up).

@@ -1,7 +1,8 @@
 // Καιρός στο date picker: εικονίδιο ανά μέρα + «Ιδανική μέρα» για πλύσιμο.
 export type WxDay = { date: string; kind: 'sun' | 'cloud' | 'rain' | 'storm'; prob: number; mm: number }
 
-export const isWet = (d?: WxDay) => !!d && (d.kind === 'rain' || d.kind === 'storm' || d.prob >= 50)
+// «Βρεγμένη» μέρα = πραγματική βροχή (≥1mm με πιθανότητα ≥50%) ή καταιγίδα. Ψιχάλα / 23% / 0.4mm ΔΕΝ μετράει.
+export const isWet = (d?: WxDay) => !!d && (d.kind === 'storm' || (d.mm >= 1 && d.prob >= 50) || d.mm >= 3)
 
 // Η πρόγνωση βροχής είναι αξιόπιστη ~3 μέρες, καλή έως 5. Πιο πέρα δεν προτείνουμε.
 const SUGGEST_HORIZON = 5
@@ -26,4 +27,10 @@ export function bestWashDay(days: WxDay[], skip: (ymd: string) => boolean = () =
 
 export function wxEmoji(k: WxDay['kind']): string {
   return k === 'sun' ? '☀️' : k === 'cloud' ? '⛅' : k === 'storm' ? '⛈️' : '🌧️'
+}
+
+/** Για analytics (funnel): ήταν η ιδανική μέρα; βρεγμένη; πόσες μέρες μπροστά; */
+export function dayMeta(ymd: string, today: string, bestYmd: string | null, w?: WxDay) {
+  const lead = Math.round((Date.parse(ymd + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 864e5)
+  return { day_best: !!bestYmd && ymd === bestYmd, has_best: !!bestYmd, day_wet: isWet(w), lead }
 }

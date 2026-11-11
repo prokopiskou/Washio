@@ -28,7 +28,7 @@ import { flattenRange, fromPrice as fromPriceLabel } from '@/lib/range-price'
 import { isCanary, stripWatermark } from '@/lib/canary'
 import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
 import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
-import { type WxDay, bestWashDay, isWet, wxEmoji } from '@/lib/weather'
+import { type WxDay, bestWashDay, isWet, wxEmoji, dayMeta } from '@/lib/weather'
 
 // Κέντρα περιοχών για τοπικές διαφημίσεις: /map?area=vyronas → ο χάρτης ανοίγει εκεί
 // και η λίστα ταξινομείται από εκεί (μέχρι να έρθει η πραγματική θέση του χρήστη).
@@ -984,7 +984,7 @@ function MapPageContent() {
 
   const handleBookingAttempt = () => {
     if (!canBook || !selectedLocation) return
-    funnel('book_click', { locationId: selectedLocation.id, meta: { src: 'map', svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } })
+    funnel('book_click', { locationId: selectedLocation.id, meta: { src: 'map', ...dayMeta(selectedDate, getTodayValue(), bestYmd, selWx), svc: service?.name || '', price: Number(selectedServicePrice) || 0, disc: service ? discFor(service) : 0, guest: coupon.guest, slot_auto: !userPickedSlotRef.current } })
 
     const bookDate = sheetDate || activeDate
     const bookingUrl = `/booking?location=${selectedLocation.id}&service=${selectedService}&slot=${encodeURIComponent(selectedSlot!)}&date=${bookDate}&vehicleType=${encodeURIComponent(vehicleType)}${carChoice?.label ? `&carModel=${encodeURIComponent(carChoice.label)}` : ''}`
@@ -1928,7 +1928,7 @@ function MapPageContent() {
                   const best = ymd === bestYmd
                   const sun = dowOf(ymd) === 0
                   return (
-                    <button key={ymd} onClick={() => { setSelectedDate(ymd); selectionHaptic() }}
+                    <button key={ymd} onClick={() => { setSelectedDate(ymd); selectionHaptic(); funnel('date_select', { locationId: selectedLocation?.id, meta: { src: 'map', ...dayMeta(ymd, getTodayValue(), bestYmd, wxBy.get(ymd)) } }) }}
                       className={`relative shrink-0 w-[50px] ${w ? 'h-[76px]' : 'h-[64px]'} rounded-xl border flex flex-col items-center justify-center gap-0.5 transition-all ${
                         sel ? 'bg-gray-900 border-gray-900 text-white'
                           : best ? 'bg-cyan-50/60 border-dashed border-cyan-500/60 text-gray-900'
@@ -1961,7 +1961,7 @@ function MapPageContent() {
                       {wet ? <><b>{t.rainWarn} ({selWx!.prob}%)</b> · {t.rainTry} <b>{lbl}</b></> : <><b>{t.bestHint}: {lbl}</b> · {t.bestWhy}</>}
                     </p>
                     {selectedDate !== bestYmd && (
-                      <button onClick={() => { setSelectedDate(bestYmd); selectionHaptic() }} className="shrink-0 text-[11px] font-semibold text-cyan-700 border border-cyan-600/40 rounded-full px-2.5 py-1">{t.pick}</button>
+                      <button onClick={() => { setSelectedDate(bestYmd); selectionHaptic(); funnel('date_select', { locationId: selectedLocation?.id, meta: { src: 'map_hint', ...dayMeta(bestYmd, getTodayValue(), bestYmd, wxBy.get(bestYmd)) } }) }} className="shrink-0 text-[11px] font-semibold text-cyan-700 border border-cyan-600/40 rounded-full px-2.5 py-1">{t.pick}</button>
                     )}
                   </div>
                 )

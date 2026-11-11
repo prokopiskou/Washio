@@ -11,7 +11,7 @@ const admin = createClient(
 )
 
 const STEPS = new Set(['consent_all', 'consent_reject', 'consent_custom', 'car_model_unknown', 'car_picker_open', 'car_picked', 'car_picker_close', 'map_open', 'washer_open', 'washer_page', 'no_slots', 'service_select', 'slot_select',
-  'book_click', 'login_wall', 'booking_page', 'pay_click', 'booked',
+  'book_click', 'login_wall', 'booking_page', 'pay_click', 'booked', 'date_select',
   'cancel_open', 'cancel_save_click', 'rescheduled', 'cancelled', 'list_open'])
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const short = (v: unknown, n: number) => (typeof v === 'string' ? v.replace(/[^\w-]/g, '').slice(0, n) : '') || null
