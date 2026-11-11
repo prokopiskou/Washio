@@ -132,11 +132,21 @@ export default function AdminPage() {
       { data: hoursData },
       { data: phonesData },
     ] = await Promise.all([
-      supabase.from('bookings')
-        .select(`*, locations(name, city), services(name, price, ${RANGE_SVC_COLS}), profiles(full_name, phone, email)`)
-        // Admin = μόνο κρατήσεις πλατφόρμας. Τα χειροκίνητα ραντεβού (source='manual') μένουν στο dashboard του πλυντηρίου.
-        .or('source.is.null,source.neq.manual')
-        .order('created_at', { ascending: false }).limit(200),
+      // ΟΛΕΣ οι κρατήσεις (σελίδες των 1000) — πριν «κόλλαγε» στις 200 και τα σύνολα/στατιστικά έβγαιναν λάθος.
+      // Admin = μόνο κρατήσεις πλατφόρμας. Τα χειροκίνητα ραντεβού (source='manual') μένουν στο dashboard του πλυντηρίου.
+      (async () => {
+        const all: any[] = []
+        for (let from = 0; from < 100000; from += 1000) {
+          const { data, error } = await supabase.from('bookings')
+            .select(`*, locations(name, city), services(name, price, ${RANGE_SVC_COLS}), profiles(full_name, phone, email)`)
+            .or('source.is.null,source.neq.manual')
+            .order('created_at', { ascending: false }).order('id', { ascending: true }).range(from, from + 999)
+          if (error) return { data: all.length ? all : null, error }
+          all.push(...(data || []))
+          if (!data || data.length < 1000) break
+        }
+        return { data: all, error: null }
+      })(),
       supabase.from('locations_checklist').select('*').order('created_at', { ascending: false }),
       // Supabase επιστρέφει έως 1000 γραμμές ανά αίτημα → σελίδες των 1000 (πριν «κόλλαγε» στους 1000 χρήστες).
       (async () => {
