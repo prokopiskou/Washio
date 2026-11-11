@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Home as HomeIcon, Star } from 'lucide-react'
+import { Search, X, ChevronRight, Clock, Calendar, ChevronDown, AlertTriangle, MapPin, Locate, SlidersHorizontal, Home as HomeIcon, Star, Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { openDirections, directionsWebUrl } from '@/lib/open-directions'
 import { track } from '@vercel/analytics'
@@ -329,6 +329,8 @@ function MapPageContent() {
   const [waitDone, setWaitDone] = useState(false)
   const [userEmail, setUserEmail] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
+  // Αγαπημένα πλυντήρια του χρήστη → καρδιά στο σημείο της πινέζας + κουμπί ♥ στην κάρτα.
+  const [favIds, setFavIds] = useState<Set<string>>(new Set())
   // Επισκέπτης χωρίς λογαριασμό (π.χ. από διαφήμιση lp=map) → banner προσφοράς.
   const [isGuest, setIsGuest] = useState(false)
   const locWaitCheckedRef = useRef(false)
@@ -1053,6 +1055,10 @@ function MapPageContent() {
       const pinFill = isSelected ? '#10182A' : gold ? '#C9A227' : avail ? '#19A8C7' : '#B4BCC7'
       const pillFill = isSelected ? '#10182A' : gold ? '#C9A227' : '#FFFFFF'
       const pillText = isSelected ? '#FFFFFF' : gold ? '#FFFFFF' : avail ? '#10182A' : '#8A93A0'
+      // Αγαπημένο → αντί για τη λευκή κουκκίδα, μικρή κόκκινη καρδιά πάνω σε λευκό.
+      const center = favIds.has(loc.id)
+        ? `<circle cx="22" cy="18" r="9.5" fill="#FFFFFF"/><path d="M22 25.2 C22 25.2 14.8 20.9 14.8 16.1 C14.8 13.9 16.5 12.3 18.6 12.3 C20.1 12.3 21.3 13.1 22 14.3 C22.7 13.1 23.9 12.3 25.4 12.3 C27.5 12.3 29.2 13.9 29.2 16.1 C29.2 20.9 22 25.2 22 25.2 Z" fill="#E5484D"/>`
+        : `<circle cx="22" cy="18" r="5.5" fill="#FFFFFF"/>`
 
       let svgString: string
       let W: number, H: number, aX: number, aY: number
@@ -1077,7 +1083,7 @@ function MapPageContent() {
     <g filter="url(#shadow-${loc.id})" transform="translate(${cx - 22}, 28)">
       <path d="M16 32 L22 42 L28 32 Z" fill="${pinFill}"/>
       <circle cx="22" cy="18" r="16" fill="${pinFill}" stroke="#FFFFFF" stroke-width="2"/>
-      <circle cx="22" cy="18" r="5.5" fill="#FFFFFF"/>
+      ${center}
     </g>
   </svg>
 `
@@ -1093,7 +1099,7 @@ function MapPageContent() {
     <g filter="url(#shadow-${loc.id})">
       <path d="M16 32 L22 42 L28 32 Z" fill="${pinFill}"/>
       <circle cx="22" cy="18" r="16" fill="${pinFill}" stroke="#FFFFFF" stroke-width="2"/>
-      <circle cx="22" cy="18" r="5.5" fill="#FFFFFF"/>
+      ${center}
     </g>
   </svg>
 `
@@ -1114,7 +1120,7 @@ function MapPageContent() {
       marker.addListener('click', () => selectLocation(loc))
       markersRef.current.push(marker)
     })
-  }, [mapLoaded, filteredLocations, selectedLocation, showLabels, promos])
+  }, [mapLoaded, filteredLocations, selectedLocation, showLabels, promos, favIds])
 
   useEffect(() => { updateMarkers() }, [updateMarkers])
 
@@ -1245,6 +1251,24 @@ function MapPageContent() {
       if (!u) setIsGuest(true)
     }).catch(() => {})
   }, [])
+
+  useEffect(() => {
+    if (!userId) { setFavIds(new Set()); return }
+    createClient().from('favorites').select('location_id').eq('user_id', userId)
+      .then(({ data }) => setFavIds(new Set((data || []).map((f: { location_id: string }) => f.location_id))))
+  }, [userId])
+
+  const toggleFav = async (locId: string) => {
+    if (!userId) { router.push('/login?redirect=%2Fmap'); return }
+    selectionHaptic()
+    const sb = createClient()
+    const on = favIds.has(locId)
+    setFavIds(prev => { const n = new Set(prev); if (on) n.delete(locId); else n.add(locId); return n })
+    const { error } = on
+      ? await sb.from('favorites').delete().eq('user_id', userId).eq('location_id', locId)
+      : await sb.from('favorites').insert({ user_id: userId, location_id: locId })
+    if (error) setFavIds(prev => { const n = new Set(prev); if (on) n.add(locId); else n.delete(locId); return n })
+  }
 
   // Trigger A: η τοποθεσία του χρήστη δεν έχει πλυντήριο κοντά → capture (μία φορά).
   useEffect(() => {
@@ -1408,7 +1432,7 @@ function MapPageContent() {
                   <ChevronDown size={16} />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto overscroll-contain px-4 pb-4 space-y-2.5">
+              <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-2.5 pb-4 space-y-3.5">  {/* pt: να μην κόβεται το badge «ΠΡΟΣΦΟΡΑ» (-top-2) της 1ης κάρτας */}
                 {[...filteredLocations]
                   .sort((a, b) => (locPromoNow(b.id) ? 1 : 0) - (locPromoNow(a.id) ? 1 : 0) || (a.hasAvailability ? 0 : a.laterSlot ? 1 : 2) - (b.hasAvailability ? 0 : b.laterSlot ? 1 : 2))
                   .map(loc => {
@@ -1583,6 +1607,10 @@ function MapPageContent() {
                       </span>
                     </button>
                   )}
+                  <button onClick={() => toggleFav(selectedLocation.id)} aria-label={favIds.has(selectedLocation.id) ? 'Αφαίρεση από αγαπημένα' : 'Προσθήκη στα αγαπημένα'}
+                    className="w-8 h-8 rounded-full bg-white border border-washio-border flex items-center justify-center">
+                    <Heart size={16} className={favIds.has(selectedLocation.id) ? 'text-[#E5484D] fill-[#E5484D]' : 'text-gray-500'} />
+                  </button>
                   <button onClick={() => setSelectedLocation(null)} className="w-8 h-8 rounded-full bg-white border border-washio-border text-gray-500 flex items-center justify-center">
                     <X size={16} />
                   </button>
