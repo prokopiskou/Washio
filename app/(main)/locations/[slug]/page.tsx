@@ -798,7 +798,6 @@ export default function LocationPage() {
               {t.selectPrompt}
             </div>
           )}
-          <p className="text-center text-[12px] text-gray-500 mt-2">{t.reassure}</p>
         </div>
 
       </div>
