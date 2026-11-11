@@ -51,3 +51,9 @@ export function flattenRange<T extends FlatSvc>(s: T): T {
 export function fromPrice(min: number, locale: 'el' | 'en' = 'el'): string {
   return `${locale === 'en' ? 'from' : 'από'} €${Math.round(min)}`
 }
+
+/** Προσφορά σε υπηρεσία εύρους: διαγραμμένο ΟΛΟ το εύρος «120–280 €» (άγκυρα τιμής), όχι «από». */
+export function fullRange(min: number, max: number): string {
+  const a = Math.round(min), b = Math.round(max)
+  return b > a ? `${a}–${b} €` : `${a} €`
+}

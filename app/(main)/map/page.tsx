@@ -24,7 +24,7 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
 import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/lib/car-choice'
-import { flattenRange, fromPrice as fromPriceLabel } from '@/lib/range-price'
+import { flattenRange, fromPrice as fromPriceLabel, fullRange } from '@/lib/range-price'
 import { isCanary, stripWatermark } from '@/lib/canary'
 import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
 import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
@@ -411,6 +411,8 @@ function MapPageContent() {
   const promoForSvc = (s: Service) => promos.find(p => p.service_id === s.id && promoAppliesTo(p, promoDate, getTodayValue()) && (!s.is_range || p.discount_type === 'fixed'))
   // Πελάτης: «από €120» (μόνο το κάτω όριο).
   const rangeText = (s: Service) => fromPriceLabel(rangeFor(s)[0], locale === 'en' ? 'en' : 'el')
+  // Σε προσφορά: διαγραμμένο όλο το εύρος (άγκυρα), π.χ. ~~€120–280~~ €120 μόνο.
+  const rangeStrike = (s: Service) => { const [a, b] = rangeFor(s); return fullRange(a, b) }
   const promoTag = (p: { discount_type: string; discount_value: number }) => p.discount_type === 'fixed'
     ? (locale === 'en' ? `only €${eur(Number(p.discount_value))}` : `μόνο €${eur(Number(p.discount_value))}`)
     : `−${p.discount_type === 'percent' ? `${Number(p.discount_value)}%` : `€${eur(Number(p.discount_value))}`}`
@@ -1662,7 +1664,7 @@ function MapPageContent() {
                       <p className="text-[11px]" style={{ color: '#8A6A0C' }}>{started ? (locale === 'en' ? `until ${Number(ed)} ${MON[Number(em) - 1]}` : `έως ${Number(ed)} ${MON[Number(em) - 1]}`) : (locale === 'en' ? `${Number(sd)} ${MON[Number(sm) - 1]} – ${Number(ed)} ${MON[Number(em) - 1]}` : `${Number(sd)} ${MON[Number(sm) - 1]} – ${Number(ed)} ${MON[Number(em) - 1]}`)}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-[12px] line-through text-gray-400 leading-none">{s.is_range ? rangeText(s) : `€${eur(lp)}`}</p>
+                      <p className="text-[12px] line-through text-gray-400 leading-none">{s.is_range ? rangeStrike(s) : `€${eur(lp)}`}</p>
                       <p className="text-[19px] font-bold leading-tight" style={{ color: '#8A6A0C' }}>€{eur(np)}{p.discount_type === 'fixed' && <span className="text-[11px] font-semibold ml-1">{locale === 'en' ? 'only' : 'μόνο'}</span>}</p>
                       <p className="text-[11px] font-semibold text-washio-navy underline">{locale === 'en' ? 'Book' : 'Κλείσε'}</p>
                     </div>
@@ -1694,7 +1696,7 @@ function MapPageContent() {
                         <p className="text-[11px] mt-0.5 font-medium text-washio-cyan-dark">{locale === 'en' ? 'see price' : 'δες τιμή'}</p>
                       ) : s.is_range && promoForSvc(s) ? (
                         <p className="text-xs mt-0.5 font-semibold">
-                          <span className={`line-through mr-1 font-medium ${isSelected ? 'text-white/50' : 'text-gray-400'}`}>{rangeText(s)}</span>
+                          <span className={`line-through mr-1 font-medium ${isSelected ? 'text-white/50' : 'text-gray-400'}`}>{rangeStrike(s)}</span>
                           <span className={isSelected ? 'text-washio-cyan' : 'text-washio-cyan-dark'}>€{eur(Number(priceFor(s)) || 0)} {locale === 'en' ? 'only' : 'μόνο'}</span>
                         </p>
                       ) : disc > 0 ? (
