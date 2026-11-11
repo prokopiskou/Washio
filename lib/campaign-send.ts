@@ -65,11 +65,30 @@ export async function campaignAudience(db: SupabaseClient, c: Campaign): Promise
       .gte('created_at', seg.exclude_booked_since).neq('status', 'cancelled')
     for (const r of (bk || []) as { user_id: string | null }[]) if (r.user_id) ids.delete(r.user_id)
   }
+  // ΠΟΤΕ σε πλυντήρια: ιδιοκτήτες locations + κάθε email από locations / αιτήσεις / συμβόλαια / onboarding.
+  const partnerEmails = new Set<string>()
+  const [{ data: locs }, { data: apps }, { data: pcs }, { data: pob }] = await Promise.all([
+    db.from('locations').select('owner_id, email').limit(5000),
+    db.from('applications').select('email').limit(5000),
+    db.from('partner_contracts').select('email').limit(5000),
+    db.from('partner_onboarding').select('email').limit(5000),
+  ])
+  for (const l of (locs || []) as { owner_id: string | null; email: string | null }[]) {
+    if (l.owner_id) ids.delete(l.owner_id)
+    if (l.email) partnerEmails.add(l.email.trim().toLowerCase())
+  }
+  for (const r of [...(apps || []), ...(pcs || []), ...(pob || [])] as { email: string | null }[]) {
+    if (r.email) partnerEmails.add(r.email.trim().toLowerCase())
+  }
   const out: Person[] = []
   const all = [...ids]
   for (let i = 0; i < all.length; i += 300) {
     const { data } = await db.from('audience_profiles').select('user_id, email, can_push, can_email, internal').in('user_id', all.slice(i, i + 300))
-    for (const p of (data || []) as (Person & { internal: boolean })[]) if (!p.internal) out.push(p)
+    for (const p of (data || []) as (Person & { internal: boolean })[]) {
+      if (p.internal) continue
+      if (p.email && partnerEmails.has(p.email.trim().toLowerCase())) continue
+      out.push(p)
+    }
   }
   return out
 }
