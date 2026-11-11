@@ -9,15 +9,17 @@ const SUGGEST_HORIZON = 5
 
 /**
  * Ιδανική μέρα: η πρώτη στεγνή μέρα (μέσα σε 5 μέρες) που ΚΑΙ η επόμενη είναι στεγνή
- * — το πλύσιμο «κρατάει». Μόνο αν υπάρχει βροχή κάπου στο διάστημα (αλλιώς όλες είναι καλές).
+ * — το πλύσιμο «κρατάει». Πάντα προτείνει (αν υπάρχει στεγνή μέρα με ώρες).
  * skip(date) → true για μέρες που το πλυντήριο είναι κλειστό / χωρίς ώρες.
  */
 export function bestWashDay(days: WxDay[], skip: (ymd: string) => boolean = () => false): string | null {
+  // Προτείνουμε ΠΑΝΤΑ (και χωρίς βροχή στον ορίζοντα) — λειτουργεί και ως ώθηση «κλείσε τώρα».
   const win = days.slice(0, SUGGEST_HORIZON + 1)
-  if (!win.some(isWet)) return null
   for (let i = 0; i < Math.min(win.length, SUGGEST_HORIZON); i++) {
     const d = win[i]
     if (skip(d.date) || isWet(d)) continue
+    // Σήμερα: αυστηρότερα (η πρόγνωση της μέρας συχνά υποεκτιμά) — καμία ένδειξη βροχής.
+    if (i === 0 && (d.mm > 0 || d.prob >= 20)) continue
     const next = days[i + 1]
     if (next && isWet(next)) continue
     return d.date
