@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { CacChart, type CacDay } from '@/components/admin/CacChart'
 
 // Admin → «Μετρήσεις»: πορεία ανά μέρα + ημερολόγιο αλλαγών με αυτόματο «πριν / μετά».
 type Day = {
@@ -20,7 +21,7 @@ const TONE = { good: 'bg-green-50 text-green-700', bad: 'bg-red-50 text-red-700'
 const AREAS = ['χάρτης', 'checkout', 'κουπόνι', 'διαφημίσεις', 'πλυντήρια', 'άλλο']
 
 export function MetricsPanel() {
-  const [data, setData] = useState<{ daily: Day[]; changes: Change[] } | null>(null)
+  const [data, setData] = useState<{ daily: Day[]; changes: Change[]; cac?: CacDay[] } | null>(null)
   const [err, setErr] = useState('')
   const [open, setOpen] = useState<string | null>(null)
   const [title, setTitle] = useState(''); const [area, setArea] = useState('χάρτης')
@@ -47,6 +48,8 @@ export function MetricsPanel() {
 
   return (
     <div className="space-y-4">
+      <CacChart days={data.cac || []} />
+
       {/* Ημερολόγιο αλλαγών */}
       <div className="rounded-2xl border border-gray-200 bg-white p-4">
         <p className="text-[15px] font-bold text-gray-900">Αλλαγές · τι έκαναν</p>

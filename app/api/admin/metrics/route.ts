@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
 import { windowStats, compare, verdict, logChange } from '@/lib/metrics'
+import { isInternalEmail } from '@/lib/internal'
 
 // Admin → «Μετρήσεις»
 //  GET  → { daily[], changes[] (με πριν/μετά + ετυμηγορία) }
@@ -36,7 +37,43 @@ export async function GET() {
     const rows = compare(before, after)
     return { ...c, days, before, after, rows, verdict: verdict(c.area, rows, days) }
   }))
-  return NextResponse.json({ daily: daily || [], changes: evaluated })
+  return NextResponse.json({ daily: daily || [], changes: evaluated, cac: await cacSeries() })
+}
+
+// CAC: ανά μέρα (Ελλάδα) — κόστος διαφήμισης, κρατήσεις app (χωρίς ακυρωμένες / ομάδα),
+// νέοι πελάτες (1η κράτηση του χρήστη ΕΚΕΙΝΗ τη μέρα). Από την 1η μέρα με κόστος διαφήμισης.
+async function cacSeries() {
+  const ymd = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(new Date(iso))
+  const { data: spend } = await db.from('ad_spend').select('day, amount').order('day', { ascending: true })
+  if (!spend?.length) return []
+  const rows: { user_id: string | null; created_at: string; profiles: { email?: string | null } | null }[] = []
+  for (let from = 0; from < 100000; from += 1000) {
+    const { data, error } = await db.from('bookings').select('user_id, created_at, profiles(email)')
+      .or('source.is.null,source.eq.platform').neq('status', 'cancelled')
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, from + 999)
+    if (error) break
+    rows.push(...((data || []) as unknown as typeof rows))
+    if (!data || data.length < 1000) break
+  }
+  const seen = new Set<string>()
+  const by = new Map<string, { bookings: number; new_customers: number }>()
+  for (const b of rows) {
+    if (isInternalEmail(b.profiles?.email)) continue
+    const d = ymd(b.created_at)
+    const e = by.get(d) || { bookings: 0, new_customers: 0 }
+    e.bookings++
+    if (b.user_id && !seen.has(b.user_id)) { seen.add(b.user_id); e.new_customers++ }
+    by.set(d, e)
+  }
+  const start = String(spend[0].day), today = ymd(new Date().toISOString())
+  const sp = new Map(spend.map(s => [String(s.day), Number(s.amount) || 0]))
+  const out: { d: string; spend: number; bookings: number; new_customers: number }[] = []
+  for (let t = Date.parse(start + 'T12:00:00Z'); ; t += 864e5) {
+    const d = new Date(t).toISOString().slice(0, 10)
+    if (d > today) break
+    out.push({ d, spend: sp.get(d) || 0, ...(by.get(d) || { bookings: 0, new_customers: 0 }) })
+  }
+  return out
 }
 
 export async function POST(req: NextRequest) {
