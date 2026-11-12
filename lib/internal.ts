@@ -10,7 +10,12 @@ export const INTERNAL_EMAILS = new Set<string>([
   'alexandr.sph@gmail.com',              // Σοφία
   'sk5vhy6dhz@privaterelay.appleid.com', // Προκόπης (Apple)
   'g7cbwtydrr@privaterelay.appleid.com', // Dimitris Stamatis (Apple)
+  'appreview@washio.gr',                 // demo λογαριασμός για τον έλεγχο Apple / Google Play
 ])
+
+/** Λογαριασμός ελέγχου καταστημάτων εφαρμογών (Apple/Google reviewers): οι κρατήσεις του
+ *  ΔΕΝ ειδοποιούν το πλυντήριο (push/email) — είναι δοκιμές, όχι πραγματικοί πελάτες. */
+export const isReviewerEmail = (email?: string | null) => String(email || '').trim().toLowerCase() === 'appreview@washio.gr'
 
 export function isInternalEmail(email?: string | null): boolean {
   const e = String(email || '').trim().toLowerCase()

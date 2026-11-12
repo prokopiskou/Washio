@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { isReviewerEmail } from '@/lib/internal'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
@@ -251,7 +252,7 @@ export async function POST(req: NextRequest) {
     // Push στον πρατηριούχο: ακύρωση → το slot άνοιξε.
     // Ίδιος κανόνας με τις νέες κρατήσεις: μόνο σημερινές, εντός ωραρίου.
     try {
-      if (await shouldNotifyOwnerNow(supabase, booking.location_id, booking.slot_date)) {
+      if (!isReviewerEmail(user.email) && await shouldNotifyOwnerNow(supabase, booking.location_id, booking.slot_date)) {
         const ownerId = await getLocationOwnerId(booking.location_id)
         const cd = new Date(booking.slot_date)
         await sendPush(ownerId, {

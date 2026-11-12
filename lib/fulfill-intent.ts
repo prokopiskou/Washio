@@ -1,6 +1,7 @@
 // Δημιουργία κράτησης από επιτυχημένο PaymentIntent (κάρτα).
 // Καλείται από: webhook Stripe ΚΑΙ σελίδα επιβεβαίωσης (αυτο-ίαση αν χαθεί το webhook).
 // Idempotent: αν υπάρχει ήδη κράτηση για το intent → τίποτα.
+import { isReviewerEmail } from '@/lib/internal'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
@@ -252,7 +253,7 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
     // Push στον πρατηριούχο: νέα κράτηση (κάρτα).
     // ΜΟΝΟ αν είναι για σήμερα ΚΑΙ το πλυντήριο είναι ανοιχτό τώρα.
     // (Μελλοντικές/εκτός ωραρίου → τις βλέπει στο πρόγραμμα, καμία push.)
-    if (await shouldNotifyOwnerNow(supabase, m.locationId, m.slotDate)) {
+    if (!isReviewerEmail(m.userEmail) && await shouldNotifyOwnerNow(supabase, m.locationId, m.slotDate)) {
       await sendPush((locationData as { owner_id?: string })?.owner_id, {
         title: '💳 Νέα κράτηση — ΠΛΗΡΩΜΕΝΗ με κάρτα',
         body: `Μη ζητήσεις χρήματα, €${Math.max(0, parseFloat(m.amount) - (parseFloat(m.appliedCredit || '0') || 0)).toFixed(2)} εξοφλημένα online • ${m.serviceName || 'Πλύσιμο'} • ${new Date(m.slotDate).getDate()} ${MONTHS_SHORT[new Date(m.slotDate).getMonth()]} ${m.slotStartTime?.slice(0, 5) || ''}${vehicleLine ? ' • ' + vehicleLine : ''}`,
@@ -263,7 +264,7 @@ export async function fulfillPaymentIntent(intent: Stripe.PaymentIntent): Promis
     // Email στον πρατηριούχο για ΚΑΘΕ νέα κράτηση (και μελλοντικές). Το push
     // πιάνει μόνο τις σημερινές — το email καλύπτει τα υπόλοιπα ώστε να μη
     // χάνεται καμία κράτηση. Best-effort, μόνο εδώ (καμία μαζική αποστολή).
-    await sendOwnerBookingEmail(supabase, {
+    if (!isReviewerEmail(m.userEmail)) await sendOwnerBookingEmail(supabase, {
       ownerId: (locationData as { owner_id?: string })?.owner_id,
       locationId: m.locationId,
       locationName: locationData?.name,

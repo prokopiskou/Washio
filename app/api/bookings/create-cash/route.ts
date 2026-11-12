@@ -1,4 +1,5 @@
 import { flattenRange } from '@/lib/range-price'
+import { isReviewerEmail } from '@/lib/internal'
 import { activePromotionFor, activeAddonPromotions, applyPromo } from '@/lib/promotions'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 import { NextRequest, NextResponse } from 'next/server'
@@ -306,7 +307,7 @@ export async function POST(req: NextRequest) {
     // ΜΟΝΟ αν είναι για σήμερα ΚΑΙ το πλυντήριο είναι ανοιχτό τώρα.
     // (Μελλοντικές/εκτός ωραρίου → τις βλέπει στο πρόγραμμα, καμία push.)
     try {
-      if (await shouldNotifyOwnerNow(admin, locationId, slotDate)) {
+      if (!isReviewerEmail(user.email) && await shouldNotifyOwnerNow(admin, locationId, slotDate)) {
         const ownerId = await getLocationOwnerId(locationId)
         const dPush = new Date(slotDate)
         await sendPush(ownerId, {
@@ -319,7 +320,7 @@ export async function POST(req: NextRequest) {
 
     // Email στον πρατηριούχο για ΚΑΘΕ νέα κράτηση (και μελλοντικές). Best-effort,
     // μόνο εδώ (στιγμή δημιουργίας) — καμία μαζική/αναδρομική αποστολή.
-    await sendOwnerBookingEmail(admin, {
+    if (!isReviewerEmail(user.email)) await sendOwnerBookingEmail(admin, {
       locationId,
       bookingRef,
       serviceName: service.name,
