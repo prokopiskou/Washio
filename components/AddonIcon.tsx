@@ -46,6 +46,7 @@ const META: Record<string, { cat: AddonCategory; Icon: IconT }> = {
   'γυάλισμα φαναριών': { cat: 'service', Icon: Lightbulb },
   'αλλαγή λαδιών': { cat: 'service', Icon: OilCan },
   'αλλαγή υαλοκαθαριστήρων': { cat: 'service', Icon: Wiper },
+  'αλλαγή σετ υαλοκαθαριστήρων': { cat: 'service', Icon: Wiper },
   'γυαλιστικό του ταμπλό': { cat: 'service', Icon: Gauge },
   'γυαλιστικό ταμπλό': { cat: 'service', Icon: Gauge },
   'γυάλισμα ελαστικών': { cat: 'service', Icon: CircleDot },
@@ -70,6 +71,7 @@ const IMG: Record<string, string> = {
   'γυάλισμα φαναριών': 'headlights',
   'αλλαγή λαδιών': 'oil-change',
   'αλλαγή υαλοκαθαριστήρων': 'wipers',
+  'αλλαγή σετ υαλοκαθαριστήρων': 'wipers',
   'γυαλιστικό του ταμπλό': 'dashboard',
   'γυαλιστικό ταμπλό': 'dashboard',
   'βάση κινητού': 'phone-holder',
@@ -87,7 +89,9 @@ const IMG: Record<string, string> = {
 
 /** Άγνωστο (custom) πρόσθετο → «Πρόσθετες υπηρεσίες» με γενικό εικονίδιο. */
 export function addonMeta(name: string): { cat: AddonCategory; Icon: IconT; img?: string } {
-  const k = norm(name || '')
+  let k = norm(name || '')
+  // Μετονομασία από το πλυντήριο (π.χ. «Αλλαγή σετ υαλοκαθαριστήρων») → ίδια φωτογραφία με το βασικό.
+  if (!META[k] && /υαλοκαθαριστ/.test(k)) k = 'αλλαγή υαλοκαθαριστήρων'
   const m = META[k] || { cat: 'service' as const, Icon: SprayCan }
   return IMG[k] ? { ...m, img: `/addons/${IMG[k]}.webp` } : m
 }

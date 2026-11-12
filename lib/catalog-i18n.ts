@@ -33,6 +33,7 @@ const EN: Record<string, string> = {
   'χιονοκουβέρτες': 'Snow socks',
   'πατάκια': 'Floor mats',
   'αλλαγή υαλοκαθαριστήρων': 'Wiper replacement',
+  'αλλαγή σετ υαλοκαθαριστήρων': 'Wiper set replacement',
   'κάλυμμα καθίσματος για κατοικιδίου': 'Pet seat cover',
   'γυάλισμα φανάρια': 'Headlight polishing',
   'γυάλισμα φαναριών': 'Headlight polishing',
