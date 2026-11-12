@@ -147,7 +147,8 @@ export default function AdminPage() {
         }
         return { data: all, error: null }
       })(),
-      supabase.from('locations_checklist').select('*').order('created_at', { ascending: false }),
+      // Μέσω server (το view έχει IBAN/προμήθειες — δεν είναι πλέον ανοιχτό στον browser).
+      fetch('/api/admin/locations-checklist', { cache: 'no-store' }).then(r => r.json()).then(j => ({ data: j.data || null, error: j.error || null })).catch(() => ({ data: null, error: 'fetch' })),
       // Supabase επιστρέφει έως 1000 γραμμές ανά αίτημα → σελίδες των 1000 (πριν «κόλλαγε» στους 1000 χρήστες).
       (async () => {
         const all: any[] = []

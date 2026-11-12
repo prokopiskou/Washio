@@ -213,6 +213,9 @@ const nowSlotKey = () => {
   return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`
 }
 
+// Στήλες πλυντηρίου για τον browser (IBAN/ΑΦΜ/προμήθεια/scan_token ΔΕΝ διαβάζονται από τον client — supabase/lockdown_public.sql).
+const LOC_COLS = 'id, partner_id, name, slug, address, city, postal_code, lat, lng, phone, description, cover_image_url, is_active, subscription_tier, created_at, updated_at, owner_id, photos, waitlist_notified_at, capacity, extra_instructions, google_maps_url, morning_push_date'
+
 export default function DashboardPage() {
   const router = useRouter()
   // Γλώσσα dashboard (Ρυθμίσεις → Γλώσσα). Ελληνικά = αυτούσια, English = λεξικό DASH_EN.
@@ -485,7 +488,7 @@ export default function DashboardPage() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let ownerLocation: any = null
       if (isSupport) {
-        const locationLoad = await supabase.from('locations').select('*').eq('id', supportLocationId).maybeSingle()
+        const locationLoad = await supabase.from('locations').select(LOC_COLS).eq('id', supportLocationId).maybeSingle()
         if (locationLoad.error) console.error('Dashboard location load error')
         ownerLocation = locationLoad.data
       } else {
@@ -493,7 +496,7 @@ export default function DashboardPage() {
         try { await fetch('/api/dashboard/claim', { method: 'POST' }) } catch { /* best-effort */ }
         // Ένας ιδιοκτήτης μπορεί να έχει ΠΟΛΛΑ πλυντήρια → φόρτωσε όλα, δείξε ένα-ένα.
         const { data: mine, error: mineErr } = await supabase
-          .from('locations').select('*').eq('owner_id', user.id).order('created_at', { ascending: true })
+          .from('locations').select(LOC_COLS).eq('owner_id', user.id).order('created_at', { ascending: true })
         if (mineErr) console.error('Dashboard location load error')
         const list = mine || []
         setMyLocations(list.map(l => ({ id: l.id as string, name: String(l.name || ''), city: String(l.city || '') })))
