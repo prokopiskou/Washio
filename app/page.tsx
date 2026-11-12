@@ -257,14 +257,22 @@ export default function HomePage() {
         // Επόμενη κράτηση
         !uid ? none : supabase
           .from('bookings')
-          .select('id, booking_ref, slot_date, slot_start_time, locations(name, slug)')
+          .select('id, booking_ref, slot_date, slot_start_time, duration_minutes, locations(name, slug)')
           .eq('user_id', uid)
           .eq('status', 'confirmed')
+          // Σκαναρισμένη στο πλυντήριο = έγινε ήδη → όχι «επόμενη».
+          .is('checked_in_at', null)
           .gte('slot_date', today)
           .order('slot_date', { ascending: true })
           .order('slot_start_time', { ascending: true })
-          .limit(1)
-          .maybeSingle(),
+          .limit(5)
+          // Σημερινή που η ώρα της πέρασε (έναρξη + διάρκεια + 30') → όχι «επόμενη».
+          .then(r => ({ ...r, data: ((r.data || []) as { slot_date: string; slot_start_time: string; duration_minutes: number | null }[])
+            .find(b => {
+              if (b.slot_date > today) return true
+              const [h, m] = String(b.slot_start_time || '00:00').split(':').map(Number)
+              return h * 60 + m + (Number(b.duration_minutes) || 60) + 30 > athensMinutesOfDay()
+            }) || null })),
         // Τελευταία ολοκληρωμένη
         !uid ? none : supabase
           .from('bookings')
