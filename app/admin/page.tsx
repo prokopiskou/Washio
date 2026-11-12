@@ -166,7 +166,7 @@ export default function AdminPage() {
       supabase.from('payouts').select('*, locations(name)').order('created_at', { ascending: false }),
       supabase.from('service_catalog').select('*').order('sort_order', { ascending: true }),
       supabase.from('location_hours').select('location_id'),
-      supabase.from('locations').select('id, phone, owner_id'),
+      fetch('/api/admin/locations-checklist?phones=1', { cache: 'no-store' }).then(r => r.json()).then(j => ({ data: j.data || null, error: j.error || null })).catch(() => ({ data: null, error: 'fetch' })),
     ])
 
     setBookings(bookingsData || [])

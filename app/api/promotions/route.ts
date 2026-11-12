@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ipFrom, isThrottled } from '@/lib/throttle'
+import { guardPublic } from '@/lib/scrape-guard'
 import { createClient } from '@supabase/supabase-js'
 
 // Δημόσιο: ενεργές προωθήσεις (που δεν έχουν λήξει) για ένα πλυντήριο → εμφάνιση στη σελίδα/κράτηση.
@@ -9,6 +10,8 @@ const athensToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/A
 
 export async function GET(req: NextRequest) {
   // Όριο ανά IP: κόβει bots που «τραβάνε» μαζικά τα δημόσια δεδομένα (κανονικός χρήστης δεν το πλησιάζει).
+  const blocked = await guardPublic(req, 'promos', 300, 600_000)
+  if (blocked) return blocked
   if (await isThrottled('pub:promos:' + ipFrom(req), 120, 60_000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   const location = req.nextUrl.searchParams.get('location') || ''
   // ?all=1 → όλες οι ενεργές προωθήσεις (χάρτης: χρυσή πινέζα + λίστα).

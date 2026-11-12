@@ -214,7 +214,8 @@ const nowSlotKey = () => {
 }
 
 // Στήλες πλυντηρίου για τον browser (IBAN/ΑΦΜ/προμήθεια/scan_token ΔΕΝ διαβάζονται από τον client — supabase/lockdown_public.sql).
-const LOC_COLS = 'id, partner_id, name, slug, address, city, postal_code, lat, lng, phone, description, cover_image_url, is_active, subscription_tier, created_at, updated_at, owner_id, photos, waitlist_notified_at, capacity, extra_instructions, google_maps_url, morning_push_date'
+// Χωρίς phone/partner_id/subscription_tier κ.λπ.: δεν διαβάζονται πλέον από τον browser (supabase/lockdown_public.sql).
+const LOC_COLS = 'id, name, slug, address, city, postal_code, lat, lng, description, cover_image_url, is_active, created_at, updated_at, owner_id, photos, capacity, extra_instructions, google_maps_url'
 
 export default function DashboardPage() {
   const router = useRouter()

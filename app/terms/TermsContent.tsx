@@ -8,7 +8,7 @@ const T = {
     back: '← Washio',
     title: 'Όροι Χρήσης',
     updatedLabel: 'Τελευταία ενημέρωση:',
-    updated: 'Ιούνιος 2026',
+    updated: 'Νοέμβριος 2026',
 
     s1h: '1. Η υπηρεσία',
     s1a: 'Το Washio (washio.gr), που λειτουργεί ο ',
@@ -27,15 +27,18 @@ const T = {
     s5h: '5. Υποχρεώσεις χρήστη',
     s5: 'Δεσμεύεσαι να χρησιμοποιείς την υπηρεσία νόμιμα, να δίνεις σωστά στοιχεία οχήματος και να εμφανίζεσαι στην ώρα της κράτησης. Καταχρηστική χρήση μπορεί να οδηγήσει σε αναστολή λογαριασμού.',
 
-    s6h: '6. Ευθύνη',
+    s6h: '7. Ευθύνη',
     s6: 'Το Washio δεν ευθύνεται για την ποιότητα της υπηρεσίας που παρέχει το πρατήριο ή για ζημίες που προκύπτουν κατά το πλύσιμο· σχετικά αιτήματα απευθύνονται στο πρατήριο, ενώ το Washio συνδράμει στη διαμεσολάβηση.',
 
-    s7h: '7. Δεδομένα',
+    sIPh: '6. Πνευματική ιδιοκτησία & απαγόρευση αντιγραφής δεδομένων',
+    sIP: 'Το περιεχόμενο του Washio (κατάλογος και στοιχεία πρατηρίων, υπηρεσίες, τιμές, διαθεσιμότητα, κριτικές, φωτογραφίες, κείμενα, κώδικας και η βάση δεδομένων στο σύνολό της) αποτελεί πνευματική ιδιοκτησία του Washio και προστατεύεται ως βάση δεδομένων (ν. 2121/1993, άρθρα 45Α επ.). Απαγορεύεται χωρίς γραπτή άδεια: η αυτοματοποιημένη συλλογή δεδομένων (scraping, crawling, bots, scripts), η μαζική ή συστηματική εξαγωγή, αντιγραφή ή αναδημοσίευση περιεχομένου, η χρήση των APIs της πλατφόρμας εκτός της εφαρμογής και του ιστότοπου Washio, καθώς και η χρήση των δεδομένων για τη δημιουργία ανταγωνιστικής υπηρεσίας ή για προσέγγιση των συνεργατών μας. Τα δεδομένα μας περιέχουν μη ορατά αναγνωριστικά που αποδεικνύουν την προέλευσή τους. Παραβίαση οδηγεί σε άμεσο αποκλεισμό και αξίωση αποζημίωσης.',
+
+    s7h: '8. Δεδομένα',
     s7a: 'Η επεξεργασία προσωπικών δεδομένων περιγράφεται στην ',
     s7link: 'Πολιτική Απορρήτου',
     s7b: '.',
 
-    s8h: '8. Αλλαγές & επικοινωνία',
+    s8h: '9. Αλλαγές & επικοινωνία',
     s8a: 'Ενδέχεται να τροποποιήσουμε τους όρους· η συνέχιση χρήσης σημαίνει αποδοχή. Εφαρμοστέο δίκαιο: ελληνικό. Επικοινωνία: ',
     s8b: '.',
   },
@@ -43,7 +46,7 @@ const T = {
     back: '← Washio',
     title: 'Terms of Use',
     updatedLabel: 'Last updated:',
-    updated: 'June 2026',
+    updated: 'November 2026',
 
     s1h: '1. The service',
     s1a: 'Washio (washio.gr), operated by ',
@@ -62,15 +65,18 @@ const T = {
     s5h: '5. User obligations',
     s5: 'You agree to use the service lawfully, to provide correct vehicle details and to show up at the time of your booking. Abusive use may lead to suspension of your account.',
 
-    s6h: '6. Liability',
+    s6h: '7. Liability',
     s6: 'Washio is not liable for the quality of the service provided by the station or for any damage arising during the wash; related claims should be addressed to the station, while Washio assists with mediation.',
 
-    s7h: '7. Data',
+    sIPh: '6. Intellectual property & no data copying',
+    sIP: 'Washio content (station listings and details, services, prices, availability, reviews, photos, text, code and the database as a whole) is the intellectual property of Washio and is protected as a database (Greek Law 2121/1993, art. 45A et seq.; EU Directive 96/9/EC). Without written permission, the following are prohibited: automated data collection (scraping, crawling, bots, scripts); bulk or systematic extraction, copying or republication of content; use of the platform APIs outside the Washio app and website; and use of the data to build a competing service or to approach our partners. Our data contains non-visible identifiers that prove its origin. Violations lead to immediate blocking and a claim for damages.',
+
+    s7h: '8. Data',
     s7a: 'The processing of personal data is described in the ',
     s7link: 'Privacy Policy',
     s7b: '.',
 
-    s8h: '8. Changes & contact',
+    s8h: '9. Changes & contact',
     s8a: 'We may amend these terms; continued use means acceptance. Applicable law: Greek. Contact: ',
     s8b: '.',
   },
@@ -113,6 +119,11 @@ export default function TermsContent() {
           <section>
             <h2 className="text-base font-semibold text-gray-900 mb-1.5">{t.s5h}</h2>
             <p>{t.s5}</p>
+          </section>
+
+          <section>
+            <h2 className="text-base font-semibold text-gray-900 mb-1.5">{t.sIPh}</h2>
+            <p>{t.sIP}</p>
           </section>
 
           <section>

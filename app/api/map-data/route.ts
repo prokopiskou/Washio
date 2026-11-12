@@ -1,6 +1,7 @@
 import { flattenRange } from '@/lib/range-price'
 import { NextRequest, NextResponse } from 'next/server'
 import { ipFrom, isThrottled } from '@/lib/throttle'
+import { guardPublic } from '@/lib/scrape-guard'
 import { WATERMARK, CANARY_LOCATION } from '@/lib/canary'
 import { createClient } from '@supabase/supabase-js'
 
@@ -17,6 +18,8 @@ const admin = createClient(
 
 export async function GET(req: NextRequest) {
   // Όριο ανά IP: κόβει bots που «τραβάνε» μαζικά τα δημόσια δεδομένα (κανονικός χρήστης δεν το πλησιάζει).
+  const blocked = await guardPublic(req, 'map', 300, 600_000)
+  if (blocked) return blocked
   if (await isThrottled('pub:map:' + ipFrom(req), 120, 60_000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   const date = req.nextUrl.searchParams.get('date') || ''
   const dow = Number(req.nextUrl.searchParams.get('dow'))

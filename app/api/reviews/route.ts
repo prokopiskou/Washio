@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ipFrom, isThrottled } from '@/lib/throttle'
+import { guardPublic } from '@/lib/scrape-guard'
 import { createClient } from '@supabase/supabase-js'
 
 // Δημόσιες κριτικές ενός πλυντηρίου ΜΑΖΙ με το όνομα του πελάτη.
@@ -17,6 +18,8 @@ function displayName(full: string | null | undefined): string {
 
 export async function GET(req: NextRequest) {
   // Όριο ανά IP: κόβει bots που «τραβάνε» μαζικά τα δημόσια δεδομένα (κανονικός χρήστης δεν το πλησιάζει).
+  const blocked = await guardPublic(req, 'reviews', 200, 600_000)
+  if (blocked) return blocked
   if (await isThrottled('pub:reviews:' + ipFrom(req), 90, 60_000)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   const loc = req.nextUrl.searchParams.get('location') || ''
   if (!/^[0-9a-f-]{36}$/i.test(loc)) return NextResponse.json({ reviews: [] }, { status: 400 })
