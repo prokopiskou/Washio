@@ -1,5 +1,5 @@
 import { flattenRange } from '@/lib/range-price'
-import { activePromotionFor, applyPromo } from '@/lib/promotions'
+import { activePromotionFor, activeAddonPromotions, applyPromo } from '@/lib/promotions'
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
@@ -147,10 +147,13 @@ export async function POST(req: NextRequest) {
     // Πρόσθετα που πλήρωσε ο πελάτης (όνομα + τιμή) — αποθηκεύονται στην κράτηση ώστε
     // το πλυντήριο να βλέπει ΤΙ πληρώθηκε (δεν αρκεί μόνο το σύνολο).
     const addonLines: { n: string; p: number }[] = []
+    const addonPromos = await activeAddonPromotions(admin, locationId, slotDate)
     for (const a of locAddons || []) {
       const priceOverride = (a as { price_override: number | null }).price_override
       const ad = (a as { addons?: { price?: number; name?: string } }).addons
-      const pr = Number(priceOverride ?? ad?.price ?? 0)
+      const ap = addonPromos.get((a as { addon_id: string }).addon_id)
+      const base = Number(priceOverride ?? ad?.price ?? 0)
+      const pr = ap ? applyPromo(base, ap) : base
       amount += pr
       addonLines.push({ n: String(ad?.name || 'Πρόσθετο').slice(0, 40), p: pr })
     }

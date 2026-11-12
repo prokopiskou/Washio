@@ -144,6 +144,9 @@ type Addon = {
   id: string
   name: string
   price: number
+  orig?: number      // αρχική τιμή όταν έχει προσφορά (π.χ. υαλοκαθαριστήρες −15%)
+  promoTag?: string  // «−15%» / «μόνο €X»
+  promoUntil?: string
 }
 
 type Vehicle = {
@@ -697,6 +700,22 @@ function BookingPageContent() {
         // Χωρίς τιμή από το πλυντήριο → δεν εμφανίζεται. Τιμή 0 που ΕΒΑΛΕ το πλυντήριο → «Δωρεάν».
         .filter((a: any) => Number(a.price) > 0 || (a.set && Number(a.price) === 0))
         .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)))
+        // Προσφορές σε πρόσθετα (μόνο εμφάνιση — η τελική τιμή υπολογίζεται στον server).
+        if (locationId) {
+          fetch(`/api/promotions?location=${locationId}`).then(r => r.json()).then(j => {
+            const ps = ((j.promotions || []) as { addon_id?: string | null; discount_type: 'percent' | 'amount' | 'fixed'; discount_value: number; starts_on: string; ends_on: string; by_booking_date?: boolean }[])
+              .filter(p => p.addon_id && promoAppliesTo(p, dateStr, athensToday()))
+            if (!ps.length) return
+            setAddons(prev => prev.map(a => {
+              const p = ps.find(x => x.addon_id === a.id)
+              if (!p || !(a.price > 0)) return a
+              const np = applyPromo(a.price, p)
+              if (!(np < a.price)) return a
+              const tag = p.discount_type === 'percent' ? `−${Math.round(Number(p.discount_value))}%` : p.discount_type === 'fixed' ? `μόνο ${eurN(np)}` : `−${eurN(Number(p.discount_value))}`
+              return { ...a, price: np, orig: a.price, promoTag: tag, promoUntil: p.ends_on }
+            }))
+          }).catch(() => {})
+        }
       }
 
       if (!user) { setSessionLoading(false); return }
@@ -1264,15 +1283,22 @@ function BookingPageContent() {
                           <button
                             key={addon.id}
                             onClick={() => toggleAddon(addon.id)}
-                            className={`w-full flex items-center gap-3 px-3.5 py-3 text-left transition-colors ${selected ? 'bg-washio-cyan-light' : 'bg-white active:bg-gray-50'}`}
+                            className={`w-full flex items-center gap-3 px-3.5 py-3 text-left transition-colors ${selected ? 'bg-washio-cyan-light' : addon.orig ? 'bg-[#FFFBEF] active:bg-[#FFF6DC]' : 'bg-white active:bg-gray-50'}`}
+                            style={addon.orig ? { boxShadow: 'inset 0 0 0 1.5px rgba(201,162,39,0.45)', borderRadius: 12 } : undefined}
                           >
                             <AddonIcon name={addon.name} selected={selected} />
                             <span className={`flex-1 min-w-0 text-[14px] leading-snug ${selected ? 'text-washio-navy font-semibold' : 'text-washio-navy font-medium'}`}>
                               {translateCatalogName(addon.name, locale)}
+                              {addon.orig && (
+                                <span className="block text-[10.5px] font-bold tracking-wide mt-0.5" style={{ color: '#8A6A0C' }}>
+                                  ★ {locale === 'en' ? 'OFFER' : 'ΠΡΟΣΦΟΡΑ'} {addon.promoTag}{addon.promoUntil ? ` · ${locale === 'en' ? 'until' : 'έως'} ${Number(addon.promoUntil.slice(8, 10))}/${Number(addon.promoUntil.slice(5, 7))}` : ''}
+                                </span>
+                              )}
                             </span>
                             {/* Επιλεγμένο: ✓ + τιμή (όχι «−€4», που διαβαζόταν σαν έκπτωση). */}
                             <span className={`inline-flex items-center gap-1.5 text-[14px] font-bold shrink-0 ${selected ? 'text-washio-cyan-dark' : 'text-washio-navy'}`}>
                               {/* Τιμή 0 → «Δωρεάν» (όχι «+0€») */}
+                              {addon.orig && <span className="line-through text-gray-400 font-medium text-[12px]">{eurN(addon.orig)}</span>}
                               {selected
                                 ? <><Check size={15} strokeWidth={3} />{addon.price > 0 ? eurN(addon.price) : (locale === 'en' ? 'Free' : 'Δωρεάν')}</>
                                 : <>{addon.price > 0 ? `+ ${eurN(addon.price)}` : <span className="text-green-600">{locale === 'en' ? 'Free' : 'Δωρεάν'}</span>}</>}

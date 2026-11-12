@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   const locationId = req.nextUrl.searchParams.get('location') || ''
   if (!locationId || !(await canManage(locationId))) return NextResponse.json({ error: 'Χωρίς πρόσβαση' }, { status: 403 })
   const { data, error } = await admin.from('promotions')
-    .select('id, service_id, discount_type, discount_value, starts_on, ends_on, is_active, created_at')
+    .select('id, service_id, discount_type, discount_value, starts_on, ends_on, is_active, created_at').not('service_id', 'is', null)
     .eq('location_id', locationId).order('created_at', { ascending: false }).limit(50)
   if (error) return NextResponse.json({ error: error.message, promotions: [] }, { status: 200 })
   return NextResponse.json({ promotions: data || [] })

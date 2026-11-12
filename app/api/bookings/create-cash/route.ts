@@ -1,5 +1,5 @@
 import { flattenRange } from '@/lib/range-price'
-import { activePromotionFor, applyPromo } from '@/lib/promotions'
+import { activePromotionFor, activeAddonPromotions, applyPromo } from '@/lib/promotions'
 import { ipFrom, isThrottled } from '@/lib/throttle'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -180,10 +180,13 @@ export async function POST(req: NextRequest) {
           .eq('location_id', locationId)
           .in('addon_id', requestedAddonIds)
 
+        const addonPromos = await activeAddonPromotions(admin, locationId, slotDate)
         for (const a of locAddons || []) {
           const priceOverride = (a as { price_override: number | null }).price_override
           const ad = (a as { addons?: { price?: number; name?: string } }).addons
-          const pr = Number(priceOverride ?? ad?.price ?? 0)
+          const ap = addonPromos.get((a as { addon_id: string }).addon_id)
+          const base = Number(priceOverride ?? ad?.price ?? 0)
+          const pr = ap ? applyPromo(base, ap) : base
           amount += pr
           addonLines.push({ name: String(ad?.name || 'Πρόσθετο'), price: pr })
         }
