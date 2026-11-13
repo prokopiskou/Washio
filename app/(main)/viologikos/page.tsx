@@ -6,6 +6,7 @@ import { MapPin, Star, ChevronRight } from 'lucide-react'
 import { isCanary, stripWatermark } from '@/lib/canary'
 import { athensToday, weekdayMon1FromYmd } from '@/lib/time'
 import { promoAppliesTo } from '@/lib/promotions'
+import { getCachedPosition, getCurrentPosition } from '@/lib/geo'
 
 // Landing διαφήμισης «Βιολογικός καθαρισμός»: όλα τα πλυντήρια με βιολογικό, κοντινότερα πρώτα.
 // Προσφορές σταθερής τιμής (π.χ. «μόνο 120€») μπαίνουν πρώτες. Πάτημα → σελίδα πλυντηρίου με επιλεγμένο τον βιολογικό.
@@ -32,7 +33,9 @@ export default function ViologikosPage() {
       .then(j => setLocs(((j.locations || []) as Loc[]).filter(l => !isCanary(l.id)).map(l => ({ ...l, name: stripWatermark(l.name || '') }))))
       .catch(() => setLocs([]))
     fetch('/api/promotions?all=1').then(r => r.json()).then(j => setPromos(j.promotions || [])).catch(() => {})
-    navigator.geolocation?.getCurrentPosition(p => setMe({ lat: p.coords.latitude, lng: p.coords.longitude }), () => {}, { timeout: 8000, maximumAge: 600000 })
+    // Μέσω lib/geo: στην εφαρμογή native άδεια (μία φορά), όχι το popup του WebView.
+    const c = getCachedPosition(); if (c) setMe({ lat: c.latitude, lng: c.longitude })
+    getCurrentPosition({ enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }).then(p => setMe({ lat: p.latitude, lng: p.longitude })).catch(() => {})
   }, [])
 
   const rows = useMemo(() => {

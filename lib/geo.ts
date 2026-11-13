@@ -62,6 +62,8 @@ export async function getFastPosition(onUpdate: (p: GeoResult, source: 'cache' |
     .catch(() => { /* κρατάμε τη γρήγορη */ })
 }
 
+let permReq: ReturnType<typeof Geolocation.requestPermissions> | null = null
+
 export async function getCurrentPosition(options?: {
   enableHighAccuracy?: boolean
   timeout?: number
@@ -73,18 +75,24 @@ export async function getCurrentPosition(options?: {
     maximumAge: options?.maximumAge ?? 300000,
   }
 
-  if (Capacitor.isNativePlatform()) {
+  if (Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('Geolocation')) {
     // Native (iOS/Android): μόνιμο permission μέσω του λειτουργικού.
-    // ΠΡΟΣΟΧΗ: παλιά binaries (1.0/1.0.1) φορτώνουν το washio.gr αλλά ΔΕΝ
-    // περιέχουν το plugin → UNIMPLEMENTED. Σε κάθε αποτυχία → browser fallback.
-    try {
-      const pos = await Geolocation.getCurrentPosition(opts)
-      const r = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
-      saveCachedPosition(r)
-      return r
-    } catch {
-      // πέφτουμε στο browser fallback παρακάτω
+    // ΠΟΤΕ fallback στο navigator.geolocation όταν υπάρχει το plugin: το WKWebView βγάζει ΔΙΚΟ του
+    // «washio.gr θέλει την τοποθεσία σου» σε κάθε άνοιγμα (αυτό ήταν οι καθημερινές ερωτήσεις,
+    // π.χ. όταν το γρήγορο fix έληγε σε 5″ ή όταν το GPS δεν απαντούσε).
+    const st = await Geolocation.checkPermissions().catch(() => null)
+    const granted = (x: typeof st) => !!x && (x.location === 'granted' || x.coarseLocation === 'granted')
+    if (st && !granted(st)) {
+      if (st.location === 'denied') throw new Error('denied')
+      // Ζητάμε ΜΙΑ φορά ταυτόχρονα (quick + precise καλούν παράλληλα).
+      permReq = permReq || Geolocation.requestPermissions().finally(() => { setTimeout(() => { permReq = null }, 0) })
+      const st2 = await permReq.catch(() => null)
+      if (!granted(st2)) throw new Error('denied')
     }
+    const pos = await Geolocation.getCurrentPosition(opts)
+    const r = { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
+    saveCachedPosition(r)
+    return r
   }
 
   // Browser fallback.
