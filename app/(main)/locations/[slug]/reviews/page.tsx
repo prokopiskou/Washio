@@ -17,6 +17,8 @@ const T = {
     emptySub: 'Γίνε ο πρώτος που θα αφήσει κριτική.',
     customer: 'Πελάτης Washio',
     continue: 'Συνέχεια',
+    rateTitle: 'Έπλυνες εδώ — πώς ήταν;',
+    rateSub: 'Πάτησε ένα αστέρι για να αφήσεις κριτική.',
   },
   en: {
     loading: 'Loading...',
@@ -26,6 +28,8 @@ const T = {
     emptySub: 'Be the first to leave a review.',
     customer: 'Washio customer',
     continue: 'Continue',
+    rateTitle: 'You washed here — how was it?',
+    rateSub: 'Tap a star to leave a review.',
   },
 }
 
@@ -67,6 +71,8 @@ export default function ReviewsPage() {
   const [loading, setLoading] = useState(true)
   const [location, setLocation] = useState<Location | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
+  // Έχει πλύνει εδώ και δεν έχει βαθμολογήσει → κάρτα «άφησε κριτική».
+  const [pending, setPending] = useState<{ ref: string; t: string } | null>(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -98,6 +104,8 @@ export default function ReviewsPage() {
 
       setReviews(reviewsData)
       setLoading(false)
+      fetch(`/api/review/pending?location=${locationData.id}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+        .then(j => { if (j?.pending?.ref) setPending({ ref: j.pending.ref, t: j.pending.t }) }).catch(() => {})
     }
 
     loadData()
@@ -135,6 +143,22 @@ export default function ReviewsPage() {
               <h1 className="text-[20px] font-semibold tracking-tight text-gray-900 truncate">{location.name}</h1>
             </div>
           </div>
+
+          {/* Έπλυνε εδώ χωρίς κριτική → βαθμολόγηση με ένα πάτημα */}
+          {pending && (
+            <div className="bg-white rounded-2xl border-2 border-gray-900 px-5 py-5 flex flex-col items-center gap-2 text-center" style={{ boxShadow: '0 4px 14px rgba(0,0,0,0.06)' }}>
+              <p className="text-[15px] font-semibold text-gray-900">{t.rateTitle}</p>
+              <div className="flex items-center gap-1.5 py-1">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button key={n} aria-label={`${n}`} className="p-1 active:scale-90 transition-transform"
+                    onClick={() => { lightTap(); router.push(`/review?ref=${encodeURIComponent(pending.ref)}&t=${pending.t}&rating=${n}`) }}>
+                    <Star size={34} strokeWidth={1.6} className="fill-none text-gray-900" />
+                  </button>
+                ))}
+              </div>
+              <p className="text-[12px] text-gray-500">{t.rateSub}</p>
+            </div>
+          )}
 
           {/* Overall rating block */}
           {count > 0 && (
