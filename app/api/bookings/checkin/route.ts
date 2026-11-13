@@ -88,7 +88,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Η κράτηση έχει ακυρωθεί', booking: view(b, {}, !!scanLocationId) }, { status: 409 })
     }
     const today = athensToday()
-    if (b.slot_date !== today) {
+    // Βιολογικός: ο πελάτης συχνά το φέρνει άλλη μέρα (το αφήνει από την προηγούμενη / το συνεννοείται με το πλυντήριο)
+    // → δεκτό check-in έως 7 μέρες πριν ή μετά την ημερομηνία της κράτησης. Τα απλά πλυσίματα: μόνο την ίδια μέρα.
+    const isBio = !!b.services?.is_range || /βιολογ/i.test(b.services?.name || '')
+    const dayDiff = Math.abs(Math.round((Date.parse(b.slot_date + 'T12:00:00Z') - Date.parse(today + 'T12:00:00Z')) / 864e5))
+    if (b.slot_date !== today && !(isBio && dayDiff <= 7)) {
       const [y, m, d] = String(b.slot_date).split('-')
       return NextResponse.json({ ok: false, error: `Η κράτηση είναι για ${d}/${m}/${y} — όχι για σήμερα`, booking: view(b, {}, !!scanLocationId) }, { status: 409 })
     }
