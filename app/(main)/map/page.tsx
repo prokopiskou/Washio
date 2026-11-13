@@ -570,6 +570,8 @@ function MapPageContent() {
 
       return {
         ...loc,
+        // Χωρίς πόλη (π.χ. νέα πλυντήρια εκτός Αθήνας) → δείξε τη διεύθυνση, να μη μένει κενή η «τοποθεσία».
+        city: (loc.city || '').trim() || String(loc.address || '').replace(/,\s*$/, '').trim(),
         distance: lat && lng ? getDistance(lat, lng, loc.lat, loc.lng) : undefined,
         hasAvailability,
         nextSlot,

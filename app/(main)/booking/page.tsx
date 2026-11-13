@@ -738,8 +738,17 @@ function BookingPageContent() {
       const filteredVehicles = vList.filter(v => vehicleType === 'Μοτοσικλέτα' ? v.type === 'Μοτοσικλέτα' : v.type !== 'Μοτοσικλέτα')
       setVehicles(filteredVehicles)
 
-      if (filteredVehicles.length > 0) {
-        const matchingVehicle = filteredVehicles.find(v => v.type === vehicleType) || filteredVehicles[0]
+      // Αυτοκίνητο που διάλεξε ΤΩΡΑ στον χάρτη/σελίδα (?carModel=) → προτεραιότητα έναντι του τελευταίου αποθηκευμένου.
+      // (Bug 12/11: διάλεξε Fiat Panda, η κράτηση πήρε το παλιό αποθηκευμένο Porsche 911.)
+      const urlModelKey = urlCarModel.trim().toLowerCase()
+      const urlVehicle = urlModelKey ? filteredVehicles.find(v => (v.car_model || '').trim().toLowerCase() === urlModelKey) : undefined
+      if (urlModelKey && !urlVehicle) {
+        setSelectedVehicleId('new')
+        setVehicleFormType(vehicleType)
+        setCarModel(urlCarModel)
+        if (serviceData) applyModelSize(urlCarModel, serviceData, false)
+      } else if (filteredVehicles.length > 0) {
+        const matchingVehicle = urlVehicle || filteredVehicles.find(v => v.type === vehicleType) || filteredVehicles[0]
         setSelectedVehicleId(matchingVehicle.id)
         setVehicleFormType(matchingVehicle.type)
         setCarModel(matchingVehicle.car_model || urlCarModel); setIsTaxi(!!matchingVehicle.is_taxi)
