@@ -3,6 +3,7 @@
 import { ApplicationsPipeline } from '@/components/admin/ApplicationsPipeline'
 import { CheckoutExperimentPanel } from '@/components/admin/CheckoutExperimentPanel'
 import { MetricsPanel } from '@/components/admin/MetricsPanel'
+import { TiersPanel } from '@/components/admin/TiersPanel'
 import { AnnouncementsPanel } from '@/components/admin/AnnouncementsPanel'
 import { formatDuration } from '@/lib/duration'
 import { useState, useEffect, useCallback } from 'react'
@@ -58,11 +59,11 @@ export default function AdminPage() {
   const router = useRouter()
   const [authorized, setAuthorized] = useState(false)
   const [authChecking, setAuthChecking] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons' | 'payouts' | 'metrics' | 'announcements'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons' | 'payouts' | 'metrics' | 'tiers' | 'announcements'>('overview')
   // Επιστροφή από επεξεργασία/νέο πλυντήριο → ίδια καρτέλα (/admin?tab=locations), όχι η αρχική.
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab')
-    if (tab && ['overview', 'bookings', 'locations', 'users', 'applications', 'financials', 'addons', 'payouts'].includes(tab)) setActiveTab(tab as typeof activeTab)
+    if (tab && ['overview', 'bookings', 'locations', 'users', 'applications', 'financials', 'addons', 'payouts', 'metrics', 'tiers'].includes(tab)) setActiveTab(tab as typeof activeTab)
   }, [])
   const [bookings, setBookings] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
@@ -662,6 +663,7 @@ export default function AdminPage() {
               { key: 'users', label: 'Χρήστες', count: users.length },
               { key: 'applications', label: 'Αιτήσεις', count: pendingApplications, highlight: pendingApplications > 0 },
               { key: 'metrics', label: 'Μετρήσεις' },
+              { key: 'tiers', label: 'Κατηγορίες' },
               { key: 'announcements', label: 'Ενημερώσεις' },
               { key: 'financials', label: 'Οικονομικά' },
               { key: 'payouts', label: 'Εκκαθαρίσεις' },
@@ -1373,6 +1375,7 @@ export default function AdminPage() {
               })()}
 
               {activeTab === 'metrics' && <MetricsPanel />}
+              {activeTab === 'tiers' && <TiersPanel />}
               {activeTab === 'announcements' && <AnnouncementsPanel locations={locations} />}
               {activeTab === 'financials' && <div className="mb-4"><CheckoutExperimentPanel /></div>}
               {activeTab === 'financials' && (() => {
