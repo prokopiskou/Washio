@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { lightTap, successHaptic, errorHaptic } from '@/lib/haptics'
-import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle, MessageCircle, LogOut, Store, Gift } from 'lucide-react'
+import { ChevronRight, ChevronDown, ChevronUp, MapPin, Trash2, Plus, CheckCircle, MessageCircle, Mail, Phone, LogOut, Store, Gift } from 'lucide-react'
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from '@/lib/support'
 import { BottomNav } from '@/components/BottomNav'
 import { WashioClubCard } from '@/components/WashioClubCard'
 import { openConsentSettings } from '@/lib/consent'
@@ -23,7 +24,7 @@ const T = {
     saved: 'Αποθηκεύτηκε', saving: 'Αποθήκευση...', save: 'Αποθήκευση',
     myVehicle: 'Το όχημά μου', noVehicles: 'Δεν υπάρχουν αποθηκευμένα οχήματα.',
     mainTag: 'ΚΥΡΙΟ', main: 'Κύριο', plate: 'Μάρκα & μοντέλο (π.χ. Toyota Yaris)', cancel: 'Άκυρο', addVehicle: 'Προσθήκη οχήματος',
-    notifications: 'Ειδοποιήσεις', support: 'Επικοινωνία & Support', logout: 'Έξοδος',
+    notifications: 'Ειδοποιήσεις', support: 'Επικοινωνία & Support', callUs: 'Κλήση', logout: 'Έξοδος',
     deleteAccount: 'Διαγραφή λογαριασμού', language: 'Γλώσσα',
     terms: 'Όροι', privacy: 'Απόρρητο', cookies: 'Cookies', cookieSettings: 'Ρυθμίσεις cookies',
     partnerHub: 'Η επιχείρησή μου', partnerHubSub: 'Άνοιξε το dashboard του πλυντηρίου',
@@ -40,7 +41,7 @@ const T = {
     saved: 'Saved', saving: 'Saving...', save: 'Save',
     myVehicle: 'My vehicle', noVehicles: 'No saved vehicles.',
     mainTag: 'MAIN', main: 'Main', plate: 'Make & model (e.g. Toyota Yaris)', cancel: 'Cancel', addVehicle: 'Add vehicle',
-    notifications: 'Notifications', support: 'Contact & Support', logout: 'Log out',
+    notifications: 'Notifications', support: 'Contact & Support', callUs: 'Call', logout: 'Log out',
     deleteAccount: 'Delete account', language: 'Language',
     terms: 'Terms', privacy: 'Privacy', cookies: 'Cookies', cookieSettings: 'Cookie settings',
     partnerHub: 'My business', partnerHubSub: 'Open your car-wash dashboard',
@@ -458,11 +459,20 @@ export default function ProfilePage() {
 
           {/* Support */}
           <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
-            <button onClick={() => window.location.href = 'mailto:support@washio.gr'} className="w-full flex items-center gap-3 px-[18px] py-[18px]">
+            <div className="flex items-center gap-3 px-[18px] pt-[16px]">
               <MessageCircle size={18} className="text-washio-cyan-dark" strokeWidth={1.8} />
               <p className="flex-1 text-[15px] font-semibold text-washio-navy text-left">{t.support}</p>
-              <ChevronRight size={16} className="text-washio-cyan-dark" />
-            </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 px-[18px] pt-3 pb-[16px]">
+              <a href={`mailto:${SUPPORT_EMAIL}`} onClick={() => lightTap()}
+                className="h-11 rounded-xl border border-washio-border flex items-center justify-center gap-2 text-[14px] font-semibold text-washio-navy active:bg-gray-50">
+                <Mail size={16} strokeWidth={1.8} />Email
+              </a>
+              <a href={`tel:${SUPPORT_PHONE}`} onClick={() => lightTap()}
+                className="h-11 rounded-xl bg-washio-navy flex items-center justify-center gap-2 text-[14px] font-semibold text-white active:opacity-90">
+                <Phone size={16} strokeWidth={1.8} />{t.callUs}
+              </a>
+            </div>
           </div>
 
           {/* Logout */}

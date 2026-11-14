@@ -24,7 +24,7 @@ type Row = {
   profiles: { full_name?: string; phone?: string } | null
 }
 
-const SEL = 'id, booking_ref, status, user_id, location_id, slot_date, slot_start_time, duration_minutes, total_amount, service_price, coupon_amount, stripe_payment_status, source, car_plate, car_model, customer_name, customer_phone, addons, services(name, is_range, price_min, price_max, price_min_suv, price_max_suv), locations(owner_id, name), profiles(full_name, phone)'
+const SEL = 'id, booking_ref, status, user_id, location_id, slot_date, slot_start_time, duration_minutes, total_amount, service_price, coupon_amount, stripe_payment_status, source, car_plate, car_model, customer_name, customer_phone, addons, services(name, is_range, price_min, price_max, price_min_suv, price_max_suv), locations(owner_id, name), profiles(full_name)'
 
 function view(b: Row, extra: Record<string, unknown>, staff = false) {
   const total = Number(b.total_amount) || 0
@@ -42,7 +42,8 @@ function view(b: Row, extra: Record<string, unknown>, staff = false) {
     plate: b.car_plate || '',
     car: b.car_model || '',
     name: b.customer_name || b.profiles?.full_name || '',
-    phone: staff ? '' : (b.customer_phone || b.profiles?.phone || ''),
+    // Κινητό μόνο σε χειροκίνητες κρατήσεις του πλυντηρίου — των πελατών Washio δεν εμφανίζεται.
+    phone: staff || b.source !== 'manual' ? '' : (b.customer_phone || ''),
     pay,
     collect: pay === 'cash' ? Math.max(0, total - coupon) : 0,
     range: rangeLabel(b.total_amount, b.services, b.service_price),

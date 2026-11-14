@@ -526,7 +526,7 @@ export default function DashboardPage() {
       // έως 5000 γραμμές — πριν: ΟΛΕΣ οι κρατήσεις χωρίς όριο (Supabase κόβει
       // σιωπηλά στις 1000 → λάθος στατιστικά, βαρύ φορτίο κάθε 30'').
       const sinceYmd = (() => { const d = new Date(); d.setMonth(d.getMonth() - 12); return ymdFromLocalDate(d) })()
-      const BK_COLS = `id, booking_ref, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, addons, service_price, services(name, ${RANGE_SVC_COLS}), profiles(full_name, phone, email)`
+      const BK_COLS = `id, booking_ref, slot_date, slot_start_time, total_amount, status, service_id, user_id, created_at, stripe_payment_status, source, customer_name, customer_phone, duration_minutes, coupon_amount, addons, service_price, services(name, ${RANGE_SVC_COLS}), profiles(full_name)`
       const bkQuery = (cols: string) => supabase.from('bookings')
         .select(cols)
         .eq('location_id', locationId)
@@ -1571,8 +1571,10 @@ export default function DashboardPage() {
                             </span>
                           )}
                           {(() => {
-                            const phone = (b.customer_phone || b.profiles?.phone || '').trim()
-                            const contact = phone || b.profiles?.email
+                            // Κινητό πελάτη Washio ΔΕΝ φαίνεται στο πλυντήριο — την επικοινωνία την κάνει η Washio.
+                            // Φαίνεται μόνο στις δικές του (χειροκίνητες) κρατήσεις, όπου το πέρασε το ίδιο.
+                            const phone = b.source === 'manual' ? (b.customer_phone || '').trim() : ''
+                            const contact = phone
                             if (!contact) return null
                             return (
                               <div className="flex items-center gap-1.5 mt-1">

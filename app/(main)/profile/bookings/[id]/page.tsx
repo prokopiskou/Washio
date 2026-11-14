@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { SUPPORT_PHONE, SUPPORT_PHONE_LABEL } from '@/lib/support'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useBodyScrollLock } from '@/lib/useBodyScrollLock'
@@ -753,6 +754,7 @@ export default function BookingDetailPage() {
               <p className="text-xs text-gray-500 leading-relaxed text-center">
                 {t.supportNote1}
                 <a href="mailto:support@washio.gr" className="text-gray-900 font-medium">support@washio.gr</a>
+                {' · '}<a href={`tel:${SUPPORT_PHONE}`} className="text-gray-900 font-medium whitespace-nowrap">📞 {SUPPORT_PHONE_LABEL}</a>
               </p>
             </div>
 
@@ -789,6 +791,7 @@ export default function BookingDetailPage() {
               <p className="text-xs text-gray-500 leading-relaxed text-center">
                 {t.supportNote1}
                 <a href="mailto:support@washio.gr" className="text-gray-900 font-medium">support@washio.gr</a>
+                {' · '}<a href={`tel:${SUPPORT_PHONE}`} className="text-gray-900 font-medium whitespace-nowrap">📞 {SUPPORT_PHONE_LABEL}</a>
               </p>
             </div>
 

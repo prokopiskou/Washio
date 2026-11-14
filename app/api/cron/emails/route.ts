@@ -203,7 +203,7 @@ export async function GET(req: Request) {
         : `💶 Πληρώνει εκεί ${eur(due)}${coupon > 0 ? ` (κουπόνι −${eur(coupon)})` : ''}`
       const car = ['🚗', booking.car_model, booking.car_plate, taxiIds.has(booking.id) ? '🚕 ΤΑΞΙ' : ''].filter(Boolean).join(' ').replace(/^🚗$/, '')
       const lines = [
-        [name || 'Πελάτης', prof?.phone].filter(Boolean).join(' · '),
+        name || 'Πελάτης', // χωρίς κινητό πελάτη — την επικοινωνία την κάνει η Washio
         [service?.name || 'Πλύσιμο', addonNames.length ? '+ ' + addonNames.join(', ') : ''].filter(Boolean).join(' '),
         car,
         money,
