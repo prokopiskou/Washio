@@ -147,6 +147,7 @@ type Addon = {
   orig?: number      // αρχική τιμή όταν έχει προσφορά (π.χ. υαλοκαθαριστήρες −15%)
   promoTag?: string  // «−15%» / «μόνο €X»
   promoUntil?: string
+  note?: string      // σύντομη σημείωση του πλυντηρίου (έως 40 χαρακτήρες)
 }
 
 type Vehicle = {
@@ -644,7 +645,9 @@ function BookingPageContent() {
           ? supabase.from('locations').select('id, name, address, city, photos').eq('id', locationId).single()
           : none,
         locationId
-          ? supabase.from('location_addons').select('addon_id, price_override, addons(name, price, sort_order)').eq('location_id', locationId)
+          // note = σύντομη σημείωση του πλυντηρίου για το πρόσθετο (π.χ. «με κρυσταλλοποίηση»). Στήλη: supabase/addon_note.sql — αν λείπει, χωρίς σημείωση.
+          ? supabase.from('location_addons').select('addon_id, price_override, note, addons(name, price, sort_order)').eq('location_id', locationId)
+              .then(r => r.error ? supabase.from('location_addons').select('addon_id, price_override, addons(name, price, sort_order)').eq('location_id', locationId) : r)
           : none,
         user ? supabase.from('profiles').select('phone, referral_credit, full_name').eq('id', user.id).single() : none,
         user ? supabase.from('vehicles').select('id, plate, type, car_model, is_taxi').eq('user_id', user.id).order('created_at', { ascending: false })
@@ -696,6 +699,7 @@ function BookingPageContent() {
           name: a.addons?.name || '',
           price: a.price_override ?? a.addons?.price ?? 0,
           set: a.price_override != null,
+          note: String(a.note || '').trim().slice(0, 40) || undefined,
         }))
         // Χωρίς τιμή από το πλυντήριο → δεν εμφανίζεται. Τιμή 0 που ΕΒΑΛΕ το πλυντήριο → «Δωρεάν».
         .filter((a: any) => Number(a.price) > 0 || (a.set && Number(a.price) === 0))
@@ -1298,6 +1302,7 @@ function BookingPageContent() {
                             <AddonIcon name={addon.name} selected={selected} />
                             <span className={`flex-1 min-w-0 text-[14px] leading-snug ${selected ? 'text-washio-navy font-semibold' : 'text-washio-navy font-medium'}`}>
                               {translateCatalogName(addon.name, locale)}
+                              {addon.note && <span className="block text-[11.5px] font-normal text-gray-500 mt-0.5 truncate">{addon.note}</span>}
                               {addon.orig && (
                                 <span className="block text-[10.5px] font-bold tracking-wide mt-0.5" style={{ color: '#8A6A0C' }}>
                                   ★ {locale === 'en' ? 'OFFER' : 'ΠΡΟΣΦΟΡΑ'} {addon.promoTag}{addon.promoUntil ? ` · ${locale === 'en' ? 'until' : 'έως'} ${Number(addon.promoUntil.slice(8, 10))}/${Number(addon.promoUntil.slice(5, 7))}` : ''}

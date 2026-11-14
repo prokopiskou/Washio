@@ -10,6 +10,9 @@ export const DASH_EN: Record<string, string> = {
   'Διάλεξε υπηρεσία και ώρα.': 'Pick a service and a time.',
 
   'Τιμή 0 → οι πελάτες το βλέπουν «Δωρεάν».': 'Price 0 → customers see it as "Free".',
+  'Σημείωση (προαιρετικά)': 'Note (optional)',
+  'π.χ. με κρυσταλλοποίηση': 'e.g. with ceramic coating',
+  'Έως 40 χαρακτήρες · φαίνεται κάτω από το όνομα στο καλάθι.': 'Up to 40 characters · shown under the name in the cart.',
   'Οι προωθήσεις έρχονται σύντομα': 'Promotions are coming soon',
   'Θέλεις προσφορά για το πλυντήριό σου; Μίλα με την ομάδα της Washio και τη στήνουμε μαζί.': 'Want an offer for your car wash? Talk to the Washio team and we will set it up together.',
   'εύρος τιμής': 'price range',

@@ -77,6 +77,7 @@ type DashboardService = {
   service_name: string
   price: number
   price_override?: number
+  note?: string
   price_moto?: number
   is_active: boolean
 }
@@ -544,7 +545,8 @@ export default function DashboardPage() {
         loadBookings(),
         supabase.from('addons').select('id, name, price, sort_order').eq('is_active', true).order('sort_order', { ascending: true }),
         supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_active, is_range, price_min, price_max, price_min_suv, price_max_suv, sort_order').eq('location_id', locationId).order('sort_order', { ascending: true }),
-        supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId),
+        supabase.from('location_addons').select('addon_id, price_override, note').eq('location_id', locationId)
+          .then(r => r.error ? supabase.from('location_addons').select('addon_id, price_override').eq('location_id', locationId) : r),
         supabase.from('location_hours').select('id, day_of_week, is_closed, open_time, close_time, open_time2, close_time2').eq('location_id', locationId).order('day_of_week', { ascending: true }),
         supabase.from('staff').select('id, full_name, role, phone').eq('location_id', locationId).order('created_at', { ascending: false }),
         supabase.from('reviews').select('id, rating, comment, created_at').eq('location_id', locationId).order('created_at', { ascending: false }),
@@ -562,6 +564,7 @@ export default function DashboardPage() {
         service_name: a.name,
         price: a.price,
         price_override: locationAddonsMap[a.id]?.price_override ?? undefined,
+        note: locationAddonsMap[a.id]?.note || '',
         price_moto: (servicesRes.data as any[]).find((s: any) => s.id === a.id)?.price_moto ?? undefined,
         is_active: activeIds.has(a.id),
       })))
@@ -773,6 +776,15 @@ export default function DashboardPage() {
     const supabase = createClient()
     await supabase.from('location_addons').update({ price_override: val }).eq('location_id', location.id).eq('addon_id', service.id)
     setServices(prev => prev.map(s => s.id === service.id ? { ...s, price_override: val } : s))
+  }
+
+  // Σύντομη σημείωση πρόσθετου (έως 40 χαρακτήρες) — φαίνεται διακριτικά κάτω από το όνομα στο καλάθι του πελάτη.
+  const updateAddonNote = async (service: DashboardService, raw: string) => {
+    const note = raw.trim().slice(0, 40)
+    if (note === (service.note || '')) return
+    const supabase = createClient()
+    const { error } = await supabase.from('location_addons').update({ note: note || null }).eq('location_id', location.id).eq('addon_id', service.id)
+    if (!error) setServices(prev => prev.map(s => s.id === service.id ? { ...s, note } : s))
   }
 
   const saveHours = async () => {
@@ -2378,6 +2390,20 @@ export default function DashboardPage() {
                               {t('Τιμή 0 → οι πελάτες το βλέπουν «Δωρεάν».')}
                             </p>
                           )}
+                        </div>
+                        <div className="bg-gray-50 rounded-xl p-3 mt-2">
+                          <p className="text-[10px] font-semibold tracking-[1.4px] uppercase text-gray-500 mb-1.5">
+                            {t('Σημείωση (προαιρετικά)')}
+                          </p>
+                          <input
+                            type="text"
+                            maxLength={40}
+                            defaultValue={service.note || ''}
+                            placeholder={t('π.χ. με κρυσταλλοποίηση')}
+                            onBlur={e => updateAddonNote(service, e.target.value)}
+                            className="w-full bg-transparent text-[14px] text-gray-900 focus:outline-none"
+                          />
+                          <p className="text-[11px] text-gray-400 mt-1 leading-snug">{t('Έως 40 χαρακτήρες · φαίνεται κάτω από το όνομα στο καλάθι.')}</p>
                         </div>
                       </div>
                     )}
