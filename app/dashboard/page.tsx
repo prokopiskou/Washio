@@ -967,7 +967,10 @@ export default function DashboardPage() {
   const [scanOpen, setScanOpen] = useState(false)
   useEffect(() => {
     const iv = setInterval(() => setNowTick(Date.now()), 30_000)
-    return () => clearInterval(iv)
+    // Η εφαρμογή στο παρασκήνιο «παγώνει» το ρολόι → ανανέωση μόλις ξανανοίξει (αλλιώς έμενε το χθεσινό «Δεν εμφανίστηκε»).
+    const wake = () => { if (document.visibilityState === 'visible') setNowTick(Date.now()) }
+    document.addEventListener('visibilitychange', wake); window.addEventListener('focus', wake)
+    return () => { clearInterval(iv); document.removeEventListener('visibilitychange', wake); window.removeEventListener('focus', wake) }
   }, [])
   const canMarkNoShow = (b: Booking): boolean => {
     if (b.checked_in_at) return false // σκαναρίστηκε → ήρθε
