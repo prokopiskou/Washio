@@ -52,7 +52,14 @@ function ReviewInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref, t])
 
-  const pick = (n: number) => { setRating(n); save(n, comment || undefined) }
+  // Αποθήκευση 1,2″ ΜΕΤΑ το τελευταίο πάτημα: όποιος πατάει 1→2→3→4 για να «γεμίσει» τα αστέρια
+  // αποθηκεύει μόνο το τελικό (πριν: κάθε πάτημα αποθηκευόταν και έστελνε ξεχωριστό email «χαμηλή κριτική»).
+  const pickTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pick = (n: number) => {
+    setRating(n)
+    if (pickTimer.current) clearTimeout(pickTimer.current)
+    pickTimer.current = setTimeout(() => { save(n, comment || undefined) }, 1200)
+  }
   const shown = hover || rating
   const high = saved >= 4
 
@@ -98,7 +105,7 @@ function ReviewInner() {
                   <textarea value={comment} onChange={e => setComment(e.target.value.slice(0, 600))} rows={3}
                     placeholder={high ? 'Π.χ. γρήγοροι, προσεκτικοί στο εσωτερικό… (προαιρετικό)' : 'Πες μας — θα το λύσουμε με το πλυντήριο.'}
                     className="w-full mt-2.5 rounded-xl border border-gray-200 px-3.5 py-3 text-[14px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-gray-400 resize-none" />
-                  <button onClick={async () => { if (!comment.trim() || await save(saved, comment)) setDone(true) }} disabled={busy}
+                  <button onClick={async () => { if (pickTimer.current) clearTimeout(pickTimer.current); const r = rating || saved; if ((!comment.trim() && r === saved) || await save(r, comment || undefined)) setDone(true) }} disabled={busy}
                     className="mt-3 w-full h-12 rounded-xl bg-gray-900 text-white text-[14px] font-semibold disabled:opacity-50">
                     {busy ? 'Αποθήκευση…' : comment.trim() ? 'Αποστολή' : 'Τέλος'}
                   </button>

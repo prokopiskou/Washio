@@ -82,7 +82,9 @@ export async function POST(req: Request) {
     if (b.user_id) await supabase.from('profiles').update({ has_reviewed: true }).eq('id', b.user_id).then(() => null, () => null)
 
     // Χαμηλή βαθμολογία → ειδοποίηση admin (μία φορά ανά κράτηση ή όταν προστεθεί σχόλιο).
-    if (r <= 3 && (!ex || (text && text !== ex.comment) || ex.rating !== r)) {
+    // Μία ειδοποίηση ανά κράτηση: στην πρώτη χαμηλή βαθμολογία ή όταν προστεθεί/αλλάξει σχόλιο.
+    // (Όχι σε κάθε αλλαγή αστεριών 1→2→3 — έστελνε 3 email για την ίδια κριτική.)
+    if (r <= 3 && (!ex || Number(ex.rating) > 3 || (text && text !== ex.comment))) {
       await resend.emails.send({
         from: 'Washio <noreply@washio.gr>',
         to: ADMIN_EMAIL,
