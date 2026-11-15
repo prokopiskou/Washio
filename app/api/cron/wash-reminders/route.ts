@@ -73,8 +73,8 @@ export async function GET(req: Request) {
 
       await sendPush(uid, {
         title: 'Ώρα για φρεσκάρισμα;',
-        body: 'Πέρασε λίγος καιρός από το τελευταίο πλύσιμο. Κλείσε ξανά το ίδιο με ένα πάτημα.',
-        url: '/rebook', // → checkout με ίδιο πλυντήριο/υπηρεσία (lib/rebook-suggest.ts)
+        body: 'Πέρασε λίγος καιρός από το τελευταίο πλύσιμο. Διάλεξε μέρα και ώρα στο πλυντήριό σου.',
+        url: '/rebook', // → σελίδα του τελευταίου πλυντηρίου, υπηρεσία επιλεγμένη (lib/rebook-suggest.ts)
       })
       await supabase.from('profiles').update({ last_wash_reminder_at: new Date().toISOString() }).eq('id', uid)
       sent++

@@ -1,24 +1,18 @@
-// «Κλείσε ξανά με ένα πάτημα»: το τελευταίο ολοκληρωμένο πλύσιμο του πελάτη → ίδιο πλυντήριο, ίδια υπηρεσία,
-// ΧΩΡΙΣ πρόσθετα, στην πιο κοντινή ελεύθερη ώρα γύρω από την ώρα που είχε έρθει την τελευταία φορά.
+// «Κλείσε ξανά»: το τελευταίο ολοκληρωμένο πλύσιμο του πελάτη → ίδιο πλυντήριο, ίδια υπηρεσία (χωρίς πρόσθετα).
+// Ανοίγει η σελίδα του πλυντηρίου με την υπηρεσία επιλεγμένη — ΜΕΡΑ ΚΑΙ ΩΡΑ τις διαλέγει ο πελάτης.
 // Χρησιμοποιείται από: κάρτα αρχικής (components/RebookCard), /rebook (push «Ώρα για φρεσκάρισμα;»).
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { athensEpoch, athensMinutesOfDay, athensToday, weekdayMon1FromYmd } from '@/lib/time'
-import { computeSlots, toMinutes, type HoursException, type OccupancyBooking, type WeeklyHours } from '@/lib/availability'
+import { athensEpoch } from '@/lib/time'
 
 /** Από πόσες μέρες μετά το τελευταίο πλύσιμο εμφανίζεται η κάρτα «Κλείσε ξανά». */
 export const REBOOK_AFTER_DAYS = 7
-const LOOKAHEAD_DAYS = 7
 
 export type RebookSuggestion = {
   daysSince: number
   location: { id: string; name: string; slug: string }
   service: { id: string; name: string; price: number }
-  date: string; slot: string
-  url: string        // checkout με όλα έτοιμα
-  otherTimeUrl: string // σελίδα πλυντηρίου με επιλεγμένη την υπηρεσία
+  url: string // σελίδα πλυντηρίου με επιλεγμένη την υπηρεσία → ο πελάτης διαλέγει μέρα & ώρα
 }
-
-const addDays = (ymd: string, n: number) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10) }
 
 type Row = {
   id: string; location_id: string; service_id: string | null; slot_date: string; slot_start_time: string; duration_minutes: number | null
@@ -28,7 +22,6 @@ type Row = {
 }
 
 export async function suggestRebook(db: SupabaseClient, userId: string): Promise<RebookSuggestion | null> {
-  const today = athensToday()
   const { data } = await db.from('bookings')
     .select('id, location_id, service_id, slot_date, slot_start_time, duration_minutes, car_model, checked_in_at, status, services(id, name, price, price_suv, price_moto, duration_minutes, is_active, is_range), locations(id, name, slug, capacity, is_active)')
     .eq('user_id', userId).not('status', 'in', '(cancelled,no_show)')
@@ -42,40 +35,12 @@ export async function suggestRebook(db: SupabaseClient, userId: string): Promise
   if (!last || !last.services || !last.locations) return null
   const daysSince = Math.floor((now - athensEpoch(last.slot_date, last.slot_start_time)) / 864e5)
   const loc = last.locations, svc = last.services
-  const duration = Math.max(30, Number(svc.duration_minutes) || 30)
-  const wantMin = toMinutes(String(last.slot_start_time).slice(0, 5))
-
-  const days = Array.from({ length: LOOKAHEAD_DAYS }, (_, i) => addDays(today, i))
-  const [{ data: hours }, { data: exc }, { data: busy }] = await Promise.all([
-    db.from('location_hours').select('day_of_week, is_closed, open_time, close_time, open_time2, close_time2').eq('location_id', loc.id),
-    db.from('location_hours_exceptions').select('exception_date, is_closed, closed_from, closed_to, periods').eq('location_id', loc.id).in('exception_date', days),
-    db.from('bookings').select('slot_date, slot_start_time, duration_minutes').eq('location_id', loc.id).in('slot_date', days).not('status', 'in', '(cancelled,no_show)'),
-  ])
-  let pick: { date: string; slot: string } | null = null
-  for (const d of days) {
-    const dow = weekdayMon1FromYmd(d)
-    const slots = computeSlots({
-      dayHours: ((hours || []).find(h => h.day_of_week === dow) || null) as WeeklyHours,
-      exception: ((exc || []).find(e => e.exception_date === d) || undefined) as HoursException,
-      bookings: ((busy || []).filter(b => b.slot_date === d)) as OccupancyBooking[],
-      capacity: Math.max(1, Number(loc.capacity) || 1), durationMinutes: duration,
-      isToday: d === today, nowMinutes: athensMinutesOfDay(),
-      leadMinutes: 90, // σήμερα: τουλάχιστον 1,5 ώρα μετά — να προλάβει να πάει
-    }).filter(s => s.available)
-    if (!slots.length) continue
-    const best = slots.reduce((a, b) => Math.abs(toMinutes(b.time) - wantMin) < Math.abs(toMinutes(a.time) - wantMin) ? b : a)
-    pick = { date: d, slot: best.time }
-    break
-  }
-  const otherTimeUrl = `/locations/${loc.slug}?service=${svc.id}&utm_source=rebook`
-  if (!pick) return null
-  const q = new URLSearchParams({ location: loc.id, service: svc.id, slot: pick.slot, date: pick.date, vehicleType: 'ΙΧ', utm_source: 'rebook' })
-  if (last.car_model) q.set('carModel', last.car_model) // η σελίδα κράτησης βρίσκει μόνη της ΙΧ/SUV από το μοντέλο
+  // Μέρα και ώρα τις διαλέγει ο ΠΕΛΑΤΗΣ: ανοίγουμε τη σελίδα του πλυντηρίου με επιλεγμένη την υπηρεσία.
+  const url = `/locations/${loc.slug}?service=${svc.id}&utm_source=rebook`
   return {
     daysSince,
     location: { id: loc.id, name: loc.name, slug: loc.slug },
     service: { id: svc.id, name: svc.name, price: Number(svc.price) || 0 },
-    date: pick.date, slot: pick.slot,
-    url: `/booking?${q.toString()}`, otherTimeUrl,
+    url,
   }
 }

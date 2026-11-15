@@ -4,8 +4,8 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { WashioLoader } from '@/components/WashioLoader'
 
-// Σύνδεσμος από push «Ώρα για φρεσκάρισμα;» → κατευθείαν checkout με το τελευταίο πλυντήριο/υπηρεσία.
-// Χωρίς πρόταση (π.χ. όχι συνδεδεμένος, καμία ελεύθερη ώρα) → χάρτης.
+// Σύνδεσμος από push «Ώρα για φρεσκάρισμα;» → σελίδα του τελευταίου πλυντηρίου με επιλεγμένη την υπηρεσία (μέρα/ώρα διαλέγει ο πελάτης).
+// Χωρίς πρόταση (π.χ. όχι συνδεδεμένος) → χάρτης.
 export default function RebookPage() {
   const router = useRouter()
   useEffect(() => {
