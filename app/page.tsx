@@ -16,6 +16,7 @@ import { OwnWashBanner } from '@/components/OwnWashBanner'
 import { WashioLoader } from '@/components/WashioLoader'
 import { AppRatingPrompt } from '@/components/AppRatingPrompt'
 import { RateLastWash } from '@/components/RateLastWash'
+import { RebookCard } from '@/components/RebookCard'
 import { useT, useLocale, Locale } from '@/lib/i18n'
 import { athensToday, athensMinutesOfDay, weekdayMon1FromYmd } from '@/lib/time'
 import { readPageCache, writePageCache } from '@/lib/page-cache'
@@ -578,6 +579,9 @@ export default function HomePage() {
 
           {/* Κριτική για το τελευταίο πλύσιμο (μέχρι να βαθμολογήσει) */}
           <RateLastWash />
+
+          {/* «Κλείσε ξανά» με ένα πάτημα — 7+ μέρες μετά το τελευταίο πλύσιμο, χωρίς επόμενη κράτηση */}
+          {!upcomingBooking && <RebookCard />}
 
           {/* Upcoming booking */}
           {upcomingBooking && upcomingDate && (
