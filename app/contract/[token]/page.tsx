@@ -78,9 +78,16 @@ export default function ContractPage({ params }: { params: Promise<{ token: stri
     const r = await fetch(`/api/contract/${token}/otp`, { method: 'POST' })
     const j = await r.json().catch(() => ({}))
     setBusy(false)
-    if (!r.ok) { setErr(j.error || 'Σφάλμα'); return }
-    setOtpSent(true)
+    if (!r.ok) { setErr(j.error || 'Σφάλμα'); if (/Μόλις σας στείλαμε/.test(j.error || '')) setOtpSent(true); return }
+    setOtpSent(true); setOtp(''); setCool(60)
   }
+  // «Ξαναστείλε» κλειδωμένο 60″ — να μην ακυρώνεται ο κωδικός πριν φτάσει το email.
+  const [cool, setCool] = useState(0)
+  useEffect(() => {
+    if (cool <= 0) return
+    const t = setTimeout(() => setCool(c => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [cool])
   const sign = async () => {
     setBusy(true); setErr('')
     const r = await fetch(`/api/contract/${token}/sign`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ otp, signerName: name, signature: sig, accept }) })
@@ -154,13 +161,13 @@ export default function ContractPage({ params }: { params: Promise<{ token: stri
               </button>
             ) : (
               <div className="space-y-3">
-                <p className="text-[13px] text-gray-600">Στείλαμε κωδικό 6 ψηφίων στο <b>{d.emailMasked}</b>. Ισχύει 10 λεπτά.</p>
+                <p className="text-[13px] text-gray-600">Στείλαμε κωδικό 6 ψηφίων στο <b>{d.emailMasked}</b>. Ισχύει 10 λεπτά. Αν έχετε πάνω από ένα email, ισχύει <b>μόνο ο τελευταίος</b> κωδικός.</p>
                 <input value={otp} onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="••••••"
                   className="w-full h-12 px-3 rounded-xl border border-gray-300 text-center text-[22px] tracking-[8px] font-semibold" />
                 <button disabled={!ready || otp.length !== 6 || busy} onClick={sign} className="w-full h-12 rounded-xl bg-green-600 text-white text-[15px] font-semibold disabled:opacity-40">
                   {busy ? 'Υπογραφή…' : '✍️ Υπογραφή συμφωνητικού'}
                 </button>
-                <button disabled={busy} onClick={requestOtp} className="text-[12px] text-gray-500 underline">Δεν ήρθε; Ξαναστείλε κωδικό</button>
+                <button disabled={busy || cool > 0} onClick={requestOtp} className="text-[12px] text-gray-500 underline disabled:no-underline disabled:opacity-60">{cool > 0 ? `Δεν ήρθε; Νέος κωδικός σε ${cool}″ (δείτε και τα ανεπιθύμητα)` : 'Δεν ήρθε; Ξαναστείλε κωδικό'}</button>
               </div>
             )}
             {err && <p className="text-[13px] text-red-600">{err}</p>}

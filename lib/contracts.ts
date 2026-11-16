@@ -71,14 +71,25 @@ export async function contractByToken(db: SupabaseClient, token: string): Promis
   return (data as ContractRow) || null
 }
 
-/** OTP 6 ψηφίων στο email του συνεργάτη (10'). Όριο 5 αποστολές. */
+/** OTP 6 ψηφίων στο email του συνεργάτη (10'). 60″ ανάμεσα σε αποστολές · όριο 8 / ώρα. */
 export async function sendOtp(db: SupabaseClient, c: ContractRow): Promise<{ ok: true } | { ok: false; error: string }> {
   if (c.status !== 'sent') return { ok: false, error: 'Το συμφωνητικό δεν είναι διαθέσιμο για υπογραφή' }
-  if ((c.otp_sends || 0) >= 5) return { ok: false, error: 'Πολλές προσπάθειες. Επικοινωνήστε με τη Washio.' }
+  // Κάθε νέος κωδικός ΑΚΥΡΩΝΕΙ τον προηγούμενο. Όποιος πατούσε «ξαναστείλε» πριν φτάσει το email έκαιγε και τις
+  // 5 αποστολές σε 2 λεπτά και έβαζε παλιό κωδικό («λάθος κωδικός») → κλείδωμα. Τώρα:
+  //  • 60″ αναμονή ανάμεσα σε αποστολές (ο προηγούμενος κωδικός μένει έγκυρος)
+  //  • όριο 8 αποστολές, που μηδενίζεται μόνο του 1 ώρα μετά την τελευταία (όχι μόνιμο κλείδωμα)
+  const lastSentAt = c.otp_expires_at ? new Date(c.otp_expires_at).getTime() - 10 * 60_000 : 0
+  const sinceLast = Date.now() - lastSentAt
+  if (c.otp_hash && lastSentAt && sinceLast < 60_000) {
+    return { ok: false, error: `Μόλις σας στείλαμε κωδικό. Ελέγξτε το email σας (και τα ανεπιθύμητα) — νέος κωδικός σε ${Math.ceil((60_000 - sinceLast) / 1000)}″.` }
+  }
+  let sends = c.otp_sends || 0
+  if (lastSentAt && sinceLast > 60 * 60_000) sends = 0
+  if (sends >= 8) return { ok: false, error: 'Πολλές αποστολές κωδικού. Δοκιμάστε ξανά σε 1 ώρα ή επικοινωνήστε με τη Washio.' }
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
   await db.from('partner_contracts').update({
     otp_hash: sha(`${c.id}:${code}:${pepper()}`), otp_expires_at: new Date(Date.now() + 10 * 60_000).toISOString(),
-    otp_attempts: 0, otp_sends: (c.otp_sends || 0) + 1,
+    otp_attempts: 0, otp_sends: sends + 1,
   }).eq('id', c.id)
   try {
     const r = await resend.emails.send({
