@@ -108,6 +108,10 @@ export const publicContract = (c: ContractRow) => ({
   status: c.status, version: c.version, fields: c.fields, emailMasked: maskEmail(c.email),
   washioSignedAt: c.washio_signed_at, signedAt: c.signed_at, signerName: c.signer_name,
   blocks: renderContract(c.fields),
+  // Έχει ήδη σταλεί κωδικός που ισχύει ακόμα → η σελίδα ανοίγει κατευθείαν στην «αναμονή κωδικού»
+  // (ο συνεργάτης βγαίνει να δει το email και ξαναμπαίνει· δεν πρέπει να ζητηθεί νέος κωδικός).
+  otpPending: c.status === 'sent' && !!c.otp_hash && !!c.otp_expires_at && new Date(c.otp_expires_at).getTime() > Date.now(),
+  otpExpiresAt: c.status === 'sent' ? c.otp_expires_at : null,
 })
 
 const promoUntil = (months: number) => {

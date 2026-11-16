@@ -9,9 +9,10 @@ type Data = {
   status: string; version: string; emailMasked: string; washioSignedAt: string; signedAt: string | null; signerName: string | null
   fields: { date: string; businessName: string; afm: string; doy: string; address: string; contactName: string; promoMonths: number }
   blocks: Block[]
+  otpPending?: boolean; otpExpiresAt?: string | null
 }
 
-function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) => void }) {
+function SignaturePad({ onChange, initial }: { onChange: (dataUrl: string | null) => void; initial?: string | null }) {
   const ref = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
   const dirty = useRef(false)
@@ -24,6 +25,9 @@ function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) => void
     c.width = r.width * dpr; c.height = r.height * dpr
     const ctx = c.getContext('2d')!
     ctx.scale(dpr, dpr); ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#10182A'
+    // Επιστροφή στη σελίδα (π.χ. από το email με τον κωδικό): ξαναδείξε την υπογραφή που είχε βάλει.
+    if (initial) { const img = new Image(); img.onload = () => { ctx.drawImage(img, 0, 0, r.width, r.height); dirty.current = true }; img.src = initial }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const pos = (e: React.PointerEvent) => { const r = ref.current!.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top } }
@@ -61,16 +65,39 @@ export default function ContractPage({ params }: { params: Promise<{ token: stri
   const [err, setErr] = useState('')
   const [done, setDone] = useState(false)
 
+  // Ό,τι συμπλήρωσε (όνομα, υπογραφή, αποδοχή) μένει στη συσκευή: αν βγει να δει το email με τον κωδικό
+  // και ξανανοίξει το link, συνεχίζει από εκεί που ήταν — δεν ξαναϋπογράφει, δεν ζητάει νέο κωδικό.
+  const SKEY = `washio_contract_${token}`
+  const [savedSig, setSavedSig] = useState<string | null>(null)
+  const [restored, setRestored] = useState(false)
+  const signRef = useRef<HTMLElement>(null)
+
   useEffect(() => {
     let alive = true
+    let saved: { name?: string; sig?: string | null; accept?: boolean } = {}
+    try { saved = JSON.parse(localStorage.getItem(SKEY) || '{}') } catch { /* ignore */ }
     fetch(`/api/contract/${token}`, { cache: 'no-store' }).then(async r => {
       const j = await r.json().catch(() => ({}))
       if (!alive) return
       if (!r.ok) { setLoadErr(j.error || 'Το link δεν είναι έγκυρο.'); return }
-      setD(j); setName(n => n || j.fields?.contactName || '')
+      setD(j); setName(n => n || saved.name || j.fields?.contactName || '')
+      if (saved.sig) { setSig(saved.sig); setSavedSig(saved.sig) }
+      if (saved.accept) setAccept(true)
+      setRestored(true)
+      if (j.otpPending) {
+        setOtpSent(true)
+        setTimeout(() => signRef.current?.scrollIntoView({ block: 'start' }), 150)
+      }
     })
     return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
+
+  useEffect(() => {
+    if (!restored) return
+    try { localStorage.setItem(SKEY, JSON.stringify({ name, sig, accept })) } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, sig, accept, restored])
 
   const ready = name.trim().length >= 3 && !!sig && accept
   const requestOtp = async () => {
@@ -95,6 +122,7 @@ export default function ContractPage({ params }: { params: Promise<{ token: stri
     setBusy(false)
     if (!r.ok) { setErr(j.error || 'Σφάλμα'); return }
     setDone(true); window.scrollTo({ top: 0 })
+    try { localStorage.removeItem(SKEY) } catch { /* ignore */ }
   }
 
   if (loadErr) return <main className="min-h-screen flex items-center justify-center p-6 text-center"><p className="text-[15px] text-gray-600">{loadErr}</p></main>
@@ -143,13 +171,18 @@ export default function ContractPage({ params }: { params: Promise<{ token: stri
         </article>
 
         {!signed && (
-          <section className="mt-5 rounded-2xl bg-white border border-gray-200 p-4 space-y-4">
+          <section ref={signRef} className="mt-5 rounded-2xl bg-white border border-gray-200 p-4 space-y-4 scroll-mt-4">
+            {otpSent && d.otpPending && (
+              <p className="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-[13px] text-amber-900 leading-snug">
+                Σας έχουμε ήδη στείλει κωδικό στο {d.emailMasked}. {ready ? 'Γράψτε τον παρακάτω για να ολοκληρώσετε.' : 'Συμπληρώστε όνομα, υπογραφή και αποδοχή, και γράψτε τον κωδικό παρακάτω — δεν χρειάζεται νέος.'}
+              </p>
+            )}
             <p className="text-[16px] font-bold text-gray-900">Υπογραφή</p>
             <label className="block">
               <span className="text-[12px] font-semibold text-gray-600">Ονοματεπώνυμο υπογράφοντος</span>
               <input value={name} onChange={e => setName(e.target.value)} className="mt-1 w-full h-11 px-3 rounded-xl border border-gray-300 text-[15px]" />
             </label>
-            <SignaturePad onChange={setSig} />
+            <SignaturePad key={savedSig ? 'restored' : 'empty'} initial={savedSig} onChange={setSig} />
             <label className="flex items-start gap-2.5 text-[13px] text-gray-700 leading-snug">
               <input type="checkbox" checked={accept} onChange={e => setAccept(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
               <span>Διάβασα και αποδέχομαι τους όρους του Συμφωνητικού Συνεργασίας και δηλώνω ότι είμαι νόμιμος εκπρόσωπος της επιχείρησης «{d.fields.businessName}» (ΑΦΜ {d.fields.afm}).</span>
