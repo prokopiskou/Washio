@@ -239,12 +239,28 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
   const [usingSaved, setUsingSaved] = useState(false)
   // Αν σε προηγούμενη (αποτυχημένη) προσπάθεια βάλαμε setup_future_usage στο ίδιο intent.
   const piSaveSetRef = useRef(false)
+  // Τι setup_future_usage έχει ΤΩΡΑ το Element. Το elements.update() ξαναφορτώνει το Element·
+  // αν γίνει τη στιγμή του «Πληρωμή» (ακριβώς πριν το submit) το Apple Pay sheet ανοίγει πάνω σε
+  // Element που φορτώνει → η 1η προσπάθεια αποτυγχάνει χωρίς να φτάσει ποτέ στο Stripe, η 2η περνάει.
+  // Γι' αυτό: update ΜΟΝΟ όταν αλλάζει πραγματικά η τιμή, και ποτέ μέσα στο πάτημα για Apple/Google Pay.
+  const sfuRef = useRef<'off_session' | null>(null)
+  const setSfu = (v: 'off_session' | null): Promise<void> => {
+    if (!elements || sfuRef.current === v) return Promise.resolve()
+    sfuRef.current = v
+    return new Promise<void>(resolve => {
+      let done = false
+      const fin = () => { if (done) return; done = true; try { (elements as any).off?.('update-end', fin) } catch { /* noop */ } resolve() }
+      try { (elements as any).on?.('update-end', fin) } catch { /* noop */ }
+      setTimeout(fin, 4000)
+      try { elements.update({ setupFutureUsage: v }) } catch { fin() }
+    })
+  }
   const toggleSave = (v: boolean) => {
     setSaveCard(v)
     selectionHaptic()
-    // Το Element πρέπει να ταιριάζει με το PaymentIntent (setup_future_usage).
-    try { elements?.update({ setupFutureUsage: v ? 'off_session' : null }) } catch { /* noop */ }
   }
+  // Το Element ακολουθεί το checkbox/τρόπο πληρωμής ΠΡΙΝ το πάτημα (όχι μέσα σε αυτό).
+  useEffect(() => { void setSfu(saveCard && !usingSaved ? 'off_session' : null) }, [saveCard, usingSaved, elements]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (stripe) { setStripeFailed(false); return }
@@ -278,7 +294,10 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
         piSaveSetRef.current = applied
       }
       // Αν δεν αποθηκεύεται (ή απέτυχε το save) → πληρώνει κανονικά, χωρίς αποθήκευση.
-      try { elements.update({ setupFutureUsage: saveOk ? 'off_session' : null }) } catch { /* noop */ }
+      // Συνήθως ΔΕΝ αλλάζει τίποτα εδώ (το Element είναι ήδη συγχρονισμένο) → καμία αναμονή.
+      // ΧΩΡΙΣ await όταν δεν αλλάζει κάτι: το Apple Pay θέλει το sheet να ανοίξει μέσα στο ίδιο το πάτημα.
+      const wantSfu = saveOk ? 'off_session' as const : null
+      if (sfuRef.current !== wantSfu) await setSfu(wantSfu)
 
       // DEFERRED flow (το Element δημιουργείται με mode/amount, ΧΩΡΙΣ clientSecret):
       // ΠΡΩΤΑ elements.submit() (μαζεύει/validάρει την κάρτα), ΜΕΤΑ confirmPayment
