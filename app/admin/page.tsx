@@ -974,6 +974,17 @@ export default function AdminPage() {
                                 <p className="text-[16px] font-bold tracking-tight text-gray-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
                                   {amtLabel(b)}
                                 </p>
+                                {(() => {
+                                  // Πώς πλήρωσε ο πελάτης: κάρτα (online) ή μετρητά στο πλυντήριο.
+                                  const ps = String(b.stripe_payment_status || '')
+                                  if (b.source === 'manual' || ps === 'external') return null
+                                  const pay = ps === 'pay_at_venue' ? { t: '💵 Μετρητά', c: 'bg-amber-50 text-amber-700' }
+                                    : ps === 'paid' ? { t: '💳 Κάρτα', c: 'bg-blue-50 text-blue-700' }
+                                    : ps === 'refunded' ? { t: '💳 Κάρτα · επιστράφηκε', c: 'bg-gray-100 text-gray-500' }
+                                    : ps === 'partially_refunded' ? { t: '💳 Κάρτα · μερική επιστροφή', c: 'bg-gray-100 text-gray-500' }
+                                    : null
+                                  return pay && <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-tight ${pay.c}`}>{pay.t}</span>
+                                })()}
                                 {Number(b.coupon_amount) > 0 && <span className="block text-[10px] font-semibold text-green-600 text-right">−€{Number(b.coupon_amount).toFixed(0)} κουπόνι · τιμή €{Number(b.total_amount).toFixed(0)}</span>}
 
                                 <div className="flex flex-col gap-1 mt-1">
