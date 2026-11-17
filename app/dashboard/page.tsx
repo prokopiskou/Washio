@@ -293,6 +293,10 @@ export default function DashboardPage() {
   const [exceptions, setExceptions] = useState<HourException[]>([])
   const [showExceptionPicker, setShowExceptionPicker] = useState(false)
   const [exceptionDate, setExceptionDate] = useState('')
+  // Διάστημα: 1ο πάτημα = μία μέρα · 2ο πάτημα σε ΜΕΤΑγενέστερη μέρα = κλείνει όλο το διάστημα ·
+  // 3ο πάτημα οπουδήποτε = ξανά μία μέρα (νέα αρχή).
+  const [exceptionEnd, setExceptionEnd] = useState('')
+  const [exCalMonth, setExCalMonth] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1) })
   const [exceptionPeriods, setExceptionPeriods] = useState<{ open: string; close: string }[]>([{ open: '09:00', close: '17:00' }])
   const [exceptionClosed, setExceptionClosed] = useState(false)
   // Νέο μοντέλο εξαιρέσεων: 'day' = κλειστό όλη μέρα, 'hours' = κλειστό από-έως.
@@ -818,14 +822,22 @@ export default function DashboardPage() {
     if (!location?.id || !exceptionDate) return
     if (exceptionMode === 'hours' && exceptionFrom >= exceptionTo) return
     const supabase = createClient()
-    await supabase.from('location_hours_exceptions').upsert({
+    // Μία γραμμή ανά μέρα του διαστήματος (έως 92 μέρες).
+    const days: string[] = []
+    const endStr = exceptionEnd && exceptionEnd > exceptionDate ? exceptionEnd : exceptionDate
+    for (let d = new Date(exceptionDate + 'T12:00:00Z'), i = 0; i < 92; i++, d.setUTCDate(d.getUTCDate() + 1)) {
+      const k = d.toISOString().slice(0, 10)
+      if (k > endStr) break
+      days.push(k)
+    }
+    await supabase.from('location_hours_exceptions').upsert(days.map(day => ({
       location_id: location.id,
-      exception_date: exceptionDate,
+      exception_date: day,
       periods: [],
       is_closed: exceptionMode === 'day',
       closed_from: exceptionMode === 'hours' ? exceptionFrom : null,
       closed_to: exceptionMode === 'hours' ? exceptionTo : null,
-    }, { onConflict: 'location_id,exception_date' })
+    })), { onConflict: 'location_id,exception_date' })
 
     const { data } = await supabase
       .from('location_hours_exceptions')
@@ -835,6 +847,7 @@ export default function DashboardPage() {
     setExceptions((data as HourException[]) || [])
     setShowExceptionPicker(false)
     setExceptionDate('')
+    setExceptionEnd('')
     setExceptionMode('day')
     setExceptionFrom('12:00')
     setExceptionTo('15:00')
@@ -1113,12 +1126,14 @@ export default function DashboardPage() {
     }
   }
 
-  const deleteException = async (date: string) => {
+  // Διαγραφή μίας μέρας ή ολόκληρου διαστήματος (date → dateTo).
+  const deleteException = async (date: string, dateTo?: string) => {
     if (!location?.id) return
+    const to = dateTo || date
     const supabase = createClient()
     await supabase.from('location_hours_exceptions')
-      .delete().eq('location_id', location.id).eq('exception_date', date)
-    setExceptions(prev => prev.filter(e => e.exception_date !== date))
+      .delete().eq('location_id', location.id).gte('exception_date', date).lte('exception_date', to)
+    setExceptions(prev => prev.filter(e => e.exception_date < date || e.exception_date > to))
   }
 
   const addStaff = async () => {
@@ -2586,7 +2601,18 @@ export default function DashboardPage() {
                     <p className="text-[13px] text-gray-400">{t('Δεν υπάρχουν εξαιρέσεις.')}</p>
                   ) : (
                     <div className="space-y-2">
-                      {exceptions.map(ex => (
+                      {(() => {
+                        // Συνεχόμενες μέρες με ίδια εξαίρεση → μία γραμμή «17 – 24 Νοε».
+                        const sig = (e: HourException) => `${e.is_closed}|${e.closed_from || ''}|${e.closed_to || ''}|${JSON.stringify(e.periods || [])}`
+                        const nextDay = (k: string) => { const d = new Date(k + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10) }
+                        const groups: (HourException & { end: string; n: number })[] = []
+                        for (const e of exceptions) {
+                          const g = groups[groups.length - 1]
+                          if (g && nextDay(g.end) === e.exception_date && sig(g) === sig(e)) { g.end = e.exception_date; g.n++ }
+                          else groups.push({ ...e, end: e.exception_date, n: 1 })
+                        }
+                        return groups
+                      })().map(ex => (
                         <div
                           key={ex.exception_date}
                           className="bg-white border border-gray-100 rounded-[14px] px-3.5 py-3 flex items-center gap-3"
@@ -2595,6 +2621,7 @@ export default function DashboardPage() {
                           <div className="flex-1">
                             <p className="text-[14px] font-semibold text-gray-900">
                               {new Date(ex.exception_date).toLocaleDateString(dl, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })}
+                              {ex.n > 1 && <> – {new Date(ex.end).toLocaleDateString(dl, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Athens' })} <span className="text-[12px] font-medium text-gray-400">· {ex.n} {t('μέρες')}</span></>}
                             </p>
                             {ex.is_closed ? (
                               <span
@@ -2617,7 +2644,7 @@ export default function DashboardPage() {
                             )}
                           </div>
                           <button
-                            onClick={() => deleteException(ex.exception_date)}
+                            onClick={() => deleteException(ex.exception_date, ex.end)}
                             className="text-[11px] font-medium text-red-500 underline underline-offset-[2px]"
                           >
                             {t('Διαγραφή')}
@@ -2677,9 +2704,58 @@ export default function DashboardPage() {
                     {/* Ημερομηνία — και στις δύο επιλογές */}
                     <div className="mb-4">
                       <p className="text-xs text-gray-400 mb-1.5">{t('Ημερομηνία')}</p>
-                      <input type="date" value={exceptionDate}
-                        onChange={e => setExceptionDate(e.target.value)}
-                        className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none" />
+                      {(() => {
+                        const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                        const today = key(new Date())
+                        const y = exCalMonth.getFullYear(), m = exCalMonth.getMonth()
+                        const lead = (new Date(y, m, 1).getDay() + 6) % 7 // Δευτέρα πρώτη
+                        const count = new Date(y, m + 1, 0).getDate()
+                        const cells: (string | null)[] = [...Array(lead).fill(null), ...Array.from({ length: count }, (_, i) => key(new Date(y, m, i + 1)))]
+                        const end = exceptionEnd && exceptionEnd > exceptionDate ? exceptionEnd : ''
+                        const pick = (k: string) => {
+                          lightTap()
+                          if (exceptionDate && !end && k > exceptionDate) setExceptionEnd(k) // 2ο πάτημα → διάστημα
+                          else { setExceptionDate(k); setExceptionEnd('') }                    // 1ο ή 3ο → μία μέρα
+                        }
+                        const fmt = (k: string) => new Date(k + 'T12:00:00').toLocaleDateString(dl, { weekday: 'short', day: 'numeric', month: 'short' })
+                        const nDays = end ? Math.round((new Date(end + 'T12:00:00Z').getTime() - new Date(exceptionDate + 'T12:00:00Z').getTime()) / 86400000) + 1 : 1
+                        const canPrev = key(new Date(y, m, 1)) > today
+                        return (
+                          <div className="border border-gray-200 rounded-xl p-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <button type="button" disabled={!canPrev} onClick={() => setExCalMonth(new Date(y, m - 1, 1))}
+                                className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 disabled:opacity-30" aria-label={t('Προηγούμενος μήνας')}>‹</button>
+                              <p className="text-[13px] font-semibold text-gray-900 capitalize">{exCalMonth.toLocaleDateString(dl, { month: 'long', year: 'numeric' })}</p>
+                              <button type="button" onClick={() => setExCalMonth(new Date(y, m + 1, 1))}
+                                className="w-8 h-8 rounded-full bg-gray-100 text-gray-600" aria-label={t('Επόμενος μήνας')}>›</button>
+                            </div>
+                            <div className="grid grid-cols-7 text-center text-[10px] font-semibold text-gray-400 mb-1">
+                              {[0, 1, 2, 3, 4, 5, 6].map(i => <span key={i}>{new Date(2024, 0, 1 + i).toLocaleDateString(dl, { weekday: 'narrow' })}</span>)}
+                            </div>
+                            <div className="grid grid-cols-7 gap-y-1">
+                              {cells.map((k, i) => {
+                                if (!k) return <span key={'e' + i} />
+                                const past = k < today
+                                const isStart = k === exceptionDate, isEnd = !!end && k === end
+                                const inside = !!end && k > exceptionDate && k < end
+                                return (
+                                  <button key={k} type="button" disabled={past} onClick={() => pick(k)}
+                                    className={`h-9 text-[13px] ${past ? 'text-gray-300' : isStart || isEnd ? 'bg-gray-900 text-white font-semibold' : inside ? 'bg-gray-200 text-gray-900' : 'text-gray-800'} ${
+                                      isStart && end ? 'rounded-l-full' : isEnd ? 'rounded-r-full' : inside ? '' : 'rounded-full'}`}
+                                    style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                    {Number(k.slice(8))}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            <p className="mt-2.5 text-[12px] text-gray-600">
+                              {!exceptionDate ? t('Πάτησε μια μέρα. Για διάστημα, πάτησε και την τελευταία μέρα.')
+                                : end ? <><b>{fmt(exceptionDate)} – {fmt(end)}</b> · {nDays} {t('μέρες')}</>
+                                : <><b>{fmt(exceptionDate)}</b> · {t('για διάστημα πάτησε και την τελευταία μέρα')}</>}
+                            </p>
+                          </div>
+                        )
+                      })()}
                     </div>
 
                     {/* Διάστημα — μόνο στην εξαίρεση ώρας */}
