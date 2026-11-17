@@ -6,12 +6,12 @@ import { createClient } from '@/lib/supabase/client'
 import { BL_AREAS, BL_TIMINGS, BL_INTENTS } from '@/lib/business-leads'
 
 // Banner αρχικής: «Απόκτησε το δικό σου πλυντήριο αυτοκινήτων» → φόρμα (bottom sheet):
-// περιοχή Αττικής · πόσο άμεσα · αγορά/μίσθωση/δημιουργία · ονοματεπώνυμο · κινητό.
+// περιοχή Αττικής · πόσο άμεσα · ονοματεπώνυμο · κινητό. (Μόνο αγορά — χωρίς ερώτηση.)
 export function OwnWashBanner() {
   const [open, setOpen] = useState(false)
   const [area, setArea] = useState('')
   const [timing, setTiming] = useState('')
-  const [intent, setIntent] = useState('')
+  const intent = BL_INTENTS[0] // μόνο «Αγορά»
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [userId, setUserId] = useState<string | null>(null)
@@ -68,7 +68,7 @@ export function OwnWashBanner() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-semibold text-white leading-snug">Απόκτησε το δικό σου πλυντήριο αυτοκινήτων</p>
-          <p className="text-[12px] text-white/70 mt-0.5">Αγορά, μίσθωση ή νέο — σε βοηθάμε να ξεκινήσεις</p>
+          <p className="text-[12px] text-white/70 mt-0.5">Αγόρασε έτοιμο πλυντήριο — σε βοηθάμε να ξεκινήσεις</p>
         </div>
         <ChevronRight size={20} className="text-white/80 shrink-0" />
       </button>
@@ -101,10 +101,6 @@ export function OwnWashBanner() {
                 <div>
                   <p className="text-[12px] font-bold tracking-[1.2px] uppercase text-gray-500 mb-2">Πόσο άμεσα;</p>
                   <div className="flex flex-wrap gap-2">{BL_TIMINGS.map(v => <Chip key={v} v={v} cur={timing} set={setTiming} />)}</div>
-                </div>
-                <div>
-                  <p className="text-[12px] font-bold tracking-[1.2px] uppercase text-gray-500 mb-2">Ενδιαφέρομαι για</p>
-                  <div className="flex flex-wrap gap-2">{BL_INTENTS.map(v => <Chip key={v} v={v} cur={intent} set={setIntent} />)}</div>
                 </div>
                 <div className="flex flex-col gap-2.5">
                   <input value={name} onChange={e => setName(e.target.value)} placeholder="Ονοματεπώνυμο" autoComplete="name"
