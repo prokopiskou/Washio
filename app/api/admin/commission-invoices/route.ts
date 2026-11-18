@@ -67,6 +67,14 @@ async function commissions(month: string, locationId?: string) {
   return out
 }
 
+/** Λογαριασμοί που είναι ιδιοκτήτες αλυσίδας (μέλη με role 'group' σε τουλάχιστον ένα πλυντήριο). */
+async function groupOwnerSet(): Promise<Set<string>> {
+  try {
+    const { data, error } = await admin.from('location_members').select('user_id').eq('role', 'group').limit(5000)
+    return new Set(error ? [] : (data || []).map(r => r.user_id as string))
+  } catch { return new Set() }
+}
+
 async function ownerContact(ownerId: string | null) {
   if (!ownerId) return { email: null as string | null, phone: null as string | null }
   const { data } = await admin.auth.admin.getUserById(ownerId)
@@ -108,11 +116,16 @@ export async function GET(req: NextRequest) {
     ])
     // Οικονομικά → στον ιδιοκτήτη αλυσίδας αν υπάρχει (όχι στον υπεύθυνο του καταστήματος).
     const bill = await billingOwnerIds(admin, (locs || []) as { id: string; owner_id: string | null }[])
+    const groups = await groupOwnerSet()
     const rows = await Promise.all((locs || []).map(async l => {
       const s = sums.get(l.id)!
       const i = (inv || []).find(x => x.location_id === l.id)
       const { email } = await ownerContact(bill.get(l.id) ?? l.owner_id)
+      const billTo = bill.get(l.id) ?? l.owner_id
       return {
+        // groupId = ο ιδιοκτήτης αλυσίδας (αν υπάρχει) → αυτά τα πλυντήρια τιμολογούνται ΜΑΖΙ, σε ένα παραστατικό.
+        // (και όσα πλυντήρια έχει ακόμα ο ίδιος ως κύριος λογαριασμός, μέχρι να μπει υπεύθυνος)
+        groupId: billTo && groups.has(billTo) ? billTo : null,
         locationId: l.id, name: String(l.name).trim(), afm: l.afm || '', email,
         bookings: s.count, gross: s.gross, net: r2(s.gross / (1 + VAT)), vat: r2(s.gross - s.gross / (1 + VAT)),
         invoice: i || null,
@@ -145,11 +158,134 @@ function nextMonthDue(month: string) {
   return `${DUE_DAY}/${nm}/${ny}`
 }
 
+// ── ΣΥΝΟΛΙΚΟ ΤΙΜΟΛΟΓΙΟ ΑΛΥΣΙΔΑΣ ───────────────────────────────────────────────────────────────
+// Ένας ιδιοκτήτης, ΕΝΑ ΑΦΜ, πολλά πλυντήρια → ΕΝΑ παραστατικό με μία γραμμή ανά πλυντήριο.
+// Στη βάση μένει μία γραμμή commission_invoices ανά πλυντήριο (όπως πάντα), όλες με το ίδιο
+// oxygen_invoice_id / αριθμό. Η εξόφληση (action 'pay' σε οποιαδήποτε) τις κλείνει όλες μαζί.
+async function issueGroup(adminEmail: string, body: { groupId?: string; month?: string; settlement?: string; afm?: string }) {
+  const groupId = String(body.groupId || ''), month = String(body.month || '')
+  if (!/^[0-9a-f-]{36}$/i.test(groupId)) return NextResponse.json({ error: 'Λείπει ο ιδιοκτήτης' }, { status: 400 })
+  let range: ReturnType<typeof monthRange>
+  try { range = monthRange(month) } catch { return NextResponse.json({ error: 'Λάθος μήνας' }, { status: 400 }) }
+  if (range.to >= athensToday()) return NextResponse.json({ error: 'Ο μήνας δεν έχει τελειώσει ακόμα' }, { status: 400 })
+  const settlement = body.settlement === 'offset' ? 'offset' : 'paid'
+
+  // Πλυντήρια της αλυσίδας με προμήθεια αυτόν τον μήνα.
+  const sums = await commissions(month)
+  const ids = [...sums.keys()]
+  const { data: all } = await admin.from('locations').select('id, name, afm, owner_id').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000'])
+  const bill = await billingOwnerIds(admin, (all || []) as { id: string; owner_id: string | null }[])
+  const locs = ((all || []) as { id: string; name: string; afm: string | null; owner_id: string | null }[])
+    .filter(l => bill.get(l.id) === groupId)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'el'))
+  if (!(await groupOwnerSet()).has(groupId)) return NextResponse.json({ error: 'Δεν είναι ιδιοκτήτης αλυσίδας' }, { status: 400 })
+  if (!locs.length) return NextResponse.json({ error: 'Κανένα πλυντήριο της αλυσίδας με προμήθεια αυτόν τον μήνα' }, { status: 400 })
+
+  // ΕΝΑ ΑΦΜ για όλα.
+  const afms = new Set(locs.map(l => String(l.afm || '').replace(/\D/g, '')).filter(a => a.length === 9))
+  const afm = String(body.afm || [...afms][0] || '').replace(/\D/g, '')
+  if (afm.length !== 9) return NextResponse.json({ error: 'Λείπει ή είναι λάθος το ΑΦΜ' }, { status: 422 })
+  if (afms.size > 1) return NextResponse.json({ error: 'Τα πλυντήρια έχουν διαφορετικά ΑΦΜ — δεν γίνεται ένα τιμολόγιο' }, { status: 422 })
+  await admin.from('locations').update({ afm }).in('id', locs.map(l => l.id)).or('afm.is.null,afm.eq.')
+
+  const { data: existing } = await admin.from('commission_invoices').select('id, location_id, status, oxygen_invoice_id, invoice_number, paid_at, updated_at').eq('month', month).in('location_id', locs.map(l => l.id))
+  const ex = existing || []
+  const done = ex.filter(e => e.status === 'emailed' || e.status === 'paid')
+  if (done.length) return NextResponse.json({ error: `Έχει ήδη εκδοθεί τιμολόγιο για ${done.length} από τα πλυντήρια (${done[0].invoice_number || done[0].oxygen_invoice_id})` }, { status: 409 })
+  // Προηγούμενη προσπάθεια που έβγαλε παραστατικό αλλά δεν ολοκληρώθηκε (π.χ. απέτυχε το email) → συνέχισε με το ΙΔΙΟ.
+  const prevIds = new Set(ex.map(e => e.oxygen_invoice_id).filter(Boolean) as string[])
+  if (prevIds.size > 1) return NextResponse.json({ error: 'Υπάρχουν ήδη διαφορετικά παραστατικά για πλυντήρια της αλυσίδας — θέλει χειροκίνητο έλεγχο' }, { status: 409 })
+  if (!prevIds.size && ex.some(e => e.status === 'pending' && Date.now() - new Date(e.updated_at).getTime() < 120_000)) return NextResponse.json({ error: 'Εκδίδεται ήδη — περίμενε λίγο' }, { status: 409 })
+
+  const lines = locs.map(l => {
+    const s = sums.get(l.id)!
+    const net = r2(s.gross / (1 + VAT))
+    return { id: l.id, name: String(l.name).trim(), count: s.count, gross: s.gross, net, vat: r2(s.gross - net) }
+  })
+  const tot = { count: lines.reduce((a, x) => a + x.count, 0), gross: r2(lines.reduce((a, x) => a + x.gross, 0)), net: r2(lines.reduce((a, x) => a + x.net, 0)), vat: r2(lines.reduce((a, x) => a + x.vat, 0)) }
+  const owner = await ownerContact(groupId)
+
+  // Κλείδωμα: μία γραμμή ανά πλυντήριο, pending.
+  const now = new Date().toISOString()
+  const { error: upErr } = await admin.from('commission_invoices').upsert(lines.map(x => ({
+    location_id: x.id, month, bookings_count: x.count, gross: x.gross, net: x.net, vat: x.vat, settlement,
+    status: 'pending', created_by: adminEmail, error: null, updated_at: now,
+    ...(prevIds.size ? { oxygen_invoice_id: [...prevIds][0] } : {}),
+  })), { onConflict: 'location_id,month' })
+  if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
+  const setAll = (patch: Record<string, unknown>) => admin.from('commission_invoices').update({ ...patch, updated_at: new Date().toISOString() }).eq('month', month).in('location_id', lines.map(x => x.id))
+
+  let invoiceId = [...prevIds][0] as string | undefined
+  let number: string | undefined = ex.find(e => e.invoice_number)?.invoice_number || undefined
+  let paidNow = ex.some(e => e.paid_at)
+  try {
+    if (!invoiceId) {
+      const creditPm = process.env.OXYGEN_OFFSET_PAYMENT_METHOD_ID
+      if (!creditPm) throw new OxygenError('Λείπει το OXYGEN_OFFSET_PAYMENT_METHOD_ID (Επί πιστώσει)', 500)
+      const contactId = await ensureContact({ vat: afm, email: owner.email, phone: owner.phone, fallbackName: lines[0].name })
+      const taxId = await vat24Id()
+      const inv = await oxygen.createInvoice({
+        ...(process.env.OXYGEN_NUMBERING_SEQUENCE_ID ? { numbering_sequence_id: process.env.OXYGEN_NUMBERING_SEQUENCE_ID } : {}),
+        issue_date: athensToday(), document_type: 's', mydata_document_type: '2.1', language: 'el',
+        payment_method_id: creditPm, contact_id: contactId, is_paid: false,
+        description: `Προμήθεια Washio ${range.label}`,
+        comments: settlement === 'offset'
+          ? `Προμήθεια διαμεσολάβησης κρατήσεων μέσω Washio, ${range.gen} — ${lines.length} πλυντήρια. Εξοφλείται με συμψηφισμό με εισπράξεις καρτών.`
+          : `Προμήθεια διαμεσολάβησης κρατήσεων μέσω Washio, ${range.gen} — ${lines.length} πλυντήρια. Πληρωμή έως ${nextMonthDue(month)}.`,
+        // Μία γραμμή ανά πλυντήριο.
+        items: lines.map(x => ({
+          description: `Προμήθεια διαμεσολάβησης κρατήσεων Washio — ${range.label}`,
+          extra_description: `${x.name} · ${x.count} κρατήσεις`,
+          quantity: 1, unit_net_value: x.net, net_amount: x.net, vat_amount: x.vat, tax_id: taxId,
+          mydata_classification_category: process.env.OXYGEN_MYDATA_CATEGORY || 'category1_3',
+          mydata_classification_type: process.env.OXYGEN_MYDATA_TYPE || 'E3_561_001',
+        })),
+      })
+      invoiceId = String(inv.id)
+      const full = await oxygen.invoice(invoiceId).catch(() => inv) as Record<string, unknown>
+      number = [full.sequence ?? full.series ?? '', full.number ?? ''].filter(Boolean).join(' ') || String(full.number || '')
+      const mark = String((full.mydata_mark ?? full.mark ?? '') || '') || null
+      await setAll({ status: 'issued', oxygen_invoice_id: invoiceId, invoice_number: number || null, mydata_mark: mark })
+    }
+    if (settlement === 'offset' && !paidNow) {
+      const rc = await oxygen.payInvoice(invoiceId, { description: `Συμψηφισμός προμήθειας Washio ${range.label} με εισπράξεις καρτών` })
+      await setAll({ status: 'issued', paid_at: new Date().toISOString(), oxygen_receipt_id: String(rc.id) })
+      paidNow = true
+    }
+    if (!owner.email) throw new Error('Το τιμολόγιο εκδόθηκε, αλλά δεν βρέθηκε email ιδιοκτήτη')
+    const pdf = await oxygen.invoicePdf(invoiceId)
+    const perLoc = `<table role="presentation" style="width:100%;border-collapse:collapse;font-size:13px;margin:0 0 14px;">
+      <tr style="color:#6B7280;"><td style="padding:4px 0;">Πλυντήριο</td><td style="text-align:right;">Κρατήσεις</td><td style="text-align:right;">Προμήθεια</td></tr>
+      ${lines.map(x => `<tr><td style="padding:6px 0;border-top:1px solid #F0F0F0;">${esc(x.name)}</td><td style="text-align:right;border-top:1px solid #F0F0F0;">${x.count}</td><td style="text-align:right;border-top:1px solid #F0F0F0;">${eur(x.gross)}</td></tr>`).join('')}
+    </table>`
+    const status = paidNow
+      ? `<p style="margin:0;font-size:14px;color:#047857;font-weight:600;">✓ Εξοφλείται με συμψηφισμό με τις εισπράξεις καρτών — δεν χρειάζεται να πληρώσετε κάτι.</p>`
+      : `<p style="margin:0;font-size:14px;color:#B45309;font-weight:600;">Ποσό προς πληρωμή: ${eur(tot.gross)} έως ${nextMonthDue(month)}.</p>
+         <p style="margin:6px 0 0;font-size:13px;color:#6B7280;">Ο τρόπος πληρωμής είναι όπως στο email εκκαθάρισης.</p>`
+    const { error: mailErr } = await resend.emails.send({
+      from: 'Washio <noreply@washio.gr>', to: [owner.email], bcc: ['support@washio.gr'], replyTo: 'support@washio.gr',
+      subject: `Τιμολόγιο προμήθειας Washio · ${range.label} · ${lines.length} πλυντήρια`,
+      html: mailShell(`<h2 style="margin:0 0 12px;font-size:20px;">Τιμολόγιο προμήθειας · ${esc(range.label)}</h2>
+        <p style="margin:0 0 16px;font-size:15px;line-height:1.5;">Καλησπέρα,<br>σας επισυνάπτουμε το συνολικό τιμολόγιο παροχής υπηρεσιών για την προμήθεια των κρατήσεων μέσω Washio στα πλυντήριά σας.</p>
+        ${perLoc}${amountsTable(tot.count, tot.net, tot.vat, tot.gross)}${status}`),
+      attachments: [{ filename: `Washio_Τιμολόγιο_${month}_συνολικό.pdf`, content: pdf.toString('base64') }],
+    })
+    if (mailErr) throw new Error('Email: ' + mailErr.message)
+    await setAll({ status: paidNow ? 'paid' : 'emailed', emailed_to: owner.email, error: null })
+    return NextResponse.json({ ok: true, invoiceId, number, gross: tot.gross, net: tot.net, vat: tot.vat, locations: lines.length, paid: paidNow, emailedTo: owner.email })
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Σφάλμα'
+    await setAll({ status: invoiceId ? 'issued' : 'failed', error: msg })
+    return NextResponse.json({ error: msg, issued: !!invoiceId }, { status: e instanceof OxygenError ? (e.status >= 400 && e.status < 600 ? e.status : 502) : 500 })
+  }
+}
+
 export async function POST(req: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
-  const body = await req.json().catch(() => ({})) as { action?: string; locationId?: string; month?: string; settlement?: string; afm?: string }
+  const body = await req.json().catch(() => ({})) as { action?: string; locationId?: string; month?: string; settlement?: string; afm?: string; groupId?: string; force?: boolean }
   const { locationId, month = '' } = body
+  if (body.action === 'issue-group') return issueGroup(user.email || '', body)
   const action = body.action === 'pay' ? 'pay' : 'issue'
   if (!locationId) return NextResponse.json({ error: 'Λείπει πλυντήριο' }, { status: 400 })
 
@@ -170,15 +306,20 @@ export async function POST(req: NextRequest) {
     if (existing.paid_at) return NextResponse.json({ error: 'Έχει ήδη εξοφληθεί' }, { status: 409 })
     const pm = process.env.OXYGEN_PAYMENT_METHOD_ID
     if (!pm) return NextResponse.json({ error: 'Λείπει το OXYGEN_PAYMENT_METHOD_ID' }, { status: 500 })
+    // Ποσό = όλο το παραστατικό (σε συνολικό τιμολόγιο: άθροισμα όλων των πλυντηρίων του).
+    const { data: sib } = await admin.from('commission_invoices').select('gross, paid_at').eq('oxygen_invoice_id', existing.oxygen_invoice_id).eq('month', month)
+    if ((sib || []).some(x => x.paid_at)) return NextResponse.json({ error: 'Έχει ήδη εξοφληθεί' }, { status: 409 })
+    const paidTotal = r2((sib || []).reduce((a, x) => a + Number(x.gross || 0), 0)) || Number(existing.gross)
     try {
       const rc = await oxygen.payInvoice(existing.oxygen_invoice_id, { payment_method_id: pm, description: `Εξόφληση προμήθειας Washio ${range.label}` })
-      await admin.from('commission_invoices').update({ status: 'paid', paid_at: new Date().toISOString(), oxygen_receipt_id: String(rc.id), error: null, updated_at: new Date().toISOString() }).eq('id', existing.id)
+      // Συνολικό τιμολόγιο αλυσίδας = πολλές γραμμές με το ΙΔΙΟ παραστατικό → εξοφλούνται όλες μαζί.
+      await admin.from('commission_invoices').update({ status: 'paid', paid_at: new Date().toISOString(), oxygen_receipt_id: String(rc.id), error: null, updated_at: new Date().toISOString() }).eq('oxygen_invoice_id', existing.oxygen_invoice_id).eq('month', month)
       if (owner.email) {
         await resend.emails.send({
           from: 'Washio <noreply@washio.gr>', to: [owner.email], bcc: ['support@washio.gr'], replyTo: 'support@washio.gr',
           subject: `Λάβαμε την πληρωμή σας · ${range.label} · ${name}`,
           html: mailShell(`<h2 style="margin:0 0 12px;font-size:20px;">Ευχαριστούμε! ✓</h2>
-            <p style="margin:0;font-size:15px;line-height:1.5;">Λάβαμε την πληρωμή <b>${eur(Number(existing.gross))}</b> για την προμήθεια ${esc(range.gen)} (${esc(name)}, τιμολόγιο ${esc(existing.invoice_number || '')}). Το τιμολόγιο είναι πλέον εξοφλημένο.</p>`),
+            <p style="margin:0;font-size:15px;line-height:1.5;">Λάβαμε την πληρωμή <b>${eur(paidTotal)}</b> για την προμήθεια ${esc(range.gen)} (${esc(name)}, τιμολόγιο ${esc(existing.invoice_number || '')}). Το τιμολόγιο είναι πλέον εξοφλημένο.</p>`),
         }).catch(() => {})
       }
       return NextResponse.json({ ok: true, paid: true })
@@ -190,6 +331,11 @@ export async function POST(req: NextRequest) {
   }
 
   // ── ΕΚΔΟΣΗ ───────────────────────────────────────────────
+  // Πλυντήριο αλυσίδας → ΔΕΝ βγαίνει ξεχωριστό τιμολόγιο (εκτός αν ζητηθεί ρητά με force): βγαίνει το συνολικό.
+  if (!body.force && !existing?.oxygen_invoice_id) {
+    const billTo = (await billingOwnerIds(admin, [{ id: loc.id, owner_id: loc.owner_id }])).get(loc.id)
+    if (billTo && (await groupOwnerSet()).has(billTo)) return NextResponse.json({ error: 'Ανήκει σε αλυσίδα — εκδίδεται με το συνολικό τιμολόγιο του ιδιοκτήτη' }, { status: 409 })
+  }
   const settlement = body.settlement === 'offset' ? 'offset' : 'paid'
   const afm = String(body.afm || loc.afm || '').replace(/\D/g, '')
   if (afm.length !== 9) return NextResponse.json({ error: 'Λείπει ή είναι λάθος το ΑΦΜ του πλυντηρίου' }, { status: 422 })

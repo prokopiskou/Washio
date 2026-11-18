@@ -7,7 +7,7 @@ import Link from 'next/link'
 //  1) Αρχή μήνα: «Έκδοση» για τον προηγούμενο μήνα (όλα τα πλυντήρια) → PDF στο email τους.
 //  2) Όταν πληρώσει: «Εξόφληση» → απόδειξη είσπραξης. Συμψηφισμός (του χρωστάμε) → εξοφλείται στην έκδοση.
 type Inv = { status: string; invoice_number: string | null; mydata_mark: string | null; settlement: string; emailed_to: string | null; error: string | null; gross: number; paid_at: string | null } | null
-type Row = { locationId: string; name: string; afm: string; email: string | null; bookings: number; gross: number; net: number; vat: number; invoice: Inv }
+type Row = { groupId?: string | null; locationId: string; name: string; afm: string; email: string | null; bookings: number; gross: number; net: number; vat: number; invoice: Inv }
 
 const eur = (n: number) => n.toFixed(2).replace('.', ',') + '€'
 function prevMonth() {
@@ -70,8 +70,29 @@ export default function InvoicesPage() {
     setBusy(row.locationId); await post(row, 'issue'); setBusy(''); load()
   }
 
+  // ── Αλυσίδες: ένα ΣΥΝΟΛΙΚΟ τιμολόγιο για όλα τα πλυντήρια του ιδιοκτήτη (ένα ΑΦΜ) ──
+  const groupsTodo = [...new Set(rows.filter(r => r.groupId && !issued(r)).map(r => r.groupId as string))].map(gid => {
+    const list = rows.filter(r => r.groupId === gid && !issued(r))
+    return { gid, list, gross: list.reduce((s, r) => s + r.gross, 0), email: list[0]?.email || '', afm: (afmEdit['g:' + gid] ?? (list.find(r => r.afm)?.afm || '')).replace(/\D/g, '') }
+  })
+  const issueGroup = async (g: (typeof groupsTodo)[number]) => {
+    if (g.afm.length !== 9) { setMsg(m => ({ ...m, ['g:' + g.gid]: 'Βάλε σωστό ΑΦΜ (9 ψηφία)' })); return }
+    if (!g.email) { setMsg(m => ({ ...m, ['g:' + g.gid]: 'Δεν υπάρχει email ιδιοκτήτη' })); return }
+    const off = (settle['g:' + g.gid] || 'paid') === 'offset'
+    if (!confirm(`ΣΥΝΟΛΙΚΟ τιμολόγιο αλυσίδας · ${g.list.length} πλυντήρια\n\n${g.list.map(r => `• ${r.name}: ${eur(r.gross)}`).join('\n')}\n\nΣύνολο ${eur(g.gross)} · ΑΦΜ ${g.afm}\n${off ? 'Συμψηφισμός → εξοφλείται αμέσως' : 'Ανεξόφλητο — πληρωμή έως 15 του μήνα'}\nEmail → ${g.email}\n\nΈΝΑ παραστατικό, πάει στο myDATA. Συνέχεια;`)) return
+    setBusy('g:' + g.gid)
+    const r = await fetch('/api/admin/commission-invoices', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'issue-group', groupId: g.gid, month, settlement: settle['g:' + g.gid] || 'paid', afm: g.afm }),
+    })
+    const j = await r.json().catch(() => ({}))
+    setMsg(m => ({ ...m, ['g:' + g.gid]: r.ok ? `✅ ${j.number || 'Εκδόθηκε'} · ${j.locations} πλυντήρια → ${j.emailedTo}` : `❌ ${j.error || r.status}` }))
+    setBusy(''); load()
+  }
+
   const issueAll = async () => {
-    const todo = rows.filter(r => !issued(r))
+    // Τα πλυντήρια αλυσίδων ΔΕΝ μπαίνουν εδώ — βγαίνουν με το συνολικό τους τιμολόγιο (κουμπί πιο κάτω).
+    const todo = rows.filter(r => !issued(r) && !r.groupId)
     const bad = todo.map(r => [r, validate(r)] as const).filter(([, v]) => v)
     if (bad.length) { alert('Διόρθωσε πρώτα:\n' + bad.map(([r, v]) => `• ${r.name}: ${v}`).join('\n')); return }
     const offs = todo.filter(r => (settle[r.locationId] || 'paid') === 'offset').map(r => r.name)
@@ -81,13 +102,19 @@ export default function InvoicesPage() {
   }
 
   const payOne = async (row: Row) => {
+    // Συνολικό τιμολόγιο αλυσίδας: η εξόφληση αφορά ΟΛΟ το παραστατικό (όλα τα πλυντήρια με τον ίδιο αριθμό).
+    const same = row.groupId && row.invoice?.invoice_number ? rows.filter(r => r.groupId === row.groupId && r.invoice?.invoice_number === row.invoice?.invoice_number) : []
+    if (same.length > 1) {
+      if (!confirm(`Εξόφληση ΣΥΝΟΛΙΚΟΥ τιμολογίου ${row.invoice?.invoice_number} (${same.length} πλυντήρια): λάβαμε ${eur(same.reduce((s, r) => s + (r.invoice?.gross ?? r.gross), 0))};\n\nΒγαίνει απόδειξη είσπραξης και email επιβεβαίωσης.`)) return
+      setBusy(row.locationId); await post(row, 'pay'); setBusy(''); load(); return
+    }
     if (!confirm(`Εξόφληση ${row.name}: λάβαμε ${eur(row.invoice?.gross ?? row.gross)};\n\nΒγαίνει απόδειξη είσπραξης και email επιβεβαίωσης.`)) return
     setBusy(row.locationId); await post(row, 'pay'); setBusy(''); load()
   }
 
   const total = rows.reduce((s, r) => s + r.gross, 0)
   const open = rows.filter(r => issued(r) && !paid(r)).reduce((s, r) => s + (r.invoice?.gross ?? r.gross), 0)
-  const pendingIssue = rows.filter(r => !issued(r)).length
+  const pendingIssue = rows.filter(r => !issued(r) && !r.groupId).length
 
   return (
     <main className="min-h-screen bg-gray-50 p-5">
@@ -108,6 +135,27 @@ export default function InvoicesPage() {
         </div>
         {check && <pre className="mt-3 bg-white rounded-xl border border-gray-200 p-3 text-[11px] whitespace-pre-wrap max-h-80 overflow-auto">{check}</pre>}
         {err && <p className="mt-3 text-[13px] text-red-600">{err}</p>}
+
+        {groupsTodo.map(g => (
+          <div key={g.gid} className="mt-4 bg-white rounded-xl border border-amber-200 p-3.5">
+            <p className="text-[13px] font-semibold text-gray-900">Αλυσίδα · συνολικό τιμολόγιο · {g.list.length} πλυντήρια · {eur(g.gross)}</p>
+            <p className="text-[12px] text-gray-500 mt-0.5">{g.list.map(r => `${r.name} ${eur(r.gross)}`).join(' · ')}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">Email → {g.email || 'χωρίς email'}</p>
+            <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+              <input value={afmEdit['g:' + g.gid] ?? (g.list.find(r => r.afm)?.afm || '')} onChange={e => setAfmEdit(a => ({ ...a, ['g:' + g.gid]: e.target.value }))}
+                placeholder="ΑΦΜ" inputMode="numeric" className={`w-28 h-8 px-2 rounded-md border text-[13px] ${g.afm.length === 9 ? 'border-gray-200' : 'border-red-300'}`} />
+              <select value={settle['g:' + g.gid] || 'paid'} onChange={e => setSettle(s => ({ ...s, ['g:' + g.gid]: e.target.value as 'paid' | 'offset' }))}
+                className="h-8 px-2 rounded-md border border-gray-200 text-[13px] bg-white">
+                <option value="paid">Πληρωμή</option>
+                <option value="offset">Συμψηφισμός</option>
+              </select>
+              <button disabled={!!busy} onClick={() => issueGroup(g)} className="h-8 px-3 rounded-lg bg-gray-900 text-white text-[12px] font-semibold disabled:opacity-40">
+                {busy === 'g:' + g.gid ? 'Έκδοση…' : 'Έκδοση συνολικού'}
+              </button>
+              {msg['g:' + g.gid] && <span className="text-[11px]">{msg['g:' + g.gid]}</span>}
+            </div>
+          </div>
+        ))}
 
         <div className="mt-4 bg-white rounded-xl border border-gray-200 overflow-x-auto">
           <table className="w-full text-[13px]">
@@ -162,6 +210,8 @@ export default function InvoicesPage() {
                             {busy === r.locationId ? '…' : 'Εξόφληση'}
                           </button>
                         </div>
+                      ) : r.groupId ? (
+                        <span className="text-[12px] text-amber-700">Αλυσίδα · στο συνολικό τιμολόγιο</span>
                       ) : (
                         <button disabled={!!busy} onClick={() => issueOne(r)} className="h-8 px-3 rounded-lg bg-gray-900 text-white text-[12px] font-semibold disabled:opacity-40">
                           {busy === r.locationId ? 'Έκδοση…' : r.invoice?.status === 'issued' ? 'Ξαναστείλε email' : 'Έκδοση'}
