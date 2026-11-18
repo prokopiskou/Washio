@@ -152,6 +152,8 @@ export default function LocationPage() {
   const [selectedDate, setSelectedDate] = useState(today)
   const [wx, setWx] = useState<WxDay[]>([])
   const [pickedServiceId, setSelectedServiceId] = useState<string | null>(null)
+  // Υπηρεσία από link (διαφήμιση / «Κλείσε ξανά»): φαίνεται ΠΑΝΩ-ΠΑΝΩ πριν καν διαλέξει όχημα, και πρώτη στη λίστα.
+  const [deepSvcId, setDeepSvcId] = useState<string | null>(null)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   // Όχημα: «Ποιο αμάξι έχεις;» (μάρκα/μοντέλο → ΙΧ/SUV). Χωρίς επιλογή → καμία τιμή.
   const [carChoice, setCarChoice] = useCarChoice()
@@ -218,7 +220,7 @@ export default function LocationPage() {
       // «Κλείσε ξανά» (email επαναληπτικής κράτησης): ?service=<id> → η ίδια υπηρεσία με την προηγούμενη φορά, ήδη επιλεγμένη.
       try {
         const want = new URLSearchParams(window.location.search).get('service')
-        if (want && svc.some(s => s.id === want)) setSelectedServiceId(want)
+        if (want && svc.some(s => s.id === want)) { setSelectedServiceId(want); setDeepSvcId(want) }
       } catch { /* ignore */ }
       setLocationHours(loc.location_hours || [])
 
@@ -546,6 +548,32 @@ export default function LocationPage() {
             </button>
           </div>
 
+          {/* Ήρθε από link προσφοράς (π.χ. διαφήμιση «Βιολογικός 100€»): η προσφορά φαίνεται ΑΜΕΣΩΣ.
+              Πριν, ο επισκέπτης έβλεπε μόνο «Τι όχημα έχεις;» και η υπηρεσία ήταν 4η στη λίστα, μετά από 3 βήματα. */}
+          {(() => {
+            const ds = deepSvcId ? services.find(x => x.id === deepSvcId) : null
+            const dp = ds ? promoFor(ds) : null
+            if (!ds || !dp || carChoice) return null
+            const [ra, rb] = ds.is_range ? rangeFor(ds) : [0, 0]
+            const was = ds.is_range ? (ra > 0 && rb > ra ? `€${eur(ra)}–${eur(rb)}` : '') : (Number(listPriceFor(ds)) > Number(priceFor(ds)) ? `€${eur(Number(listPriceFor(ds)))}` : '')
+            const until = (() => { try { return new Date(dp.ends_on + 'T12:00:00').toLocaleDateString(locale === 'en' ? 'en-GB' : 'el-GR', { weekday: 'long', day: 'numeric', month: 'numeric' }) } catch { return '' } })()
+            return (
+              <button type="button" onClick={() => { pendingSvcRef.current = ds.id; carPickerRef.current?.open() }}
+                className="w-full mt-5 rounded-[20px] p-4 text-left text-white"
+                style={{ background: 'linear-gradient(135deg, #16233A 0%, #10182A 100%)', boxShadow: '0 10px 24px rgba(16,24,42,0.22)' }}>
+                <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold tracking-[1.2px] uppercase" style={{ background: '#D4AF37', color: '#10182A' }}>{locale === 'en' ? 'Offer' : 'Προσφορά'}</span>
+                <p className="mt-2 text-[17px] font-bold leading-snug">{ds.name}</p>
+                <p className="mt-1 flex items-baseline gap-2">
+                  <span className="text-[30px] font-bold tracking-tight text-washio-cyan leading-none">€{eur(Number(priceFor(ds)) || 0)}</span>
+                  {was && <span className="text-[13px] text-white/50 line-through">{was}</span>}
+                </p>
+                <p className="mt-2 text-[12px] text-white/75 leading-snug">
+                  {until ? (locale === 'en' ? `Until ${until}. ` : `Έως ${until}. `) : ''}{locale === 'en' ? 'Tell us your car and pick a time.' : 'Πες μας το όχημά σου και διάλεξε ώρα.'}
+                </p>
+              </button>
+            )
+          })()}
+
           {/* Vehicle type */}
           <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-7 mb-2.5">
             {t.vehicle}
@@ -567,7 +595,7 @@ export default function LocationPage() {
             <p className="text-[12px] font-semibold text-washio-cyan-dark -mt-1 mb-2.5">{coupon.guest ? t.couponGuest : t.couponUser}{!coupon.guest && (() => { const ex = couponExpiryLabel(coupon.expiresAt, locale); return ex ? <span className={ex.urgent ? 'text-red-600' : ''}> · {ex.text}</span> : null })()}</p>
           )}
           <div className="flex flex-col gap-2.5">
-            {visibleServices.map(s => {
+            {[...visibleServices].sort((a, b) => Number(b.id === deepSvcId) - Number(a.id === deepSvcId)).map(s => {
               const selected = selectedServiceId === s.id
               const price = priceLabel(s)
               const base = Number(listPriceFor(s)) || 0
