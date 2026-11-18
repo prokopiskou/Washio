@@ -31,7 +31,8 @@ function BranchForm() {
   useEffect(() => { load() }, [])
   const src = locs.find(l => l.id === sourceId)
   // Προτεινόμενο όνομα: «Mr Car Wash · » — συμπληρώνει μόνο την περιοχή.
-  useEffect(() => { if (src && !f.name) setF(p => ({ ...p, name: src.name.split('·')[0].trim() + ' · ', capacity: p.capacity || String(src.capacity || 1) })) }, [src]) // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { if (src && !f.name) setF(p => ({ ...p, name: src.name.split('·')[0].trim() + ' · ', capacity: p.capacity || String(src.capacity || 1) })) }, [src]) // eslint-disable-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
 
   useEffect(() => {
     const init = () => {
