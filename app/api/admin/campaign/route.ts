@@ -101,7 +101,7 @@ function referralHtml(code: string, copyUrl: string, shareUrl: string, userId: s
         ${row('2', 'Κλείνει το πρώτο του πλύσιμο με −3€')}
         ${row('3', 'Μόλις ολοκληρωθεί το πλύσιμο, παίρνεις κι εσύ −3€')}
       </table>
-      <p style="margin:18px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;">Ισχύει για έως 2 φίλους (έως −6€ για σένα). Σε πλύσιμο από 12€ · ένα κουπόνι ανά πλύσιμο · κάρτα ή μετρητά.</p>
+      <p style="margin:18px 0 0;color:#9AA3AF;font-size:12px;line-height:1.6;">Ισχύει για έως 2 φίλους (έως −6€ για σένα). Σε πλύσιμο από 12€ · ένα κουπόνι ανά πλύσιμο.</p>
     </div>
     <p style="margin:16px 0 0;color:#9AA3AF;font-size:11px;line-height:1.5;text-align:center;">Λαμβάνεις αυτό το email επειδή έχεις λογαριασμό στο Washio. Δεν θέλεις τέτοια μηνύματα; ${unsubFooterLink(userId)}.</p>
   </div></body></html>`

@@ -239,7 +239,10 @@ export async function POST(req: NextRequest) {
     // Washio Club: 5ο, 10ο… πλύσιμο στο ίδιο πλυντήριο → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
     const loyalty = noCredit ? 0 : await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount })
     if (loyalty > 0) couponAmount = loyalty
-    else if (!noCredit && couponAllowedAt(locationId) && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
+    // Το κουπόνι −3€ (καλωσορίσματος / παραπομπής) ισχύει ΜΟΝΟ με πληρωμή με κάρτα στην εφαρμογή (create-intent).
+    // Στα μετρητά δεν εφαρμόζεται — το υπόλοιπο του πελάτη μένει άθικτο για κράτηση με κάρτα.
+    const CASH_COUPON = false
+    if (CASH_COUPON && loyalty <= 0 && !noCredit && couponAllowedAt(locationId) && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
       const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
       couponAmount = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
     }

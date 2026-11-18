@@ -82,7 +82,7 @@ function reminderHtml(link: string, expiresIso: string, userId = ''): string {
       <p style="margin:0 0 18px;color:#4B5563;font-size:15px;line-height:1.6;">Δεν χρειάζεται να πλύνεις σήμερα. <strong style="color:#10182A;">Κλείσε σήμερα για όποια μέρα θες</strong> — ακόμα και για την επόμενη εβδομάδα — και η έκπτωση κλειδώνει.</p>
       <div style="background:#FFF8E8;border:1px solid #F6E2B3;border-radius:14px;padding:14px 16px;margin:0 0 20px;">
         <p style="margin:0;color:#8A6209;font-size:15px;font-weight:800;">⏳ Ισχύει έως ${greekDate(expiresIso)}, 23:59</p>
-        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Κάρτα ή μετρητά · Σε πλύσιμο από 12€ · Δωρεάν ακύρωση έως 2 ώρες πριν.</p>
+        <p style="margin:4px 0 0;color:#6F7785;font-size:12px;">Σε πλύσιμο από 12€ · Δωρεάν ακύρωση έως 2 ώρες πριν.</p>
       </div>
       <a href="${link}" style="display:block;background:#19A8C7;color:#FFFFFF;text-align:center;padding:16px;border-radius:14px;text-decoration:none;font-size:16px;font-weight:700;">Κλείσε ραντεβού τώρα →</a>
     </div>

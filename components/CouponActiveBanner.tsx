@@ -16,14 +16,14 @@ const T = {
     title: (a: string) => `Το κουπόνι σου −${a}€ ενεργοποιήθηκε`,
     welcome: (a: string) => `🎁 Πήρες −${a}€ για το πρώτο σου πλύσιμο`,
     valid: (d: string) => `Ισχύει για 7 μέρες · έως ${d}, 23:59`,
-    sub: (m: number) => `Αυτόματα στο επόμενο πλύσιμο από ${m}€ — πληρώνεις στο πλυντήριο ή με κάρτα.`,
+    sub: (m: number) => `Αυτόματα στο επόμενο πλύσιμο από ${m}€.`,
     close: 'Κλείσιμο',
   },
   en: {
     title: (a: string) => `Your −€${a} coupon is active`,
     welcome: (a: string) => `🎁 You got −€${a} for your first wash`,
     valid: (d: string) => `Valid for 7 days · until ${d}, 23:59`,
-    sub: (m: number) => `Applied automatically on your next wash from €${m} — pay at the venue or by card.`,
+    sub: (m: number) => `Applied automatically on your next wash from €${m}.`,
     close: 'Close',
   },
 }

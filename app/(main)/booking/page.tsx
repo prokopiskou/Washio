@@ -70,7 +70,7 @@ const T = {
     clubReward: '💧 4 σταγόνες · δώρο',
     clubNote: 'Μάζεψες 4 σταγόνες σε αυτό το πλυντήριο. Το κουπόνι σου μένει για την επόμενη.',
     clubProgress: (drops: number, need: number, amt: number) => `${drops}/${need} σταγόνες εδώ · μάζεψε ${need} για −${amt} € (μετράει μετά το πλύσιμο)`,
-    couponCard: 'Κουπόνι Washio', totalWithCoupon: 'Πληρώνεις', couponNote: (_full: string) => `Το κουπόνι ισχύει είτε πληρώσεις στο πλυντήριο είτε με κάρτα. Με κάρτα προστίθεται τέλος υπηρεσίας.`,
+    couponCard: 'Κουπόνι Washio', totalWithCoupon: 'Πληρώνεις', couponNote: (_full: string) => `Το κουπόνι −3€ ισχύει με πληρωμή με κάρτα στην εφαρμογή.`, couponCardOnly: (a: string) => `Με κάρτα παίρνεις −${a} (κουπόνι Washio). Στα μετρητά δεν ισχύει.`, useCard: 'Πλήρωσε με κάρτα', noCouponCash: 'Χωρίς το −3€', withCoupon: 'με το κουπόνι σου',
     bookPayThere: 'Κλείσε τώρα · πλήρωσε εκεί', orPayCard: 'ή πλήρωσε τώρα με κάρτα', payThereHint: 'Πληρώνεις στο πλυντήριο κατά την επίσκεψη.',
     payMethod: 'Τρόπος πληρωμής', payAtVenue: 'Στο πλυντήριο', payAtVenueSub: 'Μετρητά ή κάρτα', payByCard: 'Κάρτα', payByCardSub: 'Τώρα, online',
     continueCard: 'Συνέχεια με κάρτα', saveCard: 'Αποθήκευση κάρτας για επόμενες πληρωμές', switchToVenue: '💵 Προτιμώ να πληρώσω στο πλυντήριο',
@@ -117,7 +117,7 @@ const T = {
     clubReward: '💧 4 drops · gift',
     clubNote: 'You collected 4 drops at this car wash. Your coupon stays for next time.',
     clubProgress: (drops: number, need: number, amt: number) => `${drops}/${need} drops here · collect ${need} for −${amt} € (counted after the wash)`,
-    couponCard: 'Washio coupon', totalWithCoupon: 'You pay', couponNote: (_full: string) => `The coupon applies whether you pay at the venue or by card. A service fee is added to card payments.`,
+    couponCard: 'Washio coupon', totalWithCoupon: 'You pay', couponNote: (_full: string) => `The −€3 coupon applies when you pay by card in the app.`, couponCardOnly: (a: string) => `Pay by card and get −${a} (Washio coupon). Not valid for cash.`, useCard: 'Pay by card', noCouponCash: 'No −€3', withCoupon: 'with your coupon',
     bookPayThere: 'Book now · pay there', orPayCard: 'or pay now by card', payThereHint: 'You pay at the car wash during your visit.',
     payMethod: 'Payment method', payAtVenue: 'At the car wash', payAtVenueSub: 'Cash or card', payByCard: 'Card', payByCardSub: 'Now, online',
     continueCard: 'Continue with card', saveCard: 'Save card for future payments', switchToVenue: '💵 I prefer to pay at the car wash',
@@ -832,8 +832,12 @@ function BookingPageContent() {
   // Washio Club (5ο πλύσιμο στο ίδιο πλυντήριο −3€) έχει προτεραιότητα και ΔΕΝ ξοδεύει το κουπόνι.
   const couponOk = couponAllowedAt(locationId) // lib/coupon-locations
   const loyaltyNow = !noCredit && !!loyalty?.rewardNext && isCreditEligible(total)
-  const previewCredit = loyaltyNow ? Math.min(loyalty!.amount, total)
-    : !noCredit && couponOk && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
+  // Κουπόνι −3€: ΜΟΝΟ με κάρτα. Washio Club (σταγόνες): και στους δύο τρόπους.
+  const couponPreview = !loyaltyNow && !noCredit && couponOk && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
+  const creditFor = (m: 'venue' | 'card') => loyaltyNow ? Math.min(loyalty!.amount, total) : m === 'card' ? couponPreview : 0
+  const previewCredit = creditFor(payMethod)
+  // Έχει κουπόνι και δεν έχει αγγίξει τον τρόπο πληρωμής → προεπιλογή η κάρτα (μόνο εκεί ισχύει το −3€).
+  useEffect(() => { if (couponPreview > 0 && !payTouchedRef.current) setPayMethodRaw('card') }, [couponPreview])
   // Έχει κουπόνι που ΘΑ έμπαινε, αλλά το πλυντήριο δεν το δέχεται → ειδοποίηση στη σύνοψη.
   const couponExcludedHere = !couponOk && !noCredit && !loyaltyNow && isCreditEligible(total) && (walletCredit > 0 || isGuest)
   // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
@@ -1387,6 +1391,12 @@ function BookingPageContent() {
                     <span className="text-[14px] font-semibold text-green-600">−{eur2(previewCredit)}</span>
                   </div>
                 )}
+                {payMethod === 'venue' && couponPreview > 0 && (
+                  <button type="button" onClick={() => { setPayMethod('card'); selectionHaptic() }}
+                    className="w-full text-left text-[12px] font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 my-2.5 leading-snug">
+                    {t.couponCardOnly(eur2(couponPreview))} <span className="underline">{t.useCard}</span>
+                  </button>
+                )}
                 {couponExcludedHere && (
                   <p className="text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 my-2.5 leading-snug">{locale === 'en' ? NO_COUPON_NOTICE.en : NO_COUPON_NOTICE.el}</p>
                 )}
@@ -1450,6 +1460,16 @@ function BookingPageContent() {
                       <span className="text-[18px] leading-none">{icon}</span>
                       <p className="text-[14px] font-bold text-washio-navy mt-1.5">{label}</p>
                       <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p>
+                      {couponPreview > 0 && (
+                        key === 'card' ? (
+                          <p className="mt-1.5 text-[12px] font-bold text-green-700">
+                            <span className="inline-block px-1.5 py-0.5 rounded-md bg-green-100 mr-1">−{eur2(couponPreview)}</span>
+                            {eur2(total - couponPreview + serviceFee)} <span className="font-medium text-green-700/80">{t.withCoupon}</span>
+                          </p>
+                        ) : (
+                          <p className="mt-1.5 text-[12px] font-semibold text-gray-500">{eur2(total)} · {t.noCouponCash}</p>
+                        )
+                      )}
                     </button>
                   )
                 })}
@@ -1498,7 +1518,7 @@ function BookingPageContent() {
               disabled={cashLoading}
               className="w-full h-12 rounded-xl border-[1.5px] border-[#078EAD] bg-white text-[14px] font-semibold text-[#078EAD] flex items-center justify-center gap-2 disabled:opacity-40 active:scale-[0.99] transition-transform"
             >
-              {cashLoading ? t.confirming : `${t.switchToVenue}${previewCredit > 0 ? ` · ${eur2(total - previewCredit)}` : ''}`}
+              {cashLoading ? t.confirming : `${t.switchToVenue}${couponPreview > 0 || creditFor('venue') > 0 ? ` · ${eur2(total - creditFor('venue'))}` : ''}`}
             </button>
             <p className="text-[10px] text-gray-400 text-center mt-2 leading-snug">
               {t.cashHint}
