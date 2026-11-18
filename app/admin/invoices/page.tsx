@@ -149,6 +149,12 @@ export default function InvoicesPage() {
                 <option value="paid">Πληρωμή</option>
                 <option value="offset">Συμψηφισμός</option>
               </select>
+              <button type="button" onClick={() => {
+                // Έτοιμες γραμμές για χειροκίνητη έκδοση στο timologio: περιγραφή · καθαρό · ΦΠΑ · σύνολο.
+                const txt = [`ΑΦΜ ${g.afm} · ${month}`, ...g.list.map(r => `Προμήθεια διαμεσολάβησης κρατήσεων Washio — ${month} · ${r.name} · ${r.bookings} κρατήσεις\tκαθαρό ${r.net.toFixed(2)}\tΦΠΑ 24% ${r.vat.toFixed(2)}\tσύνολο ${r.gross.toFixed(2)}`),
+                  `ΣΥΝΟΛΟ\tκαθαρό ${g.list.reduce((s, r) => s + r.net, 0).toFixed(2)}\tΦΠΑ ${g.list.reduce((s, r) => s + r.vat, 0).toFixed(2)}\tσύνολο ${g.gross.toFixed(2)}`].join('\n')
+                navigator.clipboard?.writeText(txt).then(() => setMsg(m => ({ ...m, ['g:' + g.gid]: '📋 Αντιγράφηκε' })), () => {})
+              }} className="h-8 px-3 rounded-lg border border-gray-300 bg-white text-[12px] font-semibold">Αντιγραφή για timologio</button>
               <button disabled={!!busy} onClick={() => issueGroup(g)} className="h-8 px-3 rounded-lg bg-gray-900 text-white text-[12px] font-semibold disabled:opacity-40">
                 {busy === 'g:' + g.gid ? 'Έκδοση…' : 'Έκδοση συνολικού'}
               </button>

@@ -132,6 +132,39 @@ export async function GET(req: NextRequest) {
       }
     }))
     rows.sort((a, b) => a.name.localeCompare(b.name, 'el'))
+
+    // ?draft=1 → ΕΤΟΙΜΑ ΠΡΟΣΧΕΔΙΑ για χειροκίνητη έκδοση (timologio ΑΑΔΕ): ένα ανά λήπτη — αλυσίδα = ΕΝΑ
+    // παραστατικό με γραμμή ανά πλυντήριο — με επωνυμία / ΑΦΜ / ΔΟΥ, περιγραφές γραμμών, καθαρό, ΦΠΑ, σύνολα.
+    if (sp.get('draft')) {
+      const { label } = monthRange(month)
+      const { data: onb } = await admin.from('partner_onboarding').select('*').in('notes', rows.map(r => r.locationId))
+      const legal = new Map<string, Record<string, unknown>>(((onb || []) as Record<string, unknown>[]).map(o => [String(o.notes), o]))
+      const keyOf = (r: (typeof rows)[number]) => r.groupId ? 'g:' + r.groupId : 'l:' + r.locationId
+      const drafts = [...new Set(rows.map(keyOf))].map(k => {
+        const list = rows.filter(r => keyOf(r) === k)
+        const o = list.map(r => legal.get(r.locationId)).find(Boolean) || {}
+        const lines = list.map(r => ({
+          description: `Προμήθεια διαμεσολάβησης κρατήσεων Washio — ${label} · ${r.name} · ${r.bookings} κρατήσεις`,
+          net: r.net, vat: r.vat, gross: r.gross, location: r.name, bookings: r.bookings,
+        }))
+        return {
+          chain: k.startsWith('g:'),
+          recipient: {
+            name: String(o.business_name || o.legal_name || list[0].name || '').trim(),
+            afm: String(list.find(r => r.afm)?.afm || o.afm || '').trim(),
+            doy: String(o.doy || '').trim(),
+            address: String(o.address || o.business_address || '').trim(),
+            email: list[0].email,
+          },
+          lines,
+          totals: { net: r2(lines.reduce((a, x) => a + x.net, 0)), vat: r2(lines.reduce((a, x) => a + x.vat, 0)), gross: r2(lines.reduce((a, x) => a + x.gross, 0)), bookings: lines.reduce((a, x) => a + x.bookings, 0) },
+          // Ήδη καταχωρημένο τιμολόγιο για τον μήνα (αν υπάρχει) → ΜΗΝ το ξαναβγάλεις.
+          already: list.filter(r => r.invoice && ['issued', 'emailed', 'paid'].includes(r.invoice.status)).map(r => ({ location: r.name, number: r.invoice!.invoice_number, status: r.invoice!.status })),
+          locationIds: list.map(r => r.locationId),
+        }
+      })
+      return NextResponse.json({ month, label, vatRate: 24, drafts })
+    }
     return NextResponse.json({ month, rows })
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Σφάλμα' }, { status: 400 })
