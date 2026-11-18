@@ -1053,6 +1053,13 @@ export default function AdminPage() {
                       📍 Πλυντήρια Αττικής (CSV)
                     </a>
                     <button
+                      onClick={() => router.push('/admin/locations/branch')}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-900 text-gray-900 text-[12px] font-semibold"
+                      title="Ίδιο πλυντήριο σε άλλη διεύθυνση: αντιγράφει υπηρεσίες, τιμές, ωράριο — βάζεις μόνο διεύθυνση και υπεύθυνο"
+                    >
+                      ⧉ Υποκατάστημα
+                    </button>
+                    <button
                       onClick={() => router.push('/admin/locations/new')}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white text-[12px] font-semibold"
                     >

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { canManageLocation } from '@/lib/location-access'
 import { randomBytes } from 'crypto'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
@@ -15,7 +16,8 @@ async function authorize(locationId: string) {
   const { data: { user } } = await sb.auth.getUser()
   if (!user) return { error: NextResponse.json({ error: 'Απαιτείται σύνδεση' }, { status: 401 }) }
   const { data: loc } = await admin.from('locations').select('id, owner_id, scan_token').eq('id', locationId).maybeSingle()
-  if (!loc || (loc.owner_id !== user.id && !isAdminEmail(user.email))) return { error: NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 }) }
+  // Υπεύθυνος (owner_id), μέλος (ιδιοκτήτης αλυσίδας) ή admin.
+  if (!loc || (!isAdminEmail(user.email) && !(await canManageLocation(admin, user.id, loc.id as string, loc.owner_id as string | null)))) return { error: NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 }) }
   return { loc }
 }
 
