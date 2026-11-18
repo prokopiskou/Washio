@@ -93,3 +93,23 @@ export async function claimPendingManager(db: SupabaseClient, userId: string, em
   if (got.length) await writePendingManagers(db, all.filter(i => !(i.email.trim().toLowerCase() === me && got.includes(i.locationId))))
   return got
 }
+
+// ── Σε ποιον πάνε τα ΟΙΚΟΝΟΜΙΚΑ (τιμολόγια προμήθειας, εκκαθαρίσεις) ───────────────────────────────
+// Αν το πλυντήριο έχει ιδιοκτήτη αλυσίδας (μέλος με role 'group') → σε ΕΚΕΙΝΟΝ, όχι στον υπεύθυνο
+// του καταστήματος. Αλλιώς στον κύριο λογαριασμό, όπως πάντα.
+export async function billingOwnerIds(db: SupabaseClient, locs: { id: string; owner_id: string | null }[]): Promise<Map<string, string | null>> {
+  const out = new Map<string, string | null>(locs.map(l => [l.id, l.owner_id]))
+  if (!locs.length) return out
+  try {
+    const { data, error } = await db.from('location_members').select('location_id, user_id, created_at').eq('role', 'group')
+      .in('location_id', locs.map(l => l.id)).order('created_at', { ascending: true })
+    if (!error) {
+      const seen = new Set<string>()
+      for (const m of (data || []) as { location_id: string; user_id: string }[]) {
+        if (seen.has(m.location_id)) continue
+        seen.add(m.location_id); out.set(m.location_id, m.user_id)
+      }
+    }
+  } catch { /* χωρίς πίνακα → κύριος λογαριασμός */ }
+  return out
+}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { billingOwnerIds } from '@/lib/location-access'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { createClient as createServerClient } from '@/lib/supabase/server'
@@ -25,7 +26,9 @@ async function requireAdmin() {
 export async function GET() {
   if (!(await requireAdmin())) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
   const { data } = await admin.from('locations').select('id, name, owner_id').eq('is_active', true).order('name')
-  return NextResponse.json({ locations: (data || []).map(l => ({ id: l.id, name: String(l.name).trim(), owner: l.owner_id })) })
+  // «owner» = σε ποιον πάνε τα οικονομικά: ο ιδιοκτήτης αλυσίδας αν υπάρχει, αλλιώς ο κύριος λογαριασμός.
+  const bill = await billingOwnerIds(admin, (data || []) as { id: string; owner_id: string | null }[])
+  return NextResponse.json({ locations: (data || []).map(l => ({ id: l.id, name: String(l.name).trim(), owner: bill.get(l.id) ?? l.owner_id })) })
 }
 
 const eur = (n: number) => n.toFixed(2).replace('.', ',') + '€'
@@ -95,7 +98,8 @@ export async function POST(req: NextRequest) {
   if (!items.length || items.length !== files.length) return NextResponse.json({ error: 'Λάθος αρχεία' }, { status: 400 })
 
   const { data: locs } = await admin.from('locations').select('id, name, owner_id').in('id', items.map(i => i.locationId))
-  const owners = new Set((locs || []).map(l => l.owner_id))
+  const bill = await billingOwnerIds(admin, (locs || []) as { id: string; owner_id: string | null }[])
+  const owners = new Set((locs || []).map(l => bill.get(l.id) ?? l.owner_id))
   if (!locs?.length || owners.size !== 1) return NextResponse.json({ error: 'Τα αρχεία πρέπει να είναι του ίδιου ιδιοκτήτη' }, { status: 400 })
   const ownerId = [...owners][0] as string
   const { data: ou } = await admin.auth.admin.getUserById(ownerId)

@@ -5,6 +5,7 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
 import { isInternalEmail } from '@/lib/internal'
 import { oxygen, ensureContact, vat24Id, OxygenError } from '@/lib/oxygen'
+import { billingOwnerIds } from '@/lib/location-access'
 
 // Τιμολόγιο προμήθειας Washio → πλυντήριο, μέσω Oxygen. Ένα ανά πλυντήριο ανά μήνα.
 // Τιμολογείται ΟΛΗ η προμήθεια του μήνα (κάρτα + μετρητά) — το «εξόφληση» είναι μόνο ο τρόπος
@@ -105,10 +106,12 @@ export async function GET(req: NextRequest) {
       admin.from('locations').select('id, name, afm, owner_id').in('id', ids.length ? ids : ['00000000-0000-0000-0000-000000000000']),
       admin.from('commission_invoices').select('location_id, status, invoice_number, mydata_mark, settlement, emailed_to, error, gross, paid_at').eq('month', month),
     ])
+    // Οικονομικά → στον ιδιοκτήτη αλυσίδας αν υπάρχει (όχι στον υπεύθυνο του καταστήματος).
+    const bill = await billingOwnerIds(admin, (locs || []) as { id: string; owner_id: string | null }[])
     const rows = await Promise.all((locs || []).map(async l => {
       const s = sums.get(l.id)!
       const i = (inv || []).find(x => x.location_id === l.id)
-      const { email } = await ownerContact(l.owner_id)
+      const { email } = await ownerContact(bill.get(l.id) ?? l.owner_id)
       return {
         locationId: l.id, name: String(l.name).trim(), afm: l.afm || '', email,
         bookings: s.count, gross: s.gross, net: r2(s.gross / (1 + VAT)), vat: r2(s.gross - s.gross / (1 + VAT)),
@@ -158,7 +161,7 @@ export async function POST(req: NextRequest) {
   const { data: loc } = await admin.from('locations').select('id, name, afm, owner_id').eq('id', locationId).maybeSingle()
   if (!loc) return NextResponse.json({ error: 'Δεν βρέθηκε πλυντήριο' }, { status: 404 })
   const name = String(loc.name).trim()
-  const owner = await ownerContact(loc.owner_id)
+  const owner = await ownerContact((await billingOwnerIds(admin, [{ id: loc.id, owner_id: loc.owner_id }])).get(loc.id) ?? loc.owner_id)
   const { data: existing } = await admin.from('commission_invoices').select('*').eq('location_id', loc.id).eq('month', month).maybeSingle()
 
   // ── ΕΞΟΦΛΗΣΗ ─────────────────────────────────────────────
