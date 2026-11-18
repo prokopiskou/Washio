@@ -1045,13 +1045,6 @@ export default function AdminPage() {
                     >
                       🧾 Τιμολόγια / Εξόφληση
                     </a>
-                    <a
-                      href="/api/admin/places"
-                      onClick={e => { if (!confirm('Λίστα όλων των πλυντηρίων Αττικής από Google (CSV). Κόστος ~4–5$ στο Google Cloud, διαρκεί 1–3 λεπτά. Συνέχεια;')) e.preventDefault() }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-gray-700 text-[12px] font-semibold"
-                    >
-                      📍 Πλυντήρια Αττικής (CSV)
-                    </a>
                     <button
                       onClick={() => router.push('/admin/locations/branch')}
                       className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-900 text-gray-900 text-[12px] font-semibold"
