@@ -224,7 +224,7 @@ export async function GET(req: Request) {
   // Τα υπόλοιπα crons τρέχουν μαζί με αυτό (ό,τι χτυπά το /api/cron/emails κάθε 15' —
   // το GitHub workflow είναι απενεργοποιημένο, οπότε rebook / welcome-nudge / push δεν έτρεχαν ΠΟΤΕ).
   // Παράλληλα, best-effort· το καθένα έχει δικούς του κανόνες (ώρες, 1 φορά ανά χρήστη, claim).
-  const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders', 'loyalty-drops', 'washer-morning', 'lead-followups', 'campaigns', 'metrics-daily', 'announcement-reminders', 'review-requests', 'feedback-calls', 'rain-notice', 'tiers-weekly'] as const
+  const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders', 'loyalty-drops', 'washer-morning', 'lead-followups', 'campaigns', 'metrics-daily', 'announcement-reminders', 'review-requests', 'feedback-calls', 'rain-notice', 'tiers-weekly', 'owner-daily'] as const
   // ΠΟΣΟ ΣΥΧΝΑ τρέχει το καθένα. Το /api/cron/emails χτυπιέται ~κάθε λεπτό· πριν, ΚΑΘΕ χτύπημα καλούσε
   // και τα 15 (≈ 750.000 αιτήματα/μήνα στο Vercel, τα περισσότερα «εκτός ωραρίου → skip»). Τώρα το καθένα
   // καλείται μόνο όταν έχει περάσει το διάστημά του ΚΑΙ είναι μέσα στις ώρες του (ώρα Ελλάδας).
@@ -246,6 +246,7 @@ export async function GET(req: Request) {
     'feedback-calls': { every: 20, h: [10, 11] },
     'rain-notice': { every: 20, h: [18, 20] },
     'tiers-weekly': { every: 15, h: [9, 9], mon: true },
+    'owner-daily': { every: 20, h: [8, 9] },             // πρωινή αναφορά ιδιοκτητών (μόνο όσοι είναι στο app_settings 'owner_daily')
   }
   const athH = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Athens', hour: '2-digit', hourCycle: 'h23' }).format(new Date()))
   const athWd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Athens', weekday: 'short' }).format(new Date())
