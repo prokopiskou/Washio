@@ -6,8 +6,8 @@ import { isAdminEmail } from '@/lib/admins'
 import { memberLocationIds } from '@/lib/location-access'
 
 // Πρωινή αναφορά ΙΔΙΟΚΤΗΤΗ (αλυσίδες / πολλά πλυντήρια): κάθε πρωί 08:00–09:59 (Ελλάδα), ένα email με
-// το τι έγινε ΧΘΕΣ σε ΚΑΘΕ πλυντήριό του μέσω Washio — πόσα ραντεβού, τι τζίρο, αναλυτικά οι κρατήσεις —
-// και σύνολο. Μόνο κρατήσεις πλατφόρμας (όχι τα χειροκίνητα ραντεβού του πλυντηρίου).
+// το τι έγινε ΧΘΕΣ μέσω Washio: πόσες κρατήσεις είχε κάθε πλυντήριό του + ο ΣΥΝΟΛΙΚΟΣ τζίρος.
+// Αν χθες δεν είχε ΚΑΜΙΑ κράτηση → δεν στέλνεται τίποτα. Μόνο κρατήσεις πλατφόρμας (όχι τα χειροκίνητα ραντεβού του πλυντηρίου).
 //
 // ΣΕ ΠΟΙΟΥΣ: μόνο όσους έχουμε δηλώσει ρητά — app_settings 'owner_daily' = { emails: ['owner@…'] }.
 // Κανείς άλλος δεν λαμβάνει τίποτα (προεπιλογή: κενή λίστα).
@@ -132,6 +132,8 @@ export async function GET(req: Request) {
     const reps = await report(ownerId, day)
     if (!reps.length) { out[email] = 'no locations'; continue }
     const n = reps.reduce((s, r) => s + r.done.length, 0), rev = reps.reduce((s, r) => s + r.revenue, 0)
+    // Καμία κράτηση χθες → ΔΕΝ στέλνουμε τίποτα (όχι «άδειο» email).
+    if (n === 0) { out[email] = 'no bookings'; continue }
     const r = await resend.emails.send({
       from: 'Washio <noreply@washio.gr>', to: email,
       subject: `Washio · χθες: ${n} κρατήσεις · ${eur(rev)}`,
