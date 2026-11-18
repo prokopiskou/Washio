@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { sendSms, smsConfigured, toMsisdn } from '@/lib/sms'
+import { sendSms, smsConfigured, toMsisdn, smsText, isGsm7 } from '@/lib/sms'
 import { alertCritical } from '@/lib/alert'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
@@ -35,7 +35,8 @@ function reminderText(day: 'σήμερα' | 'αύριο', time: string, place: s
   // άνοιγε πρώτα τον browser. Χωρίς link → washio.gr/m/<κωδικός> (οδηγίες προς τις συντεταγμένες).
   const direct = String(mapsUrl || '').trim().replace(/^http:\/\//i, 'https://')
   const link = /^https:\/\/maps\.app\.goo\.gl\/\w+$/i.test(direct) ? direct : `washio.gr/m/${code}`
-  const MAX = 134
+  // Στέλνεται σε ΚΕΦΑΛΑΙΑ (smsText → GSM-7) → χωράει ΕΝΑ SMS των 160 χαρ. (πριν: πεζά = 2 SMS των 67).
+  const MAX = 158
   const name = (place || 'το πλυντήριο').trim().replace(/\s+/g, ' ')
   const variants: [string, string][] = [
     ['Το ραντεβού σου για πλύσιμο στο ', ` ${when}. Δες το πλυντήριο στον χάρτη: `],
@@ -124,8 +125,8 @@ export async function GET(req: NextRequest) {
       }
     }
     const text = reminderText('σήμερα', '16:00', place, ref, maps)
-    const r = await sendSms(to, text)
-    return NextResponse.json({ ...r, text, length: text.length })
+    const r = await sendSms(to, smsText(text))
+    return NextResponse.json({ ...r, text: smsText(text), length: smsText(text).length, gsm7: isGsm7(smsText(text)) })
   }
 
   const scopeAll = (process.env.SMS_SCOPE || '').toLowerCase() === 'all'
@@ -146,13 +147,13 @@ export async function GET(req: NextRequest) {
     }
     const time = String(row.slot_start_time || '').slice(0, 5)
     const text = reminderText(day, time, row.locations?.name || '', row.booking_ref, row.locations?.google_maps_url)
-    if (dry) { preview.push({ ref: row.booking_ref, day, time, phone: `…${phone.replace(/\D/g, '').slice(-3)}`, guest, text }); continue }
+    if (dry) { preview.push({ ref: row.booking_ref, day, time, phone: `…${phone.replace(/\D/g, '').slice(-3)}`, guest, text: smsText(text) }); continue }
 
     // Claim-first: μόνο ένα run παίρνει την κράτηση.
     const { data: claimed } = await admin.from('bookings').update({ sms_reminder_sent: true })
       .eq('id', row.id).eq('sms_reminder_sent', false).select('id')
     if (!claimed || claimed.length === 0) continue
-    const r = await sendSms(phone, text)
+    const r = await sendSms(phone, smsText(text))
     if (r.ok) stats.sent++
     else {
       stats.failed++

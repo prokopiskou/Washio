@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { sendPush } from '@/lib/push'
-import { sendSms, smsConfigured } from '@/lib/sms'
+import { sendSms, smsConfigured, smsText } from '@/lib/sms'
 import { athensEpoch, athensToday } from '@/lib/time'
 import { reviewDueAt, reviewPath, reviewUrl } from '@/lib/review-link'
 import { isOptedOut } from '@/lib/unsubscribe'
@@ -116,7 +116,7 @@ async function run(dry: boolean) {
         stats.email++
       } else {
         const phone = (b.customer_phone || b.profiles?.phone)!
-        const r = await sendSms(phone, `Washio: Πώς ήταν το ${place}; Βαθμολόγησε με ένα πάτημα: ${reviewUrl(b.booking_ref)}`)
+        const r = await sendSms(phone, smsText(`Washio: Πώς ήταν το ${place}; Βαθμολόγησε με ένα πάτημα: ${reviewUrl(b.booking_ref)}`))
         if (!r.ok) { stats.failed++; continue }
         stats.sms++
       }

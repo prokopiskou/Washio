@@ -41,6 +41,16 @@ export function greekToGsm(t: string): string {
   }).join('')
 }
 
+/** Κείμενο SMS που χρεώνεται ως ΕΝΑ μήνυμα (έως 160 χαρ.): ελληνικά → ΚΕΦΑΛΑΙΑ χωρίς τόνους (GSM-7)
+ *  και σύμβολα εκτός GSM-7 (· … – « » κ.λπ.) → απλά αντίστοιχα. Λατινικά και links μένουν ίδια.
+ *  Με πεζά ελληνικά το ίδιο κείμενο είναι Unicode (70 χαρ./SMS) → χρεωνόταν 2 SMS. */
+export function smsText(t: string): string {
+  const clean = t
+    .replace(/[·•]/g, '-').replace(/…/g, '...').replace(/[–—]/g, '-')
+    .replace(/[«»“”„]/g, '"').replace(/[‘’´`]/g, "'").replace(/★/g, '*').replace(/\u00a0/g, ' ')
+  return greekToGsm(clean)
+}
+
 /** Ελληνικό κινητό → «3069xxxxxxxx» (μορφή παρόχου), αλλιώς null. */
 export function toMsisdn(raw: string | null | undefined): string | null {
   const m = greekMobile(raw)
