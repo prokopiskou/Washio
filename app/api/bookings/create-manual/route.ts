@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { canManageLocation } from '@/lib/location-access'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { catalogEntry } from '@/lib/services-catalog'
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     // Ιδιοκτήτης ή admin (support mode).
-    if (!location || (location.owner_id !== user.id && !isAdminEmail(user.email))) {
+    if (!location || (!isAdminEmail(user.email) && !(await canManageLocation(admin, user.id, location.id, location.owner_id)))) {
       return NextResponse.json({ error: 'Δεν έχεις δικαίωμα σε αυτό το πλυντήριο' }, { status: 403 })
     }
 

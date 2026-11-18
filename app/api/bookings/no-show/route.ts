@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { canManageLocation } from '@/lib/location-access'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
@@ -35,7 +36,8 @@ export async function POST(req: NextRequest) {
     }
 
     const ownerId = (booking.locations as { owner_id?: string } | null)?.owner_id
-    if (ownerId !== user.id && !isAdminEmail(user.email)) {
+    // Υπεύθυνος (owner_id), μέλος του πλυντηρίου (π.χ. ιδιοκτήτης αλυσίδας) ή admin.
+    if (!isAdminEmail(user.email) && !(await canManageLocation(admin, user.id, booking.location_id, ownerId))) {
       return NextResponse.json({ error: 'Δεν επιτρέπεται' }, { status: 403 })
     }
 

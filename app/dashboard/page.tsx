@@ -504,7 +504,17 @@ export default function DashboardPage() {
         const { data: mine, error: mineErr } = await supabase
           .from('locations').select(LOC_COLS).eq('owner_id', user.id).order('created_at', { ascending: true })
         if (mineErr) console.error('Dashboard location load error')
-        const list = mine || []
+        // + πλυντήρια όπου είναι ΜΕΛΟΣ (ιδιοκτήτης αλυσίδας — supabase/location_members.sql). Χωρίς πίνακα → τίποτα.
+        let memberLocs: typeof mine = []
+        try {
+          const { data: mem, error: memErr } = await supabase.from('location_members').select('location_id').eq('user_id', user.id)
+          const memIds = memErr ? [] : (mem || []).map(m => m.location_id as string).filter(id => !(mine || []).some(l => l.id === id))
+          if (memIds.length) {
+            const { data: ml } = await supabase.from('locations').select(LOC_COLS).in('id', memIds).order('name', { ascending: true })
+            memberLocs = ml || []
+          }
+        } catch { /* ignore */ }
+        const list = [...(mine || []), ...(memberLocs || [])]
         setMyLocations(list.map(l => ({ id: l.id as string, name: String(l.name || ''), city: String(l.city || '') })))
         // Επιλογή: ?loc=<id> → τελευταίο που άνοιξε (localStorage) → το πρώτο.
         let wanted = new URLSearchParams(window.location.search).get('loc')

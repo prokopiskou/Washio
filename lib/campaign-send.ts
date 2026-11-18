@@ -73,6 +73,11 @@ export async function campaignAudience(db: SupabaseClient, c: Campaign): Promise
     db.from('partner_contracts').select('email').limit(5000),
     db.from('partner_onboarding').select('email').limit(5000),
   ])
+  // …και τα ΜΕΛΗ πλυντηρίων (ιδιοκτήτες αλυσίδων — location_members). Αν ο πίνακας δεν υπάρχει, αγνοείται.
+  try {
+    const { data: mem, error: memErr } = await db.from('location_members').select('user_id').limit(5000)
+    if (!memErr) for (const m of (mem || []) as { user_id: string | null }[]) if (m.user_id) ids.delete(m.user_id)
+  } catch { /* χωρίς πίνακα */ }
   for (const l of (locs || []) as { owner_id: string | null; email: string | null }[]) {
     if (l.owner_id) ids.delete(l.owner_id)
     if (l.email) partnerEmails.add(l.email.trim().toLowerCase())

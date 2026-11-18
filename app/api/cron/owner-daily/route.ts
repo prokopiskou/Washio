@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
+import { memberLocationIds } from '@/lib/location-access'
 
 // Πρωινή αναφορά ΙΔΙΟΚΤΗΤΗ (αλυσίδες / πολλά πλυντήρια): κάθε πρωί 08:00–09:59 (Ελλάδα), ένα email με
 // το τι έγινε ΧΘΕΣ σε ΚΑΘΕ πλυντήριό του μέσω Washio — πόσα ραντεβού, τι τζίρο, αναλυτικά οι κρατήσεις —
@@ -43,7 +44,10 @@ async function ownerIdByEmail(email: string): Promise<string | null> {
 }
 
 async function report(ownerId: string, day: string): Promise<LocRep[]> {
-  const { data: locs } = await db.from('locations').select('id, name, city').eq('owner_id', ownerId).order('created_at', { ascending: true })
+  // Πλυντήρια του: όσα έχει ως κύριος λογαριασμός + όσα είναι μέλος (ιδιοκτήτης αλυσίδας — location_members).
+  const memIds = await memberLocationIds(db, ownerId)
+  const { data: locs } = await db.from('locations').select('id, name, city')
+    .or(`owner_id.eq.${ownerId}${memIds.length ? `,id.in.(${memIds.join(',')})` : ''}`).order('name', { ascending: true })
   const list = (locs || []) as { id: string; name: string; city: string | null }[]
   if (!list.length) return []
   const ids = list.map(l => l.id)
@@ -77,49 +81,28 @@ async function report(ownerId: string, day: string): Promise<LocRep[]> {
 }
 
 function html(dayLabel: string, reps: LocRep[]) {
-  const tot = reps.reduce((s, r) => ({ n: s.n + r.done.length, rev: s.rev + r.revenue, ns: s.ns + r.noShow, nw: s.nw + r.newYesterday, td: s.td + r.today }), { n: 0, rev: 0, ns: 0, nw: 0, td: 0 })
-  const td = 'padding:8px 6px;border-top:1px solid #EEF0F3;'
-  const summary = reps.map(r => `<tr>
-      <td style="${td}font-weight:600;color:#10182A;">${esc(r.name)}${r.city ? `<div style="font-weight:400;color:#9AA3AF;font-size:11px;">${esc(r.city)}</div>` : ''}</td>
-      <td style="${td}text-align:right;">${r.done.length}</td>
-      <td style="${td}text-align:right;font-weight:700;">${eur(r.revenue)}</td>
-      <td style="${td}text-align:right;color:#6F7785;">${r.newYesterday}</td>
-      <td style="${td}text-align:right;color:#6F7785;">${r.today}</td>
+  // ΑΠΛΟ: πόσες κρατήσεις είχε κάθε πλυντήριο χθες + ο ΣΥΝΟΛΙΚΟΣ τζίρος (όχι ανά πλυντήριο, όχι αναλυτικά).
+  const n = reps.reduce((s, r) => s + r.done.length, 0)
+  const rev = reps.reduce((s, r) => s + r.revenue, 0)
+  const td = 'padding:10px 6px;border-top:1px solid #EEF0F3;'
+  const rows = [...reps].sort((a, b) => b.done.length - a.done.length).map(r => `<tr>
+      <td style="${td}color:#10182A;">${esc(r.name)}${r.city ? ` <span style="color:#9AA3AF;font-size:12px;">· ${esc(r.city)}</span>` : ''}</td>
+      <td style="${td}text-align:right;font-weight:700;font-size:16px;">${r.done.length}</td>
     </tr>`).join('')
-  const detail = reps.filter(r => r.done.length || r.noShow).map(r => `
-    <h3 style="margin:22px 0 6px;font-size:15px;color:#10182A;">${esc(r.name)} · ${r.done.length} ραντεβού · ${eur(r.revenue)}</h3>
-    <p style="margin:0 0 6px;color:#6F7785;font-size:12px;">${r.card} με κάρτα · ${r.cash} πληρωμή στο πλυντήριο${r.noShow ? ` · ${r.noShow} δεν εμφανίστηκαν` : ''}</p>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">${r.done.map(k => {
-      const addons = (Array.isArray(k.addons) ? k.addons : []).map((x: { name?: string; n?: string }) => String(x?.name || x?.n || '').trim()).filter(Boolean)
-      const paid = Math.max(0, (Number(k.total_amount) || 0) - (Number(k.coupon_amount) || 0))
-      return `<tr>
-        <td style="${td}color:#6F7785;white-space:nowrap;vertical-align:top;">${esc(String(k.slot_start_time || '').slice(0, 5))}</td>
-        <td style="${td}">
-          <div style="color:#10182A;">${esc(k.services?.name || 'Πλύσιμο')}${addons.length ? ` <span style="color:#6F7785;">+ ${esc(addons.join(', '))}</span>` : ''}</div>
-          <div style="color:#9AA3AF;font-size:11px;">${esc((k.customer_name || k.profiles?.full_name || 'Πελάτης').trim())}${k.car_model ? ` · ${esc(k.car_model)}` : ''} · ${k.stripe_payment_intent_id ? 'κάρτα' : 'στο πλυντήριο'}${k.checked_in_at ? '' : ' · χωρίς σκανάρισμα'}</div>
-        </td>
-        <td style="${td}text-align:right;font-weight:600;white-space:nowrap;vertical-align:top;">${eur(paid)}</td>
-      </tr>`
-    }).join('')}</table>`).join('')
-  return `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#10182A;">
+  return `<div style="font-family:-apple-system,Segoe UI,Arial,sans-serif;max-width:520px;margin:0 auto;padding:20px;color:#10182A;">
     <p style="margin:0;color:#19A8C7;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;">Washio · πρωινή αναφορά</p>
-    <h2 style="margin:4px 0 2px;">${esc(dayLabel)}</h2>
-    <p style="margin:0 0 16px;color:#6F7785;font-size:13px;">Τι έφερε το Washio χθες στα πλυντήριά σου.</p>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:8px;"><tr>
-      <td style="background:#F5F7FA;border-radius:12px;padding:12px 14px;"><div style="color:#6F7785;font-size:11px;">Ραντεβού χθες</div><div style="font-size:22px;font-weight:700;">${tot.n}</div></td>
-      <td style="width:8px;"></td>
-      <td style="background:#F5F7FA;border-radius:12px;padding:12px 14px;"><div style="color:#6F7785;font-size:11px;">Τζίρος χθες</div><div style="font-size:22px;font-weight:700;">${eur(tot.rev)}</div></td>
-      <td style="width:8px;"></td>
-      <td style="background:#F5F7FA;border-radius:12px;padding:12px 14px;"><div style="color:#6F7785;font-size:11px;">Ραντεβού σήμερα</div><div style="font-size:22px;font-weight:700;">${tot.td}</div></td>
+    <h2 style="margin:4px 0 14px;">${esc(dayLabel)}</h2>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:6px;"><tr>
+      <td style="background:#F5F7FA;border-radius:12px;padding:14px 16px;"><div style="color:#6F7785;font-size:12px;">Κρατήσεις χθες</div><div style="font-size:26px;font-weight:700;">${n}</div></td>
+      <td style="width:10px;"></td>
+      <td style="background:#F5F7FA;border-radius:12px;padding:14px 16px;"><div style="color:#6F7785;font-size:12px;">Συνολικός τζίρος</div><div style="font-size:26px;font-weight:700;">${eur(rev)}</div></td>
     </tr></table>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:14px;">
-      <tr style="color:#9AA3AF;font-size:11px;text-align:right;"><td style="padding:4px 6px;text-align:left;">Πλυντήριο</td><td style="padding:4px 6px;">Ραντεβού</td><td style="padding:4px 6px;">Τζίρος</td><td style="padding:4px 6px;">Νέες κρατήσεις</td><td style="padding:4px 6px;">Σήμερα</td></tr>
-      ${summary}
-      <tr><td style="${td}font-weight:700;">Σύνολο</td><td style="${td}text-align:right;font-weight:700;">${tot.n}</td><td style="${td}text-align:right;font-weight:700;">${eur(tot.rev)}</td><td style="${td}text-align:right;font-weight:700;">${tot.nw}</td><td style="${td}text-align:right;font-weight:700;">${tot.td}</td></tr>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-top:14px;">
+      <tr style="color:#9AA3AF;font-size:12px;"><td style="padding:4px 6px;">Πλυντήριο</td><td style="padding:4px 6px;text-align:right;">Κρατήσεις</td></tr>
+      ${rows}
     </table>
-    ${detail || '<p style="margin-top:18px;color:#6F7785;font-size:13px;">Κανένα ραντεβού μέσω Washio χθες.</p>'}
-    <p style="margin-top:22px;color:#9AA3AF;font-size:11px;line-height:1.6;">«Ραντεβού» = όσα είχαν ώρα χθες (χωρίς ακυρώσεις και χωρίς όσους δεν εμφανίστηκαν). «Τζίρος» = ό,τι πλήρωσε ο πελάτης. «Νέες κρατήσεις» = όσες έγιναν χθες, για οποιαδήποτε μέρα. Μόνο κρατήσεις μέσω Washio.</p>
-    <p style="margin-top:10px;font-size:12px;"><a href="https://www.washio.gr/dashboard" style="color:#078EAD;">Άνοιξε το dashboard</a></p>
+    <p style="margin-top:18px;color:#9AA3AF;font-size:11px;line-height:1.6;">Κρατήσεις μέσω Washio με ραντεβού χθες, χωρίς ακυρώσεις και χωρίς όσους δεν εμφανίστηκαν.</p>
+    <p style="margin-top:8px;font-size:13px;"><a href="https://www.washio.gr/dashboard" style="color:#078EAD;">Δες τις αναλυτικά στο dashboard</a></p>
   </div>`
 }
 
@@ -151,7 +134,7 @@ export async function GET(req: Request) {
     const n = reps.reduce((s, r) => s + r.done.length, 0), rev = reps.reduce((s, r) => s + r.revenue, 0)
     const r = await resend.emails.send({
       from: 'Washio <noreply@washio.gr>', to: email,
-      subject: `Washio · χθες: ${n} ραντεβού · ${eur(rev)} σε ${reps.length} πλυντήρια`,
+      subject: `Washio · χθες: ${n} κρατήσεις · ${eur(rev)}`,
       html: html(dayLabelOf(day), reps),
     })
     out[email] = r.error ? `error: ${r.error.message}` : 'sent'

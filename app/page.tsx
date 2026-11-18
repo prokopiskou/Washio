@@ -340,13 +340,15 @@ export default function HomePage() {
         return Number(openIds.has(b.id)) - Number(openIds.has(a.id))
       })
 
+      // Μέλος πλυντηρίου (ιδιοκτήτης αλυσίδας) → βλέπει κι αυτός το «Dashboard».
+      const memberAny = uid ? !!(await supabase.from('location_members').select('location_id').eq('user_id', uid).limit(1).maybeSingle().then(r => r.data, () => null)) : false
       const fresh: HomeCache = {
         upcoming: (upcoming as unknown as Booking) || null,
         last: (last as unknown as Booking) || null,
         favs: (favs as unknown as Favorite[]) || [],
         locs: allLocs,
         openCount: allLocs.filter(l => openIds.has(l.id)).length,
-        partner: !!(ownedLocation as { id?: string } | null)?.id,
+        partner: !!(ownedLocation as { id?: string } | null)?.id || memberAny,
       }
       applyHome(fresh)
       writePageCache('home', uid || 'guest', fresh)

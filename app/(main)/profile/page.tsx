@@ -161,7 +161,7 @@ export default function ProfilePage() {
         vehicles: (v.data as Vehicle[]) || [],
         bookings: (b.data as unknown as Booking[]) || [],
         favorites: (f.data as unknown as Favorite[]) || [],
-        partner: !!p.data?.id,
+        partner: !!p.data?.id || !!(await supabase.from('location_members').select('location_id').eq('user_id', user.id).limit(1).maybeSingle().then(r => r.data, () => null)),
       }
       // Πλυντήριο με email αίτησης αλλά χωρίς δεμένο owner_id (π.χ. Fanis): χωρίς αυτό ο
       // ιδιοκτήτης δεν έβλεπε ποτέ το «Η επιχείρησή μου» → δεν έμπαινε στο dashboard → δεν

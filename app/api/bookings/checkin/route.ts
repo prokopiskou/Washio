@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { canManageLocation } from '@/lib/location-access'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
     // Από link (κάμερα κινητού → /c/...): ΜΟΝΟ ο ιδιοκτήτης — ο admin που ανοίγει QR πελάτη δεν κάνει check-in.
     if (scanLocationId) {
       if (b.location_id !== scanLocationId) return NextResponse.json({ ok: false, error: 'Η κράτηση δεν είναι για αυτό το κατάστημα' }, { status: 403 })
-    } else if (user && b.locations?.owner_id !== user.id && (via === 'link' || !isAdminEmail(user.email))) {
+    } else if (user && !(await canManageLocation(admin, user.id, b.location_id, b.locations?.owner_id)) && (via === 'link' || !isAdminEmail(user.email))) {
       return NextResponse.json({ ok: false, error: 'Η κράτηση δεν είναι για το πλυντήριό σου' }, { status: 403 })
     }
     if (b.status === 'cancelled') {
