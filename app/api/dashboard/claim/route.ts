@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { claimPendingManager } from '@/lib/location-access'
 
 // ============================================================
 // Σύνδεση πλυντηρίου με το dashboard μέσω EMAIL (fallback).
@@ -36,6 +37,11 @@ export async function POST() {
     const owned = new Set((ownedRows || []).map(r => r.id as string))
 
     const email = (user.email || '').trim().toLowerCase()
+    // Υπεύθυνος πλυντηρίου που συνδέεται ΠΡΩΤΗ φορά: ολοκλήρωσε τις αναθέσεις που τον περιμένουν
+    // (lib/location-access · app_settings 'pending_managers'). Γίνεται κύριος λογαριασμός του πλυντηρίου του.
+    if (email) {
+      try { for (const id of await claimPendingManager(admin, user.id, email)) owned.add(id) } catch { /* best-effort */ }
+    }
     if (!email) {
       const first = [...owned][0] || null
       return NextResponse.json({ locationId: first, locationIds: [...owned], alreadyOwner: !!first })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admins'
+import { assignManager, readPendingManagers, writePendingManagers } from '@/lib/location-access'
 
 // Admin: μέλη πλυντηρίων (ιδιοκτήτης αλυσίδας που βλέπει πολλά πλυντήρια) — supabase/location_members.sql.
 //  GET  ?email=…            → σε ποια πλυντήρια είναι μέλος / κύριος λογαριασμός
@@ -42,7 +43,25 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   if (!(await isAdmin())) return NextResponse.json({ error: 'Μόνο για admin' }, { status: 403 })
-  const b = await req.json().catch(() => ({})) as { email?: string; locationIds?: unknown; role?: string }
+  const b = await req.json().catch(() => ({})) as { email?: string; locationIds?: unknown; role?: string; action?: string; locationId?: string; name?: string; phone?: string }
+  // action:'manager' → ορίζει ΥΠΕΥΘΥΝΟ σε ένα πλυντήριο (γίνεται κύριος λογαριασμός· ο προηγούμενος μένει μέλος).
+  // Αν δεν έχει λογαριασμό ακόμα → μένει σε αναμονή και δένεται μόνος του στην πρώτη του σύνδεση.
+  if (b.action === 'manager') {
+    const email = String(b.email || '').trim().toLowerCase()
+    const locationId = ids([b.locationId])[0]
+    if (!email || !locationId) return NextResponse.json({ error: 'email και locationId' }, { status: 400 })
+    const name = String(b.name || '').trim().slice(0, 80) || undefined
+    const phone = String(b.phone || '').replace(/[^\d+ ]/g, '').trim().slice(0, 20) || undefined
+    const muid = await userIdByEmail(email)
+    if (muid) {
+      const r = await assignManager(db, { locationId, managerUserId: muid, name, phone })
+      return NextResponse.json(r.ok ? { ok: true, assigned: true } : { error: r.error }, { status: r.ok ? 200 : 500 })
+    }
+    const all = (await readPendingManagers(db)).filter(i => !(i.locationId === locationId))
+    all.push({ locationId, email, name, phone })
+    await writePendingManagers(db, all)
+    return NextResponse.json({ ok: true, pending: true })
+  }
   const uid = b.email ? await userIdByEmail(b.email) : null
   if (!uid) return NextResponse.json({ error: 'Δεν βρέθηκε λογαριασμός με αυτό το email — πρέπει πρώτα να συνδεθεί μία φορά στο Washio' }, { status: 404 })
   const list = ids(b.locationIds)
