@@ -354,6 +354,26 @@ export default function HomePage() {
       writePageCache('home', uid || 'guest', fresh)
 
       setAuthChecking(false)
+
+      // Υπεύθυνος/ιδιοκτήτης που συνδέεται ΠΡΩΤΗ φορά: δέσε το πλυντήριό του εδώ, ώστε το banner
+      // «Η επιχείρησή σου είναι live» να βγει αμέσως στην αρχική (όχι μόνο αφού ανοίξει προφίλ/dashboard).
+      // Μία φορά τη μέρα ανά χρήστη — όχι αίτημα σε κάθε άνοιγμα της αρχικής.
+      if (uid && !fresh.partner) {
+        const k = `claim_try_${uid}`
+        const today = new Date().toISOString().slice(0, 10)
+        let done = false
+        try { done = localStorage.getItem(k) === today } catch { /* ignore */ }
+        if (!done) {
+          try { localStorage.setItem(k, today) } catch { /* ignore */ }
+          fetch('/api/dashboard/claim', { method: 'POST' })
+            .then(r => r.json()).then(j => {
+              if (j?.locationId) {
+                setIsPartner(true)
+                writePageCache('home', uid, { ...fresh, partner: true })
+              }
+            }).catch(() => { /* best-effort */ })
+        }
+      }
     }
     init().catch(() => { settled = true; clearTimeout(watchdog); setConnFailed(true) })
     return () => { settled = true; clearTimeout(watchdog) }
