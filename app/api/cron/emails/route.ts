@@ -225,10 +225,51 @@ export async function GET(req: Request) {
   // το GitHub workflow είναι απενεργοποιημένο, οπότε rebook / welcome-nudge / push δεν έτρεχαν ΠΟΤΕ).
   // Παράλληλα, best-effort· το καθένα έχει δικούς του κανόνες (ώρες, 1 φορά ανά χρήστη, claim).
   const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders', 'loyalty-drops', 'washer-morning', 'lead-followups', 'campaigns', 'metrics-daily', 'announcement-reminders', 'review-requests', 'feedback-calls', 'rain-notice', 'tiers-weekly'] as const
+  // ΠΟΣΟ ΣΥΧΝΑ τρέχει το καθένα. Το /api/cron/emails χτυπιέται ~κάθε λεπτό· πριν, ΚΑΘΕ χτύπημα καλούσε
+  // και τα 15 (≈ 750.000 αιτήματα/μήνα στο Vercel, τα περισσότερα «εκτός ωραρίου → skip»). Τώρα το καθένα
+  // καλείται μόνο όταν έχει περάσει το διάστημά του ΚΑΙ είναι μέσα στις ώρες του (ώρα Ελλάδας).
+  // every = λεπτά · h = [από, έως] ώρα (συμπεριλαμβάνονται) · mon = μόνο Δευτέρα.
+  // Τα διαστήματα είναι μικρότερα από το «παράθυρο» κάθε cron (βλ. σχόλια στο αρχείο του) → δεν χάνεται τίποτα.
+  const PLAN: Record<(typeof SUB)[number], { every: number; h?: [number, number]; mon?: boolean }> = {
+    'sms': { every: 10, h: [8, 20] },                    // παράθυρο 40'
+    'rebook': { every: 30, h: [10, 20] },
+    'welcome-nudge': { every: 30 },                      // έχει και λήξεις εκτός ωραρίου
+    'coupon-report': { every: 30, h: [9, 11], mon: true },
+    'wash-reminders': { every: 30, h: [10, 20] },
+    'loyalty-drops': { every: 15, h: [10, 20] },
+    'washer-morning': { every: 5 },                      // παράθυρο 15' πριν το άνοιγμα
+    'lead-followups': { every: 5 },                      // παράθυρο 20'
+    'campaigns': { every: 5 },                           // προγραμματισμένες αποστολές
+    'metrics-daily': { every: 20, h: [8, 9] },
+    'announcement-reminders': { every: 15, h: [9, 20] },
+    'review-requests': { every: 10, h: [9, 21] },
+    'feedback-calls': { every: 20, h: [10, 11] },
+    'rain-notice': { every: 20, h: [18, 20] },
+    'tiers-weekly': { every: 15, h: [9, 9], mon: true },
+  }
   const athH = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Athens', hour: '2-digit', hourCycle: 'h23' }).format(new Date()))
-  const callSub = async (name: string) => {
-    // Push «ώρα για πλύσιμο»: μόνο 10:00–20:59 (δεν έχει δικό του έλεγχο ώρας).
-    if (name === 'wash-reminders' && (athH < 10 || athH > 20)) return { skipped: 'hours' }
+  const athWd = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Athens', weekday: 'short' }).format(new Date())
+  // Πότε έτρεξε τελευταία το καθένα (app_settings 'cron_sub_last' = { όνομα: epoch ms }).
+  let last: Record<string, number> = {}
+  let lastOk = true
+  try {
+    const { data: ls, error: lsErr } = await supabase.from('app_settings').select('value').eq('key', 'cron_sub_last').maybeSingle()
+    if (lsErr) lastOk = false
+    else if (ls?.value && typeof ls.value === 'object') last = ls.value as Record<string, number>
+  } catch { lastOk = false }
+  const nowMs = Date.now()
+  const due = (name: (typeof SUB)[number]) => {
+    const p = PLAN[name]
+    if (p.mon && athWd !== 'Mon') return false
+    if (p.h && (athH < p.h[0] || athH > p.h[1])) return false
+    // Αν δεν διαβάστηκε η κατάσταση → τρέξ' το (καλύτερα ένα περιττό κάλεσμα παρά χαμένη αποστολή).
+    if (!lastOk) return true
+    return nowMs - (Number(last[name]) || 0) >= p.every * 60_000 - 20_000 // −20'' ανοχή για το jitter του cron
+  }
+  const ran: string[] = []
+  const callSub = async (name: (typeof SUB)[number]) => {
+    if (!due(name)) return { skipped: 'not due' }
+    ran.push(name)
     try {
       const ctrl = new AbortController()
       const t = setTimeout(() => ctrl.abort(), 45_000)
@@ -239,9 +280,16 @@ export async function GET(req: Request) {
       return await r.json().catch(() => ({ status: r.status }))
     } catch (e) { return { error: e instanceof Error ? e.message : 'fetch' } }
   }
+  // Κλείδωσε ΠΡΙΝ τα καλέσεις (αλλιώς το επόμενο χτύπημα σε 1' τα ξανακαλεί όσο αυτά ακόμα τρέχουν).
+  const dueNow = SUB.filter(n => due(n))
+  if (lastOk && dueNow.length) {
+    const next = { ...last }
+    for (const n of dueNow) next[n] = nowMs
+    await supabase.from('app_settings').upsert({ key: 'cron_sub_last', value: next }, { onConflict: 'key' }).then(() => null, () => null)
+  }
   const subResults = await Promise.all(SUB.map(n => callSub(n)))
   const sub = Object.fromEntries(SUB.map((n, i) => [n, subResults[i]]))
   const sms = sub['sms']
 
-  return NextResponse.json({ ...stats, referralRewards, sms, sub })
+  return NextResponse.json({ ...stats, referralRewards, sms, ran, sub })
 }

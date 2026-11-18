@@ -93,7 +93,7 @@ export function CookieBanner() {
         <p className="text-[14px] font-semibold text-gray-900">{t.title}</p>
         <p className="text-[12.5px] text-gray-600 leading-snug mt-1">
           {native ? t.bodyApp : t.body}{' '}
-          <Link href="/cookies" className="underline text-gray-900">{t.more}</Link>
+          <Link href="/cookies" prefetch={false} className="underline text-gray-900">{t.more}</Link>
         </p>
 
         {details && (
