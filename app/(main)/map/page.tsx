@@ -14,6 +14,7 @@ import { getCurrentPosition, getFastPosition } from '@/lib/geo'
 import { startMapOpenLog } from '@/lib/map-open-log'
 import { funnel } from '@/lib/funnel'
 import { useCouponCredit, couponDiscount, eur, couponExpiryLabel } from '@/lib/use-coupon-credit'
+import { couponAllowedAt, NO_COUPON_NOTICE } from '@/lib/coupon-locations'
 import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
@@ -431,7 +432,7 @@ function MapPageContent() {
   // Κουπόνι ήδη μέσα στην τιμή (~~15€~~ 12€) — ίδιοι κανόνες με το checkout.
   const coupon = useCouponCredit()
   // Συνολική έκπτωση που βλέπει ο πελάτης = προώθηση + κουπόνι (το κουπόνι στην τιμή μετά την προώθηση).
-  const discFor = (s: Service) => s.is_range ? 0 : ((Number(listPriceFor(s)) || 0) - (Number(priceFor(s)) || 0)) + couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range)
+  const discFor = (s: Service) => s.is_range ? 0 : ((Number(listPriceFor(s)) || 0) - (Number(priceFor(s)) || 0)) + couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range, selectedLocation?.id)
 
   const visibleServices = locationServices.filter(s => {
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
@@ -1703,6 +1704,10 @@ function MapPageContent() {
               })}
 
               {/* Services */}
+              {/* Πλυντήριο εκτός κουπονιού: ο πελάτης που έχει −3€ το μαθαίνει ΠΡΙΝ διαλέξει υπηρεσία. */}
+              {selectedLocation && !couponAllowedAt(selectedLocation.id) && coupon.ready && coupon.credit > 0 && (
+                <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mb-2">{locale === 'en' ? NO_COUPON_NOTICE.en : NO_COUPON_NOTICE.el}</p>
+              )}
               {carChoice && visibleServices.some(s => discFor(s) > 0) && (
                 <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}{!coupon.guest && (() => { const ex = couponExpiryLabel(coupon.expiresAt, locale); return ex ? <span className={ex.urgent ? 'text-red-600' : ''}> · {ex.text}</span> : null })()}</p>
               )}

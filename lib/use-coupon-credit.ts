@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { WELCOME_DISCOUNT, computeRedeemable, isCreditEligible } from '@/lib/referral'
+import { couponAllowedAt } from '@/lib/coupon-locations'
 
 // Τιμή «με το κουπόνι ήδη μέσα» πάνω στις υπηρεσίες (χάρτης + σελίδα πλυντηρίου).
 //  • Συνδεδεμένος: το πραγματικό υπόλοιπο κουπονιών του (profiles.referral_credit).
@@ -34,7 +35,8 @@ export function useCouponCredit(): CouponState {
 }
 
 /** Πόσο κατεβαίνει η τιμή μιας υπηρεσίας με το κουπόνι (0 = καθόλου). */
-export function couponDiscount(c: CouponState, price: number, isRange?: boolean): number {
+export function couponDiscount(c: CouponState, price: number, isRange?: boolean, locationId?: string | null): number {
+  if (!couponAllowedAt(locationId)) return 0 // πλυντήριο εκτός κουπονιού
   if (!c.ready || isRange || !(price > 0) || !isCreditEligible(price)) return 0
   return Math.round(computeRedeemable(c.credit, price) * 100) / 100
 }

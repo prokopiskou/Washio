@@ -23,6 +23,7 @@ import { ensureDeviceId } from '@/lib/device'
 import { searchCarModels, sizeOfModel, type CarModel } from '@/lib/car-models'
 import { choiceFromModel, addToGarage } from '@/lib/car-choice'
 import { useCouponCredit, couponExpiryLabel } from '@/lib/use-coupon-credit'
+import { couponAllowedAt, NO_COUPON_NOTICE } from '@/lib/coupon-locations'
 import { flattenRange } from '@/lib/range-price'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
@@ -829,9 +830,12 @@ function BookingPageContent() {
   const cardTotal = Math.max(0, total - appliedCredit) + serviceFee
   // Πρόβλεψη κουπονιού για τη σύνοψη (ίδιοι κανόνες με τον server: ≥12€, έως 3€ — κάρτα ΚΑΙ μετρητά).
   // Washio Club (5ο πλύσιμο στο ίδιο πλυντήριο −3€) έχει προτεραιότητα και ΔΕΝ ξοδεύει το κουπόνι.
+  const couponOk = couponAllowedAt(locationId) // lib/coupon-locations
   const loyaltyNow = !noCredit && !!loyalty?.rewardNext && isCreditEligible(total)
   const previewCredit = loyaltyNow ? Math.min(loyalty!.amount, total)
-    : !noCredit && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
+    : !noCredit && couponOk && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
+  // Έχει κουπόνι που ΘΑ έμπαινε, αλλά το πλυντήριο δεν το δέχεται → ειδοποίηση στη σύνοψη.
+  const couponExcludedHere = !couponOk && !noCredit && !loyaltyNow && isCreditEligible(total) && (walletCredit > 0 || isGuest)
   // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
   const emailOk = /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())
   // Όσο ελέγχεται το email ή περιμένουμε κωδικό (υπάρχων λογαριασμός) → ΟΧΙ κράτηση.
@@ -1382,6 +1386,9 @@ function BookingPageContent() {
                     <span className="text-[13px] font-semibold text-green-600">{loyaltyNow ? t.clubReward : t.couponCard}{!loyaltyNow && (() => { const ex = couponExpiryLabel(couponInfo.expiresAt, locale); return ex ? <span className={`ml-1 text-[11px] font-semibold ${ex.urgent ? 'text-red-600' : 'text-gray-400'}`}>· {ex.text}</span> : null })()}</span>
                     <span className="text-[14px] font-semibold text-green-600">−{eur2(previewCredit)}</span>
                   </div>
+                )}
+                {couponExcludedHere && (
+                  <p className="text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 my-2.5 leading-snug">{locale === 'en' ? NO_COUPON_NOTICE.en : NO_COUPON_NOTICE.el}</p>
                 )}
                 {/* Κάρτα: το τέλος υπηρεσίας φαίνεται ξεκάθαρα ΜΕΣΑ στο σύνολο */}
                 {payMethod === 'card' && serviceFee > 0 && (

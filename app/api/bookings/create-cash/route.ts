@@ -16,6 +16,7 @@ import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { adConsentFrom } from '@/lib/consent-server'
 import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
+import { couponAllowedAt } from '@/lib/coupon-locations'
 import { loyaltyDiscountFor } from '@/lib/loyalty'
 import { platformFeeFor, addonsTotalOf } from '@/lib/commission'
 import { checkinEmailBlock } from '@/lib/checkin'
@@ -238,7 +239,7 @@ export async function POST(req: NextRequest) {
     // Washio Club: 5ο, 10ο… πλύσιμο στο ίδιο πλυντήριο → −3€ (ΔΕΝ ξοδεύει το υπόλοιπο κουπονιών).
     const loyalty = noCredit ? 0 : await loyaltyDiscountFor(admin, { userId: user.id, locationId, amount })
     if (loyalty > 0) couponAmount = loyalty
-    else if (!noCredit && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
+    else if (!noCredit && couponAllowedAt(locationId) && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
       const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
       couponAmount = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
     }

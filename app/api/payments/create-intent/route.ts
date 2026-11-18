@@ -10,6 +10,7 @@ import { ipFrom } from '@/lib/throttle'
 import { getCheckoutConfig } from '@/lib/checkout-config'
 import { computeRedeemable, isCreditEligible } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
+import { couponAllowedAt } from '@/lib/coupon-locations'
 import { loyaltyDiscountFor } from '@/lib/loyalty'
 import { adConsentFrom } from '@/lib/consent-server'
 import { sizeOfModel } from '@/lib/car-models'
@@ -188,7 +189,8 @@ export async function POST(req: NextRequest) {
     if (loyalty > 0) appliedCredit = loyalty
     else if (!isRangeSvc) try {
       // Μόνο σε πλήρες πλύσιμο (Μέσα-Έξω) ≥12€ — αλλιώς κανένα κουπόνι.
-      if (isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
+      // Πλυντήριο που δεν δέχεται το κουπόνι (lib/coupon-locations) → καμία έκπτωση, το υπόλοιπο μένει.
+      if (couponAllowedAt(locationId) && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
         const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
         appliedCredit = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
       }
