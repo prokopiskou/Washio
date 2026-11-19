@@ -70,7 +70,7 @@ const T = {
     clubReward: '💧 4 σταγόνες · δώρο',
     clubNote: 'Μάζεψες 4 σταγόνες σε αυτό το πλυντήριο. Το κουπόνι σου μένει για την επόμενη.',
     clubProgress: (drops: number, need: number, amt: number) => `${drops}/${need} σταγόνες εδώ · μάζεψε ${need} για −${amt} € (μετράει μετά το πλύσιμο)`,
-    couponCard: 'Κουπόνι Washio', totalWithCoupon: 'Πληρώνεις', couponNote: (_full: string) => `Το κουπόνι −3€ ισχύει με πληρωμή με κάρτα στην εφαρμογή.`, couponCardOnly: (a: string) => `Με κάρτα παίρνεις −${a} (κουπόνι Washio). Στα μετρητά δεν ισχύει.`, useCard: 'Πλήρωσε με κάρτα', noCouponCash: 'Χωρίς το −3€', withCoupon: 'με το κουπόνι σου',
+    couponCard: 'Κουπόνι Washio', totalWithCoupon: 'Πληρώνεις', couponNote: (_full: string) => `Το κουπόνι −3€ ισχύει με πληρωμή με κάρτα στην εφαρμογή.`, couponCardOnly: (a: string) => `Με κάρτα παίρνεις −${a} (κουπόνι Washio). Στα μετρητά δεν ισχύει.`, useCard: 'Πλήρωσε με κάρτα', noCouponCash: 'Χωρίς το −3€', withCoupon: 'με κάρτα', cardBadge: (a: string) => `−${a} με κάρτα`,
     bookPayThere: 'Κλείσε τώρα · πλήρωσε εκεί', orPayCard: 'ή πλήρωσε τώρα με κάρτα', payThereHint: 'Πληρώνεις στο πλυντήριο κατά την επίσκεψη.',
     payMethod: 'Τρόπος πληρωμής', payAtVenue: 'Στο πλυντήριο', payAtVenueSub: 'Μετρητά ή κάρτα', payByCard: 'Κάρτα', payByCardSub: 'Τώρα, online',
     continueCard: 'Συνέχεια με κάρτα', saveCard: 'Αποθήκευση κάρτας για επόμενες πληρωμές', switchToVenue: '💵 Προτιμώ να πληρώσω στο πλυντήριο',
@@ -117,7 +117,7 @@ const T = {
     clubReward: '💧 4 drops · gift',
     clubNote: 'You collected 4 drops at this car wash. Your coupon stays for next time.',
     clubProgress: (drops: number, need: number, amt: number) => `${drops}/${need} drops here · collect ${need} for −${amt} € (counted after the wash)`,
-    couponCard: 'Washio coupon', totalWithCoupon: 'You pay', couponNote: (_full: string) => `The −€3 coupon applies when you pay by card in the app.`, couponCardOnly: (a: string) => `Pay by card and get −${a} (Washio coupon). Not valid for cash.`, useCard: 'Pay by card', noCouponCash: 'No −€3', withCoupon: 'with your coupon',
+    couponCard: 'Washio coupon', totalWithCoupon: 'You pay', couponNote: (_full: string) => `The −€3 coupon applies when you pay by card in the app.`, couponCardOnly: (a: string) => `Pay by card and get −${a} (Washio coupon). Not valid for cash.`, useCard: 'Pay by card', noCouponCash: 'No −€3', withCoupon: 'by card', cardBadge: (a: string) => `−${a} by card`,
     bookPayThere: 'Book now · pay there', orPayCard: 'or pay now by card', payThereHint: 'You pay at the car wash during your visit.',
     payMethod: 'Payment method', payAtVenue: 'At the car wash', payAtVenueSub: 'Cash or card', payByCard: 'Card', payByCardSub: 'Now, online',
     continueCard: 'Continue with card', saveCard: 'Save card for future payments', switchToVenue: '💵 I prefer to pay at the car wash',
@@ -837,7 +837,8 @@ function BookingPageContent() {
   const creditFor = (m: 'venue' | 'card') => loyaltyNow ? Math.min(loyalty!.amount, total) : m === 'card' ? couponPreview : 0
   const previewCredit = creditFor(payMethod)
   // Έχει κουπόνι και δεν έχει αγγίξει τον τρόπο πληρωμής → προεπιλογή η κάρτα (μόνο εκεί ισχύει το −3€).
-  useEffect(() => { if (couponPreview > 0 && !payTouchedRef.current) setPayMethodRaw('card') }, [couponPreview])
+  // (20/11) Όχι αυτόματη αλλαγή σε κάρτα όταν υπάρχει κουπόνι: ο πελάτης διαλέγει μόνος του —
+  // το −3€ με κάρτα φαίνεται καθαρά πάνω στην επιλογή «Κάρτα» (σήμα + τιμή).
   // Έχει κουπόνι που ΘΑ έμπαινε, αλλά το πλυντήριο δεν το δέχεται → ειδοποίηση στη σύνοψη.
   const couponExcludedHere = !couponOk && !noCredit && !loyaltyNow && isCreditEligible(total) && (walletCredit > 0 || isGuest)
   // Η πινακίδα είναι ΠΡΟΑΙΡΕΤΙΚΗ (λιγότερη τριβή στο checkout) — αρκεί τηλέφωνο + email.
@@ -1470,6 +1471,9 @@ function BookingPageContent() {
                       }`}>
                         {active && <Check size={11} strokeWidth={3} className="text-white" />}
                       </span>
+                      {key === 'card' && couponPreview > 0 && (
+                        <span className="absolute -top-2.5 left-3 px-2 py-0.5 rounded-full bg-green-600 text-white text-[11px] font-bold shadow-sm">{t.cardBadge(eur2(couponPreview))}</span>
+                      )}
                       <span className="text-[18px] leading-none">{icon}</span>
                       <p className="text-[14px] font-bold text-washio-navy mt-1.5">{label}</p>
                       <p className="text-[11px] text-gray-500 mt-0.5">{sub}</p>
