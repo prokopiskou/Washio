@@ -1108,8 +1108,16 @@ function MapPageContent() {
 `
       }
 
+      // Πατήσιμη περιοχή = ΜΟΝΟ η πινέζα (+ το όνομα αν φαίνεται), όχι όλο το διάφανο κουτί του εικονιδίου.
+      // (Bug 20/11: το φαρδύ διάφανο κουτί μιας μπλε πινέζας με όνομα κάλυπτε τη διπλανή γκρι → δεν πατιόταν.)
+      const pinL = Math.round(aX - 19), pinR = Math.round(aX + 19), pinB = Math.round(aY + 2)
+      const shape = showLabel
+        ? { type: 'poly', coords: [1, 0, W - 1, 0, W - 1, 23, pinR, 23, pinR, pinB, pinL, pinB, pinL, 23, 1, 23] }
+        : { type: 'rect', coords: [pinL, 0, pinR, pinB] }
+
       const marker = new window.google.maps.Marker({
         position: { lat: loc.lat, lng: loc.lng },
+        shape,
         map: mapInstanceRef.current,
         optimized: false, // καθαρό (crisp) render σε retina — αλλιώς τα ονόματα βγαίνουν θολά
         // Μπροστινές (πιο νότιες) πινέζες πάνω-πάνω ώστε να είναι πάντα πατήσιμες όταν στοιβάζονται.

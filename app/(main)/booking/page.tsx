@@ -77,7 +77,7 @@ const T = {
     freeCancel: 'Δωρεάν ακύρωση έως 2 ώρες πριν το ραντεβού.', freeCancelVenue: 'Δωρεάν ακύρωση οποιαδήποτε στιγμή πριν το ραντεβού.',
     or: 'ή', confirming: 'Επιβεβαίωση...', payCash: 'Κλείσε τώρα, πλήρωσε εκεί',
     cashHint: 'Κλείνεις τώρα, πληρώνεις στο κατάστημα κατά την επίσκεψη.',
-    fillPlatePhone: 'Συμπλήρωσε το τηλέφωνό σου', optional: 'προαιρετικό',
+    fillPlatePhone: 'Συμπλήρωσε το τηλέφωνό σου', fillName: 'Συμπλήρωσε το όνομά σου', fixPhone: 'Διόρθωσε το κινητό (69x xxx xxxx)', fillEmail: 'Συμπλήρωσε σωστό email', pickService: 'Διάλεξε υπηρεσία', optional: 'προαιρετικό',
     estimateRange: 'Τιμή', estimateNote: 'Η τελική τιμή ορίζεται μετά την εκτίμηση στο κατάστημα.',
     bookCash: 'Κράτηση — πληρωμή με μετρητά', cashOnlyHint: 'Πληρώνεις μετρητά στο κατάστημα μετά την εκτίμηση.',
     name: 'Όνομα', namePh: 'Το όνομά σου', emailPh: 'Το email σου',
@@ -124,7 +124,7 @@ const T = {
     freeCancel: 'Free cancellation up to 2 hours before your appointment.', freeCancelVenue: 'Free cancellation any time before your appointment.',
     or: 'or', confirming: 'Confirming...', payCash: 'Book now, pay there',
     cashHint: 'Book now, pay at the store during your visit.',
-    fillPlatePhone: 'Fill in your phone', optional: 'optional',
+    fillPlatePhone: 'Fill in your phone', fillName: 'Fill in your name', fixPhone: 'Fix your mobile number', fillEmail: 'Enter a valid email', pickService: 'Choose a service', optional: 'optional',
     estimateRange: 'Price', estimateNote: 'The final price is set after the on-site estimate.',
     bookCash: 'Book — pay with cash', cashOnlyHint: 'You pay cash at the store after the estimate.',
     name: 'Name', namePh: 'Your name', emailPh: 'Your email',
@@ -851,6 +851,18 @@ function BookingPageContent() {
   const canProceed = !!(phone.trim() && email.trim() && service) && !awaitingCode && phoneValid && !modelMissing &&
     (!isGuest || (name.trim().length >= 2 && emailOk)) && (!needName || name.trim().length >= 2)
 
+  // Γιατί είναι κλειδωμένο το κουμπί — ΣΥΓΚΕΚΡΙΜΕΝΑ (bug 19/11: συνδεδεμένος χωρίς όνομα στο προφίλ έβλεπε
+  // «Συμπλήρωσε το τηλέφωνό σου» ενώ το κινητό ήταν σωστό· έλειπε το ΟΝΟΜΑ).
+  const blockReason = modelMissing ? t.modelShort
+    : isGuest && otpStep ? t.enterCodeFirst
+    : isGuest && emailChecking ? t.checkingEmail
+    : (isGuest || needName) && name.trim().length < 2 ? t.fillName
+    : !phone.trim() ? t.fillPlatePhone
+    : !phoneValid ? t.fixPhone
+    : !email.trim() || (isGuest && !emailOk) ? t.fillEmail
+    : !service ? t.pickService
+    : isGuest ? t.fillContact : t.fillPlatePhone
+
   // Επισκέπτης → φτιάξε λογαριασμό + σύνδεση ΤΩΡΑ (πριν την κράτηση). true = συνδεδεμένος.
   // Email που υπάρχει ήδη → στέλνουμε κωδικό και περιμένουμε (false).
   const ensureAccount = async (action: 'cash' | 'card'): Promise<boolean> => {
@@ -1535,7 +1547,7 @@ function BookingPageContent() {
           >
             {!canProceed ? (
               <div className="w-full h-14 bg-gray-100 text-gray-400 text-[14px] font-medium rounded-xl flex items-center justify-center">
-                {modelMissing ? t.modelShort : isGuest && otpStep ? t.enterCodeFirst : isGuest && emailChecking ? t.checkingEmail : isGuest ? t.fillContact : t.fillPlatePhone}
+                {blockReason}
               </div>
             ) : isRange ? (
               <button
