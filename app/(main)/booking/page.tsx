@@ -849,14 +849,15 @@ function BookingPageContent() {
   // Μάρκα & μοντέλο ΥΠΟΧΡΕΩΤΙΚΑ για αυτοκίνητο (ορίζει ΙΧ/SUV + το βλέπει το πλυντήριο).
   const modelMissing = vehicleType !== 'Μοτοσικλέτα' && carModel.trim().length < 2
   const canProceed = !!(phone.trim() && email.trim() && service) && !awaitingCode && phoneValid && !modelMissing &&
-    (!isGuest || (name.trim().length >= 2 && emailOk)) && (!needName || name.trim().length >= 2)
+    (!isGuest || (name.trim().length >= 2 && emailOk))
+  // Συνδεδεμένος χωρίς όνομα στο προφίλ: το όνομα ζητείται αλλά ΔΕΝ μπλοκάρει την κράτηση (20/11: κόλλαγε το checkout).
 
   // Γιατί είναι κλειδωμένο το κουμπί — ΣΥΓΚΕΚΡΙΜΕΝΑ (bug 19/11: συνδεδεμένος χωρίς όνομα στο προφίλ έβλεπε
   // «Συμπλήρωσε το τηλέφωνό σου» ενώ το κινητό ήταν σωστό· έλειπε το ΟΝΟΜΑ).
   const blockReason = modelMissing ? t.modelShort
     : isGuest && otpStep ? t.enterCodeFirst
     : isGuest && emailChecking ? t.checkingEmail
-    : (isGuest || needName) && name.trim().length < 2 ? t.fillName
+    : isGuest && name.trim().length < 2 ? t.fillName
     : !phone.trim() ? t.fillPlatePhone
     : !phoneValid ? t.fixPhone
     : !email.trim() || (isGuest && !emailOk) ? t.fillEmail
