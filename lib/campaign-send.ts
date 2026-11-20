@@ -15,7 +15,7 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&am
 export type Campaign = {
   id: string; location_id: string | null; title: string; body: string | null
   offer: { url?: string; cta?: string; preheader?: string; kicker?: string; headline?: string; bullets?: string[]; footnote?: string } | null
-  segment: { all?: boolean; km?: number; days?: number; viewed_days?: number; booked?: boolean; favorite?: boolean; svc_like?: string; exclude_booked_since?: string } | null
+  segment: { all?: boolean; km?: number; days?: number; viewed_days?: number; booked?: boolean; favorite?: boolean; svc_like?: string; exclude_booked_since?: string; users?: { user_id: string; booking_ref?: string }[]; min_credit?: number } | null
   channels: string[]; status: string; scheduled_at: string | null
 }
 type Person = { user_id: string; email: string | null; can_push: boolean; can_email: boolean }
@@ -50,6 +50,17 @@ export async function campaignAudience(db: SupabaseClient, c: Campaign): Promise
       for (const r of (dl || []) as { user_id: string }[]) if (r.user_id) ids.add(r.user_id)
     }
   }
+  // Συγκεκριμένοι χρήστες (π.χ. «το −3€ σου σε περιμένει» μετά το πρώτο πλύσιμο).
+  // Με booking_ref: μόνο αν η κράτηση ΔΕΝ ακυρώθηκε / δεν έγινε no-show (έγινε το πλύσιμο).
+  if (seg.users?.length) {
+    const refs = seg.users.map(u => u.booking_ref).filter((r): r is string => !!r)
+    const bad = new Set<string>()
+    if (refs.length) {
+      const { data: bk } = await db.from('bookings').select('booking_ref, status').in('booking_ref', refs)
+      for (const r of (bk || []) as { booking_ref: string; status: string }[]) if (['cancelled', 'no_show'].includes(r.status)) bad.add(r.booking_ref)
+    }
+    for (const u of seg.users) if (!u.booking_ref || !bad.has(u.booking_ref)) ids.add(u.user_id)
+  }
   // Όλοι οι χρήστες (γενική ανακοίνωση, π.χ. Washio Club).
   if (seg.all) {
     for (let from = 0; from < 50000; from += 1000) {
@@ -64,6 +75,12 @@ export async function campaignAudience(db: SupabaseClient, c: Campaign): Promise
     const { data: bk } = await db.from('bookings').select('user_id').eq('location_id', c.location_id)
       .gte('created_at', seg.exclude_booked_since).neq('status', 'cancelled')
     for (const r of (bk || []) as { user_id: string | null }[]) if (r.user_id) ids.delete(r.user_id)
+  }
+  // Μόνο όσοι έχουν ακόμα τουλάχιστον τόσο υπόλοιπο κουπονιού (π.χ. 3€ — δεν το χρησιμοποίησαν στο μεταξύ).
+  if (seg.min_credit && ids.size) {
+    const { data: pr } = await db.from('profiles').select('id, referral_credit').in('id', [...ids])
+    const okIds = new Set(((pr || []) as { id: string; referral_credit: number }[]).filter(p => Number(p.referral_credit) >= seg.min_credit!).map(p => p.id))
+    for (const id of [...ids]) if (!okIds.has(id)) ids.delete(id)
   }
   // ΠΟΤΕ σε πλυντήρια: ιδιοκτήτες locations + κάθε email από locations / αιτήσεις / συμβόλαια / onboarding.
   const partnerEmails = new Set<string>()
