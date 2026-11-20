@@ -12,7 +12,7 @@ const T = {
   el: {
     title: 'Κουπόνια & Παραπομπές', back: 'Πίσω',
     tabCoupons: 'Κουπόνια', tabReferral: 'Κάλεσε φίλους',
-    balance: 'Το υπόλοιπό σου', useAtCheckout: 'Εξαργυρώνεται αυτόματα σε πλύσιμο από 12€, με πληρωμή με κάρτα στην εφαρμογή. Ένα κουπόνι (έως 3€) ανά πλύσιμο.',
+    balance: 'Το υπόλοιπό σου', useAtCheckout: 'Εξαργυρώνεται αυτόματα σε πλύσιμο από 12€ — είτε πληρώσεις στο πλυντήριο είτε με κάρτα. Ένα κουπόνι (έως 3€) ανά πλύσιμο.',
     history: 'Ιστορικό', empty: 'Δεν έχεις κουπόνια ακόμα.',
     welcome: 'Καλωσόρισμα', referral_reward: 'Επιβράβευση παραπομπής', redeem: 'Χρήση σε κράτηση', refund: 'Επιστροφή (ακύρωση κράτησης)', expired: 'Λήξη κουπονιού',
     referTitle: 'Φέρε φίλους, κερδίστε και οι δύο',
@@ -28,7 +28,7 @@ const T = {
   en: {
     title: 'Coupons & Referrals', back: 'Back',
     tabCoupons: 'Coupons', tabReferral: 'Invite friends',
-    balance: 'Your balance', useAtCheckout: 'Applied automatically on washes from €12 when you pay by card in the app. One coupon (up to €3) per wash.',
+    balance: 'Your balance', useAtCheckout: 'Applied automatically on washes from €12 — pay at the venue or by card. One coupon (up to €3) per wash.',
     history: 'History', empty: 'No coupons yet.',
     welcome: 'Welcome', referral_reward: 'Referral reward', redeem: 'Used on a booking', refund: 'Returned (booking cancelled)', expired: 'Coupon expired',
     referTitle: 'Invite friends, both win',
