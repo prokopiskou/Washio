@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
 import { verifyReviewToken } from '@/lib/review-link'
 import { createClient as createServerClient } from '@/lib/supabase/server'
+import { sendReferralAfterReview } from '@/lib/referral-email'
 
 // ============================================================
 // Κριτική ΠΛΥΝΤΗΡΙΟΥ από push / email / SMS / κάρτα αρχικής.
@@ -80,6 +81,11 @@ export async function POST(req: Request) {
       if (insErr && !/duplicate/i.test(insErr.message)) return NextResponse.json({ error: 'Σφάλμα αποθήκευσης' }, { status: 500 })
     }
     if (b.user_id) await supabase.from('profiles').update({ has_reviewed: true }).eq('id', b.user_id).then(() => null, () => null)
+
+    // 4–5★ → email «Κάλεσε έναν φίλο» (μία φορά ανά χρήστη, για πάντα). Best-effort, δεν μπλοκάρει.
+    if (r >= 4 && b.user_id) {
+      try { await sendReferralAfterReview(supabase, b.user_id) } catch { /* best-effort */ }
+    }
 
     // Χαμηλή βαθμολογία → ειδοποίηση admin (μία φορά ανά κράτηση ή όταν προστεθεί σχόλιο).
     // Μία ειδοποίηση ανά κράτηση: στην πρώτη χαμηλή βαθμολογία ή όταν προστεθεί/αλλάξει σχόλιο.
