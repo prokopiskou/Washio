@@ -1376,7 +1376,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="px-5 lg:px-8 pt-5 pb-32 lg:pb-8">
+        <div className="px-5 lg:px-8 pt-5 pb-40 lg:pb-8">
 
           {/* Ενημερώσεις Washio: σημαντική → καλύπτει την οθόνη · κανονική → banner (μέχρι «Το διάβασα») */}
           {activeTab !== 'updates' && <WasherUpdates mode="gate" onCount={setUnreadUpdates} onOpenList={() => setActiveTab('updates')} t={t} />}
@@ -3286,25 +3286,26 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Κινητό: κάτω μπάρα πλοήγησης με κεντρικό «Σκάναρε» ── */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t"
-        style={{ borderColor: '#E6EEF3', paddingBottom: 'calc(env(safe-area-inset-bottom) + 6px)', boxShadow: '0 -6px 20px rgba(16,24,42,0.06)' }}>
-        <div className="max-w-md mx-auto grid grid-cols-5 items-end px-2 pt-1.5">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pointer-events-none"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 14px)' }}>
+        <div className="pointer-events-auto max-w-md mx-auto grid grid-cols-5 items-end px-1.5 pt-2 pb-2 rounded-[26px] bg-white/97 backdrop-blur"
+          style={{ border: '1px solid #E6EEF3', boxShadow: '0 12px 32px rgba(16,24,42,0.16)' }}>
           {([['overview', t('Αρχική')], ['bookings', t('Κρατήσεις')], ['scan', t('Σκάναρε')], ['calendar', t('Ημερολόγιο')], ['more', t('Περισσότερα')]] as [string, string][]).map(([k, l]) => {
             if (k === 'scan') return (
-              <button key={k} onClick={() => { lightTap(); setScanOpen(true) }} className="flex flex-col items-center -mt-6">
-                <span className="w-[58px] h-[58px] rounded-full flex items-center justify-center text-white" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 22px rgba(25,168,199,0.45)', border: '4px solid #fff' }}>
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10" /></svg>
+              <button key={k} onClick={() => { lightTap(); setScanOpen(true) }} className="flex flex-col items-center -mt-9">
+                <span className="w-[66px] h-[66px] rounded-full flex items-center justify-center text-white" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 22px rgba(25,168,199,0.45)', border: '4px solid #fff' }}>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10" /></svg>
                 </span>
-                <span className="text-[10px] font-bold mt-0.5" style={{ color: '#078EAD' }}>{l}</span>
+                <span className="text-[12.5px] font-bold mt-1" style={{ color: '#078EAD' }}>{l}</span>
               </button>
             )
             const more = k === 'more'
             const active = more ? (moreOpen || !['overview', 'bookings', 'calendar'].includes(activeTab)) : activeTab === k
             return (
               <button key={k} onClick={() => { lightTap(); if (more) { setMoreOpen(o => !o); return } setMoreOpen(false); setActiveTab(k as TabKey); if (k !== 'bookings') setFocusBookingId(null); if (k === 'bookings') setNewBookingsCount(0) }}
-                className="relative flex flex-col items-center gap-0.5 py-1.5" style={{ color: active ? '#078EAD' : '#8A94A3' }}>
-                {more ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg> : <NavIcon k={k} />}
-                <span className={`text-[10px] ${active ? 'font-bold' : 'font-medium'}`}>{l}</span>
+                className="relative flex flex-col items-center gap-1 py-1.5" style={{ color: active ? '#078EAD' : '#7A8594' }}>
+                {more ? <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg> : <NavIcon k={k} size={25} />}
+                <span className={`text-[12px] leading-tight ${active ? 'font-bold' : 'font-semibold'}`}>{l}</span>
                 {k === 'bookings' && newBookingsCount > 0 && <span className="absolute top-0.5 right-[22%] min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{newBookingsCount}</span>}
                 {more && unreadUpdates > 0 && <span className="absolute top-1 right-[28%] w-2 h-2 rounded-full bg-red-500" />}
               </button>
@@ -3317,7 +3318,7 @@ export default function DashboardPage() {
         <div className="lg:hidden fixed inset-0 z-40" onClick={() => setMoreOpen(false)}>
           <div className="absolute inset-0 bg-black/30" />
           <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-[24px] px-4 pt-3" onClick={e => e.stopPropagation()}
-            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 92px)' }}>
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 118px)' }}>
             <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3" />
             <div className="grid grid-cols-3 gap-2.5">
               {navTabs.filter(([k]) => !['overview', 'bookings', 'calendar'].includes(k)).map(([k, l]) => (
@@ -3384,8 +3385,8 @@ function DurationField({ minutes, onSave }: { minutes: number | null; onSave: (v
 }
 
 // Εικονίδια πλοήγησης (sidebar desktop).
-function NavIcon({ k }: { k: string }) {
-  const p = { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+function NavIcon({ k, size = 19 }: { k: string; size?: number }) {
+  const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
   switch (k) {
     case 'overview': return <svg {...p}><path d="M3 11 12 4l9 7" /><path d="M5 10v10h14V10" /></svg>
     case 'bookings': return <svg {...p}><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M16 3v4M8 3v4M3 10h18" /><path d="m9 15 2 2 4-4" /></svg>
