@@ -69,10 +69,11 @@ async function run(dry: boolean) {
   const users = [...new Set(due.map(b => b.user_id))]
   const { data: revs } = await db.from('reviews').select('user_id, location_id').in('user_id', users)
   const reviewed = new Set((revs || []).map(r => `${r.user_id}:${r.location_id}`))
-  // Ήδη του ΣΤΕΙΛΑΜΕ αίτημα για αυτό το πλυντήριο (άλλη κράτηση, π.χ. 2ο αυτοκίνητο ή νέα επίσκεψη)
-  // → όχι δεύτερο αίτημα, ακόμα κι αν δεν έχει απαντήσει ακόμα.
+  // Ήδη του ΣΤΕΙΛΑΜΕ αίτημα για αυτό το πλυντήριο τις τελευταίες 14 μέρες (άλλη κράτηση, π.χ. 2ο αυτοκίνητο)
+  // και δεν έχει απαντήσει → όχι ξανά. Μετά τις 14 μέρες, σε νέα κράτηση εκεί → ξαναρωτάμε.
+  // (Αν έχει ήδη αφήσει κριτική στο πλυντήριο → ποτέ ξανά — βλ. reviewed παραπάνω.)
   const { data: asked } = await db.from('bookings').select('user_id, location_id').in('user_id', users)
-    .not('review_requested_at', 'is', null).in('review_channel', ['push', 'email', 'sms'])
+    .gte('review_requested_at', new Date(Date.now() - 14 * 864e5).toISOString()).in('review_channel', ['push', 'email', 'sms'])
   for (const a of (asked || []) as { user_id: string; location_id: string }[]) reviewed.add(`${a.user_id}:${a.location_id}`)
   // Ποιοι έχουν push (native ή web)
   const [{ data: nat }, { data: web }] = await Promise.all([
