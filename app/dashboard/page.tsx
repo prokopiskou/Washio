@@ -250,6 +250,7 @@ export default function DashboardPage() {
   const [unreadUpdates, setUnreadUpdates] = useState(0)
   // Άνοιγμα από ειδοποίηση: /dashboard?booking=<id> → καρτέλα Κρατήσεις, scroll + τονισμός της κράτησης.
   const [focusBookingId, setFocusBookingId] = useState<string | null>(null)
+  const [moreOpen, setMoreOpen] = useState(false) // κινητό: «Περισσότερα» (bottom sheet)
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('booking')
     if (id && /^[0-9a-f-]{36}$/i.test(id)) setFocusBookingId(id)
@@ -1217,7 +1218,7 @@ export default function DashboardPage() {
       {/* ── Desktop: σκούρο navy sidebar (σε κινητό μένουν οι καρτέλες πάνω) ── */}
       <aside className="hidden lg:flex fixed inset-y-0 left-0 z-30 w-[232px] flex-col px-3 pt-6 pb-4" style={{ background: 'linear-gradient(180deg, #10182A 0%, #0E2033 100%)' }}>
         <div className="flex flex-col items-center gap-1 mb-7">
-          <img src="/washio_logo.png" alt="Washio" className="h-9 w-auto brightness-0 invert opacity-95" />
+          <img src="/washio-logo-dark.png" alt="Washio" className="h-[74px] w-auto" />
           <span className="text-[10px] font-semibold tracking-[3px] text-white/50">PARTNER</span>
         </div>
         <nav className="flex-1 space-y-1 overflow-y-auto">
@@ -1251,6 +1252,15 @@ export default function DashboardPage() {
       <div className="max-w-3xl lg:max-w-6xl mx-auto">
 
         <div className="px-5 lg:px-8 pt-[calc(var(--safe-top)+14px)] lg:pt-7 pb-4 bg-white lg:bg-transparent">
+          {/* Κινητό: logo Washio πάνω αριστερά + καμπανάκι */}
+          <div className="lg:hidden flex items-center justify-between mb-3">
+            <img src="/washio-logo-h.png" alt="Washio" className="h-10 w-auto -ml-1" />
+            <button onClick={() => { setActiveTab('updates'); lightTap() }} aria-label={t('Ενημερώσεις')}
+              className="relative w-10 h-10 rounded-xl bg-white flex items-center justify-center" style={{ border: '1px solid #E6EEF3', boxShadow: '0 2px 8px rgba(16,24,42,0.05)' }}>
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#10182A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>
+              {unreadUpdates > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white" />}
+            </button>
+          </div>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
               <h1 className="text-[22px] lg:text-[28px] font-bold tracking-tight leading-[1.2]" style={{ color: '#10182A' }}>{location.name}</h1>
@@ -1271,7 +1281,7 @@ export default function DashboardPage() {
               onClick={() => { lightTap(); setScanOpen(true) }}
               title={t('Σκανάρισμα QR πελάτη')}
               aria-label={t('Σκανάρισμα QR πελάτη')}
-              className="h-[46px] lg:h-[52px] pl-3.5 pr-4 lg:px-6 rounded-2xl text-white flex items-center gap-2 shrink-0 active:scale-95 hover:brightness-105 transition"
+              className="hidden lg:flex h-[52px] px-6 rounded-2xl text-white items-center gap-2 shrink-0 active:scale-95 hover:brightness-105 transition"
               style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 8px 20px rgba(25,168,199,0.35)' }}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1366,22 +1376,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="sticky top-0 z-20 bg-white border-b border-gray-100 lg:hidden">
-          <div className="flex overflow-x-auto scrollbar-hide px-5 gap-[22px]">
-          {navTabs.map(([key, label]) => (
-            <button key={key}
-              onClick={() => { setActiveTab(key); if (key !== 'bookings') setFocusBookingId(null); if (key === 'bookings') setNewBookingsCount(0); lightTap() }}
-              className={`shrink-0 py-3 text-[13px] tracking-tight transition-all border-b-2 ${
-                activeTab === key ? 'border-gray-900 text-gray-900 font-semibold' : 'border-transparent text-gray-400 font-medium'
-              } ${key === 'bookings' && newBookingsCount > 0 ? 'text-blue-600' : ''} ${key === 'updates' && unreadUpdates > 0 ? 'text-red-600' : ''}`}
-            >
-              {label}
-            </button>
-          ))}
-          </div>
-        </div>
-
-        <div className="px-5 lg:px-8 py-5">
+        <div className="px-5 lg:px-8 pt-5 pb-32 lg:pb-8">
 
           {/* Ενημερώσεις Washio: σημαντική → καλύπτει την οθόνη · κανονική → banner (μέχρι «Το διάβασα») */}
           {activeTab !== 'updates' && <WasherUpdates mode="gate" onCount={setUnreadUpdates} onOpenList={() => setActiveTab('updates')} t={t} />}
@@ -3289,6 +3284,55 @@ export default function DashboardPage() {
         </div>
       </div>
       </div>
+
+      {/* ── Κινητό: κάτω μπάρα πλοήγησης με κεντρικό «Σκάναρε» ── */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t"
+        style={{ borderColor: '#E6EEF3', paddingBottom: 'calc(env(safe-area-inset-bottom) + 6px)', boxShadow: '0 -6px 20px rgba(16,24,42,0.06)' }}>
+        <div className="max-w-md mx-auto grid grid-cols-5 items-end px-2 pt-1.5">
+          {([['overview', t('Αρχική')], ['bookings', t('Κρατήσεις')], ['scan', t('Σκάναρε')], ['calendar', t('Ημερολόγιο')], ['more', t('Περισσότερα')]] as [string, string][]).map(([k, l]) => {
+            if (k === 'scan') return (
+              <button key={k} onClick={() => { lightTap(); setScanOpen(true) }} className="flex flex-col items-center -mt-6">
+                <span className="w-[58px] h-[58px] rounded-full flex items-center justify-center text-white" style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 10px 22px rgba(25,168,199,0.45)', border: '4px solid #fff' }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M7 12h10" /></svg>
+                </span>
+                <span className="text-[10px] font-bold mt-0.5" style={{ color: '#078EAD' }}>{l}</span>
+              </button>
+            )
+            const more = k === 'more'
+            const active = more ? (moreOpen || !['overview', 'bookings', 'calendar'].includes(activeTab)) : activeTab === k
+            return (
+              <button key={k} onClick={() => { lightTap(); if (more) { setMoreOpen(o => !o); return } setMoreOpen(false); setActiveTab(k as TabKey); if (k !== 'bookings') setFocusBookingId(null); if (k === 'bookings') setNewBookingsCount(0) }}
+                className="relative flex flex-col items-center gap-0.5 py-1.5" style={{ color: active ? '#078EAD' : '#8A94A3' }}>
+                {more ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg> : <NavIcon k={k} />}
+                <span className={`text-[10px] ${active ? 'font-bold' : 'font-medium'}`}>{l}</span>
+                {k === 'bookings' && newBookingsCount > 0 && <span className="absolute top-0.5 right-[22%] min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{newBookingsCount}</span>}
+                {more && unreadUpdates > 0 && <span className="absolute top-1 right-[28%] w-2 h-2 rounded-full bg-red-500" />}
+              </button>
+            )
+          })}
+        </div>
+      </nav>
+
+      {moreOpen && (
+        <div className="lg:hidden fixed inset-0 z-40" onClick={() => setMoreOpen(false)}>
+          <div className="absolute inset-0 bg-black/30" />
+          <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-[24px] px-4 pt-3" onClick={e => e.stopPropagation()}
+            style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 92px)' }}>
+            <div className="w-10 h-1 rounded-full bg-gray-200 mx-auto mb-3" />
+            <div className="grid grid-cols-3 gap-2.5">
+              {navTabs.filter(([k]) => !['overview', 'bookings', 'calendar'].includes(k)).map(([k, l]) => (
+                <button key={k} onClick={() => { lightTap(); setActiveTab(k); setFocusBookingId(null); setMoreOpen(false) }}
+                  className="relative rounded-2xl py-4 flex flex-col items-center gap-1.5 text-[12px] font-semibold"
+                  style={{ background: activeTab === k ? '#EAF7FB' : '#F5FAFC', color: activeTab === k ? '#078EAD' : '#10182A', border: '1px solid #E6EEF3' }}>
+                  <NavIcon k={k} />
+                  {l.replace(/\s\(\d+\)$/, '')}
+                  {k === 'updates' && unreadUpdates > 0 && <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{unreadUpdates}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

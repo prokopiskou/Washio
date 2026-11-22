@@ -284,4 +284,7 @@ export const DASH_EN: Record<string, string> = {
   'Ολοκληρωμένες σήμερα': 'Completed today',
   'Επερχόμενες': 'Upcoming',
   'Ακυρώσεις': 'Cancellations',
+  'Αρχική': 'Home',
+  'Περισσότερα': 'More',
+  'Σκάναρε': 'Scan',
 }
