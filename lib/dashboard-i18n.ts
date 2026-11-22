@@ -266,6 +266,7 @@ export const DASH_EN: Record<string, string> = {
   'Όταν οι πελάτες αξιολογήσουν τις κρατήσεις τους, θα εμφανιστούν εδώ.': 'When customers rate their bookings, they will appear here.',
   'Επισκόπηση': 'Overview',
   'Υποστήριξη': 'Support',
+  'Κλήση': 'Call',
   'Καλημέρα': 'Good morning',
   'Καλό απόγευμα': 'Good afternoon',
   'Καλησπέρα': 'Good evening',

@@ -3319,6 +3319,14 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
+            {/* Υποστήριξη: κλήση απευθείας στην ομάδα (Γιώργος) */}
+            <a href={`tel:${SUPPORT_PHONE}`} onClick={() => { lightTap(); setMoreOpen(false) }}
+              className="mt-2.5 flex items-center gap-3 px-4 h-14 rounded-2xl text-[14px] font-semibold"
+              style={{ background: '#10182A', color: '#fff' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z" /></svg>
+              <span className="flex-1">{t('Υποστήριξη')}</span>
+              <span className="text-[12px] font-medium text-white/60">{t('Κλήση')} ›</span>
+            </a>
           </div>
         </div>
       )}
