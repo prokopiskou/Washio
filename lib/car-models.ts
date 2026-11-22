@@ -13,15 +13,15 @@ const DATA: [string, string[], string[]][] = [
   ['BMW', ['Σειρά 1', 'Σειρά 2', 'Σειρά 3', 'Σειρά 4', 'Σειρά 5', 'Σειρά 6', 'Σειρά 7', 'Σειρά 8', 'i3', 'i4', 'i5', 'i7', 'Z4', 'M2', 'M3', 'M4', 'M5'], ['X1', 'X2', 'X3', 'X4', 'X5', 'X6', 'X7', 'XM', 'iX', 'iX1', 'iX2', 'iX3', 'Σειρά 2 Active Tourer', 'Σειρά 2 Gran Tourer']],
   ['BYD', ['Dolphin', 'Dolphin Surf', 'Seal'], ['Atto 2', 'Atto 3', 'Seal U', 'Sealion 7', 'Tang', 'Han']],
   ['Chevrolet', ['Spark', 'Aveo', 'Cruze', 'Matiz', 'Kalos', 'Camaro'], ['Captiva', 'Trax', 'Orlando']],
-  ['Citroën', ['C1', 'C3', 'C4', 'C4 X', 'C5', 'DS3', 'ë-C3', 'Saxo', 'Xsara', 'AMI'], ['C3 Aircross', 'C4 Picasso', 'C4 SpaceTourer', 'C5 Aircross', 'C5 X', 'Berlingo', 'C3 Picasso', 'Xsara Picasso', 'Grand C4 Picasso', 'SpaceTourer', 'Jumpy', 'Jumper']],
+  ['Citroën', ['C1', 'C3', 'C4', 'C4 X', 'C5', 'C2', 'DS3', 'DS4', 'DS5', 'ë-C3', 'Saxo', 'Xsara', 'AMI'], ['C3 Aircross', 'C4 Picasso', 'C4 SpaceTourer', 'C5 Aircross', 'C5 X', 'DS4 Crossback', 'Berlingo', 'C3 Picasso', 'Xsara Picasso', 'Grand C4 Picasso', 'SpaceTourer', 'Jumpy', 'Jumper']],
   ['Cupra', ['Born', 'Leon'], ['Formentor', 'Ateca', 'Tavascan', 'Terramar']],
   ['Dacia', ['Sandero', 'Sandero Stepway', 'Logan', 'Spring'], ['Duster', 'Jogger', 'Bigster', 'Lodgy', 'Dokker']],
   ['Daihatsu', ['Terios', 'Sirion', 'Cuore'], []],
   ['DS', ['DS 3', 'DS 4', 'DS 5', 'DS 9'], ['DS 3 Crossback', 'DS 7']],
-  ['Fiat', ['500', '500e', 'Panda', 'Punto', 'Grande Punto', 'Tipo', 'Bravo', 'Seicento', 'Uno', 'Stilo', 'Linea', '124 Spider'], ['500X', '500L', '600', 'Panda Cross', 'Qubo', 'Doblò', 'Multipla', 'Fiorino', 'Ducato', 'Fullback', 'Freemont', 'Sedici']],
-  ['Ford', ['Fiesta', 'Focus', 'Ka', 'Ka+', 'Mondeo', 'Fusion', 'Mustang'], ['Puma', 'Kuga', 'EcoSport', 'Explorer', 'Mustang Mach-E', 'Edge', 'C-Max', 'S-Max', 'Galaxy', 'B-Max', 'Tourneo Connect', 'Tourneo Courier', 'Transit', 'Transit Custom', 'Ranger']],
+  ['Fiat', ['500', '500e', 'Panda', 'Punto', 'Grande Punto', 'Punto Evo', 'Idea', 'Tipo', 'Bravo', 'Seicento', 'Uno', 'Stilo', 'Linea', '124 Spider'], ['500X', '500L', '600', 'Panda Cross', 'Qubo', 'Doblò', 'Multipla', 'Fiorino', 'Ducato', 'Fullback', 'Freemont', 'Sedici']],
+  ['Ford', ['Fiesta', 'Focus', 'Ka', 'Ka+', 'Mondeo', 'Fusion', 'Mustang'], ['Maverick', 'Puma', 'Kuga', 'EcoSport', 'Explorer', 'Mustang Mach-E', 'Edge', 'C-Max', 'S-Max', 'Galaxy', 'B-Max', 'Tourneo Connect', 'Tourneo Courier', 'Transit', 'Transit Custom', 'Ranger']],
   ['Honda', ['Jazz', 'Civic', 'Accord', 'Insight', 'e'], ['HR-V', 'CR-V', 'ZR-V', 'e:Ny1', 'FR-V']],
-  ['Hyundai', ['i10', 'i20', 'i30', 'Accent', 'Elantra', 'Getz', 'Ioniq', 'Ioniq 6', 'Atos'], ['Kona', 'Bayon', 'Tucson', 'Santa Fe', 'Ioniq 5', 'ix20', 'ix35', 'Inster', 'H-1']],
+  ['Hyundai', ['i10', 'i20', 'i30', 'Accent', 'Elantra', 'Getz', 'Ioniq', 'Ioniq 6', 'Atos'], ['Kona', 'Bayon', 'Tucson', 'Santa Fe', 'Ioniq 5', 'ix20', 'ix35', 'Matrix', 'Inster', 'H-1']],
   ['Jaguar', ['XE', 'XF', 'XJ', 'F-Type'], ['E-Pace', 'F-Pace', 'I-Pace']],
   ['Jeep', [], ['Renegade', 'Compass', 'Avenger', 'Cherokee', 'Grand Cherokee', 'Wrangler']],
   ['Kia', ['Picanto', 'Rio', 'Ceed', 'ProCeed', 'Stinger', 'EV4'], ['Stonic', 'XCeed', 'Niro', 'Sportage', 'Sorento', 'EV3', 'EV6', 'EV9', 'Soul', 'Carens', 'Venga']],
@@ -35,7 +35,7 @@ const DATA: [string, string[], string[]][] = [
   ['Mitsubishi', ['Space Star', 'Colt', 'Lancer'], ['ASX', 'Eclipse Cross', 'Outlander', 'Pajero', 'L200']],
   ['Nissan', ['Micra', 'Note', 'Leaf', 'Almera', 'Pulsar', '370Z'], ['Juke', 'Qashqai', 'X-Trail', 'Ariya', 'Pathfinder', 'Navara', 'Townstar', 'Primastar', 'Evalia']],
   ['Opel', ['Corsa', 'Astra', 'Insignia', 'Adam', 'Agila', 'Vectra', 'Karl', 'Tigra'], ['Mokka', 'Crossland', 'Grandland', 'Frontera', 'Meriva', 'Zafira', 'Combo', 'Vivaro', 'Antara']],
-  ['Peugeot', ['107', '108', '206', '207', '208', '306', '307', '308', '407', '508', 'iOn'], ['2008', '3008', '5008', '408', 'Rifter', 'Partner', 'Traveller', 'Expert', '4007', '807', '1007']],
+  ['Peugeot', ['106', '107', '108', '206', '207', '208', '306', '307', '308', '407', '508', 'iOn'], ['2008', '3008', '5008', '408', 'Rifter', 'Partner', 'Traveller', 'Expert', '4007', '807', '1007']],
   ['Polestar', ['2'], ['3', '4']],
   ['Porsche', ['911', '718 Boxster', '718 Cayman', 'Panamera', 'Taycan'], ['Cayenne', 'Macan']],
   ['Renault', ['Clio', 'Twingo', 'Mégane', 'Zoe', 'Talisman', 'Laguna', 'R5', 'Fluence'], ['Captur', 'Arkana', 'Austral', 'Kadjar', 'Koleos', 'Rafale', 'Symbioz', 'Mégane E-Tech', 'Scenic', 'Grand Scenic', 'Espace', 'Kangoo', 'Trafic', 'Master', 'R4']],
@@ -43,8 +43,8 @@ const DATA: [string, string[], string[]][] = [
   ['Škoda', ['Fabia', 'Octavia', 'Scala', 'Superb', 'Citigo', 'Rapid'], ['Kamiq', 'Karoq', 'Kodiaq', 'Elroq', 'Enyaq', 'Yeti', 'Roomster']],
   ['Smart', ['ForTwo', 'ForFour'], ['#1', '#3']],
   ['SsangYong', [], ['Tivoli', 'Korando', 'Rexton', 'Torres']],
-  ['Subaru', ['Impreza', 'BRZ', 'Legacy'], ['XV', 'Crosstrek', 'Forester', 'Outback', 'Solterra']],
-  ['Suzuki', ['Swift', 'Ignis', 'Celerio', 'Alto', 'Baleno', 'Splash'], ['Vitara', 'S-Cross', 'Jimny', 'Grand Vitara', 'Across', 'SX4']],
+  ['Subaru', ['Impreza', 'WRX', 'WRX STI', 'BRZ', 'Legacy'], ['XV', 'Crosstrek', 'Forester', 'Outback', 'Solterra']],
+  ['Suzuki', ['Swift', 'Ignis', 'Celerio', 'Alto', 'Baleno', 'Splash', 'Wagon R+'], ['Vitara', 'S-Cross', 'Jimny', 'Grand Vitara', 'Across', 'SX4']],
   ['Tesla', ['Model 3', 'Model S'], ['Model Y', 'Model X']],
   ['Toyota', ['Aygo', 'Aygo X', 'Yaris', 'Corolla', 'Auris', 'Prius', 'Avensis', 'GR86', 'Supra', 'Camry', 'iQ'], ['Yaris Cross', 'C-HR', 'RAV4', 'bZ4X', 'Land Cruiser', 'Highlander', 'Corolla Cross', 'Hilux', 'Proace', 'Proace City', 'Verso', 'Corolla Verso']],
   ['Volkswagen', ['Polo', 'Golf', 'Up', 'Passat', 'Arteon', 'Jetta', 'Scirocco', 'Beetle', 'ID.3', 'Lupo', 'Fox', 'Bora'], ['T-Cross', 'T-Roc', 'Taigo', 'Tiguan', 'Touareg', 'ID.4', 'ID.5', 'ID.7', 'ID. Buzz', 'Touran', 'Sharan', 'Caddy', 'Transporter', 'Multivan', 'Amarok', 'Golf Plus', 'Golf Sportsvan']],
@@ -77,7 +77,7 @@ const DATA: [string, string[], string[]][] = [
   ['Maserati', ['Ghibli', 'Quattroporte', 'GranTurismo', 'MC20'], ['Levante', 'Grecale']],
   ['Maxus', [], ['eDeliver 3', 'T90', 'Mifa 9', 'Euniq 6']],
   ['Microcar', ['M.Go', 'Due'], []],
-  ['Omoda', [], ['5', 'E5', '7']],
+  ['Omoda', [], ['5', 'E5', '7', '9']],
   ['Rolls-Royce', ['Ghost', 'Phantom', 'Wraith', 'Spectre'], ['Cullinan']],
   ['Rover', ['25', '45', '75', 'Streetwise'], []],
   ['Saab', ['9-3', '9-5', '900'], []],
@@ -111,8 +111,8 @@ const MOTO: [string, string[]][] = [
   ['Modenas', ['Kriss']],
   ['Daytona', ['Velos']],
   ['CFMOTO', ['450 MT', '700 MT', '300 NK', '800 NK']],
-  ['Voge', ['300 Rally', '525 DSX', 'SR4']],
-  ['Zontes', ['ZT 350', 'ZT 125']],
+  ['Voge', ['300 Rally', '525 DSX', 'SR4', 'SR1 ADV', 'SR2 ADV', 'SR16']],
+  ['Zontes', ['ZT 350', 'ZT 125', '368K', '368G', '350D', '350T']],
   ['Moto Guzzi', ['V7', 'V85 TT', 'Stelvio']],
   ['MV Agusta', ['Brutale', 'Dragster', 'F3']],
   ['Niu', ['NQi', 'MQi', 'UQi']],
@@ -157,7 +157,61 @@ export function searchCarModels(q: string, limit = 8, only?: 'car' | 'moto'): Ca
     else if (model.startsWith(n)) modelStarts.push(c) // «x5» → BMW X5
     else if (full.includes(n)) has.push(c)
   }
-  return [...starts, ...modelStarts, ...has].slice(0, limit)
+  const exact = [...starts, ...modelStarts, ...has]
+  if (exact.length) return exact.slice(0, limit)
+  return fuzzySearch(lq, pool, limit)
+}
+
+// Συχνά λάθη/παρατσούκλια μάρκας (λατινικά).
+const TYPO_MAKE: Record<string, string> = {
+  reno: 'renault', renaut: 'renault', pezo: 'peugeot', pezot: 'peugeot', peuzot: 'peugeot', pegeout: 'peugeot', pejo: 'peugeot',
+  sitroen: 'citroen', folkswagen: 'volkswagen', volkswagon: 'volkswagen', vw: 'volkswagen', merc: 'mercedes', benz: 'mercedes',
+  hiundai: 'hyundai', hyunday: 'hyundai', toyta: 'toyota', nisan: 'nissan', susuki: 'suzuki', mitsubisi: 'mitsubishi',
+}
+
+function lev(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)] as number[])
+  for (let j = 1; j <= b.length; j++) d[0][j] = j
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
+    if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1)
+  }
+  return d[a.length][b.length]
+}
+
+// Ελληνικά γράμματα που μοιάζουν με λατινικά, μέσα σε λέξη με αριθμό (π.χ. «Χ5» → x5).
+const LOOK: Record<string, string> = { α: 'a', β: 'b', ε: 'e', η: 'h', ι: 'i', κ: 'k', μ: 'm', ν: 'n', ο: 'o', ρ: 'p', τ: 't', χ: 'x', υ: 'y', ζ: 'z' }
+
+/** Ανεκτική αναζήτηση: λέξεις με οποιαδήποτε σειρά, αγνοεί χρονιά/κωδικό γενιάς (2001, N16, W163, MK7), λάθη στη μάρκα. */
+function fuzzySearch(lq: string, pool: CarModel[], limit: number): CarModel[] {
+  const toks = lq.split(/[^a-z0-9α-ω+]+/).filter(Boolean)
+    .map(t => /\d/.test(t) ? t.replace(/[α-ω]/g, ch => LOOK[ch] || ch) : t)
+    .map(t => t.replace(/\+/g, ''))
+    .map(t => TYPO_MAKE[t] || t)
+    .filter(t => t && !/^(19|20)\d\d$/.test(t))
+  if (!toks.length) return []
+  const scored: { c: CarModel; s: number }[] = []
+  for (const c of pool) {
+    const make = norm(c.make), model = norm(c.model)
+    const words = [...new Set([make, model, ...c.label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9α-ω]+/).filter(Boolean)])]
+    let s = 0, hitMake = false, hitModel = false
+    for (const t0 of toks) {
+      const alpha = t0.match(/^[a-z]+/)?.[0]
+      for (const t of alpha && alpha !== t0 ? [t0, alpha] : [t0]) {
+        let best = 0
+        for (const w of words) {
+          if (w === t) best = Math.max(best, t.length * 3)
+          else if (t.length >= 2 && w.startsWith(t)) best = Math.max(best, t.length * 2)
+          else if (t.length >= 4 && w.length >= 4 && lev(t, w) <= (t.length >= 6 ? 2 : 1)) best = Math.max(best, t.length)
+          if (best && w === make) hitMake = true
+          if (best && w !== make) hitModel = true
+        }
+        if (best) { s += best; break }
+      }
+    }
+    if (s && (hitMake || hitModel) && s >= 4) scored.push({ c, s: s + (hitMake && hitModel ? 5 : 0) })
+  }
+  return scored.sort((a, b) => b.s - a.s).slice(0, limit).map(x => x.c)
 }
 
 /** Ακριβής αντιστοίχιση ετικέτας → κατηγορία (null = άγνωστο μοντέλο). */
