@@ -251,6 +251,19 @@ export default function DashboardPage() {
   // Άνοιγμα από ειδοποίηση: /dashboard?booking=<id> → καρτέλα Κρατήσεις, scroll + τονισμός της κράτησης.
   const [focusBookingId, setFocusBookingId] = useState<string | null>(null)
   const [moreOpen, setMoreOpen] = useState(false) // κινητό: «Περισσότερα» (bottom sheet)
+  // Ημερολόγιο: το αιωρούμενο «+ Ραντεβού» φαίνεται ΜΟΝΟ όταν το πάνω κουμπί έχει φύγει από την οθόνη.
+  const [calTopVisible, setCalTopVisible] = useState(true)
+  useEffect(() => {
+    if (activeTab !== 'calendar') return
+    let obs: IntersectionObserver | null = null
+    const t0 = setTimeout(() => {
+      const el = document.getElementById('cal-add-top')
+      if (!el) { setCalTopVisible(false); return }
+      obs = new IntersectionObserver(([e]) => setCalTopVisible(e.isIntersecting), { threshold: 0 })
+      obs.observe(el)
+    }, 50)
+    return () => { clearTimeout(t0); obs?.disconnect() }
+  }, [activeTab])
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('booking')
     if (id && /^[0-9a-f-]{36}$/i.test(id)) setFocusBookingId(id)
@@ -2014,6 +2027,7 @@ export default function DashboardPage() {
                           </p>
                         </div>
                         <button
+                          id="cal-add-top"
                           onClick={openManualForm}
                           className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-gray-900 text-white text-[13px] font-semibold"
                         >
@@ -2122,15 +2136,12 @@ export default function DashboardPage() {
           {/* Αιωρούμενο κουμπί «+ Ραντεβού» — μόνο στο ημερολόγιο, ακολουθεί
               πάντα την οθόνη ώστε ο πλυντηριάς να προσθέτει ραντεβού από
               οποιοδήποτε σημείο του timeline. */}
-          {activeTab === 'calendar' && !showManualForm && (
+          {activeTab === 'calendar' && !showManualForm && !calTopVisible && (
             <button
               onClick={openManualForm}
               aria-label={t('Προσθήκη ραντεβού')}
-              className="fixed z-40 right-5 flex items-center gap-2 px-5 h-14 rounded-full bg-gray-900 text-white text-[15px] font-semibold active:scale-95 transition-transform"
-              style={{
-                bottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
-              }}
+              className="fixed z-40 right-5 flex items-center gap-2 px-5 h-14 rounded-full bg-gray-900 text-white text-[15px] font-semibold active:scale-95 transition-transform bottom-[calc(env(safe-area-inset-bottom,0px)+122px)] lg:bottom-6"
+              style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.28)' }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
               {t('Ραντεβού')}
