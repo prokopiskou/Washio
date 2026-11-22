@@ -1,5 +1,6 @@
 'use client'
 
+import { SUPPORT_PHONE } from '@/lib/support'
 import { formatDuration } from '@/lib/duration'
 import { useLocale } from '@/lib/i18n'
 import { DASH_EN } from '@/lib/dashboard-i18n'
@@ -1198,29 +1199,80 @@ export default function DashboardPage() {
     </main>
   )
 
+  const navTabs = ([
+            ['overview', t('Επισκόπηση')],
+            ['bookings', `${t('Κρατήσεις')}${newBookingsCount > 0 ? ` (${newBookingsCount})` : ''}`],
+            ['calendar', t('Ημερολόγιο')],
+            ['services', t('Υπηρεσίες')],
+            ['promotions', `${isAdminUser ? '' : '🔒 '}${t('Προωθήσεις')}`],
+            ['hours', t('Ωράριο')],
+            ['settings', t('Ρυθμίσεις')],
+            ['feedback', 'Feedback'],
+            ['updates', `${t('Ενημερώσεις')}${unreadUpdates > 0 ? ` (${unreadUpdates})` : ''}`],
+          ] as [TabKey, string][])
+
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen" style={{ background: '#F5FAFC' }}>
       <PushInit />
+      {/* ── Desktop: σκούρο navy sidebar (σε κινητό μένουν οι καρτέλες πάνω) ── */}
+      <aside className="hidden lg:flex fixed inset-y-0 left-0 z-30 w-[232px] flex-col px-3 pt-6 pb-4" style={{ background: 'linear-gradient(180deg, #10182A 0%, #0E2033 100%)' }}>
+        <div className="flex flex-col items-center gap-1 mb-7">
+          <img src="/washio_logo.png" alt="Washio" className="h-9 w-auto brightness-0 invert opacity-95" />
+          <span className="text-[10px] font-semibold tracking-[3px] text-white/50">PARTNER</span>
+        </div>
+        <nav className="flex-1 space-y-1 overflow-y-auto">
+          {navTabs.map(([key, label]) => {
+            const active = activeTab === key
+            return (
+              <button key={key}
+                onClick={() => { setActiveTab(key); if (key !== 'bookings') setFocusBookingId(null); if (key === 'bookings') setNewBookingsCount(0); lightTap() }}
+                className={`w-full flex items-center gap-3 px-3.5 h-11 rounded-xl text-[14px] font-semibold tracking-tight transition-colors ${active ? 'text-white' : 'text-white/65 hover:text-white hover:bg-white/5'}`}
+                style={active ? { background: 'rgba(25,168,199,0.22)', boxShadow: 'inset 0 0 0 1px rgba(25,168,199,0.35)' } : undefined}>
+                <NavIcon k={key} />
+                <span className="flex-1 text-left truncate">{label.replace(/\s\(\d+\)$/, '')}</span>
+                {key === 'bookings' && newBookingsCount > 0 && <span className="text-[11px] font-bold px-1.5 rounded-full bg-[#19A8C7] text-white">{newBookingsCount}</span>}
+                {key === 'updates' && unreadUpdates > 0 && <span className="text-[11px] font-bold px-1.5 rounded-full bg-red-500 text-white">{unreadUpdates}</span>}
+              </button>
+            )
+          })}
+        </nav>
+        <a href={`tel:${SUPPORT_PHONE}`} className="mt-3 flex items-center gap-3 px-3.5 h-12 rounded-xl bg-white/5 text-white/80 text-[13px] font-semibold hover:bg-white/10">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z" /></svg>
+          <span className="flex-1">{t('Υποστήριξη')}</span><span className="text-white/40">›</span>
+        </a>
+      </aside>
       {scanOpen && (
         <CheckinScanner
           onClose={() => setScanOpen(false)}
           onCheckedIn={(cb) => setBookings(prev => prev.map(x => x.id === cb.bookingId ? { ...x, status: 'confirmed', checked_in_at: cb.checkedInAt || new Date().toISOString() } : x))}
         />
       )}
-      <div className="max-w-3xl mx-auto">
+      <div className="lg:pl-[232px]">
+      <div className="max-w-3xl lg:max-w-6xl mx-auto">
 
-        <div className="px-5 pt-[calc(var(--safe-top)+14px)] pb-4 bg-white">
+        <div className="px-5 lg:px-8 pt-[calc(var(--safe-top)+14px)] lg:pt-7 pb-4 bg-white lg:bg-transparent">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <h1 className="text-[22px] font-bold tracking-tight leading-[1.2] text-gray-900">{location.name}</h1>
-              <p className="text-[12px] text-gray-500 mt-1">{location.address}, {location.city}</p>
+              <h1 className="text-[22px] lg:text-[28px] font-bold tracking-tight leading-[1.2]" style={{ color: '#10182A' }}>{location.name}</h1>
+              <p className="text-[12px] lg:text-[13px] text-gray-500 mt-1 flex items-center gap-1">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z" /><circle cx="12" cy="10" r="2.5" /></svg>
+                {location.address}, {location.city}
+              </p>
             </div>
+            <button
+              onClick={() => { setActiveTab('updates'); lightTap() }}
+              aria-label={t('Ενημερώσεις')}
+              className="hidden lg:flex relative w-[52px] h-[52px] rounded-2xl bg-white items-center justify-center shrink-0 hover:bg-gray-50"
+              style={{ boxShadow: '0 4px 14px rgba(16,24,42,0.06)', border: '1px solid #E6EEF3' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10182A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>
+              {unreadUpdates > 0 && <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 rounded-full bg-red-500 border-2 border-white" />}
+            </button>
             <button
               onClick={() => { lightTap(); setScanOpen(true) }}
               title={t('Σκανάρισμα QR πελάτη')}
               aria-label={t('Σκανάρισμα QR πελάτη')}
-              className="h-[46px] pl-3.5 pr-4 rounded-2xl text-white flex items-center gap-2 shrink-0 active:scale-95 transition-transform"
-              style={{ background: '#1A6FD4', boxShadow: '0 4px 12px rgba(26,111,212,0.35)' }}
+              className="h-[46px] lg:h-[52px] pl-3.5 pr-4 lg:px-6 rounded-2xl text-white flex items-center gap-2 shrink-0 active:scale-95 hover:brightness-105 transition"
+              style={{ background: 'linear-gradient(135deg, #19A8C7 0%, #078EAD 100%)', boxShadow: '0 8px 20px rgba(25,168,199,0.35)' }}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
@@ -1314,19 +1366,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        <div className="sticky top-0 z-20 bg-white border-b border-gray-100">
+        <div className="sticky top-0 z-20 bg-white border-b border-gray-100 lg:hidden">
           <div className="flex overflow-x-auto scrollbar-hide px-5 gap-[22px]">
-          {([
-            ['overview', 'Overview'],
-            ['bookings', `${t('Κρατήσεις')}${newBookingsCount > 0 ? ` (${newBookingsCount})` : ''}`],
-            ['calendar', t('Ημερολόγιο')],
-            ['services', t('Υπηρεσίες')],
-            ['promotions', `${isAdminUser ? '' : '🔒 '}${t('Προωθήσεις')}`],
-            ['hours', t('Ωράριο')],
-            ['settings', t('Ρυθμίσεις')],
-            ['feedback', 'Feedback'],
-            ['updates', `${t('Ενημερώσεις')}${unreadUpdates > 0 ? ` (${unreadUpdates})` : ''}`],
-          ] as [TabKey, string][]).map(([key, label]) => (
+          {navTabs.map(([key, label]) => (
             <button key={key}
               onClick={() => { setActiveTab(key); if (key !== 'bookings') setFocusBookingId(null); if (key === 'bookings') setNewBookingsCount(0); lightTap() }}
               className={`shrink-0 py-3 text-[13px] tracking-tight transition-all border-b-2 ${
@@ -1339,53 +1381,141 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="px-5 py-5">
+        <div className="px-5 lg:px-8 py-5">
 
           {/* Ενημερώσεις Washio: σημαντική → καλύπτει την οθόνη · κανονική → banner (μέχρι «Το διάβασα») */}
           {activeTab !== 'updates' && <WasherUpdates mode="gate" onCount={setUnreadUpdates} onOpenList={() => setActiveTab('updates')} t={t} />}
           {activeTab === 'updates' && <WasherUpdates mode="list" onCount={setUnreadUpdates} t={t} />}
 
           {activeTab === 'overview' && (
-            <div className="space-y-3">
-              {/* Stat cards */}
-              <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-3 lg:space-y-5">
+              {/* ── Hero: σημερινή μέρα ── */}
+              {(() => {
+                const h = new Date().getHours()
+                const hello = h < 12 ? t('Καλημέρα') : h < 18 ? t('Καλό απόγευμα') : t('Καλησπέρα')
+                const pic = (Array.isArray(location.photos) && location.photos[0]) || location.cover_image_url || ''
+                return (
+                  <div className="relative overflow-hidden rounded-[22px] px-6 py-6 lg:px-9 lg:py-8 min-h-[128px] lg:min-h-[170px] flex items-center"
+                    style={{ background: 'linear-gradient(110deg, #10182A 0%, #12243A 55%, #0E3B50 100%)', boxShadow: '0 12px 30px rgba(16,24,42,0.18)' }}>
+                    {pic && (
+                      <div className="absolute inset-y-0 right-0 w-[55%] hidden sm:block" style={{ backgroundImage: `url(${pic})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                        <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, #12243A 0%, rgba(18,36,58,0.55) 40%, rgba(14,59,80,0.15) 100%)' }} />
+                      </div>
+                    )}
+                    <div className="relative">
+                      <p className="text-[12px] font-bold tracking-[2px] uppercase" style={{ color: '#7FD3E6' }}>{hello} 👋</p>
+                      <p className="text-[22px] lg:text-[30px] font-bold leading-tight text-white mt-1.5 max-w-[420px]">
+                        {todayBookings.length > 0 ? t('Έτοιμοι για τις σημερινές κρατήσεις;') : t('Καμία κράτηση ακόμα σήμερα')}
+                      </p>
+                      {todayBookings.length > 0 && <p className="text-[13px] text-white/60 mt-1.5">{todayBookings.filter(b => b.status !== 'cancelled').length} {t('κρατήσεις σήμερα')}</p>}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* ── KPI cards ── */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-4">
                 {[
-                  { label: t('Σήμερα'), value: todayBookings.length },
-                  { label: t('Μήνα'), value: monthlyBookings.length },
-                  { label: t('Έσοδα μήνα'), value: `€${monthlyRevenue.toFixed(0)}` },
-                  { label: t('Βαθμολογία'), value: avgRating.toFixed(1) },
-                ].map(s => (
-                  <div key={s.label} className="bg-white border border-gray-100 rounded-2xl p-3.5"
-                       style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                    <p className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{s.label}</p>
-                    <p className="text-[26px] font-bold tracking-tight text-gray-900 mt-2">{s.value}</p>
+                  { label: t('Σήμερα'), value: String(todayBookings.filter(b => b.status !== 'cancelled').length), icon: 'cal' },
+                  { label: t('Αυτόν τον μήνα'), value: String(monthlyBookings.filter(b => b.status !== 'cancelled').length), icon: 'cal' },
+                  { label: t('Έσοδα μήνα'), value: `€${monthlyRevenue.toFixed(0)}`, icon: 'wallet' },
+                  { label: t('Αξιολόγηση'), value: avgRating ? avgRating.toFixed(1) : '—', sub: reviews.length ? `(${reviews.length})` : '', icon: 'star' },
+                ].map(k => (
+                  <div key={k.label} className="bg-white rounded-[18px] p-4 lg:p-5 flex items-center gap-3.5 transition-shadow hover:shadow-md"
+                    style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
+                    <span className="w-11 h-11 lg:w-12 lg:h-12 rounded-full flex items-center justify-center shrink-0" style={{ background: '#EAF7FB' }}>
+                      {k.icon === 'wallet'
+                        ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7H5a2 2 0 0 1 0-4h13v4" /><path d="M3 5v14a2 2 0 0 0 2 2h15V7" /><circle cx="16" cy="14" r="1.2" /></svg>
+                        : k.icon === 'star'
+                        ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="1.9" strokeLinejoin="round"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" /></svg>
+                        : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M16 3v4M8 3v4M3 10h18" /><path d="m9 15 2 2 4-4" /></svg>}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[12px] lg:text-[13px] font-medium text-gray-500 truncate">{k.label}</p>
+                      <p className="text-[24px] lg:text-[28px] font-bold tracking-tight leading-tight" style={{ color: '#10182A' }}>{k.value}{k.sub && <span className="text-[13px] font-medium text-gray-400 ml-1">{k.sub}</span>}</p>
+                    </div>
                   </div>
                 ))}
               </div>
 
-              {todayBookings.length > 0 && (
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden"
-                     style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-                  <div className="px-4 py-3.5 flex items-baseline justify-between">
-                    <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t('Σήμερα')}</p>
-                    <span className="text-[11px] font-semibold tracking-[1.4px] uppercase text-gray-500">{todayBookings.length} {t('κρατήσεις')}</span>
+              {/* ── Σημερινές κρατήσεις + γρήγορες ενέργειες ── */}
+              <div className="grid lg:grid-cols-3 gap-3 lg:gap-4 items-start">
+                <div className="lg:col-span-2 bg-white rounded-[20px] overflow-hidden" style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
+                  <div className="px-5 py-4 flex items-center justify-between">
+                    <p className="text-[16px] font-bold tracking-tight flex items-center gap-2" style={{ color: '#10182A' }}>
+                      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M16 3v4M8 3v4M3 10h18" /></svg>
+                      {t('Σημερινές κρατήσεις')}
+                    </p>
+                    <button onClick={() => { setActiveTab('bookings'); setBookingsView('all'); lightTap() }} className="text-[13px] font-semibold" style={{ color: '#078EAD' }}>{t('Όλες οι κρατήσεις')} →</button>
                   </div>
-                  <div className="divide-y divide-gray-50">
-                    {todayBookings.sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => (
-                      <div key={b.id} className="px-4 py-3 flex items-center justify-between" style={{ background: rowBg(effStatus(b)) }}>
-                        <div>
-                          <p className="text-sm text-gray-900">{b.slot_start_time?.slice(0, 5)} · <span className="font-mono text-[12px] text-gray-500">{b.booking_ref || '—'}</span></p>
-                          <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
-                        </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(effStatus(b))}`}>{statusLabel(effStatus(b))}</span>
+                  {todayBookings.length === 0 ? (
+                    <p className="px-5 pb-6 text-[13px] text-gray-400">{t('Δεν υπάρχουν κρατήσεις για σήμερα.')}</p>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {[...todayBookings].sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => {
+                        const es = effStatus(b)
+                        return (
+                          <button key={b.id} onClick={() => { setFocusBookingId(b.id); setBookingsView('today'); setActiveTab('bookings'); lightTap() }}
+                            className="w-full flex items-center gap-3 lg:gap-4 px-5 py-3.5 text-left hover:bg-[#F5FAFC] transition-colors" style={{ background: rowBg(es) }}>
+                            <span className="w-12 shrink-0 text-[15px] font-bold" style={{ color: '#10182A' }}>{b.slot_start_time?.slice(0, 5)}</span>
+                            <span className="hidden sm:flex w-10 h-10 rounded-full items-center justify-center shrink-0" style={{ background: '#F1F5F8' }}>
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7785" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M5 17h14M6 17l1.5-5.5A2 2 0 0 1 9.4 10h5.2a2 2 0 0 1 1.9 1.5L18 17" /><circle cx="8" cy="17" r="1.6" /><circle cx="16" cy="17" r="1.6" /></svg>
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-[14px] font-semibold text-gray-900 truncate">{b.car_model || b.profiles?.full_name || b.customer_name || t('Πελάτης')}</span>
+                              <span className="block text-[12px] text-gray-500 truncate">{b.services?.name || '—'}{b.booking_ref ? ` · ${b.booking_ref}` : ''}</span>
+                            </span>
+                            <span className="text-[14px] font-bold shrink-0" style={{ color: '#10182A' }}>{amountLabel(b)}</span>
+                            <span className={`hidden sm:inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 ${statusClass(es)}`}>{statusLabel(es)}</span>
+                            <span className="text-gray-300 shrink-0">›</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 lg:space-y-4">
+                  <div className="bg-white rounded-[20px] p-4 lg:p-5" style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
+                    <p className="text-[15px] font-bold tracking-tight mb-3 flex items-center gap-2" style={{ color: '#10182A' }}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="2" strokeLinejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>
+                      {t('Γρήγορες ενέργειες')}
+                    </p>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {[
+                        { label: t('Νέα κράτηση'), onClick: () => { setActiveTab('calendar'); openManualForm() }, icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="1.9" strokeLinecap="round"><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M16 3v4M8 3v4M3 10h18M12 13v5M9.5 15.5h5" /></svg> },
+                        { label: t('Νέα προώθηση'), onClick: () => setActiveTab('promotions'), icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="1.9" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="m9 15 6-6" /><circle cx="9.3" cy="9.3" r=".9" /><circle cx="14.7" cy="14.7" r=".9" /></svg> },
+                      ].map(a => (
+                        <button key={a.label} onClick={() => { a.onClick(); lightTap() }}
+                          className="rounded-2xl py-4 flex flex-col items-center gap-2 text-[13px] font-semibold transition hover:-translate-y-0.5 active:scale-[0.98]"
+                          style={{ background: '#F5FAFC', border: '1px solid #E6EEF3', color: '#10182A' }}>
+                          {a.icon}{a.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-[20px] p-4 lg:p-5" style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
+                    <p className="text-[15px] font-bold tracking-tight mb-2 flex items-center gap-2" style={{ color: '#10182A' }}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="2" strokeLinecap="round"><path d="M5 20V12M10 20V6M15 20v-9M20 20V9" /></svg>
+                      {t('Γρήγορη εικόνα')}
+                    </p>
+                    {[
+                      { label: t('Ολοκληρωμένες σήμερα'), n: todayBookings.filter(b => effStatus(b) === 'completed').length, c: '#10B981' },
+                      { label: t('Επερχόμενες'), n: todayBookings.filter(b => ['confirmed', 'pending'].includes(effStatus(b))).length, c: '#19A8C7' },
+                      { label: t('Ακυρώσεις'), n: todayBookings.filter(b => b.status === 'cancelled').length, c: '#E5484D' },
+                    ].map(r => (
+                      <div key={r.label} className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
+                        <span className="flex items-center gap-2 text-[13px] text-gray-600"><span className="w-2 h-2 rounded-full" style={{ background: r.c }} />{r.label}</span>
+                        <span className="text-[15px] font-bold" style={{ color: '#10182A' }}>{r.n}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-              )}
+              </div>
 
-              <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden"
-                   style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <div className="bg-white rounded-[20px] overflow-hidden"
+                   style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
                 <div className="px-4 py-3.5 flex items-baseline justify-between">
                   <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t('Πρόσφατες κρατήσεις')}</p>
                   <span className="text-[12px] font-medium text-blue-600">{t('Όλες →')}</span>
@@ -1408,8 +1538,8 @@ export default function DashboardPage() {
               </div>
 
               {/* Chart card */}
-              <div className="bg-white border border-gray-100 rounded-2xl p-4"
-                   style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+              <div className="bg-white rounded-[20px] p-4 lg:p-5"
+                   style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
                 <div className="flex items-center justify-between mb-3 gap-2">
                   <div className="flex gap-1 bg-gray-50 p-1 rounded-lg">
                     {METRICS.map(m => (
@@ -1456,7 +1586,7 @@ export default function DashboardPage() {
                       <Line
                         type="monotone"
                         dataKey={chartMetric}
-                        stroke="#111827"
+                        stroke="#19A8C7"
                         strokeWidth={2}
                         dot={false}
                         activeDot={{ r: 4 }}
@@ -3158,6 +3288,7 @@ export default function DashboardPage() {
 
         </div>
       </div>
+      </div>
     </main>
   )
 }
@@ -3206,4 +3337,21 @@ function DurationField({ minutes, onSave }: { minutes: number | null; onSave: (v
       </div>
     </div>
   )
+}
+
+// Εικονίδια πλοήγησης (sidebar desktop).
+function NavIcon({ k }: { k: string }) {
+  const p = { width: 19, height: 19, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const }
+  switch (k) {
+    case 'overview': return <svg {...p}><path d="M3 11 12 4l9 7" /><path d="M5 10v10h14V10" /></svg>
+    case 'bookings': return <svg {...p}><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M16 3v4M8 3v4M3 10h18" /><path d="m9 15 2 2 4-4" /></svg>
+    case 'calendar': return <svg {...p}><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M16 3v4M8 3v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01" /></svg>
+    case 'services': return <svg {...p}><path d="m12 3 9 5-9 5-9-5z" /><path d="m3 13 9 5 9-5" /></svg>
+    case 'promotions': return <svg {...p}><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z" /><circle cx="7.5" cy="7.5" r="1.3" /></svg>
+    case 'hours': return <svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+    case 'settings': return <svg {...p}><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>
+    case 'feedback': return <svg {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+    case 'updates': return <svg {...p}><path d="M6 8a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>
+    default: return <svg {...p}><circle cx="12" cy="12" r="9" /></svg>
+  }
 }
