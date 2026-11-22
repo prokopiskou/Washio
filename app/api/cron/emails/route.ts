@@ -224,7 +224,7 @@ export async function GET(req: Request) {
   // Τα υπόλοιπα crons τρέχουν μαζί με αυτό (ό,τι χτυπά το /api/cron/emails κάθε 15' —
   // το GitHub workflow είναι απενεργοποιημένο, οπότε rebook / welcome-nudge / push δεν έτρεχαν ΠΟΤΕ).
   // Παράλληλα, best-effort· το καθένα έχει δικούς του κανόνες (ώρες, 1 φορά ανά χρήστη, claim).
-  const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders', 'loyalty-drops', 'washer-morning', 'lead-followups', 'campaigns', 'metrics-daily', 'announcement-reminders', 'review-requests', 'feedback-calls', 'rain-notice', 'tiers-weekly', 'owner-daily'] as const
+  const SUB = ['sms', 'rebook', 'welcome-nudge', 'coupon-report', 'wash-reminders', 'loyalty-drops', 'washer-morning', 'lead-followups', 'campaigns', 'metrics-daily', 'announcement-reminders', 'review-requests', 'feedback-calls', 'rain-notice', 'tiers-weekly', 'owner-daily', 'ops-tasks'] as const
   // ΠΟΣΟ ΣΥΧΝΑ τρέχει το καθένα. Το /api/cron/emails χτυπιέται ~κάθε λεπτό· πριν, ΚΑΘΕ χτύπημα καλούσε
   // και τα 15 (≈ 750.000 αιτήματα/μήνα στο Vercel, τα περισσότερα «εκτός ωραρίου → skip»). Τώρα το καθένα
   // καλείται μόνο όταν έχει περάσει το διάστημά του ΚΑΙ είναι μέσα στις ώρες του (ώρα Ελλάδας).
@@ -240,6 +240,7 @@ export async function GET(req: Request) {
     'washer-morning': { every: 5 },                      // παράθυρο 15' πριν το άνοιγμα
     'lead-followups': { every: 5 },                      // παράθυρο 20'
     'campaigns': { every: 5 },                           // προγραμματισμένες αποστολές
+    'ops-tasks': { every: 30, h: [7, 22] },              // CRM & Operations: αυτόματες εργασίες ομάδας
     'metrics-daily': { every: 20, h: [8, 9] },
     'announcement-reminders': { every: 15, h: [9, 20] },
     'review-requests': { every: 10, h: [9, 21] },

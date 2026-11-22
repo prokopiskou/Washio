@@ -1,5 +1,6 @@
 'use client'
 
+import { OpsPanel } from '@/components/admin/OpsPanel'
 import { ApplicationsPipeline } from '@/components/admin/ApplicationsPipeline'
 import { CheckoutExperimentPanel } from '@/components/admin/CheckoutExperimentPanel'
 import { MetricsPanel } from '@/components/admin/MetricsPanel'
@@ -59,11 +60,11 @@ export default function AdminPage() {
   const router = useRouter()
   const [authorized, setAuthorized] = useState(false)
   const [authChecking, setAuthChecking] = useState(true)
-  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons' | 'payouts' | 'metrics' | 'tiers' | 'announcements'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'ops' | 'bookings' | 'locations' | 'users' | 'applications' | 'financials' | 'addons' | 'payouts' | 'metrics' | 'tiers' | 'announcements'>('overview')
   // Επιστροφή από επεξεργασία/νέο πλυντήριο → ίδια καρτέλα (/admin?tab=locations), όχι η αρχική.
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab')
-    if (tab && ['overview', 'bookings', 'locations', 'users', 'applications', 'financials', 'addons', 'payouts', 'metrics', 'tiers'].includes(tab)) setActiveTab(tab as typeof activeTab)
+    if (tab && ['overview', 'ops', 'bookings', 'locations', 'users', 'applications', 'financials', 'addons', 'payouts', 'metrics', 'tiers'].includes(tab)) setActiveTab(tab as typeof activeTab)
   }, [])
   const [bookings, setBookings] = useState<any[]>([])
   const [locations, setLocations] = useState<any[]>([])
@@ -658,6 +659,7 @@ export default function AdminPage() {
           <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
             {[
               { key: 'overview', label: 'Overview' },
+              { key: 'ops', label: 'CRM & Ops' },
               { key: 'bookings', label: 'Κρατήσεις', count: bookings.length },
               { key: 'locations', label: 'Πρατήρια', count: locations.length },
               { key: 'users', label: 'Χρήστες', count: users.length },
@@ -1385,6 +1387,7 @@ export default function AdminPage() {
                 )
               })()}
 
+              {activeTab === 'ops' && <OpsPanel applications={applications} reloadApplications={reloadApplications} />}
               {activeTab === 'metrics' && <MetricsPanel />}
               {activeTab === 'tiers' && <TiersPanel />}
               {activeTab === 'announcements' && <AnnouncementsPanel locations={locations} />}
