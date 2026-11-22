@@ -1416,9 +1416,9 @@ export default function DashboardPage() {
                   { label: t('Έσοδα μήνα'), value: `€${monthlyRevenue.toFixed(0)}`, icon: 'wallet' },
                   { label: t('Αξιολόγηση'), value: avgRating ? avgRating.toFixed(1) : '—', sub: reviews.length ? `(${reviews.length})` : '', icon: 'star' },
                 ].map(k => (
-                  <div key={k.label} className="bg-white rounded-[18px] p-4 lg:p-5 flex items-center gap-3.5 transition-shadow hover:shadow-md"
+                  <div key={k.label} className="bg-white rounded-[18px] p-3.5 lg:p-5 flex items-center gap-2.5 lg:gap-3.5 transition-shadow hover:shadow-md"
                     style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
-                    <span className="w-11 h-11 lg:w-12 lg:h-12 rounded-full flex items-center justify-center shrink-0" style={{ background: '#EAF7FB' }}>
+                    <span className="w-9 h-9 lg:w-12 lg:h-12 rounded-full flex items-center justify-center shrink-0" style={{ background: '#EAF7FB' }}>
                       {k.icon === 'wallet'
                         ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M20 7H5a2 2 0 0 1 0-4h13v4" /><path d="M3 5v14a2 2 0 0 0 2 2h15V7" /><circle cx="16" cy="14" r="1.2" /></svg>
                         : k.icon === 'star'
@@ -1426,7 +1426,7 @@ export default function DashboardPage() {
                         : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M16 3v4M8 3v4M3 10h18" /><path d="m9 15 2 2 4-4" /></svg>}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-[12px] lg:text-[13px] font-medium text-gray-500 truncate">{k.label}</p>
+                      <p className="text-[11px] lg:text-[13px] font-medium text-gray-500 leading-tight">{k.label}</p>
                       <p className="text-[24px] lg:text-[28px] font-bold tracking-tight leading-tight" style={{ color: '#10182A' }}>{k.value}{k.sub && <span className="text-[13px] font-medium text-gray-400 ml-1">{k.sub}</span>}</p>
                     </div>
                   </div>
@@ -1441,7 +1441,7 @@ export default function DashboardPage() {
                       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5" /><path d="M16 3v4M8 3v4M3 10h18" /></svg>
                       {t('Σημερινές κρατήσεις')}
                     </p>
-                    <button onClick={() => { setActiveTab('bookings'); setBookingsView('all'); lightTap() }} className="text-[13px] font-semibold" style={{ color: '#078EAD' }}>{t('Όλες οι κρατήσεις')} →</button>
+                    <button onClick={() => { setActiveTab('bookings'); setBookingsView('all'); lightTap() }} className="shrink-0 text-[12px] lg:text-[13px] font-semibold" style={{ color: '#078EAD' }}><span className="lg:hidden">{t('Όλες')} →</span><span className="hidden lg:inline">{t('Όλες οι κρατήσεις')} →</span></button>
                   </div>
                   {todayBookings.length === 0 ? (
                     <p className="px-5 pb-6 text-[13px] text-gray-400">{t('Δεν υπάρχουν κρατήσεις για σήμερα.')}</p>
