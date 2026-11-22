@@ -61,7 +61,7 @@ export function WasherUpdates({ mode, onCount, onOpenList, t = (s: string) => s 
     return (
       <button onClick={onOpenList} className="w-full mb-3 text-left rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
         <p className="text-[13px] font-bold text-blue-900">📣 {unread.length === 1 ? t('Νέα ενημέρωση από τη Washio') : `${unread.length} ${t('νέες ενημερώσεις από τη Washio')}`}</p>
-        <p className="text-[12px] text-blue-800 mt-0.5 truncate">{unread[0].title} · {t('Πάτα για να τη διαβάσεις')}</p>
+        <p className="text-[12px] text-blue-800 mt-0.5 leading-snug">{unread[0].title} · {t('Πάτα για να τη διαβάσεις')}</p>
       </button>
     )
   }
@@ -80,14 +80,14 @@ export function WasherUpdates({ mode, onCount, onOpenList, t = (s: string) => s 
             <button onClick={() => setOpen(isOpen ? '' : i.id)} className="w-full text-left px-4 py-3.5 flex items-start gap-3">
               <span className={`mt-1.5 w-2.5 h-2.5 rounded-full shrink-0 ${pending ? 'bg-[#19A8C7]' : 'bg-gray-200'}`} />
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className={`text-[15px] truncate ${pending ? 'font-bold text-[#10182A]' : 'font-medium text-gray-600'}`}>{i.title}</span>
-                  {i.important && <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-50 text-red-700">{t('ΣΗΜΑΝΤΙΚΟ')}</span>}
+                <span className="flex items-start gap-2">
+                  <span className={`text-[15px] leading-snug break-words min-w-0 ${pending ? 'font-bold text-[#10182A]' : 'font-medium text-gray-600'}`}>{i.title}</span>
+                  {i.important && <span className="shrink-0 mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-50 text-red-700">{t('ΣΗΜΑΝΤΙΚΟ')}</span>}
                 </span>
                 <span className={`block text-[12px] mt-0.5 ${pending ? 'text-[#078EAD] font-semibold' : 'text-gray-400'}`}>
                   {when(i.sentAt)}{pending ? ` · ${t('Εκκρεμεί')}` : ` · ✓ ${t('Διαβάστηκε')}`}
                 </span>
-                {!isOpen && <span className={`block text-[13px] mt-1 line-clamp-1 ${pending ? 'text-gray-700' : 'text-gray-400'}`}>{i.body}</span>}
+                {!isOpen && <span className={`block text-[13px] leading-snug mt-1.5 line-clamp-3 whitespace-pre-line break-words ${pending ? 'text-gray-700' : 'text-gray-400'}`}>{i.body}</span>}
               </span>
               <span className={`shrink-0 text-gray-400 mt-1 transition-transform ${isOpen ? 'rotate-90' : ''}`}>›</span>
             </button>

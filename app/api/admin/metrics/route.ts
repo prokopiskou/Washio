@@ -37,28 +37,57 @@ export async function GET() {
     const rows = compare(before, after)
     return { ...c, days, before, after, rows, verdict: verdict(c.area, rows, days) }
   }))
-  return NextResponse.json({ daily: daily || [], changes: evaluated, cac: await cacSeries() })
+  const rows = await platformBookings()
+  return NextResponse.json({ daily: daily || [], changes: evaluated, cac: await cacSeries(rows), retention: retentionCohorts(rows) })
+}
+
+type BRow = { user_id: string | null; location_id: string | null; created_at: string; profiles: { email?: string | null } | null }
+
+// Κρατήσεις app (όχι χειροκίνητες, όχι ακυρωμένες, όχι ομάδα) — με σειρά.
+async function platformBookings(): Promise<BRow[]> {
+  const rows: BRow[] = []
+  for (let from = 0; from < 100000; from += 1000) {
+    const { data, error } = await db.from('bookings').select('user_id, location_id, created_at, profiles(email)')
+      .or('source.is.null,source.eq.platform').neq('status', 'cancelled')
+      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, from + 999)
+    if (error) break
+    rows.push(...((data || []) as unknown as BRow[]))
+    if (!data || data.length < 1000) break
+  }
+  return rows.filter(b => !isInternalEmail(b.profiles?.email))
+}
+
+// Επαναλαμβανόμενες κρατήσεις: εβδομαδιαίες ομάδες (εβδομάδα 1ης κράτησης) → % που ξανάκλεισαν μέσα από το Washio
+// σε 30 / 60 μέρες (μετράει μόνο όταν έχουν περάσει οι μέρες), και πόσοι στο ίδιο πλυντήριο.
+function retentionCohorts(rows: BRow[]) {
+  const now = Date.now()
+  const byUser = new Map<string, BRow[]>()
+  for (const b of rows) if (b.user_id) { const a = byUser.get(b.user_id) || []; a.push(b); byUser.set(b.user_id, a) }
+  const monday = (t: number) => { const d = new Date(t); const wd = (d.getUTCDay() + 6) % 7; return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - wd)).toISOString().slice(0, 10) }
+  const coh = new Map<string, { users: number; r30: number; n30: number; r60: number; n60: number; same: number; any: number }>()
+  for (const list of byUser.values()) {
+    const first = Date.parse(list[0].created_at)
+    const later = list.filter(b => Date.parse(b.created_at) > first + 3600_000)
+    const k = monday(first)
+    const c = coh.get(k) || { users: 0, r30: 0, n30: 0, r60: 0, n60: 0, same: 0, any: 0 }
+    c.users++
+    if (now - first >= 30 * 864e5) { c.n30++; if (later.some(b => Date.parse(b.created_at) <= first + 30 * 864e5)) c.r30++ }
+    if (now - first >= 60 * 864e5) { c.n60++; if (later.some(b => Date.parse(b.created_at) <= first + 60 * 864e5)) c.r60++ }
+    if (later.length) { c.any++; if (later.some(b => b.location_id === list[0].location_id)) c.same++ }
+    coh.set(k, c)
+  }
+  return [...coh.entries()].sort((a, b) => b[0].localeCompare(a[0])).slice(0, 12).map(([week, c]) => ({ week, ...c }))
 }
 
 // CAC: ανά μέρα (Ελλάδα) — κόστος διαφήμισης, κρατήσεις app (χωρίς ακυρωμένες / ομάδα),
 // νέοι πελάτες (1η κράτηση του χρήστη ΕΚΕΙΝΗ τη μέρα). Από την 1η μέρα με κόστος διαφήμισης.
-async function cacSeries() {
+async function cacSeries(rows: BRow[]) {
   const ymd = (iso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(new Date(iso))
   const { data: spend } = await db.from('ad_spend').select('day, amount').order('day', { ascending: true })
   if (!spend?.length) return []
-  const rows: { user_id: string | null; created_at: string; profiles: { email?: string | null } | null }[] = []
-  for (let from = 0; from < 100000; from += 1000) {
-    const { data, error } = await db.from('bookings').select('user_id, created_at, profiles(email)')
-      .or('source.is.null,source.eq.platform').neq('status', 'cancelled')
-      .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, from + 999)
-    if (error) break
-    rows.push(...((data || []) as unknown as typeof rows))
-    if (!data || data.length < 1000) break
-  }
   const seen = new Set<string>()
   const by = new Map<string, { bookings: number; new_customers: number }>()
   for (const b of rows) {
-    if (isInternalEmail(b.profiles?.email)) continue
     const d = ymd(b.created_at)
     const e = by.get(d) || { bookings: 0, new_customers: 0 }
     e.bookings++
