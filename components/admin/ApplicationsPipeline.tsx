@@ -32,96 +32,6 @@ const ibanOk = (v: string) => { const x = v.replace(/\s/g, '').toUpperCase(); re
 const todayGr = () => new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
 const emailOk = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())
 
-
-// ── Lead «από τον δρόμο»: link Google Maps → όνομα/διεύθυνση/τηλέφωνο αυτόματα → τι έγινε → στάδιο ──
-function FieldLeadForm({ onDone }: { onDone: () => void }) {
-  const [open, setOpen] = useState(false)
-  const [url, setUrl] = useState('')
-  const [f, setF] = useState({ name: '', address: '', phone: '', owner: '', note: '' })
-  const [outcome, setOutcome] = useState<'followup' | 'no' | 'onboarding' | ''>('')
-  const [when, setWhen] = useState('')
-  const [busy, setBusy] = useState('')
-  const [msg, setMsg] = useState('')
-  const [warn, setWarn] = useState('')
-  const reset = () => { setUrl(''); setF({ name: '', address: '', phone: '', owner: '', note: '' }); setOutcome(''); setWhen(''); setMsg(''); setWarn('') }
-  const resolve = async (u: string) => {
-    if (!u.trim()) return
-    setBusy('resolve'); setMsg(''); setWarn('')
-    const r = await fetch('/api/admin/leads/field?url=' + encodeURIComponent(u.trim()))
-    const j = await r.json().catch(() => ({}))
-    setBusy('')
-    if (!r.ok) { setMsg(j.error || 'Δεν βρέθηκε'); return }
-    setF(x => ({ ...x, name: j.name || x.name, address: j.address || x.address, phone: j.phone || x.phone }))
-    if (j.already) setWarn(j.already)
-  }
-  const save = async () => {
-    setBusy('save'); setMsg('')
-    const r = await fetch('/api/admin/leads/field', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mapsUrl: url.trim(), ...f, outcome, followupAt: outcome === 'followup' && when ? new Date(when).toISOString() : null }) })
-    const j = await r.json().catch(() => ({}))
-    setBusy('')
-    if (!r.ok) { setMsg(j.error || 'Σφάλμα'); return }
-    reset(); setOpen(false); onDone()
-  }
-  const inp = 'w-full h-10 px-3 rounded-lg border border-gray-200 text-[14px] bg-white'
-  if (!open) return (
-    <button onClick={() => setOpen(true)} className="w-full h-11 rounded-xl bg-gray-900 text-white text-[14px] font-semibold">🚶 + Πλυντήριο από τον δρόμο</button>
-  )
-  const canSave = f.name.trim().length >= 2 && outcome && (outcome !== 'followup' || !!when)
-  return (
-    <div className="rounded-2xl border-2 border-gray-900 bg-white p-4 space-y-2.5">
-      <div className="flex items-center justify-between">
-        <p className="text-[15px] font-bold text-gray-900">🚶 Πλυντήριο από τον δρόμο</p>
-        <button onClick={() => { reset(); setOpen(false) }} className="text-[13px] text-gray-500">Άκυρο</button>
-      </div>
-      <div>
-        <p className="text-[11px] font-semibold text-gray-500 mb-1">1. Link από Google Maps (Κοινοποίηση → Αντιγραφή)</p>
-        <input className={inp} value={url} placeholder="https://maps.app.goo.gl/…" inputMode="url"
-          onChange={e => setUrl(e.target.value)} onPaste={e => { const t = e.clipboardData.getData('text'); setTimeout(() => resolve(t), 0) }} onBlur={() => resolve(url)} />
-        {busy === 'resolve' && <p className="text-[12px] text-gray-500 mt-1">Βρίσκω το πλυντήριο…</p>}
-        {warn && <p className="text-[12px] font-semibold text-amber-700 mt-1">⚠️ {warn}</p>}
-      </div>
-      <input className={inp} value={f.name} placeholder="Όνομα πλυντηρίου *" onChange={e => setF({ ...f, name: e.target.value })} />
-      <input className={inp} value={f.address} placeholder="Διεύθυνση" onChange={e => setF({ ...f, address: e.target.value })} />
-      <div className="grid grid-cols-2 gap-2">
-        <input className={inp} value={f.owner} placeholder="Με ποιον μίλησα" onChange={e => setF({ ...f, owner: e.target.value })} />
-        <input className={inp} value={f.phone} placeholder="Κινητό" inputMode="tel" onChange={e => setF({ ...f, phone: e.target.value })} />
-      </div>
-      <div>
-        <p className="text-[11px] font-semibold text-gray-500 mb-1">2. Τι έγινε;</p>
-        <div className="grid grid-cols-3 gap-1.5">
-          {([['followup', '🤔 Ξαναπέρνα'], ['onboarding', '✅ Θέλει να μπει'], ['no', '✖ Δεν ενδιαφέρεται']] as const).map(([k, l]) => (
-            <button key={k} onClick={() => setOutcome(k)}
-              className={`h-10 rounded-lg text-[12px] font-semibold border ${outcome === k ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-200'}`}>{l}</button>
-          ))}
-        </div>
-      </div>
-      {outcome === 'followup' && (
-        <div>
-          <p className="text-[11px] font-semibold text-gray-500 mb-1">Πότε το ξαναπιάνουμε;</p>
-          <div className="flex gap-1.5 mb-1.5">
-            {([['Αύριο', 1], ['Σε 3 μέρες', 3], ['Σε 1 εβδ.', 7]] as const).map(([l, d]) => (
-              <button key={l} onClick={() => setWhen(quick(d))} className="h-8 px-3 rounded-full text-[12px] font-semibold border border-gray-200 bg-white text-gray-700">{l}</button>
-            ))}
-          </div>
-          <input type="datetime-local" className={inp} value={when} onChange={e => setWhen(e.target.value)} />
-        </div>
-      )}
-      <textarea className="w-full min-h-[60px] px-3 py-2 rounded-lg border border-gray-200 text-[14px]" value={f.note}
-        placeholder="Σημείωση (π.χ. «ιδιοκτήτης έρχεται Σάββατο», «θέλει να δει τιμές»)" onChange={e => setF({ ...f, note: e.target.value })} />
-      {msg && <p className="text-[12px] text-red-600">{msg}</p>}
-      <button disabled={!canSave || busy === 'save'} onClick={save} className="w-full h-11 rounded-xl bg-blue-600 text-white text-[14px] font-semibold disabled:opacity-40">
-        {busy === 'save' ? 'Αποθήκευση…' : 'Αποθήκευση lead'}
-      </button>
-    </div>
-  )
-}
-// Γρήγορη ημερομηνία follow-up: σε Χ μέρες, 11:00 (καλείται μόνο από onClick).
-function quick(days: number) { const d = new Date(); d.setDate(d.getDate() + days); d.setHours(11, 0, 0, 0); return toLocal(d) }
-const toLocal = (d: Date) => { const p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }
-const mapsOf = (a: App) => String(a.pipeline_notes || '').match(/📍\s*(\S+)/)?.[1] || ''
-const isField = (a: App) => a.wash_type === 'Πεδίο'
-
 export function ApplicationsPipeline({ applications, reload }: { applications: App[]; reload: () => void }) {
   // null = δεν διάλεξε ακόμα → ανοίγει στο πρώτο στάδιο με αιτήσεις (Νέες → Δεν σήκωσε → Follow-up → …)
   const [picked0, setStage] = useState<string | null>(null)
@@ -160,7 +70,6 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
   const btn = 'h-9 px-3 rounded-lg text-[12px] font-semibold disabled:opacity-40'
   return (
     <div className="space-y-3">
-      <FieldLeadForm onDone={() => { setStage('followup'); reload() }} />
       <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1 pb-1">
         {STAGES.map(s => (
           <button key={s.key} onClick={() => setStage(s.key)}
@@ -228,12 +137,11 @@ export function ApplicationsPipeline({ applications, reload }: { applications: A
                 <p className="text-[15px] font-bold text-gray-900 truncate">{a.business_name}</p>
                 <p className="text-[12px] text-gray-500 mt-0.5">{[a.owner_name, a.city || a.address].filter(Boolean).join(' · ')}</p>
               </div>
-              <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-md ${isField(a) ? 'bg-emerald-50 text-emerald-700' : isMeta(a) ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{isField(a) ? 'ΔΡΟΜΟΣ' : isMeta(a) ? 'META' : 'APPLY'}</span>
+              <span className={`shrink-0 text-[10px] font-bold px-2 py-1 rounded-md ${isMeta(a) ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>{isMeta(a) ? 'META' : 'APPLY'}</span>
             </div>
 
             <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2.5 text-[12px]">
               {a.phone && <a href={`tel:${a.phone}`} className="font-semibold text-blue-700">📞 {a.phone}</a>}
-              {mapsOf(a) && <a href={mapsOf(a)} target="_blank" rel="noreferrer" className="font-semibold text-emerald-700">📍 Χάρτης</a>}
               {a.email && <span className="text-gray-600 truncate">{a.email}</span>}
               {a.lanes && <span className="text-gray-500">Αυτ./μέρα: {a.lanes}</span>}
             </div>
