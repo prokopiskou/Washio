@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import { requestNativeReview, openAppReview } from '@/lib/app-review'
 
 // Κριτική πλυντηρίου — ανοίγει από push / email / SMS / κάρτα αρχικής.
 // Το πάτημα αστεριού ΑΠΟΘΗΚΕΥΕΙ αμέσως (και αν φύγει μετά). Σχόλιο προαιρετικό.
@@ -33,7 +34,10 @@ function ReviewInner() {
       const res = await fetch('/api/review', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ref, t, rating: r, comment: text }) })
       const j = await res.json().catch(() => ({}))
       if (!res.ok) { setError(j.error || 'Κάτι πήγε στραβά'); return false }
-      setSaved(r); return true
+      setSaved(r)
+      // 5★ → αμέσως το native παράθυρο βαθμολογίας Apple/Google (μέσα στην εφαρμογή· μία φορά / 60 μέρες).
+      if (r === 5) setTimeout(() => { requestNativeReview('washer_5star') }, 900)
+      return true
     } catch { setError('Πρόβλημα σύνδεσης. Δοκίμασε ξανά.'); return false } finally { setBusy(false) }
   }
 
@@ -78,7 +82,7 @@ function ReviewInner() {
                 {high ? `Η κριτική σου βοηθάει το ${place || 'πλυντήριο'} και τους επόμενους πελάτες.` : 'Το είδαμε. Θα το κοιτάξουμε με το πλυντήριο.'}
               </p>
               {high && (
-                <a href={storeUrl()} className="mt-6 block w-full h-12 leading-[48px] rounded-xl border border-gray-200 text-gray-900 text-[14px] font-semibold">
+                <a href={storeUrl()} onClick={e => { e.preventDefault(); openAppReview('review_page') }} className="mt-6 block w-full h-12 leading-[48px] rounded-xl border border-gray-200 text-gray-900 text-[14px] font-semibold">
                   Βαθμολόγησε και την εφαρμογή ⭐
                 </a>
               )}

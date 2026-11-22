@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Star } from 'lucide-react'
 import { useT } from '@/lib/i18n'
+import { openAppReview } from '@/lib/app-review'
 
 const T = {
   el: {
@@ -31,15 +32,8 @@ const T = {
 }
 
 const STORAGE_KEY = 'washio_app_rating_v1'
-const APPLE_ID = '6785925766'
-const ANDROID_PKG = 'gr.washio.app'
 const RENAG_MS = 14 * 24 * 60 * 60 * 1000 // 14 μέρες πριν ξαναρωτήσουμε
 
-function storeReviewUrl(): string {
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : ''
-  if (/android/i.test(ua)) return `https://play.google.com/store/apps/details?id=${ANDROID_PKG}`
-  return `https://apps.apple.com/app/id${APPLE_ID}?action=write-review`
-}
 
 /**
  * Prompt αξιολόγησης — εμφανίζεται σε repeat users (≥2 κρατήσεις).
@@ -113,8 +107,8 @@ export function AppRatingPrompt() {
     setRating(n)
     markDone() // μόλις βαθμολογήσει εσωτερικά, δεν ξαναεμφανίζεται ποτέ
     if (n >= 4) {
-      // Happy → πραγματικό review στο store.
-      window.open(storeReviewUrl(), '_blank', 'noopener,noreferrer')
+      // Happy → native παράθυρο Apple/Google μέσα στην εφαρμογή (αλλιώς η σελίδα του store).
+      openAppReview('app_prompt')
       setShow(false)
     } else {
       // 1-3★ → εσωτερικά, ΟΧΙ store.

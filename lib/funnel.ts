@@ -15,6 +15,8 @@ export type FunnelStep =
   | 'car_picker_open' | 'car_picked' | 'car_picker_close'
   // Banner cookies: τι διάλεξε (χωρίς προσωπικά στοιχεία) → πόσοι επιτρέπουν μέτρηση Meta
   | 'consent_all' | 'consent_reject' | 'consent_custom'
+  // Βαθμολογία εφαρμογής: native παράθυρο Apple/Google ζητήθηκε · ή άνοιξε το store (web / fallback)
+  | 'app_review_prompt' | 'app_review_store'
 
 function storageId(store: 'local' | 'session', key: string): string {
   try {

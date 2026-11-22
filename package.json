@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@capacitor-community/in-app-review": "^8.0.0",
     "@capacitor-firebase/messaging": "^8.5.2",
     "@capacitor/android": "^8.3.4",
     "@capacitor/app": "^8.1.0",
