@@ -1522,29 +1522,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-[20px] overflow-hidden"
-                   style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
-                <div className="px-4 py-3.5 flex items-baseline justify-between">
-                  <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t('Πρόσφατες κρατήσεις')}</p>
-                  <span className="text-[12px] font-medium text-blue-600">{t('Όλες →')}</span>
-                </div>
-                <div className="divide-y divide-gray-50">
-                  {bookings.slice(0, 5).map(b => (
-                    <div key={b.id} className="px-4 py-3 flex items-center justify-between" style={{ background: rowBg(effStatus(b)) }}>
-                      <div>
-                        <p className="text-sm text-gray-900">{b.slot_date} · <span className="font-mono text-[12px] text-gray-500">{b.booking_ref || '—'}</span></p>
-                        <p className="text-xs text-gray-400">{b.profiles?.full_name || t('Πελάτης')}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-900">{amountLabel(b)}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-md ${statusClass(effStatus(b))}`}>{statusLabel(effStatus(b))}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {bookings.length === 0 && <p className="text-xs text-gray-400 px-4 py-6">{t('Δεν υπάρχουν κρατήσεις ακόμα.')}</p>}
-                </div>
-              </div>
-
               {/* Chart card */}
               <div className="bg-white rounded-[20px] p-4 lg:p-5"
                    style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
