@@ -1,5 +1,6 @@
 'use client'
 
+import { Capacitor } from '@capacitor/core'
 import { marketingAllowed, CONSENT_EVENT } from '@/lib/consent'
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -55,6 +56,21 @@ export function RegistrationTracker() {
       // Ποια διαφήμιση: utm_content={{ad.name}} από το Meta → cookie ws_ad → user_metadata.acq_ad
       const ad = cleanAd(sp.get('acq_ad') || sp.get('utm_content'))
       if (ad) document.cookie = `ws_ad=${encodeURIComponent(ad)}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+      const native = (() => { try { return Capacitor.isNativePlatform() } catch { return false } })()
+      // Web από διαφήμιση → κράτα (IP + πλατφόρμα + διαφήμιση) για όποιον κατεβάσει μετά την εφαρμογή.
+      if (!native && (ad || ref)) {
+        fetch('/api/attrib', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+          body: JSON.stringify({ action: 'mark', ad, ref: ref || acqRef, lp }) }).catch(() => {})
+      }
+      // Εφαρμογή, 1η εκκίνηση, χωρίς σήμα διαφήμισης → βρες από ποια διαφήμιση ήρθε (ίδια IP, 48 ώρες).
+      if (native && !document.cookie.includes('ws_ad=')) {
+        const k = 'ws_attrib_claimed'
+        if (!localStorage.getItem(k)) {
+          localStorage.setItem(k, '1')
+          fetch('/api/attrib', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'claim', platform: Capacitor.getPlatform() }) }).catch(() => {})
+        }
+      }
     } catch { /* ignore */ }
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
