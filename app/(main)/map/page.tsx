@@ -353,6 +353,11 @@ function MapPageContent() {
   const [carChoice, setCarChoice] = useCarChoice()
   const vehicleType = vehicleTypeOf(carChoice)
   const carPickerRef = useRef<VehicleSelectorHandle>(null)
+  // Χωρίς όχημα: στο πάτημα πλυντηρίου ανοίγει ΠΡΩΤΑ μόνο του το «Πρόσθεσε το όχημά σου» (Βήμα 1).
+  const gateRef = useRef<VehicleSelectorHandle>(null)
+  const [gateFor, setGateFor] = useState('')
+  const carChoiceRef = useRef(carChoice)
+  useEffect(() => { carChoiceRef.current = carChoice }, [carChoice])
   const pendingSvcRef = useRef<string | null>(null)
   const onCarPicked = (c: CarChoice) => {
     setCarChoice(c)
@@ -960,6 +965,8 @@ function MapPageContent() {
     setSelectedService(null)
     setSelectedSlot(null)
     mapInstanceRef.current?.panTo({ lat: loc.lat, lng: loc.lng })
+    // Συγχρονισμένα μέσα στο πάτημα (iOS ανοίγει πληκτρολόγιο μόνο έτσι).
+    if (!carChoiceRef.current) { setGateFor(loc.name); gateRef.current?.open() }
     // Δυνατότερο intent signal: είδε συγκεκριμένο πλυντήριο (χτίζει retargeting pool).
     trackEvent('ViewContent', { content_type: 'wash', content_ids: [loc.slug || loc.id], content_name: loc.name })
     funnel('washer_open', { locationId: loc.id, meta: { avail: !!loc.hasAvailability, km: loc.distance ?? -1, timing, src } })
@@ -1320,6 +1327,7 @@ function MapPageContent() {
 
   return (
     <main className="fixed inset-0 bg-white flex flex-col items-center overflow-hidden overscroll-none">
+      <VehicleSelector ref={gateRef} gate context={gateFor} choice={carChoice} onPick={onCarPicked} locale={locale === 'en' ? 'en' : 'el'} />
       <div className="w-full max-w-md md:max-w-none relative overflow-hidden" style={{ height: '100dvh' }}>
 
         {/* Top controls — search + time chips */}

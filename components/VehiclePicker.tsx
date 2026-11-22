@@ -25,12 +25,14 @@ const T = {
     sub: 'Για να σου δείξουμε τη σωστή τιμή.', ph: 'π.χ. Toyota Yaris, Qashqai, Honda SH',
     useTyped: 'χρήση αυτού', regular: 'Αυτοκίνητο', big: 'SUV / MPV', tapHint: 'Πάτα για να δεις υπηρεσίες & τιμές',
     add: 'Όχημα', mine: 'Τα οχήματά μου', addTitle: 'Πρόσθεσε άλλο όχημα', remove: 'Αφαίρεση',
+    step: 'Βήμα 1', gateTitle: 'Πρόσθεσε το όχημά σου', gateSub: 'Γράψε μάρκα ή μοντέλο. Μετά βλέπεις υπηρεσίες, τιμές και ώρες',
   },
   en: {
     ask: 'What vehicle do you have?', change: 'change', moto: 'Motorcycle', title: 'What vehicle do you have?',
     sub: 'So we can show you the right price.', ph: 'e.g. Toyota Yaris, Qashqai, Honda SH',
     useTyped: 'use this', regular: 'Car', big: 'SUV / MPV', tapHint: 'Tap to see services & prices',
     add: 'Vehicle', mine: 'My vehicles', addTitle: 'Add another vehicle', remove: 'Remove',
+    step: 'Step 1', gateTitle: 'Add your vehicle', gateSub: 'Type a make or model. Then you see services, prices and times',
   },
 }
 
@@ -69,7 +71,9 @@ export type VehicleSelectorHandle = { open: () => void }
  */
 export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
   choice: CarChoice | null; onPick: (c: CarChoice) => void; onClose?: () => void; locale?: 'el' | 'en'; big?: boolean
-}>(function VehicleSelector({ choice, onPick, onClose, locale = 'el', big = false }, ref) {
+  /** Μόνο το παράθυρο (χωρίς chip), ως ξεκάθαρο «Βήμα 1» πριν ανοίξει το πλυντήριο. */
+  gate?: boolean; context?: string
+}>(function VehicleSelector({ choice, onPick, onClose, locale = 'el', big = false, gate = false, context }, ref) {
   const t = T[locale]
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -110,7 +114,7 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
   return (
     <>
       {/* Χωρίς οχήματα → μεγάλο «Τι όχημα έχεις;». Με οχήματα → ένα κουμπί ανά όχημα (εναλλαγή με 1 πάτημα) + «+ Όχημα». */}
-      {garage.length === 0 ? <VehicleChip choice={choice} onClick={show} locale={locale} big={big} /> : (
+      {gate ? null : garage.length === 0 ? <VehicleChip choice={choice} onClick={show} locale={locale} big={big} /> : (
         <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-0.5 px-0.5 py-0.5">
           {garage.map(v => {
             const on = !!choice && choiceKey(v) === choiceKey(choice)
@@ -134,10 +138,18 @@ export const VehicleSelector = forwardRef<VehicleSelectorHandle, {
       {isClient && createPortal(<div ref={wrapRef} style={{ display: 'none' }} className="fixed inset-0 z-[80] items-start justify-center bg-black/40 px-4" onClick={close}>
         <div ref={panelRef} className="w-full max-w-md bg-white rounded-[24px] p-5" style={{ marginTop: '16vh' }} onClick={e => e.stopPropagation()}>
           <div className="flex items-start justify-between mb-3">
-            <div>
-              <p className="text-[18px] font-bold tracking-tight text-washio-navy">{garage.length ? t.addTitle : t.title}</p>
-              <p className="text-[13px] text-gray-500 mt-0.5">{t.sub}</p>
-            </div>
+            {gate ? (
+              <div>
+                <span className="inline-block text-[11px] font-bold tracking-[1.2px] uppercase text-washio-cyan-dark bg-washio-cyan/10 rounded-full px-2.5 py-1 mb-2">{t.step}{context ? ` · ${context}` : ''}</span>
+                <p className="text-[20px] font-bold tracking-tight text-washio-navy">{t.gateTitle}</p>
+                <p className="text-[13px] text-gray-500 mt-0.5">{t.gateSub}</p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-[18px] font-bold tracking-tight text-washio-navy">{garage.length ? t.addTitle : t.title}</p>
+                <p className="text-[13px] text-gray-500 mt-0.5">{t.sub}</p>
+              </div>
+            )}
             <button type="button" onClick={close} className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"><X size={16} /></button>
           </div>
           {garage.length > 0 && !q && (
