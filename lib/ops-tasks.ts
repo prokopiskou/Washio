@@ -28,7 +28,7 @@ export type OpsTask = {
 
 export const RULES: { key: string; p: 'P1' | 'P2' | 'P3'; trigger: string; action: string; who: string }[] = [
   { key: 'review_low', p: 'P1', trigger: 'Αξιολόγηση ≤3★', action: 'Κάλεσε τον πελάτη, μάθε τι έγινε', who: 'Γιώργος' },
-  { key: 'qr_unscanned', p: 'P1', trigger: 'Πλυντήριο >20% μη σκαναρισμένες (7 μέρες, ≥5 κρατήσεις)', action: 'Επικοινωνία με το πλυντήριο', who: 'Γιώργος' },
+  { key: 'qr_unscanned', p: 'P1', trigger: 'Πλυντήριο >20% μη σκαναρισμένες (χθες με ≥2 ραντεβού ή 7 μέρες με ≥5)', action: 'Επικοινωνία με το πλυντήριο', who: 'Προκόπης' },
   { key: 'new_lead', p: 'P1', trigger: 'Νέο lead πλυντηρίου', action: 'Πρώτη επικοινωνία μέσα σε 2 ώρες', who: 'Γιώργος' },
   { key: 'yesterday_calls', p: 'P1', trigger: 'Κρατήσεις χθες (κάθε πρωί)', action: 'Μία λίστα κλήσεων με ✓ ανά πελάτη', who: 'Γιώργος' },
   { key: 'lead_no_next', p: 'P1', trigger: 'Lead χωρίς επόμενη ενέργεια ή με ληγμένο follow-up', action: 'Προγραμμάτισε επαφή', who: 'Γιώργος' },

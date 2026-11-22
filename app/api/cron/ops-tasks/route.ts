@@ -75,23 +75,27 @@ export async function GET(req: Request) {
   await run('qr_unscanned', async () => {
     const { data } = await db.from('bookings').select('id, booking_ref, location_id, slot_date, status, checked_in_at, source, user_id')
       .gte('slot_date', athensDay(-7)).lte('slot_date', yesterday).not('status', 'in', '(cancelled,no_show)')
-    const by = new Map<string, { all: number; miss: { id: string; ref: string; day: string }[] }>()
+    const by = new Map<string, { all: number; miss: { id: string; ref: string; day: string }[]; yAll: number; yMiss: number }>()
     for (const b of (data || []) as { id: string; booking_ref: string; location_id: string; slot_date: string; checked_in_at: string | null; source: string | null; user_id: string | null }[]) {
       if (b.source === 'manual' || (b.user_id && team.has(b.user_id))) continue
-      const x = by.get(b.location_id) || { all: 0, miss: [] }
+      const x = by.get(b.location_id) || { all: 0, miss: [], yAll: 0, yMiss: 0 }
       x.all++
       if (!b.checked_in_at) x.miss.push({ id: b.id, ref: b.booking_ref, day: b.slot_date })
+      if (b.slot_date === yesterday) { x.yAll++; if (!b.checked_in_at) x.yMiss++ }
       by.set(b.location_id, x)
     }
     let n = 0
     for (const [loc, x] of by) {
-      if (x.all < 5 || x.miss.length / x.all <= 0.2) continue
+      // Χθες >20% (με ≥2 ραντεβού) Ή τελευταίες 7 μέρες >20% (με ≥5) → ανάθεση στον Προκόπη.
+      const daily = x.yAll >= 2 && x.yMiss / x.yAll > 0.2
+      const weekly = x.all >= 5 && x.miss.length / x.all > 0.2
+      if (!daily && !weekly) continue
       const pct = Math.round((100 * x.miss.length) / x.all)
       const l = locs.get(loc)
       const res = await upsertTask(db, {
-        dedupe_key: `qr:${loc}`, rule: 'qr_unscanned', priority: 'high', assignee: GIORGOS, due_at: dueToday, location_id: loc,
+        dedupe_key: `qr:${loc}`, rule: 'qr_unscanned', priority: 'high', assignee: PROKOPIS, due_at: dueToday, location_id: loc,
         title: `Πρόβλημα QR: ${l?.name || '—'} (${pct}% χωρίς σκανάρισμα)`,
-        details: `${x.miss.length} από ${x.all} κρατήσεις των τελευταίων 7 ημερών δεν σκαναρίστηκαν.${l?.phone ? `\n📞 ${l.phone}` : ''}\nΡώτα: ήρθαν; δουλεύει ο scanner; Ό,τι δεν ήρθε → no-show.`,
+        details: `${x.yAll ? `Χθες: ${x.yAll - x.yMiss}/${x.yAll} σκαναρισμένες. ` : ''}${x.miss.length} από ${x.all} κρατήσεις των τελευταίων 7 ημερών δεν σκαναρίστηκαν.${l?.phone ? `\n📞 ${l.phone}` : ''}\nΡώτα: ήρθαν; δουλεύει ο scanner; Ό,τι δεν ήρθε → no-show.`,
         items: x.miss.map(m => ({ key: m.id, label: m.ref, sub: m.day.split('-').reverse().slice(0, 2).join('/') })),
       })
       if (res === 'created') n++
