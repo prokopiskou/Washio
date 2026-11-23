@@ -50,7 +50,7 @@ export function RegistrationTracker() {
       const ref = flyerRef(sp) || sp.get('ref')
       if (ref) document.cookie = `ws_ref=${encodeURIComponent(ref.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
       const lp = sp.get('acq_lp') || sp.get('lp')
-      if (lp === 'map' || lp === 'login') document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
+      if (lp === 'map' || lp === 'login' || lp === 'app') document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
       const acqRef = sp.get('acq_ref')
       if (acqRef && !ref) document.cookie = `ws_ref=${encodeURIComponent(acqRef.trim())}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax`
       // Ποια διαφήμιση: utm_content={{ad.name}} από το Meta → cookie ws_ad → user_metadata.acq_ad

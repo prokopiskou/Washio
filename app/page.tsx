@@ -173,17 +173,19 @@ export default function HomePage() {
           // μόνο στο «Συνέχεια». Οτιδήποτε άλλο = όπως πριν (κατευθείαν εγγραφή).
           // Tag παραλλαγής ΜΟΝΟ για κλικ από διαφήμιση Meta: lp=map (B) ή fbclid χωρίς lp (A).
           // Όχι για TikTok bio / links φίλων / flyers (?ref= χωρίς fbclid) — αλλιώς «μολύνουν» την A.
-          let lp: 'map' | 'login' | null = null
+          let lp: 'map' | 'login' | 'app' | null = null
           try {
             const sp = new URLSearchParams(window.location.search)
-            lp = (sp.get('lp') === 'map' || (isFlyer && FLYER_DEST === 'map')) ? 'map'
+            // B τεστ (23/11): lp=app → εγγραφή με −3€ → «Κατέβασε την εφαρμογή, το −3€ είναι εκεί» (/app-coupon).
+            lp = sp.get('lp') === 'app' ? 'app'
+              : (sp.get('lp') === 'map' || (isFlyer && FLYER_DEST === 'map')) ? 'map'
               : (sp.get('lp') === 'login' || sp.get('fbclid') || isFlyer) ? 'login' : null
           } catch { /* ignore */ }
           if (lp) { try { document.cookie = `ws_lp=${lp}; path=/; max-age=${60 * 60 * 24 * 30}; SameSite=Lax` } catch { /* ignore */ } }
           // Τοπική διαφήμιση: ?area=vyronas → ο χάρτης ανοίγει πάνω στην περιοχή.
           let area = ''
           try { area = (new URLSearchParams(window.location.search).get('area') || '').toLowerCase().replace(/[^a-z-]/g, '').slice(0, 30) } catch { /* ignore */ }
-          router.replace(lp === 'map' ? (area ? `/map?area=${area}` : '/map') : '/login?welcome=1')
+          router.replace(lp === 'map' ? (area ? `/map?area=${area}` : '/map') : lp === 'app' ? '/login?welcome=1&redirect=%2Fapp-coupon' : '/login?welcome=1')
           return
         }
         // Native app: μπες στη ροή της εφαρμογής. Browser επισκέπτης: δείξε το landing.
@@ -193,7 +195,13 @@ export default function HomePage() {
           // (πριν: ξανά redirect στον χάρτη → το κουμπί «Αρχική» έμοιαζε να μη δουλεύει).
           let booted = false
           try { booted = sessionStorage.getItem('ws_booted') === '1'; sessionStorage.setItem('ws_booted', '1') } catch { /* ignore */ }
-          if (!booted) { router.replace('/map'); return }
+          if (!booted) {
+            // ΠΡΩΤΟ άνοιγμα της εφαρμογής ΠΟΤΕ (23/11): εγγραφή με −3€ (με «Δες πρώτα τα πλυντήρια»).
+            // Μετά: χάρτης όπως πριν. (Αν ήρθε από «Κατέβασε» στο web, το lib/app-handoff τον συνδέει μόνο του.)
+            let firstEver = false
+            try { firstEver = !localStorage.getItem('ws_first_open'); localStorage.setItem('ws_first_open', '1') } catch { /* ignore */ }
+            router.replace(firstEver ? '/login?welcome=1&redirect=%2Fmap' : '/map'); return
+          }
           setIsGuestHome(true)
         } else {
           setShowLanding(true)

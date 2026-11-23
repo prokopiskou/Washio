@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     const lp = jar.get('ws_lp')?.value
     const ad = safeDecode(jar.get('ws_ad')?.value).slice(0, 60)
     const meta: Record<string, unknown> = { ...(name.length >= 2 ? { full_name: name } : {}), phone, signup_method: 'guest_checkout' }
-    if (lp === 'map' || lp === 'login') meta.acq_lp = lp
+    if (lp === 'map' || lp === 'login' || lp === 'app') meta.acq_lp = lp
     if (ref) meta.acq_ref = ref
     if (ad) meta.acq_ad = ad
     meta.acq_click = !!jar.get('_fbc')?.value

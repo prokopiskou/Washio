@@ -4,7 +4,7 @@
 // (OTP user_metadata, OAuth redirect URL), ώστε να μη χάνεται αν ο χρήστης
 // ολοκληρώσει σε άλλο browser (π.χ. Instagram in-app → Safari).
 
-export type Acq = { acq_lp: 'map' | 'login'; acq_ref: string | null; acq_ad?: string }
+export type Acq = { acq_lp: 'map' | 'login' | 'app'; acq_ref: string | null; acq_ad?: string }
 
 /** Όνομα διαφήμισης από utm_content={{ad.name}} (Meta) — καθαρό, έως 60 χαρ. */
 export function cleanAd(v: string | null | undefined): string | null {
@@ -29,10 +29,10 @@ export function readAcq(): Acq | null {
     ref = sp.get('acq_ref') || sp.get('ref')
     ad = cleanAd(sp.get('acq_ad') || sp.get('utm_content'))
   } catch { /* ignore */ }
-  if (lp !== 'map' && lp !== 'login') lp = cookie('ws_lp')
+  if (lp !== 'map' && lp !== 'login' && lp !== 'app') lp = cookie('ws_lp')
   if (!ref) ref = cookie('ws_ref')
   if (!ad) ad = cleanAd(cookie('ws_ad'))
-  if (lp !== 'map' && lp !== 'login') return null
+  if (lp !== 'map' && lp !== 'login' && lp !== 'app') return null
   return { acq_lp: lp, acq_ref: ref ? ref.trim().slice(0, 40) : null, ...(ad ? { acq_ad: ad } : {}) }
 }
 

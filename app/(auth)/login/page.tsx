@@ -22,7 +22,7 @@ const T = {
     emailPlaceholder: 'Email',
     sending: 'Αποστολή...',
     sendCode: 'Αποστολή κωδικού',
-    continueGuest: 'Συνέχεια ως επισκέπτης',
+    continueGuest: 'Δες πρώτα τα πλυντήρια →',
     or: 'ή',
     lastUsed: 'Τελευταία φορά',
     continueApple: 'Συνέχεια με Apple',
@@ -51,7 +51,7 @@ const T = {
     emailPlaceholder: 'Email',
     sending: 'Sending...',
     sendCode: 'Send code',
-    continueGuest: 'Continue as guest',
+    continueGuest: 'See car washes first →',
     or: 'or',
     lastUsed: 'Last used',
     continueApple: 'Continue with Apple',
@@ -348,7 +348,7 @@ function LoginPageContent() {
                 θέλει λογαριασμό, και το κουμπί τον έβγαζε από τη ροή χάνοντας την ώρα που διάλεξε. */}
             {!/\/booking/.test(String(params.get('redirect') || '')) && (
               <button
-                onClick={() => router.push('/')}
+                onClick={() => { let native = false; try { native = !!(window as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.() } catch { /* web */ } router.push(native ? '/map' : '/') }}
                 className="w-full text-xs text-gray-400 text-center py-2"
               >
                 {t.continueGuest}

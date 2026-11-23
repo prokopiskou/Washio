@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
       const ageMs = Date.now() - new Date(user.created_at).getTime()
       if (ageMs < 14 * 24 * 3600 * 1000) {
         const patch: Record<string, unknown> = {}
-        if ((lp === 'map' || lp === 'login') && !meta.acq_lp) {
+        if ((lp === 'map' || lp === 'login' || lp === 'app') && !meta.acq_lp) {
           const ref = req.cookies.get('ws_ref')?.value
           patch.acq_lp = lp
           if (ref) patch.acq_ref = decodeURIComponent(ref)
