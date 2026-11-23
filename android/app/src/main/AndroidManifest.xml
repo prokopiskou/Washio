@@ -41,6 +41,7 @@
                 <data android:pathPrefix="/map" />
                 <data android:pathPrefix="/locations" />
                 <data android:pathPrefix="/auth/link" />
+                <data android:pathPrefix="/h/" />
                 <data android:pathPrefix="/dashboard" />
                 <data android:pathPrefix="/k" />
                 <data android:pathPrefix="/f" />

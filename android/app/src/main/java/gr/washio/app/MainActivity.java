@@ -7,6 +7,8 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Τοπικό plugin: Play Install Referrer (αυτόματη σύνδεση web → εφαρμογή).
+        registerPlugin(InstallReferrerPlugin.class);
         super.onCreate(savedInstanceState);
         // Κινητά: μόνο κάθετα. Tablet (≥600dp, π.χ. tablet στο ταμείο πλυντηρίου): γυρνάει ελεύθερα.
         if (getResources().getConfiguration().smallestScreenWidthDp >= 600) {

@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { createClient } from '@/lib/supabase/client'
 import { ensureDeviceId } from '@/lib/device'
+import { checkInstallHandoff } from '@/lib/app-handoff'
 
 // Μέσα στην εφαρμογή: καταγραφή ανοίγματος (μία φορά ανά εκκίνηση) + όταν συνδεθεί ο χρήστης.
 export function AppOpenTracker() {
@@ -17,6 +18,8 @@ export function AppOpenTracker() {
       if (!device) return
       fetch('/api/app-open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device, platform }), keepalive: true }).catch(() => {})
     }
+    // 1ο άνοιγμα μετά από «Κατέβασε» στο web → σύνδεση με τον ίδιο λογαριασμό (lib/app-handoff).
+    checkInstallHandoff().then(ok => { if (ok) window.location.replace('/map') }).catch(() => {})
     try { if (!sessionStorage.getItem('ws_app_open')) { sessionStorage.setItem('ws_app_open', '1'); send() } } catch { send() }
     const { data: sub } = createClient().auth.onAuthStateChange((evt) => { if (evt === 'SIGNED_IN') send() })
     return () => sub.subscription.unsubscribe()

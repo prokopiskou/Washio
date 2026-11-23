@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { APP_ONLY_COUPON, inNativeApp, storeLinkForDevice } from '@/lib/app-coupon'
-import { prepareHandoff, openAppSignedIn } from '@/lib/app-handoff'
+import { prepareHandoff, goToAppSignedIn } from '@/lib/app-handoff'
 import { createClient } from '@/lib/supabase/client'
 import { funnel } from '@/lib/funnel'
 
@@ -31,10 +31,10 @@ export function AppCouponHint({ show, src, locale = 'el', amount = 3 }: { show: 
   const en = locale === 'en'
   const a = Number.isInteger(amount) ? String(amount) : amount.toFixed(2)
   const title = tried && signedIn
-    ? (en ? 'Installed it? Open the app signed in' : 'Την κατέβασες; Άνοιξέ την συνδεδεμένος')
+    ? (en ? 'Open the app — you are already signed in' : 'Άνοιξε την εφαρμογή — είσαι ήδη συνδεδεμένος')
     : (en ? `Get the app for −€${a}` : `Κατέβασε την εφαρμογή για το −${a}€`)
   const sub = signedIn
-    ? (en ? 'Same account, no new sign-up. The −€3 is waiting in the app.' : 'Ίδιος λογαριασμός, χωρίς νέα εγγραφή. Το −3€ σε περιμένει στην εφαρμογή.')
+    ? (en ? 'Opens with the same account, no new sign-in. Your −€3 is waiting.' : 'Ανοίγει με τον ίδιο λογαριασμό, χωρίς νέα σύνδεση. Το −3€ σε περιμένει.')
     : (en ? 'The first-wash coupon works only in the Washio app.' : 'Το κουπόνι πρώτου πλυσίματος ισχύει μόνο από την εφαρμογή Washio.')
   return (
     <a href={href} target={signedIn ? undefined : '_blank'} rel="noopener"
@@ -44,7 +44,7 @@ export function AppCouponHint({ show, src, locale = 'el', amount = 3 }: { show: 
         e.preventDefault()
         try { sessionStorage.setItem('ws_handoff_tried', '1') } catch { /* ignore */ }
         setTried(true)
-        openAppSignedIn(typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/map')
+        goToAppSignedIn()
       }}
       className="flex items-center gap-3 rounded-2xl px-4 py-3 my-2.5 bg-[#EAF7FB] border border-[#19A8C7]/40 active:opacity-90">
       <span className="shrink-0 w-10 h-10 rounded-xl bg-washio-cyan text-white flex items-center justify-center text-[15px] font-bold">−{a}€</span>
