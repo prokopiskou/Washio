@@ -1,5 +1,5 @@
 import { sendPush } from '@/lib/push'
-import { day3Push, payAbandonPush } from '@/lib/nudge-pushes'
+import { day3Push, payAbandonPush, guestPush } from '@/lib/nudge-pushes'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Resend } from 'resend'
@@ -171,7 +171,7 @@ export async function GET(req: NextRequest) {
   try { expiry = await processCouponExpiry(admin, resend, { push: sendPush }) } catch (e) { expiry = { error: e instanceof Error ? e.message : 'err' } }
   // Push «δεν ολοκληρώθηκε» (25–120' μετά το «πληρωμή») και push 3ης μέρας για το −3€.
   let pushes: unknown = null
-  try { pushes = { abandon: await payAbandonPush(admin), day3: await day3Push(admin) } } catch (e) { pushes = { error: e instanceof Error ? e.message : 'err' } }
+  try { pushes = { abandon: await payAbandonPush(admin), day3: await day3Push(admin), guest: await guestPush(admin) } } catch (e) { pushes = { error: e instanceof Error ? e.message : 'err' } }
 
   const h = athensHour()
   if (h < SEND_FROM_H || h > SEND_TO_H) return NextResponse.json({ ok: true, sent: 0, quiet: true, expiry, pushes })

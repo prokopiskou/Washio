@@ -100,3 +100,48 @@ export async function payAbandonPush(db: SupabaseClient, opts: { dryRun?: boolea
   }
   return { candidates, sent }
 }
+
+/**
+ * 3) guestPush: επισκέπτης ΕΦΑΡΜΟΓΗΣ (χωρίς λογαριασμό) που έδωσε άδεια ειδοποιήσεων (guest_push_tokens),
+ *    20–72 ώρες μετά, χωρίς κράτηση από τη συσκευή → ΕΝΑ push «Το −3€ σε περιμένει». 11:00–20:00.
+ */
+export async function guestPush(db: SupabaseClient, opts: { dryRun?: boolean } = {}) {
+  const h = athensHour()
+  if (!opts.dryRun && (h < 11 || h > 20)) return { skipped: 'hours' }
+  const from = new Date(Date.now() - 72 * 3600e3).toISOString(), to = new Date(Date.now() - 20 * 3600e3).toISOString()
+  const { data: rows, error } = await db.from('guest_push_tokens').select('device_id, token, user_id')
+    .eq('nudges', 0).gte('created_at', from).lte('created_at', to).limit(300)
+  if (error) return { error: error.message }
+  const list = (rows || []) as { device_id: string; token: string; user_id: string | null }[]
+  if (!list.length) return { candidates: 0, sent: 0 }
+  // Έκλεισε ήδη (από τη συσκευή ή τον λογαριασμό που συνδέθηκε) → όχι.
+  const devs = list.map(r => r.device_id)
+  const [{ data: fb }, { data: dl }] = await Promise.all([
+    db.from('funnel_events').select('device_id').in('device_id', devs).eq('step', 'booked'),
+    db.from('device_links').select('device_id, user_id').in('device_id', devs),
+  ])
+  const bookedDev = new Set(((fb || []) as { device_id: string }[]).map(r => r.device_id))
+  const uidOf = new Map<string, string>()
+  for (const r of (dl || []) as { device_id: string; user_id: string }[]) uidOf.set(r.device_id, r.user_id)
+  for (const r of list) if (r.user_id) uidOf.set(r.device_id, r.user_id)
+  const uids = [...new Set(uidOf.values())]
+  const bookedUser = new Set<string>()
+  if (uids.length) {
+    const { data: bk } = await db.from('bookings').select('user_id').in('user_id', uids).neq('status', 'cancelled')
+    for (const b of (bk || []) as { user_id: string }[]) bookedUser.add(b.user_id)
+  }
+  const part = await partners(db)
+  const targets = list.filter(r => !bookedDev.has(r.device_id) && !(uidOf.get(r.device_id) && (bookedUser.has(uidOf.get(r.device_id)!) || part.has(uidOf.get(r.device_id)!))))
+  if (opts.dryRun) return { candidates: list.length, wouldSend: targets.length }
+  const now = new Date().toISOString()
+  await db.from('guest_push_tokens').update({ nudges: 1, last_nudge_at: now }).in('device_id', list.map(r => r.device_id))
+  if (!targets.length) return { candidates: list.length, sent: 0 }
+  const { sendNativePushToTokens } = await import('@/lib/fcm')
+  const { ok, stale } = await sendNativePushToTokens(targets.map(t => t.token), {
+    title: 'Το −3€ σου σε περιμένει 🎁',
+    body: 'Κλείσε πλύσιμο σε 10’’. Πληρώνεις στο πλυντήριο.',
+    url: '/map?utm_source=push&utm_medium=guest_nudge',
+  })
+  if (stale.length) await db.from('guest_push_tokens').delete().in('token', stale)
+  return { candidates: list.length, sent: ok }
+}

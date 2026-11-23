@@ -147,3 +147,26 @@ export async function sendNativePushDebug(
   }
   return out
 }
+
+/** Push σε συγκεκριμένα tokens (π.χ. επισκέπτες χωρίς λογαριασμό — guest_push_tokens). Επιστρέφει πόσα πέτυχαν + τα νεκρά tokens. */
+export async function sendNativePushToTokens(
+  tokens: string[],
+  payload: { title: string; body: string; url?: string }
+): Promise<{ ok: number; stale: string[] }> {
+  if (!tokens.length || !ensureFirebase()) return { ok: 0, stale: [] }
+  try {
+    const res: BatchResponse = await getMessaging().sendEachForMulticast({
+      tokens,
+      notification: { title: payload.title, body: payload.body },
+      data: payload.url ? { url: payload.url } : undefined,
+      apns: { payload: { aps: { sound: 'default', badge: 0 } } },
+      android: { priority: 'high', notification: { sound: 'default' } },
+    })
+    const stale: string[] = []
+    res.responses.forEach((r, i) => {
+      const code = r.error?.code || ''
+      if (!r.success && (code.includes('registration-token-not-registered') || code.includes('invalid-argument'))) stale.push(tokens[i])
+    })
+    return { ok: res.successCount, stale }
+  } catch { return { ok: 0, stale: [] } }
+}
