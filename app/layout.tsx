@@ -5,6 +5,7 @@ import "./globals.css";
 import { CapacitorInit } from "@/components/CapacitorInit";
 import { LastLoginTracker } from "@/components/LastLoginTracker";
 import { RegistrationTracker } from "@/components/RegistrationTracker";
+import { AppOpenTracker } from "@/components/AppOpenTracker";
 import { Analytics } from "@vercel/analytics/next";
 import { AnalyticsScripts } from "@/components/AnalyticsScripts";
 import { CookieBanner } from "@/components/CookieBanner";
@@ -57,6 +58,7 @@ export default function RootLayout({
           <CapacitorInit />
           <LastLoginTracker />
           <RegistrationTracker />
+          <AppOpenTracker />
           {children}
           <GetAppButton />
           <NativePushOnboard />

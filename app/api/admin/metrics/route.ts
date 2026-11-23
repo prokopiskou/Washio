@@ -38,7 +38,7 @@ export async function GET() {
     return { ...c, days, before, after, rows, verdict: verdict(c.area, rows, days) }
   }))
   const rows = await platformBookings()
-  return NextResponse.json({ daily: daily || [], changes: evaluated, cac: await cacSeries(rows), retention: retentionCohorts(rows) })
+  return NextResponse.json({ daily: daily || [], changes: evaluated, cac: await cacSeries(rows), retention: retentionCohorts(rows), app: await appFunnel() })
 }
 
 type BRow = { user_id: string | null; location_id: string | null; created_at: string; status?: string; slot_date?: string; checked_in_at?: string | null; profiles: { email?: string | null } | null }
@@ -129,4 +129,21 @@ export async function POST(req: NextRequest) {
     return error ? NextResponse.json({ error: error.message }, { status: 500 }) : NextResponse.json({ ok: true })
   }
   return NextResponse.json({ error: 'Άγνωστη ενέργεια' }, { status: 400 })
+}
+
+// Εφαρμογή (30 μέρες): συσκευές που την άνοιξαν → με λογαριασμό → με κράτηση (supabase/app_installs.sql).
+async function appFunnel() {
+  try {
+    const since = new Date(Date.now() - 30 * 864e5).toISOString()
+    const { data, error } = await db.from('app_installs').select('platform, user_id').gte('first_open_at', since).limit(20000)
+    if (error) return null
+    const list = (data || []) as { platform: string; user_id: string | null }[]
+    const users = [...new Set(list.map(r => r.user_id).filter((x): x is string => !!x))]
+    const booked = new Set<string>()
+    for (let i = 0; i < users.length; i += 300) {
+      const { data: bk } = await db.from('bookings').select('user_id').in('user_id', users.slice(i, i + 300)).neq('status', 'cancelled')
+      for (const b of (bk || []) as { user_id: string }[]) booked.add(b.user_id)
+    }
+    return { opened: list.length, ios: list.filter(r => r.platform === 'ios').length, android: list.filter(r => r.platform === 'android').length, withUser: list.filter(r => r.user_id).length, booked: booked.size }
+  } catch { return null }
 }

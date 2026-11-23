@@ -15,7 +15,7 @@ const esc = (s: unknown) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&am
 export type Campaign = {
   id: string; location_id: string | null; title: string; body: string | null
   offer: { url?: string; cta?: string; preheader?: string; kicker?: string; headline?: string; bullets?: string[]; footnote?: string } | null
-  segment: { all?: boolean; km?: number; days?: number; viewed_days?: number; booked?: boolean; favorite?: boolean; svc_like?: string; exclude_booked_since?: string; users?: { user_id: string; booking_ref?: string }[]; min_credit?: number } | null
+  segment: { all?: boolean; km?: number; days?: number; viewed_days?: number; booked?: boolean; favorite?: boolean; svc_like?: string; exclude_booked_since?: string; users?: { user_id: string; booking_ref?: string }[]; min_credit?: number; max_credit?: number; no_app?: boolean } | null
   channels: string[]; status: string; scheduled_at: string | null
 }
 type Person = { user_id: string; email: string | null; can_push: boolean; can_email: boolean }
@@ -81,6 +81,26 @@ export async function campaignAudience(db: SupabaseClient, c: Campaign): Promise
     const { data: pr } = await db.from('profiles').select('id, referral_credit').in('id', [...ids])
     const okIds = new Set(((pr || []) as { id: string; referral_credit: number }[]).filter(p => Number(p.referral_credit) >= seg.min_credit!).map(p => p.id))
     for (const id of [...ids]) if (!okIds.has(id)) ids.delete(id)
+  }
+  // Μόνο όσοι έχουν ΛΙΓΟΤΕΡΟ υπόλοιπο από αυτό (π.χ. < 3 → χρησιμοποίησαν ήδη το −3€).
+  if (seg.max_credit != null && ids.size) {
+    const all = [...ids]
+    for (let i = 0; i < all.length; i += 300) {
+      const { data: pr } = await db.from('profiles').select('id, referral_credit').in('id', all.slice(i, i + 300))
+      for (const p of (pr || []) as { id: string; referral_credit: number }[]) if (Number(p.referral_credit) >= seg.max_credit!) ids.delete(p.id)
+    }
+  }
+  // Μόνο όσοι ΔΕΝ έχουν την εφαρμογή (κανένα native push token, κανένα άνοιγμα εφαρμογής).
+  if (seg.no_app && ids.size) {
+    const all = [...ids]
+    for (let i = 0; i < all.length; i += 300) {
+      const chunk = all.slice(i, i + 300)
+      const [{ data: nt }, ai] = await Promise.all([
+        db.from('native_push_tokens').select('user_id').in('user_id', chunk),
+        db.from('app_installs').select('user_id').in('user_id', chunk).then(r => r, () => ({ data: [] })),
+      ])
+      for (const r of [...(nt || []), ...((ai as { data: unknown[] | null }).data || [])] as { user_id: string | null }[]) if (r.user_id) ids.delete(r.user_id)
+    }
   }
   // ΠΟΤΕ σε πλυντήρια: ιδιοκτήτες locations + κάθε email από locations / αιτήσεις / συμβόλαια / onboarding.
   const partnerEmails = new Set<string>()

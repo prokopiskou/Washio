@@ -7,7 +7,9 @@ const pc = (n: number, d: number) => d ? Math.round(100 * n / d) : null
 const wk = (ymd: string) => new Intl.DateTimeFormat('el-GR', { day: 'numeric', month: 'numeric', timeZone: 'UTC' }).format(new Date(ymd + 'T12:00:00Z'))
 const tone = (v: number | null) => v == null ? 'text-gray-300' : v >= 30 ? 'text-green-700 font-bold' : v >= 20 ? 'text-amber-700 font-semibold' : 'text-red-600 font-semibold'
 
-export function RetentionCard({ rows }: { rows: Cohort[] }) {
+export type AppFunnel = { opened: number; ios: number; android: number; withUser: number; booked: number } | null
+
+export function RetentionCard({ rows, app }: { rows: Cohort[]; app?: AppFunnel }) {
   if (!rows.length) return null
   const sum = (f: (c: Cohort) => number) => rows.reduce((s, c) => s + f(c), 0)
   const t30 = pc(sum(c => c.r30), sum(c => c.n30)), t60 = pc(sum(c => c.r60), sum(c => c.n60))
@@ -26,6 +28,12 @@ export function RetentionCard({ rows }: { rows: Cohort[] }) {
           </div>
         ))}
       </div>
+      {app && (
+        <div className="mt-3 rounded-xl border border-gray-100 px-3 py-2.5">
+          <p className="text-[12px] font-semibold text-gray-700">Εφαρμογή · 30 μέρες (από 23/11 και μετά)</p>
+          <p className="text-[13px] text-gray-900 mt-1">Άνοιξαν <b>{app.opened}</b> <span className="text-gray-400">(iOS {app.ios} · Android {app.android})</span> → με λογαριασμό <b>{app.withUser}</b> ({pc(app.withUser, app.opened) ?? 0}%) → με κράτηση <b>{app.booked}</b> ({pc(app.booked, app.opened) ?? 0}%)</p>
+        </div>
+      )}
       <div className="overflow-x-auto mt-3">
         <table className="w-full text-[12px]">
           <thead className="text-gray-500"><tr>

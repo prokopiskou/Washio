@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { CacChart, type CacDay } from '@/components/admin/CacChart'
-import { RetentionCard, type Cohort } from '@/components/admin/RetentionCard'
+import { RetentionCard, type Cohort, type AppFunnel } from '@/components/admin/RetentionCard'
 
 // Admin → «Μετρήσεις»: πορεία ανά μέρα + ημερολόγιο αλλαγών με αυτόματο «πριν / μετά».
 type Day = {
@@ -22,7 +22,7 @@ const TONE = { good: 'bg-green-50 text-green-700', bad: 'bg-red-50 text-red-700'
 const AREAS = ['χάρτης', 'checkout', 'κουπόνι', 'διαφημίσεις', 'πλυντήρια', 'άλλο']
 
 export function MetricsPanel() {
-  const [data, setData] = useState<{ daily: Day[]; changes: Change[]; cac?: CacDay[]; retention?: Cohort[] } | null>(null)
+  const [data, setData] = useState<{ daily: Day[]; changes: Change[]; cac?: CacDay[]; retention?: Cohort[]; app?: AppFunnel } | null>(null)
   const [err, setErr] = useState('')
   const [open, setOpen] = useState<string | null>(null)
   const [title, setTitle] = useState(''); const [area, setArea] = useState('χάρτης')
@@ -49,7 +49,7 @@ export function MetricsPanel() {
 
   return (
     <div className="space-y-4">
-      <RetentionCard rows={data.retention || []} />
+      <RetentionCard rows={data.retention || []} app={data.app} />
       <CacChart days={data.cac || []} />
 
       {/* Ημερολόγιο αλλαγών */}
