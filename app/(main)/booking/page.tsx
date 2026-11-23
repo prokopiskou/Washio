@@ -501,8 +501,6 @@ function BookingPageContent() {
   // (/api/auth/guest) και ο χρήστης συνδέεται αυτόματα. Email που υπάρχει → κωδικός εδώ μέσα.
   const [isGuest, setIsGuest] = useState(false)
   const guestRef = useRef(false)
-  // Επισκέπτης με email που υπάρχει ήδη → κράτηση (μετρητά) στον λογαριασμό αυτό ΧΩΡΙΣ σύνδεση (lib/guest-booker).
-  const guestForRef = useRef(false)
   const [name, setName] = useState('')
   // Συνδεδεμένος χωρίς όνομα (π.χ. Apple / email κωδικός) → ζητάμε όνομα μία φορά.
   const [needName, setNeedName] = useState(false)
@@ -797,8 +795,12 @@ function BookingPageContent() {
 
   // Έλεγχος email ΚΑΙ χωρίς blur: αυτόματη συμπλήρωση (autofill) ή όταν σταματήσει να
   // πληκτρολογεί (0,9''). Το onBlur μένει για άμεσο έλεγχο. Ίδιο email → μία φορά (lastCheckedRef).
-  // (23/11) ΧΩΡΙΣ αυτόματο κωδικό όταν το email υπάρχει: ο επισκέπτης κλείνει (μετρητά) κατευθείαν
-  // στον λογαριασμό αυτό — βλ. ensureAccount / guestForRef. Κωδικός ζητείται μόνο για ΚΑΡΤΑ.
+  useEffect(() => {
+    if (!isGuest || !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email.trim())) return
+    const tm = setTimeout(() => { checkExistingEmail() }, 900)
+    return () => clearTimeout(tm)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email, isGuest])
 
   // Ζωντανός έλεγχος κουπονιού: συσκευή αμέσως, κινητό μόλις έχει 10+ ψηφία, πινακίδα όταν γραφτεί.
   useEffect(() => {
@@ -883,13 +885,6 @@ function BookingPageContent() {
     }).catch(() => null)
     const data = res ? await res.json().catch(() => ({})) : {}
     if (data.exists) {
-      // Μετρητά: κλείνει κατευθείαν στον υπάρχοντα λογαριασμό, χωρίς κωδικό και χωρίς σύνδεση.
-      if (action === 'cash') {
-        guestForRef.current = true
-        funnel('login_wall', { locationId, meta: { guest_exists: true, guest_for: true } })
-        return true
-      }
-      // Κάρτα: θέλει σύνδεση (προστασία αποθηκευμένων καρτών) → κωδικός στο email.
       const supabase = createClient()
       pendingRef.current = action
       setOtpCode(''); setOtpError('')
@@ -1032,7 +1027,7 @@ function BookingPageContent() {
         const ok = await ensureAccount('cash')
         if (!ok) { setCashLoading(false); return }
       }
-      if (!guestForRef.current) { try { await saveContact() } catch { /* best-effort — δεν μπλοκάρει την κράτηση */ } }
+      try { await saveContact() } catch { /* best-effort — δεν μπλοκάρει την κράτηση */ }
       trackEvent('InitiateCheckout', { value: total - previewCredit, currency: 'EUR', content_ids: [locationId || serviceId] })
       funnel('pay_click', { locationId, meta: { method: 'cash', total, def: payDefault, fee: serviceFee } })
       const res = await fetch('/api/bookings/create-cash', {
@@ -1051,7 +1046,6 @@ function BookingPageContent() {
           isTaxi,
           addonIds: selectedAddons,
           fromApp,
-          ...(guestForRef.current ? { guestEmail: email.trim().toLowerCase(), guestPhone: phone.trim() } : {}),
         }),
       })
       const data = await res.json()
@@ -1064,7 +1058,6 @@ function BookingPageContent() {
       const q = new URLSearchParams({
         email, date: formattedDate, time: slotTime, service: service.name,
         plate, total: String(data.payable ?? total), ref: data.bookingRef, method: 'cash',
-        ...(data.checkin ? { cc: String(data.checkin), lid: String(locationId || '') } : {}),
         ...(isRange ? { range: `${rangeMin.toFixed(0)}–${rangeMax.toFixed(0)}` } : {}),
       })
       router.push(`/booking/confirmed?${q.toString()}`)
@@ -1233,7 +1226,8 @@ function BookingPageContent() {
           </div>
 
           {/* Επισκέπτης: όνομα (το βλέπει το πλυντήριο) */}
-          {!isGuest && needName && (
+          {/* (23/11) Όνομα: ΔΕΝ ζητείται πια — μόνο κινητό + email */}
+          {false && needName && (
             <div>
               <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">
                 {t.name}
@@ -1263,6 +1257,7 @@ function BookingPageContent() {
                   autoCapitalize="none"
                   value={email}
                   onChange={e => { setEmail(e.target.value.trim()); setOtpStep(false) }}
+                  onBlur={checkExistingEmail}
                   placeholder={t.emailPh}
                   className="w-full bg-white border border-washio-border rounded-[14px] h-[52px] px-4 text-[15px] text-gray-900 placeholder-gray-300 focus:outline-none focus:border-washio-cyan"
                 />
@@ -1568,7 +1563,8 @@ function BookingPageContent() {
             }}
           >
             {!canProceed ? (
-              <div className="w-full h-14 bg-gray-100 text-gray-400 text-[14px] font-medium rounded-xl flex items-center justify-center">
+              <div onClick={() => funnel('checkout_blocked', { locationId, meta: { reason: blockReason, guest: isGuest, phoneLen: phone.replace(/\D/g, '').length, emailOk } })}
+                className="w-full h-14 bg-gray-100 text-gray-400 text-[14px] font-medium rounded-xl flex items-center justify-center">
                 {blockReason}
               </div>
             ) : isRange ? (
