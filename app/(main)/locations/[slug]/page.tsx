@@ -15,6 +15,7 @@ import { useT, useLocale, Locale } from '@/lib/i18n'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { funnel } from '@/lib/funnel'
 import { useCouponCredit, couponDiscount, eur, couponExpiryLabel } from '@/lib/use-coupon-credit'
+import { AppCouponHint } from '@/components/AppCouponHint'
 import { couponAllowedAt, NO_COUPON_NOTICE } from '@/lib/coupon-locations'
 import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { type WxDay, bestWashDay, isWet, wxEmoji, dayMeta } from '@/lib/weather'
@@ -588,6 +589,7 @@ export default function LocationPage() {
           <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mt-6 mb-2.5">
             {t.service}
           </p>
+          {location && couponAllowedAt(location.id) && <AppCouponHint show={coupon.ready && coupon.credit > 0} src="location" locale={locale} />}
           {location && !couponAllowedAt(location.id) && coupon.ready && coupon.credit > 0 && (
             <p className="text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 -mt-1 mb-2.5">{locale === 'en' ? NO_COUPON_NOTICE.en : NO_COUPON_NOTICE.el}</p>
           )}

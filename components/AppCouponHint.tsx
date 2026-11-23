@@ -1,0 +1,27 @@
+'use client'
+
+import { useSyncExternalStore } from 'react'
+import { APP_ONLY_COUPON, inNativeApp, storeLinkForDevice } from '@/lib/app-coupon'
+import { funnel } from '@/lib/funnel'
+
+// Web μόνο: «Το −3€ ισχύει μόνο στην εφαρμογή → Κατέβασε την εφαρμογή» (lib/app-coupon).
+const noop = () => () => {}
+export function AppCouponHint({ show, src, locale = 'el', amount = 3 }: { show: boolean; src: string; locale?: string; amount?: number }) {
+  const native = useSyncExternalStore(noop, inNativeApp, () => true)
+  const href = useSyncExternalStore(noop, storeLinkForDevice, () => '/landing#app')
+  if (!APP_ONLY_COUPON || native || !show) return null
+  const en = locale === 'en'
+  const a = Number.isInteger(amount) ? String(amount) : amount.toFixed(2)
+  return (
+    <a href={href} target="_blank" rel="noopener"
+      onClick={() => funnel('app_coupon_cta', { meta: { src } })}
+      className="flex items-center gap-3 rounded-2xl px-4 py-3 my-2.5 bg-[#EAF7FB] border border-[#19A8C7]/40 active:opacity-90">
+      <span className="shrink-0 w-10 h-10 rounded-xl bg-washio-cyan text-white flex items-center justify-center text-[15px] font-bold">−{a}€</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14px] font-bold text-washio-navy leading-snug">{en ? `Get the app for −€${a}` : `Κατέβασε την εφαρμογή για το −${a}€`}</span>
+        <span className="block text-[12px] text-gray-600 leading-snug mt-0.5">{en ? 'The first-wash coupon works only in the Washio app.' : 'Το κουπόνι πρώτου πλυσίματος ισχύει μόνο από την εφαρμογή Washio.'}</span>
+      </span>
+      <span className="shrink-0 text-washio-cyan-dark text-[18px]">›</span>
+    </a>
+  )
+}

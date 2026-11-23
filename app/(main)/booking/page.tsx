@@ -2,7 +2,7 @@
 
 import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { formatDuration } from '@/lib/duration'
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft, Lock, Calendar, Sparkles, Mail, Check, Droplet } from 'lucide-react'
 import { loadStripe } from '@stripe/stripe-js'
@@ -25,6 +25,9 @@ import { choiceFromModel, addToGarage } from '@/lib/car-choice'
 import { useCouponCredit, couponExpiryLabel } from '@/lib/use-coupon-credit'
 import { couponAllowedAt, NO_COUPON_NOTICE } from '@/lib/coupon-locations'
 import { flattenRange } from '@/lib/range-price'
+import { couponChannelOk, inNativeApp } from '@/lib/app-coupon'
+import { AppCouponHint } from '@/components/AppCouponHint'
+const noopSub = () => () => {}
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
@@ -527,6 +530,8 @@ function BookingPageContent() {
   const [servicePrice, setServicePrice] = useState(0)
   const [listPrice, setListPrice] = useState(0) // τιμή πριν την προώθηση (0 = καμία προώθηση)
   const couponInfo = useCouponCredit() // λήξη κουπονιού (coupon_expires_at)
+  const channelOk = useSyncExternalStore(noopSub, couponChannelOk, () => false)
+  const fromApp = useSyncExternalStore(noopSub, inNativeApp, () => false)
   const [rangeFixed, setRangeFixed] = useState(false) // βιολογικός με προσφορά σταθερής τιμής
 
   const serviceId = params.get('service') || ''
@@ -581,6 +586,7 @@ function BookingPageContent() {
         carModel,
         isTaxi,
         addonIds: addonsArg,
+        fromApp,
       }),
     })
       .then(async res => {
@@ -833,7 +839,9 @@ function BookingPageContent() {
   const couponOk = couponAllowedAt(locationId) // lib/coupon-locations
   const loyaltyNow = !noCredit && !!loyalty?.rewardNext && isCreditEligible(total)
   // Κουπόνι −3€: ΜΟΝΟ με κάρτα. Washio Club (σταγόνες): και στους δύο τρόπους.
-  const couponPreview = !loyaltyNow && !noCredit && couponOk && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
+  // −3€ μόνο από την εφαρμογή (lib/app-coupon): στο web 0 + «Κατέβασε την εφαρμογή».
+  const couponWouldApply = !loyaltyNow && !noCredit && couponOk && !couponBlock && isCreditEligible(total) ? computeRedeemable(walletCredit, total) : 0
+  const couponPreview = channelOk ? couponWouldApply : 0
   // Κουπόνι ΚΑΙ στους δύο τρόπους πληρωμής (επαναφορά 20/11).
   const creditFor = (_m: 'venue' | 'card') => loyaltyNow ? Math.min(loyalty!.amount, total) : couponPreview
   const previewCredit = creditFor(payMethod)
@@ -1037,6 +1045,7 @@ function BookingPageContent() {
           carModel,
           isTaxi,
           addonIds: selectedAddons,
+          fromApp,
         }),
       })
       const data = await res.json()
@@ -1412,6 +1421,7 @@ function BookingPageContent() {
                     {t.couponCardOnly(eur2(couponPreview))} <span className="underline">{t.useCard}</span>
                   </button>
                 )}
+                <AppCouponHint show={!channelOk && couponWouldApply > 0} src="checkout" locale={locale} amount={couponWouldApply} />
                 {couponExcludedHere && (
                   <p className="text-[12px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 my-2.5 leading-snug">{locale === 'en' ? NO_COUPON_NOTICE.en : NO_COUPON_NOTICE.el}</p>
                 )}

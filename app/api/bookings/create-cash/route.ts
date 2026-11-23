@@ -14,6 +14,7 @@ import { sendOwnerBookingEmail } from '@/lib/owner-notify'
 import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { adConsentFrom } from '@/lib/consent-server'
+import { APP_ONLY_COUPON } from '@/lib/app-coupon'
 import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
 import { couponAllowedAt } from '@/lib/coupon-locations'
@@ -93,8 +94,10 @@ export async function POST(req: NextRequest) {
   try {
     const {
       serviceId, locationId, slotId, slotDate,
-      slotStartTime, carPlate: rawPlate, vehicleType: rawVehicleType, addonIds, carModel: rawModel, isTaxi: rawTaxi,
+      slotStartTime, carPlate: rawPlate, vehicleType: rawVehicleType, addonIds, carModel: rawModel, isTaxi: rawTaxi, fromApp: rawFromApp,
     } = await req.json()
+    // −3€ μόνο από την εφαρμογή (lib/app-coupon). Το Washio Club ισχύει παντού.
+    const couponChannel = !APP_ONLY_COUPON || rawFromApp === true
     // Μάρκα/μοντέλο → κατηγορία τιμής (ΙΧ/SUV) αποφασίζεται ΕΔΩ (lib/car-models) — όχι από τον client.
     const carModel = String(rawModel || '').replace(/[<>]/g, '').trim().slice(0, 60)
     const isTaxi = rawTaxi === true
@@ -241,7 +244,7 @@ export async function POST(req: NextRequest) {
     if (loyalty > 0) couponAmount = loyalty
     // Κουπόνι −3€ ΚΑΙ στα μετρητά (20/11: το «μόνο κάρτα» έριξε τις ολοκληρωμένες κρατήσεις ~25% → επαναφορά).
     const CASH_COUPON = true
-    if (CASH_COUPON && loyalty <= 0 && !noCredit && couponAllowedAt(locationId) && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
+    if (CASH_COUPON && couponChannel && loyalty <= 0 && !noCredit && couponAllowedAt(locationId) && isCreditEligible(amount) && !(await couponBlockReason(admin, { userId: user.id, deviceId, plate: carPlate, requirePhone: true }))) {
       const { data: prof } = await admin.from('profiles').select('referral_credit').eq('id', user.id).maybeSingle()
       couponAmount = computeRedeemable(Number(prof?.referral_credit) || 0, amount)
     }

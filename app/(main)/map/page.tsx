@@ -28,6 +28,7 @@ import { useCarChoice, vehicleTypeOf, soleServiceId, type CarChoice } from '@/li
 import { flattenRange, fromPrice as fromPriceLabel, fullRange } from '@/lib/range-price'
 import { isCanary, stripWatermark } from '@/lib/canary'
 import { VehicleSelector, type VehicleSelectorHandle } from '@/components/VehiclePicker'
+import { AppCouponHint } from '@/components/AppCouponHint'
 import { useSwipeToClose, useSwipeToOpen } from '@/lib/useSwipeToClose'
 import { type WxDay, bestWashDay, isWet, wxEmoji, dayMeta } from '@/lib/weather'
 
@@ -1724,6 +1725,7 @@ function MapPageContent() {
               {selectedLocation && !couponAllowedAt(selectedLocation.id) && coupon.ready && coupon.credit > 0 && (
                 <p className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mb-2">{locale === 'en' ? NO_COUPON_NOTICE.en : NO_COUPON_NOTICE.el}</p>
               )}
+              {carChoice && selectedLocation && couponAllowedAt(selectedLocation.id) && <AppCouponHint show={coupon.ready && coupon.credit > 0} src="map" locale={locale} />}
               {carChoice && visibleServices.some(s => discFor(s) > 0) && (
                 <p className="text-[11px] font-semibold text-washio-cyan-dark mb-1.5">{coupon.guest ? t.couponGuest : t.couponUser}{!coupon.guest && (() => { const ex = couponExpiryLabel(coupon.expiresAt, locale); return ex ? <span className={ex.urgent ? 'text-red-600' : ''}> · {ex.text}</span> : null })()}</p>
               )}
