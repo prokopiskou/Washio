@@ -46,8 +46,10 @@ export function OpsPanel({ applications, reloadApplications }: { applications: a
     await load(); return true
   }
 
-  const mineFilter = (t: OpsTask) => who === 'all' ? true : who === 'me' ? (t.assignee === me || (!!t.escalated_at && me === TEAM[0].email && t.status !== 'done')) : t.assignee === who
-  const open = useMemo(() => tasks.filter(t => t.status !== 'done'), [tasks])
+  // «Εγώ» = ΜΟΝΟ όσα έχουν ανατεθεί σε μένα · «Όλοι» = όλα · όνομα = μόνο εκείνου.
+  const mineFilter = (t: OpsTask) => who === 'all' ? true : who === 'me' ? t.assignee === me : t.assignee === who
+  // Οι μετρητές της Επισκόπησης ακολουθούν το φίλτρο (Όλοι / Εγώ / Γιώργος).
+  const open = useMemo(() => tasks.filter(t => t.status !== 'done').filter(t => who === 'all' ? true : who === 'me' ? t.assignee === me : t.assignee === who), [tasks, who, me])
   const end = stats?.endOfToday || ''
   const todayList = open.filter(mineFilter).filter(t => !t.due_at || t.due_at < end)
     .sort((a, b) => (a.priority === 'high' ? 0 : 1) - (b.priority === 'high' ? 0 : 1) || String(a.due_at || '').localeCompare(String(b.due_at || '')))
