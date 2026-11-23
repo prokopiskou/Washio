@@ -41,13 +41,13 @@ export async function GET() {
   return NextResponse.json({ daily: daily || [], changes: evaluated, cac: await cacSeries(rows), retention: retentionCohorts(rows) })
 }
 
-type BRow = { user_id: string | null; location_id: string | null; created_at: string; profiles: { email?: string | null } | null }
+type BRow = { user_id: string | null; location_id: string | null; created_at: string; status?: string; slot_date?: string; checked_in_at?: string | null; profiles: { email?: string | null } | null }
 
 // Κρατήσεις app (όχι χειροκίνητες, όχι ακυρωμένες, όχι ομάδα) — με σειρά.
 async function platformBookings(): Promise<BRow[]> {
   const rows: BRow[] = []
   for (let from = 0; from < 100000; from += 1000) {
-    const { data, error } = await db.from('bookings').select('user_id, location_id, created_at, profiles(email)')
+    const { data, error } = await db.from('bookings').select('user_id, location_id, created_at, status, slot_date, checked_in_at, profiles(email)')
       .or('source.is.null,source.eq.platform').neq('status', 'cancelled')
       .order('created_at', { ascending: true }).order('id', { ascending: true }).range(from, from + 999)
     if (error) break
@@ -59,15 +59,20 @@ async function platformBookings(): Promise<BRow[]> {
 
 // Επαναλαμβανόμενες κρατήσεις: εβδομαδιαίες ομάδες (εβδομάδα 1ης κράτησης) → % που ξανάκλεισαν μέσα από το Washio
 // σε 30 / 60 μέρες (μετράει μόνο όταν έχουν περάσει οι μέρες), και πόσοι στο ίδιο πλυντήριο.
-function retentionCohorts(rows: BRow[]) {
+function retentionCohorts(all: BRow[]) {
   const now = Date.now()
+  // Μόνο ΟΛΟΚΛΗΡΩΜΕΝΑ πλυσίματα: σκαναρισμένα ή επιβεβαιωμένα με μέρα που πέρασε (όχι no-show / μελλοντικά).
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(new Date())
+  const rows = all.filter(b => b.checked_in_at || ((b.status === 'confirmed' || b.status === 'completed') && (b.slot_date || '') < today))
+    .map(b => ({ ...b, created_at: b.slot_date ? `${b.slot_date}T12:00:00Z` : b.created_at }))
+    .sort((a, b) => a.created_at.localeCompare(b.created_at))
   const byUser = new Map<string, BRow[]>()
   for (const b of rows) if (b.user_id) { const a = byUser.get(b.user_id) || []; a.push(b); byUser.set(b.user_id, a) }
   const monday = (t: number) => { const d = new Date(t); const wd = (d.getUTCDay() + 6) % 7; return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - wd)).toISOString().slice(0, 10) }
   const coh = new Map<string, { users: number; r30: number; n30: number; r60: number; n60: number; same: number; any: number }>()
   for (const list of byUser.values()) {
     const first = Date.parse(list[0].created_at)
-    const later = list.filter(b => Date.parse(b.created_at) > first + 3600_000)
+    const later = list.filter(b => Date.parse(b.created_at) > first)
     const k = monday(first)
     const c = coh.get(k) || { users: 0, r30: 0, n30: 0, r60: 0, n60: 0, same: 0, any: 0 }
     c.users++

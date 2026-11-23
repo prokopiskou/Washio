@@ -17,7 +17,7 @@ export function RetentionCard({ rows }: { rows: Cohort[] }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4">
       <p className="text-[15px] font-bold text-gray-900">Ξανακλείνουν μέσα από το Washio;</p>
-      <p className="text-[12px] text-gray-500 mt-0.5">Νέοι πελάτες ανά εβδομάδα 1ης κράτησης → % με 2η κράτηση στην εφαρμογή. Στόχος ≥ 30% στις 60 μέρες · κάτω από 20% = χρέωση μόνο στην 1η κράτηση.</p>
+      <p className="text-[12px] text-gray-500 mt-0.5">Μόνο ολοκληρωμένα πλυσίματα (χωρίς no-show / ακυρωμένα / ομάδα). Εβδομάδα 1ου πλυσίματος → % με 2ο ολοκληρωμένο μέσα από την εφαρμογή. Στόχος ≥ 30% στις 60 μέρες · κάτω από 20% = χρέωση μόνο στην 1η κράτηση.</p>
       <div className="grid grid-cols-3 gap-2 mt-3">
         {[['30 μέρες', t30], ['60 μέρες', t60], ['Στο ίδιο πλυντήριο', same]].map(([l, v]) => (
           <div key={l as string} className="rounded-xl bg-gray-50 px-3 py-2.5">
