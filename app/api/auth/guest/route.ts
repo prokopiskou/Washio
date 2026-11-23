@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     const digits = phone.replace(/\D/g, '')
 
     if (!EMAIL_RE.test(email)) return NextResponse.json({ error: 'Το email δεν είναι σωστό.' }, { status: 400 })
-    if (name.length < 2) return NextResponse.json({ error: 'Γράψε το όνομά σου.' }, { status: 400 })
+    // Όνομα ΠΡΟΑΙΡΕΤΙΚΟ (23/11): ο επισκέπτης δίνει μόνο κινητό + email.
     if (digits.length < 8 || !phoneOk(phone)) return NextResponse.json({ error: 'Γράψε σωστό κινητό (69x xxx xxxx).' }, { status: 400 })
 
     // Απόδοση (ίδια κλειδιά με την κανονική εγγραφή) — από τα cookies του browser.
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     const ref = safeDecode(jar.get('ws_ref')?.value).trim().slice(0, 40)
     const lp = jar.get('ws_lp')?.value
     const ad = safeDecode(jar.get('ws_ad')?.value).slice(0, 60)
-    const meta: Record<string, unknown> = { full_name: name, phone, signup_method: 'guest_checkout' }
+    const meta: Record<string, unknown> = { ...(name.length >= 2 ? { full_name: name } : {}), phone, signup_method: 'guest_checkout' }
     if (lp === 'map' || lp === 'login') meta.acq_lp = lp
     if (ref) meta.acq_ref = ref
     if (ad) meta.acq_ad = ad
@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     const userId = created.user.id
 
     // Κινητό στο προφίλ (το βλέπει το πλυντήριο) — το προφίλ το φτιάχνει trigger.
-    try { await admin.from('profiles').update({ phone, full_name: name }).eq('id', userId) } catch { /* best-effort */ }
+    try { await admin.from('profiles').update({ phone, ...(name.length >= 2 ? { full_name: name } : {}) }).eq('id', userId) } catch { /* best-effort */ }
 
     // −3€: ένα ανά κινητό (τελευταία 10 ψηφία).
     let phoneUsed = false

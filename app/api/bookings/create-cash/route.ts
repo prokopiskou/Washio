@@ -15,6 +15,8 @@ import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { adConsentFrom } from '@/lib/consent-server'
 import { APP_ONLY_COUPON } from '@/lib/app-coupon'
+import { resolveGuestBooker, type GuestBooker } from '@/lib/guest-booker'
+import { checkinCode } from '@/lib/checkin'
 import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
 import { couponAllowedAt } from '@/lib/coupon-locations'
@@ -94,7 +96,7 @@ export async function POST(req: NextRequest) {
   try {
     const {
       serviceId, locationId, slotId, slotDate,
-      slotStartTime, carPlate: rawPlate, vehicleType: rawVehicleType, addonIds, carModel: rawModel, isTaxi: rawTaxi, fromApp: rawFromApp,
+      slotStartTime, carPlate: rawPlate, vehicleType: rawVehicleType, addonIds, carModel: rawModel, isTaxi: rawTaxi, fromApp: rawFromApp, guestEmail, guestPhone,
     } = await req.json()
     // −3€ μόνο από την εφαρμογή (lib/app-coupon). Το Washio Club ισχύει παντού.
     const couponChannel = !APP_ONLY_COUPON || rawFromApp === true
@@ -110,7 +112,16 @@ export async function POST(req: NextRequest) {
 
     // 1) Auth — η ταυτότητα ΔΕΝ έρχεται από τον client.
     const supabase = await createServerClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user: sessionUser } } = await supabase.auth.getUser()
+    // Επισκέπτης με email που υπάρχει ήδη → κράτηση στον λογαριασμό αυτό ΧΩΡΙΣ σύνδεση (lib/guest-booker).
+    let guestFor: GuestBooker | null = null
+    if (!sessionUser && guestEmail) {
+      if (await isThrottled('cash:guestfor:' + ipFrom(req), 4, 60 * 60 * 1000)) {
+        return NextResponse.json({ error: 'Πολλές κρατήσεις σε λίγο χρόνο. Δοκίμασε αργότερα.' }, { status: 429 })
+      }
+      guestFor = await resolveGuestBooker(admin, guestEmail, guestPhone)
+    }
+    const user = sessionUser ?? (guestFor ? { id: guestFor.id, email: guestFor.email } : null)
     if (!user) {
       return NextResponse.json({ error: 'Απαιτείται σύνδεση' }, { status: 401 })
     }
@@ -299,6 +310,8 @@ export async function POST(req: NextRequest) {
     // Χωριστά: αν λείπει η στήλη is_taxi, το μοντέλο αποθηκεύεται κανονικά.
     if (carModel) { try { await admin.from('bookings').update({ car_model: carModel }).eq('id', inserted.id) } catch { /* ignore */ } }
     if (isTaxi) { try { await admin.from('bookings').update({ is_taxi: true }).eq('id', inserted.id) } catch { /* ignore */ } }
+    // Επισκέπτης σε υπάρχοντα λογαριασμό: το ΔΙΚΟ του κινητό στην κράτηση (το βλέπει το πλυντήριο).
+    if (guestFor) { try { await admin.from('bookings').update({ customer_phone: guestFor.phone }).eq('id', inserted.id) } catch { /* ignore */ } }
 
     // Referral: το +3€ του referrer μπαίνει όταν ολοκληρωθεί το πλύσιμο (cron processReferralRewards), όχι εδώ.
     // Εξαργύρωση κουπονιού (μετά την επιτυχή δημιουργία).
@@ -343,7 +356,7 @@ export async function POST(req: NextRequest) {
     // Ειδοποίηση σε εσένα (admin): email + Telegram για κάθε νέα κράτηση.
     try {
       const { data: ln } = await admin.from('locations').select('name').eq('id', locationId).maybeSingle()
-      const { data: pf } = await admin.from('profiles').select('phone').eq('id', user.id).maybeSingle()
+      const { data: pf } = guestFor ? { data: { phone: guestFor.phone } } : await admin.from('profiles').select('phone').eq('id', user.id).maybeSingle()
       await notifyAdminNewBooking({
         bookingRef, locationName: ln?.name || '—', serviceName: service.name || 'Υπηρεσία',
         slotDate, slotTime: slotStartTime as string, total: amount, coupon: couponAmount,
@@ -405,7 +418,8 @@ export async function POST(req: NextRequest) {
       clientUserAgent: (req.headers.get('user-agent') || '').slice(0, 350) || null,
     })
 
-    return NextResponse.json({ bookingRef, couponAmount, payable })
+    // Επισκέπτης χωρίς σύνδεση: ο κωδικός QR έρχεται εδώ (η σελίδα επιβεβαίωσης δεν μπορεί να τον ζητήσει).
+    return NextResponse.json({ bookingRef, couponAmount, payable, ...(guestFor ? { checkin: checkinCode(bookingRef), guestFor: true } : {}) })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'
     await alertCritical('Αποτυχία create-cash', message)

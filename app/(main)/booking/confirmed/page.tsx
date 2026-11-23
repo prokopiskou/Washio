@@ -75,10 +75,11 @@ function ConfirmedContent() {
   const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [locationInstructions, setLocationInstructions] = useState('')
   const [show, setShow] = useState(false)
-  const [qrCode, setQrCode] = useState<string | null>(null)
+  // Επισκέπτης χωρίς σύνδεση (κράτηση σε υπάρχοντα λογαριασμό): ο κωδικός QR έρχεται στο URL (cc).
+  const [qrCode, setQrCode] = useState<string | null>(() => { const c = params.get('cc') || ''; return /^[A-Za-z0-9_-]{4,64}$/.test(c) ? c : null })
   // QR check-in της κράτησης (μόλις υπάρχει ref) — ο ίδιος με το email.
   useEffect(() => {
-    if (!/^WS-[A-Z0-9]{4,16}$/i.test(bookingRef)) return
+    if (!/^WS-[A-Z0-9]{4,16}$/i.test(bookingRef) || params.get('cc')) return
     let alive = true, tries = 0
     let timer: ReturnType<typeof setTimeout> | undefined
     // Κάρτα: η κράτηση γράφεται από το webhook λίγα δευτερόλεπτα μετά → ξαναδοκιμάζει.
@@ -149,6 +150,11 @@ function ConfirmedContent() {
               .from('bookings').select('locations(name, address, city, lat, lng, extra_instructions)')
               .eq('booking_ref', refParam).maybeSingle()
             if (data) applyLocation(data.locations as any)
+            else if (params.get('lid')) {
+              // Επισκέπτης χωρίς σύνδεση: στοιχεία πλυντηρίου από τα δημόσια δεδομένα.
+              const { data: l } = await supabase.from('locations').select('name, address, city, lat, lng, extra_instructions').eq('id', params.get('lid')!).maybeSingle()
+              if (l) applyLocation(l as any)
+            }
           }
         } catch { /* το ref φαίνεται ήδη */ }
         return
