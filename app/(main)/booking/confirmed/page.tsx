@@ -6,13 +6,15 @@ import { openDirections, directionsWebUrl } from '@/lib/open-directions'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Check, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { CheckinQR, cachedQr, storeQr } from '@/components/CheckinQR'
+import { AddToCalendar } from '@/components/AddToCalendar'
 import { successHaptic } from '@/lib/haptics'
 import { track } from '@vercel/analytics'
 import { track as trackEvent } from '@/lib/analytics'
 import { funnel } from '@/lib/funnel'
 import { PushReminderPrompt } from '@/components/PushReminderPrompt'
 import { WashioLoader } from '@/components/WashioLoader'
-import { useT } from '@/lib/i18n'
+import { useT, useLocale } from '@/lib/i18n'
 import { useCatalogName } from '@/lib/catalog-i18n'
 
 const T = {
@@ -66,6 +68,7 @@ function PassRow({ caption, value, mono }: { caption: string; value: string; mon
 function ConfirmedContent() {
   const router = useRouter()
   const t = useT(T)
+  const { locale } = useLocale()
   const tn = useCatalogName()
   const params = useSearchParams()
   const [bookingRef, setBookingRef] = useState('')
@@ -76,10 +79,12 @@ function ConfirmedContent() {
   const [locationInstructions, setLocationInstructions] = useState('')
   const [show, setShow] = useState(false)
   // Επισκέπτης χωρίς σύνδεση (κράτηση σε υπάρχοντα λογαριασμό): ο κωδικός QR έρχεται στο URL (cc).
-  const [qrCode, setQrCode] = useState<string | null>(() => { const c = params.get('cc') || ''; return /^[A-Za-z0-9_-]{4,64}$/.test(c) ? c : null })
+  // QR: από το URL (μετρητά: έρχεται από το create-cash) ή από την τοπική μνήμη → αμέσως, χωρίς αναμονή.
+  const [qrCode, setQrCode] = useState<string | null>(() => { const c = params.get('cc') || ''; return /^[A-Za-z0-9._-]{4,64}$/.test(c) ? c : cachedQr('ref_' + (params.get('ref') || '')) })
   // QR check-in της κράτησης (μόλις υπάρχει ref) — ο ίδιος με το email.
   useEffect(() => {
-    if (!/^WS-[A-Z0-9]{4,16}$/i.test(bookingRef) || params.get('cc')) return
+    if (params.get('cc')) { storeQr('ref_' + bookingRef, params.get('cc')!); return }
+    if (!/^WS-[A-Z0-9]{4,16}$/i.test(bookingRef)) return
     let alive = true, tries = 0
     let timer: ReturnType<typeof setTimeout> | undefined
     // Κάρτα: η κράτηση γράφεται από το webhook λίγα δευτερόλεπτα μετά → ξαναδοκιμάζει.
@@ -87,7 +92,7 @@ function ConfirmedContent() {
       fetch(`/api/bookings/checkin-code?ref=${encodeURIComponent(bookingRef)}`).then(r => r.ok ? r.json() : null)
         .then(j => {
           if (!alive) return
-          if (j?.code) setQrCode(j.code as string)
+          if (j?.code) { setQrCode(j.code as string); storeQr('ref_' + bookingRef, j.code as string) }
           else if (++tries < 8) timer = setTimeout(load, 3000)
         }).catch(() => { if (alive && ++tries < 8) timer = setTimeout(load, 3000) })
     }
@@ -345,10 +350,21 @@ function ConfirmedContent() {
             {qrCode && (
               <div className="mt-6 flex flex-col items-center">
                 <div className="bg-white rounded-2xl p-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/api/qr/${qrCode}`} alt="QR" width={176} height={176} className="w-[176px] h-[176px] block" />
+                  <CheckinQR code={qrCode} size={176} />
                 </div>
                 <p className="text-[12px] text-white/60 mt-2.5 text-center">{t.qrHint}</p>
+              </div>
+            )}
+
+            {/* Πρόσθεσε στο ημερολόγιο — ο πελάτης διαλέγει Google / Apple / Outlook */}
+            {/^\d{4}-\d{2}-\d{2}$/.test(params.get('d') || '') && /^\d{1,2}:\d{2}/.test(time) && (
+              <div className="mt-5">
+                <AddToCalendar dark locale={locale} event={{
+                  title: `Πλύσιμο · ${locationName}`,
+                  date: params.get('d')!, time: time.slice(0, 5), durMin: Number(params.get('dur')) || 60,
+                  location: [locationName, locationAddress, locationCity].filter(Boolean).join(', '),
+                  details: `${service}${bookingRef ? ` · Κράτηση ${bookingRef}` : ''} · washio.gr`,
+                }} />
               </div>
             )}
 

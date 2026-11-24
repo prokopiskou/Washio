@@ -10,6 +10,8 @@ import { useT, useLocale } from '@/lib/i18n'
 import { funnel } from '@/lib/funnel'
 import { translateCatalogName } from '@/lib/catalog-i18n'
 import { WashioLoader } from '@/components/WashioLoader'
+import { CheckinQR, cachedQr, storeQr } from '@/components/CheckinQR'
+import { AddToCalendar } from '@/components/AddToCalendar'
 import { openDirections, directionsWebUrl } from '@/lib/open-directions'
 import { INACTIVE_STATUS_FILTER } from '@/lib/slots'
 import { ymdFromLocalDate, weekdayMon1FromYmd, athensToday, athensMinutesOfDay } from '@/lib/time'
@@ -264,7 +266,7 @@ export default function BookingDetailPage() {
   const [ratingSubmitted, setRatingSubmitted] = useState(false)
   const [alreadyRated, setAlreadyRated] = useState(false)
   // QR check-in: ο κωδικός που σκανάρει το πλυντήριο.
-  const [qrCode, setQrCode] = useState<string | null>(null)
+  const [qrCode, setQrCode] = useState<string | null>(() => cachedQr('id_' + String(params.id || '')))
 
   useEffect(() => {
     const loadBooking = async () => {
@@ -301,13 +303,14 @@ export default function BookingDetailPage() {
     loadBooking()
   }, [bookingId, router])
 
+  // QR: ξεκινά ΜΑΖΙ με τη φόρτωση της κράτησης (όχι μετά) · από την τοπική μνήμη αν υπάρχει → αμέσως.
   useEffect(() => {
-    if (!booking?.id || booking.status === 'cancelled' || booking.status === 'no_show') return
+    if (!bookingId) return
     let alive = true
-    fetch(`/api/bookings/checkin-code?id=${booking.id}`).then(r => r.ok ? r.json() : null)
-      .then(j => { if (alive && j?.code) setQrCode(j.code as string) }).catch(() => {})
+    fetch(`/api/bookings/checkin-code?id=${bookingId}`).then(r => r.ok ? r.json() : null)
+      .then(j => { if (alive && j?.code) { setQrCode(j.code as string); storeQr('id_' + bookingId, j.code as string) } }).catch(() => {})
     return () => { alive = false }
-  }, [booking?.id, booking?.status])
+  }, [bookingId])
 
   const handleSubmitRating = async () => {
     if (!booking || ratingValue < 1) return
@@ -580,8 +583,15 @@ export default function BookingDetailPage() {
             <div className="rounded-2xl border border-gray-100 p-5 mb-3.5 text-center" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <p className="text-[15px] font-semibold tracking-tight text-gray-900">{t.qrTitle}</p>
               <p className="text-[12px] text-gray-500 mt-1">{t.qrSub}</p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/qr/${qrCode}`} alt="QR" width={200} height={200} className="mx-auto mt-3.5 w-[200px] h-[200px]" />
+              <CheckinQR code={qrCode} size={200} className="mx-auto mt-3.5" />
+              <div className="mt-4">
+                <AddToCalendar locale={locale} event={{
+                  title: `Πλύσιμο · ${booking.locations?.name || 'Washio'}`,
+                  date: String(booking.slot_date), time: String(booking.slot_start_time).slice(0, 5), durMin: Number(booking.duration_minutes) || 60,
+                  location: [booking.locations?.name, booking.locations?.address, booking.locations?.city].filter(Boolean).join(', '),
+                  details: `Κράτηση ${booking.booking_ref} · washio.gr`,
+                }} />
+              </div>
             </div>
           )}
 

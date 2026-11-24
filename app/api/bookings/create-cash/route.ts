@@ -15,6 +15,7 @@ import { notifyAdminNewBooking } from '@/lib/admin-notify'
 import { sendPurchaseCapi } from '@/lib/meta-capi'
 import { adConsentFrom } from '@/lib/consent-server'
 import { APP_ONLY_COUPON } from '@/lib/app-coupon'
+import { checkinCode } from '@/lib/checkin'
 import { computeRedeemable, isCreditEligible, redeemCredit } from '@/lib/referral'
 import { couponBlockReason } from '@/lib/coupon-guard'
 import { couponAllowedAt } from '@/lib/coupon-locations'
@@ -405,7 +406,8 @@ export async function POST(req: NextRequest) {
       clientUserAgent: (req.headers.get('user-agent') || '').slice(0, 350) || null,
     })
 
-    return NextResponse.json({ bookingRef, couponAmount, payable })
+    // Ο κωδικός QR έρχεται μαζί → η σελίδα επιβεβαίωσης τον δείχνει αμέσως (χωρίς δεύτερο αίτημα).
+    return NextResponse.json({ bookingRef, couponAmount, payable, checkin: checkinCode(bookingRef) })
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Σφάλμα'
     await alertCritical('Αποτυχία create-cash', message)

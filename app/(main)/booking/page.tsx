@@ -217,7 +217,8 @@ function MapThumb() {
   )
 }
 
-function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef, serviceFee }: {
+function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef, serviceFee, dateIso, durMin, locId }: {
+  dateIso: string; durMin: number; locId: string
   serviceFee: number
   total: number
   baseTotal: number
@@ -316,7 +317,7 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
         elements,
         clientSecret,
         confirmParams: {
-          return_url: `${window.location.origin}/booking/confirmed?ref=${encodeURIComponent(bookingRef)}&email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}&plate=${encodeURIComponent(plate)}&total=${encodeURIComponent(total.toString())}`,
+          return_url: `${window.location.origin}/booking/confirmed?ref=${encodeURIComponent(bookingRef)}&email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}&plate=${encodeURIComponent(plate)}&total=${encodeURIComponent(total.toString())}&d=${encodeURIComponent(dateIso)}&dur=${durMin}&lid=${encodeURIComponent(locId)}`,
           // Κρύβουμε τα billing πεδία στο Element (fields: 'never') → ΠΡΕΠΕΙ να τα
           // περάσουμε εδώ, αλλιώς το Stripe πετάει σφάλμα. Δεν εμφανίζεται τίποτα
           // επιπλέον στη φόρμα.
@@ -1058,6 +1059,8 @@ function BookingPageContent() {
       const q = new URLSearchParams({
         email, date: formattedDate, time: slotTime, service: service.name,
         plate, total: String(data.payable ?? total), ref: data.bookingRef, method: 'cash',
+        d: dateStr, dur: String(Number(service.duration_minutes) || 60), lid: String(locationId || ''),
+        ...(data.checkin ? { cc: String(data.checkin) } : {}),
         ...(isRange ? { range: `${rangeMin.toFixed(0)}–${rangeMax.toFixed(0)}` } : {}),
       })
       router.push(`/booking/confirmed?${q.toString()}`)
@@ -1532,6 +1535,7 @@ function BookingPageContent() {
               total={cardTotal} baseTotal={total} appliedCredit={appliedCredit} email={email} phone={phone} service={service}
               formattedDate={formattedDate} slotTime={slotTime}
               clientSecret={clientSecret} plate={plate} bookingRef={bookingRef} serviceFee={serviceFee}
+              dateIso={dateStr} durMin={Number(service.duration_minutes) || 60} locId={String(locationId || '')}
             />
           </Elements>
 
