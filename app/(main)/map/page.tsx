@@ -280,6 +280,13 @@ function MapPageContent() {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null)
   // Swipe κάτω στο sheet του πλυντηρίου → κλείνει, φαίνεται όλος ο χάρτης.
   const sheetSwipe = useSwipeToClose<HTMLDivElement>(useCallback(() => setSelectedLocation(null), []))
+  // Έκλεισε πλυντήριο (χωρίς κράτηση — η κράτηση φεύγει από τον χάρτη) → σήμα για την ερώτηση ειδοποιήσεων επισκέπτη.
+  const prevSelRef = useRef<Location | null>(null)
+  useEffect(() => {
+    const prev = prevSelRef.current
+    prevSelRef.current = selectedLocation
+    if (prev && !selectedLocation) window.dispatchEvent(new CustomEvent('washio:washer-closed', { detail: { name: prev.name } }))
+  }, [selectedLocation])
   // Swipe πάνω στη λίστα (μαζεμένη) → όλα τα πλυντήρια σε κάθετη λίστα · swipe κάτω → μαζεύει.
   const [listExpanded, setListExpanded] = useState(false)
   const listExpandedRef = useRef(false)

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { ensureDeviceId } from '@/lib/device'
 import { funnel } from '@/lib/funnel'
 
-// Εφαρμογή, ΕΠΙΣΚΕΠΤΗΣ (χωρίς λογαριασμό): ζητάμε ειδοποιήσεις ΜΙΑ φορά (μετά από ~20'').
+// Εφαρμογή, ΕΠΙΣΚΕΠΤΗΣ (χωρίς λογαριασμό): ζητάμε ειδοποιήσεις ΜΙΑ φορά, όταν κλείσει πλυντήριο χωρίς κράτηση.
 // Token ανά συσκευή → /api/push/register-guest → την επόμενη μέρα «Το −3€ σε περιμένει».
 // Αν η άδεια υπάρχει ήδη (π.χ. Android ≤12) → καταχώρηση σιωπηλά, χωρίς παράθυρο.
 const ASKED = 'ws_guest_push_asked'
@@ -31,12 +31,15 @@ async function registerGuest(ask: boolean): Promise<boolean> {
 
 export function GuestPushPrompt() {
   const [open, setOpen] = useState(false)
+  const [place, setPlace] = useState('')
   useEffect(() => {
     let native = false
     try { native = Capacitor.isNativePlatform() } catch { /* web */ }
     if (!native) return
     let alive = true
-    const tm = setTimeout(async () => {
+    // (24/11) ΟΧΙ στο πρώτο άνοιγμα (ο χρήστης είναι απασχολημένος): μόλις ΚΛΕΙΣΕΙ ένα πλυντήριο χωρίς κράτηση
+    // (το στέλνει ο χάρτης: washio:washer-closed). Μία φορά.
+    const onClosed = async (ev: Event) => {
       try { if (localStorage.getItem(ASKED)) return } catch { return }
       const { data } = await createClient().auth.getSession()
       if (!alive || data.session) return // συνδεδεμένοι: η κανονική ροή (PushReminderPrompt)
@@ -46,9 +49,12 @@ export function GuestPushPrompt() {
         if (perm.receive === 'granted') { try { localStorage.setItem(ASKED, '1') } catch { /* ignore */ } ; await registerGuest(false); return }
         if (perm.receive === 'denied') return
       } catch { return }
-      if (alive) { setOpen(true); funnel('guest_push_prompt') }
-    }, 20000)
-    return () => { alive = false; clearTimeout(tm) }
+      if (!alive) return
+      setPlace(String((ev as CustomEvent).detail?.name || ''))
+      setOpen(true); funnel('guest_push_prompt', { meta: { on: 'washer_closed' } })
+    }
+    window.addEventListener('washio:washer-closed', onClosed)
+    return () => { alive = false; window.removeEventListener('washio:washer-closed', onClosed) }
   }, [])
 
   if (!open) return null
@@ -64,7 +70,7 @@ export function GuestPushPrompt() {
         <div className="flex items-start gap-3">
           <span className="shrink-0 w-10 h-10 rounded-xl bg-[#EAF7FB] text-washio-cyan-dark flex items-center justify-center"><Bell size={20} /></span>
           <div className="min-w-0">
-            <p className="text-[15px] font-bold text-washio-navy leading-snug">Να σου θυμίσουμε το −3€;</p>
+            <p className="text-[15px] font-bold text-washio-navy leading-snug">Να σου θυμίσουμε το −3€{place ? ` για το ${place}` : ''};</p>
             <p className="text-[13px] text-gray-600 leading-snug mt-0.5">Μία ειδοποίηση για το κουπόνι σου και ελεύθερες ώρες κοντά σου. Τίποτα άλλο.</p>
           </div>
         </div>
