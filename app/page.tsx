@@ -195,13 +195,8 @@ export default function HomePage() {
           // (πριν: ξανά redirect στον χάρτη → το κουμπί «Αρχική» έμοιαζε να μη δουλεύει).
           let booted = false
           try { booted = sessionStorage.getItem('ws_booted') === '1'; sessionStorage.setItem('ws_booted', '1') } catch { /* ignore */ }
-          if (!booted) {
-            // ΠΡΩΤΟ άνοιγμα της εφαρμογής ΠΟΤΕ (23/11): εγγραφή με −3€ (με «Δες πρώτα τα πλυντήρια»).
-            // Μετά: χάρτης όπως πριν. (Αν ήρθε από «Κατέβασε» στο web, το lib/app-handoff τον συνδέει μόνο του.)
-            let firstEver = false
-            try { firstEver = !localStorage.getItem('ws_first_open'); localStorage.setItem('ws_first_open', '1') } catch { /* ignore */ }
-            router.replace(firstEver ? '/login?welcome=1&redirect=%2Fmap' : '/map'); return
-          }
+          // (24/11) Πάντα κατευθείαν στον χάρτη — η «εγγραφή πρώτα» στο πρώτο άνοιγμα είχε δοκιμαστεί και δεν δούλευε.
+          if (!booted) { router.replace('/map'); return }
           setIsGuestHome(true)
         } else {
           setShowLanding(true)
