@@ -2,7 +2,8 @@
 // Λόγος (23/11): όσοι έχουν την εφαρμογή ξανακλείνουν ~26% vs ~3% στο web.
 // Στο web: τιμή χωρίς κουπόνι + «Κατέβασε την εφαρμογή για το −3€».
 // Washio Club (5ο πλύσιμο) ΔΕΝ επηρεάζεται. Για επαναφορά: false.
-export const APP_ONLY_COUPON = true
+// 24/11: ΑΝΕΝΕΡΓΟ — στο web έπεσαν οι κρατήσεις 5→1 (book_click 17→2). Ξανά μόνο μετά τα νέα builds (αυτόματη σύνδεση).
+export const APP_ONLY_COUPON = false
 
 /** Client: τρέχει μέσα στην εφαρμογή (Capacitor); */
 export function inNativeApp(): boolean {

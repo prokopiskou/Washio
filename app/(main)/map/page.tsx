@@ -967,7 +967,7 @@ function MapPageContent() {
     setSelectedSlot(null)
     mapInstanceRef.current?.panTo({ lat: loc.lat, lng: loc.lng })
     // Συγχρονισμένα μέσα στο πάτημα (iOS ανοίγει πληκτρολόγιο μόνο έτσι).
-    if (!carChoiceRef.current) { setGateFor(loc.name); gateRef.current?.open() }
+    // (24/11) Παράθυρο «Πρόσθεσε το όχημά σου» στο πάτημα πλυντηρίου: ΑΝΕΝΕΡΓΟ — όπως πριν (μεγάλο κουμπί μέσα στο πλυντήριο).
     // Δυνατότερο intent signal: είδε συγκεκριμένο πλυντήριο (χτίζει retargeting pool).
     trackEvent('ViewContent', { content_type: 'wash', content_ids: [loc.slug || loc.id], content_name: loc.name })
     funnel('washer_open', { locationId: loc.id, meta: { avail: !!loc.hasAvailability, km: loc.distance ?? -1, timing, src } })
