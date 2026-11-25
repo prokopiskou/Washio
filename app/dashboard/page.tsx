@@ -776,7 +776,7 @@ export default function DashboardPage() {
     if (status === 'pending') return 'bg-amber-50 text-amber-600'
     if (status === 'confirmed') return 'bg-blue-50 text-blue-600'
     if (status === 'completed') return 'bg-green-50 text-green-600'
-    if (status === 'cancelled') return 'bg-gray-100 text-gray-500'
+    if (status === 'cancelled') return 'bg-red-100 text-red-700'
     if (status === 'no_show') return 'bg-red-50 text-red-500'
     return 'bg-gray-50 text-gray-500'
   }
@@ -1456,11 +1456,11 @@ export default function DashboardPage() {
                     </p>
                     <button onClick={() => { setActiveTab('bookings'); setBookingsView('all'); lightTap() }} className="shrink-0 text-[12px] lg:text-[13px] font-semibold" style={{ color: '#078EAD' }}><span className="lg:hidden">{t('Όλες')} →</span><span className="hidden lg:inline">{t('Όλες οι κρατήσεις')} →</span></button>
                   </div>
-                  {todayBookings.length === 0 ? (
+                  {todayBookings.filter(b => b.status !== 'cancelled').length === 0 ? (
                     <p className="px-5 pb-6 text-[13px] text-gray-400">{t('Δεν υπάρχουν κρατήσεις για σήμερα.')}</p>
                   ) : (
                     <div className="divide-y divide-gray-100">
-                      {[...todayBookings].sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => {
+                      {[...todayBookings].filter(b => b.status !== 'cancelled').sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || '')).map(b => {
                         const es = effStatus(b)
                         return (
                           <button key={b.id} onClick={() => { setFocusBookingId(b.id); setBookingsView('today'); setActiveTab('bookings'); lightTap() }}
@@ -1586,14 +1586,15 @@ export default function DashboardPage() {
           {activeTab === 'bookings' && (() => {
             const filtered = bookingsView === 'today'
               // Σήμερα: όλες οι κρατήσεις της ημέρας, από την πρώτη ώρα μέχρι την τελευταία.
-              ? [...todayBookings].sort((a, b) => String(a.slot_start_time || '').localeCompare(String(b.slot_start_time || '')))
+              ? [...todayBookings].filter(b => b.status !== 'cancelled').sort((a, b) => String(a.slot_start_time || '').localeCompare(String(b.slot_start_time || '')))
               // Όλες: χρονολογικά με την ώρα πλυσίματος — πάνω οι προηγούμενες, κάτω οι επόμενες.
               // Ανοίγει στη σημερινή/επόμενη: thumb up → επόμενες, thumb down → προηγούμενες.
               : [...bookings]
-              .filter(b => filterStatus === 'all' || effStatus(b) === filterStatus)
+              // Ακυρωμένες: ΜΟΝΟ στο φίλτρο «Ακυρωμένες» (όχι στο «Σήμερα» / «Όλες»).
+              .filter(b => filterStatus === 'all' ? b.status !== 'cancelled' : effStatus(b) === filterStatus)
               .sort((a, b) => slotKey(a).localeCompare(slotKey(b)))
             const statusCounts = {
-              all: bookings.length,
+              all: bookings.filter(b => b.status !== 'cancelled').length,
               confirmed: bookings.filter(b => effStatus(b) === 'confirmed').length,
               completed: bookings.filter(b => effStatus(b) === 'completed').length,
               cancelled: bookings.filter(b => b.status === 'cancelled').length,
@@ -1605,7 +1606,7 @@ export default function DashboardPage() {
               if (status === 'pending') return { bg: '#FEF3C7', fg: '#92400E', label: t('Εκκρεμεί') }
               if (status === 'confirmed') return null // «Επιβεβαιωμένη» = κανονική κατάσταση, χωρίς σήμανση.
               if (status === 'completed') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('Ολοκληρώθηκε') }
-              if (status === 'cancelled') return { bg: '#F3F4F6', fg: '#6B7280', label: t('Ακυρ.') }
+              if (status === 'cancelled') return { bg: '#FCEAEA', fg: '#B42318', label: t('Ακυρώθηκε') }
               if (status === 'no_show') return { bg: '#FCEAEA', fg: '#B43C3C', label: t('Δεν ήρθε') }
               return { bg: '#F7F7F7', fg: '#666666', label: status || '—' }
             }
@@ -1630,7 +1631,7 @@ export default function DashboardPage() {
               <div className="space-y-3">
                 {/* Σήμερα | Όλες */}
                 <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-                  {([['today', `${t('Σήμερα')} (${todayBookings.length})`], ['all', `${t('Όλες')} (${bookings.length})`]] as const).map(([k, label]) => (
+                  {([['today', `${t('Σήμερα')} (${todayBookings.filter(b => b.status !== 'cancelled').length})`], ['all', `${t('Όλες')} (${bookings.filter(b => b.status !== 'cancelled').length})`]] as const).map(([k, label]) => (
                     <button key={k} onClick={() => { setBookingsView(k); lightTap() }}
                       className={`flex-1 h-9 rounded-lg text-[13px] font-semibold tracking-tight transition-all ${bookingsView === k ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>
                       {label}
@@ -1667,8 +1668,8 @@ export default function DashboardPage() {
                     const es = effStatus(b)
                     const pill = statusPillConfig(es)
                     // Πολύ αχνό φόντο: πράσινο = ολοκληρώθηκε · κόκκινο = δεν ήρθε.
-                    const cardBg = es === 'completed' ? '#F3FBF6' : es === 'no_show' ? '#FDF4F4' : '#FFFFFF'
-                    const cardBorder = es === 'completed' ? '#DDF1E5' : es === 'no_show' ? '#F6DEDE' : undefined
+                    const cardBg = es === 'completed' ? '#F3FBF6' : es === 'no_show' ? '#FDF4F4' : b.status === 'cancelled' ? '#FDECEC' : '#FFFFFF'
+                    const cardBorder = es === 'completed' ? '#DDF1E5' : es === 'no_show' ? '#F6DEDE' : b.status === 'cancelled' ? '#F5C2C2' : undefined
                     // Κρατήσεις Washio: το πλυντήριο ΔΕΝ ακυρώνει (μόνο «Δεν εμφανίστηκε»). Ακύρωση μόνο στις δικές του (εκτός πλατφόρμας).
                     const canCancel = (b.status === 'pending' || b.status === 'confirmed') && b.source === 'manual'
                     const slotDate = b.slot_date ? new Date(b.slot_date).toLocaleDateString(dl, {
