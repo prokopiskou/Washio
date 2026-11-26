@@ -340,6 +340,11 @@ function MapPageContent() {
   const [userId, setUserId] = useState<string | null>(null)
   // Αγαπημένα πλυντήρια του χρήστη → καρδιά στο σημείο της πινέζας + κουμπί ♥ στην κάρτα.
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
+  // Πλυντήρια-τούνελ με πακέτα (lib/packs) → κουμπί «Πακέτα» στην κάρτα.
+  const [packLocIds, setPackLocIds] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    fetch('/api/packs?tunnels=1').then(r => r.json()).then(d => setPackLocIds(new Set(d.ids || []))).catch(() => {})
+  }, [])
   // Επισκέπτης χωρίς λογαριασμό (π.χ. από διαφήμιση lp=map) → banner προσφοράς.
   const [isGuest, setIsGuest] = useState(false)
   const locWaitCheckedRef = useRef(false)
@@ -1643,6 +1648,19 @@ function MapPageContent() {
                   </button>
                 </div>
               </div>
+
+              {/* Τούνελ με πακέτα (lib/packs): προπληρωμένα πλυσίματα, χωρίς ραντεβού. */}
+              {packLocIds.has(selectedLocation.id) && (
+                <button onClick={() => router.push(`/packs?l=${selectedLocation.id}`)}
+                  className="w-full mb-3 flex items-center justify-between rounded-2xl px-4 py-3 text-left active:opacity-80"
+                  style={{ background: '#10182A' }}>
+                  <span>
+                    <span className="block text-[14px] font-semibold text-white">{locale === 'en' ? 'Wash packs · no appointment' : 'Πακέτα πλυσιμάτων · χωρίς ραντεβού'}</span>
+                    <span className="block text-[12px] text-white/60">{locale === 'en' ? 'Pay once, show the QR at the entrance' : 'Πλήρωσε μία φορά, δείξε το QR στην είσοδο'}</span>
+                  </span>
+                  <ChevronRight size={18} className="text-white/70 shrink-0" />
+                </button>
+              )}
 
               {/* Γραμμή 2: τύπος οχήματος · φωτογραφία (ίδια γραμμή, ίδιο ύψος) */}
               <div className="flex items-center justify-between gap-3 mb-3">

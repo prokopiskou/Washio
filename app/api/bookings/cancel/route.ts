@@ -11,6 +11,7 @@ import { athensEpoch } from '@/lib/time'
 import { Resend } from 'resend'
 import { refundCredit } from '@/lib/referral'
 import { revokeReferrerReward } from '@/lib/referral-server'
+import { restorePackWash } from '@/lib/packs'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -173,6 +174,9 @@ export async function POST(req: NextRequest) {
     if (!claimed || claimed.length === 0) {
       return NextResponse.json({ error: 'Booking already cancelled' }, { status: 409 })
     }
+
+    // Πλύσιμο από πακέτο → το πλύσιμο επιστρέφει στο πακέτο (καμία επιστροφή χρημάτων).
+    try { await restorePackWash(supabase, bookingId) } catch { /* best-effort */ }
 
     // ΠΟΙΟΣ ακύρωσε — από τον server (όχι από το reason που στέλνει ο client):
     // πελάτης → 'customer' · ιδιοκτήτης πλυντηρίου → 'partner' · admin (π.χ. support mode) → 'admin'.

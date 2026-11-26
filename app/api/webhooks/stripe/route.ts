@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { createClient } from '@supabase/supabase-js'
 import { fulfillPaymentIntent } from '@/lib/fulfill-intent'
+import { fulfillPackIntent } from '@/lib/packs'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 const supabase = createClient(
@@ -23,7 +24,16 @@ export async function POST(req: NextRequest) {
   }
 
   if (event.type === 'payment_intent.succeeded') {
-    const r = await fulfillPaymentIntent(event.data.object as Stripe.PaymentIntent)
+    const pi = event.data.object as Stripe.PaymentIntent
+    // Αγορά πακέτου πλυσιμάτων (lib/packs) — όχι κράτηση.
+    if (pi.metadata?.kind === 'pack') {
+      const r = await fulfillPackIntent(supabase, pi)
+      // Πάντα 200 (αλλιώς το Stripe ξαναδοκιμάζει για μέρες και απενεργοποιεί το endpoint).
+      // Η σελίδα αγοράς κάνει αυτο-ίαση (/api/packs/confirm) αν αποτύχει εδώ.
+      if (!r.ok) console.error('Pack fulfill error:', r.error)
+      return NextResponse.json({ received: true, pack: r })
+    }
+    const r =await fulfillPaymentIntent(event.data.object as Stripe.PaymentIntent)
     return NextResponse.json(r.body, { status: r.status })
   }
 

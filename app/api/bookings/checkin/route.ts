@@ -8,6 +8,7 @@ import { athensToday } from '@/lib/time'
 import { loyaltyStatus } from '@/lib/loyalty'
 import { sendPush } from '@/lib/push'
 import { rangeLabel, type RangeSvc } from '@/lib/range-price'
+import { consumePackWash } from '@/lib/packs'
 
 // Check-in με QR: το πλυντήριο σκανάρει → η κράτηση περνάει ΑΜΕΣΩΣ «Ήρθε» (χωρίς κουμπί).
 // POST { code } — code = ό,τι διάβασε η κάμερα (URL / κωδικός) ή πληκτρολογημένο WS-XXXX.
@@ -30,7 +31,7 @@ const SEL = 'id, booking_ref, status, user_id, location_id, slot_date, slot_star
 function view(b: Row, extra: Record<string, unknown>, staff = false) {
   const total = Number(b.total_amount) || 0
   const coupon = Number(b.coupon_amount) || 0
-  const pay = b.source === 'manual' ? 'manual' : b.stripe_payment_status === 'paid' ? 'card' : b.stripe_payment_status === 'pay_at_venue' ? 'cash' : 'other'
+  const pay = b.source === 'manual' ? 'manual' : b.stripe_payment_status === 'paid' ? 'card' : b.stripe_payment_status === 'pack' ? 'pack' : b.stripe_payment_status === 'pay_at_venue' ? 'cash' : 'other'
   return {
     bookingId: b.id,
     ref: b.booking_ref,
@@ -115,8 +116,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, already: true, booking: view(b, { checkedInAt: now }, !!scanLocationId) })
     }
 
+    // Πλύσιμο από πακέτο → αφαιρείται ΤΩΡΑ (στο σκανάρισμα), όχι όταν ο πελάτης πάτησε «Χρησιμοποίησε».
+    let packLeft: number | null = null
+    if (b.stripe_payment_status === 'pack') {
+      try { packLeft = await consumePackWash(admin, b.id) } catch { /* best-effort */ }
+      if (b.user_id && packLeft !== null) {
+        await sendPush(b.user_id, { title: 'Καλό πλύσιμο! 💧', body: packLeft > 0 ? `Σου μένουν ${packLeft} πλυσίματα στο πακέτο.` : 'Ήταν το τελευταίο του πακέτου. Πάρε νέο από την εφαρμογή.', url: '/profile/packs' }).catch(() => null)
+      }
+    }
+
     // Push στον πελάτη: καλωσόρισμα + σταγόνα Washio Club (best-effort).
-    if (b.user_id && b.source !== 'manual') {
+    if (b.user_id && b.source !== 'manual' && b.stripe_payment_status !== 'pack') {
       try {
         const lo = await loyaltyStatus(admin, b.user_id, b.location_id)
         const place = b.locations?.name || 'το πλυντήριο'

@@ -12,7 +12,7 @@ import { useCatalogName } from '@/lib/catalog-i18n'
 export type CheckinBooking = {
   bookingId: string; ref: string; status: string; date: string; time: string; duration: number
   service: string; addons: string[]; plate: string; car: string; name: string; phone: string
-  pay: 'card' | 'cash' | 'manual' | 'other'; collect: number; range?: string | null; location: string; checkedInAt?: string
+  pay: 'card' | 'cash' | 'manual' | 'pack' | 'other'; collect: number; range?: string | null; location: string; checkedInAt?: string
 }
 export type CheckinResult = { ok: boolean; already?: boolean; wasNoShow?: boolean; error?: string; booking?: CheckinBooking }
 
@@ -70,6 +70,11 @@ export function CheckinResultCard({ res, onNext, nextLabel = 'Σκάναρε ε�
           {b.pay === 'card' && (
             <div className="px-4 py-3" style={{ background: '#E7F6EF' }}>
               <p className="text-[14px] font-semibold" style={{ color: '#0F7A5C' }}>💳 Πληρωμένη με κάρτα — μη ζητήσεις χρήματα</p>
+            </div>
+          )}
+          {b.pay === 'pack' && (
+            <div className="px-4 py-3" style={{ background: '#E7F6EF' }}>
+              <p className="text-[14px] font-semibold" style={{ color: '#0F7A5C' }}>🎟 Από πακέτο (προπληρωμένο) — μη ζητήσεις χρήματα</p>
             </div>
           )}
           <Row label="Υπηρεσία" value={tn(b.service)} strong />

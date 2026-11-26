@@ -1624,6 +1624,8 @@ export default function DashboardPage() {
                 return { bg: '#FFEDD5', fg: '#C2410C', label: `💵 ${t('Εισπράττεις')} €${collect.toFixed(2)} ${t('στο κατάστημα')}` }
               }
               if (b.stripe_payment_status === 'paid') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('💳 Πληρωμένη με κάρτα') }
+              // Πλύσιμο από προπληρωμένο πακέτο (lib/packs) — δεν εισπράττεις τίποτα στο κατάστημα.
+              if (b.stripe_payment_status === 'pack') return { bg: '#E7F6EF', fg: '#0F7A5C', label: t('🎟 Πακέτο · προπληρωμένο') }
               return null
             }
 

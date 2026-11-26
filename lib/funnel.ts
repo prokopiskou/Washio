@@ -16,7 +16,7 @@ export type FunnelStep =
   // Banner cookies: τι διάλεξε (χωρίς προσωπικά στοιχεία) → πόσοι επιτρέπουν μέτρηση Meta
   | 'consent_all' | 'consent_reject' | 'consent_custom'
   // Βαθμολογία εφαρμογής: native παράθυρο Apple/Google ζητήθηκε · ή άνοιξε το store (web / fallback)
-  | 'app_review_prompt' | 'app_review_store' | 'app_coupon_cta' | 'guest_push_prompt' | 'guest_push_yes' | 'guest_push_no' | 'checkout_blocked' | 'app_coupon_screen' | 'app_coupon_skip' | 'calendar_open' | 'calendar_add'
+  | 'app_review_prompt' | 'app_review_store' | 'app_coupon_cta' | 'guest_push_prompt' | 'guest_push_yes' | 'guest_push_no' | 'checkout_blocked' | 'app_coupon_screen' | 'app_coupon_skip' | 'calendar_open' | 'calendar_add' | 'pack_view' | 'pack_buy_click' | 'pack_use'
 
 function storageId(store: 'local' | 'session', key: string): string {
   try {

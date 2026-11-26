@@ -96,6 +96,28 @@ function StatusPill({ status }: { status: string }) {
   )
 }
 
+// «Τα πακέτα μου» — εμφανίζεται μόνο σε όσους έχουν αγοράσει πακέτο (lib/packs).
+function MyPacksLink({ onOpen }: { onOpen: () => void }) {
+  const [info, setInfo] = useState<{ n: number; left: number } | null>(null)
+  useEffect(() => {
+    fetch('/api/packs/mine').then(r => r.ok ? r.json() : { packs: [] }).then(d => {
+      const ps = (d.packs || []) as { usable: boolean; left: number }[]
+      if (ps.length) setInfo({ n: ps.length, left: ps.filter(p => p.usable).reduce((s, p) => s + Number(p.left || 0), 0) })
+    }).catch(() => {})
+  }, [])
+  if (!info) return null
+  return (
+    <button onClick={onOpen} className="w-full bg-white rounded-[20px] border border-washio-border px-[18px] py-4 flex items-center justify-between text-left"
+      style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>
+      <span>
+        <span className="block text-[15px] font-semibold text-washio-navy">Τα πακέτα μου</span>
+        <span className="block text-[12px] text-gray-500 mt-0.5">{info.left > 0 ? `${info.left} πλυσίματα διαθέσιμα` : 'Δες τα πακέτα σου'}</span>
+      </span>
+      <ChevronRight size={18} className="text-gray-300" />
+    </button>
+  )
+}
+
 export default function ProfilePage() {
   const router = useRouter()
   const t = useT(T)
@@ -299,6 +321,9 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+
+          {/* Πακέτα πλυσιμάτων (τούνελ) — μόνο αν έχει. */}
+          <MyPacksLink onOpen={() => router.push('/profile/packs')} />
 
           {/* Bookings */}
           <div className="bg-white rounded-[20px] border border-washio-border overflow-hidden" style={{ boxShadow: '0 4px 18px rgba(16,24,42,0.05)' }}>

@@ -10,7 +10,7 @@ const admin = createClient(
   { auth: { persistSession: false } }
 )
 
-const STEPS = new Set(['app_review_prompt', 'app_review_store', 'app_coupon_cta', 'guest_push_prompt', 'guest_push_yes', 'guest_push_no', 'checkout_blocked', 'app_coupon_screen', 'app_coupon_skip', 'calendar_open', 'calendar_add', 'consent_all', 'consent_reject', 'consent_custom', 'car_model_unknown', 'car_picker_open', 'car_picked', 'car_picker_close', 'map_open', 'washer_open', 'washer_page', 'no_slots', 'service_select', 'slot_select',
+const STEPS = new Set(['app_review_prompt', 'app_review_store', 'app_coupon_cta', 'guest_push_prompt', 'guest_push_yes', 'guest_push_no', 'checkout_blocked', 'app_coupon_screen', 'app_coupon_skip', 'calendar_open', 'calendar_add', 'pack_view', 'pack_buy_click', 'pack_use', 'consent_all', 'consent_reject', 'consent_custom', 'car_model_unknown', 'car_picker_open', 'car_picked', 'car_picker_close', 'map_open', 'washer_open', 'washer_page', 'no_slots', 'service_select', 'slot_select',
   'book_click', 'login_wall', 'booking_page', 'pay_click', 'booked', 'date_select',
   'cancel_open', 'cancel_save_click', 'rescheduled', 'cancelled', 'list_open'])
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
