@@ -15,6 +15,7 @@ import { couponAllowedAt } from '@/lib/coupon-locations'
 import { loyaltyDiscountFor } from '@/lib/loyalty'
 import { adConsentFrom } from '@/lib/consent-server'
 import { sizeOfModel } from '@/lib/car-models'
+import { checkinCode } from '@/lib/checkin'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -250,6 +251,8 @@ export async function POST(req: NextRequest) {
       clientSecret: paymentIntent.client_secret,
       customerSessionClientSecret,
       bookingRef,
+      // QR check-in (HMAC του ref) — ΑΜΕΣΩΣ στη σελίδα επιβεβαίωσης, χωρίς αναμονή του webhook.
+      checkin: checkinCode(bookingRef),
       appliedCredit,                 // πόσο κουπόνι εφαρμόστηκε (για εμφάνιση στο checkout)
       serviceFee: serviceFeeEur,
     })

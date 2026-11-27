@@ -83,7 +83,7 @@ function ConfirmedContent() {
   const [qrCode, setQrCode] = useState<string | null>(() => { const c = params.get('cc') || ''; return /^[A-Za-z0-9._-]{4,64}$/.test(c) ? c : cachedQr('ref_' + (params.get('ref') || '')) })
   // QR check-in της κράτησης (μόλις υπάρχει ref) — ο ίδιος με το email.
   useEffect(() => {
-    if (params.get('cc')) { storeQr('ref_' + bookingRef, params.get('cc')!); return }
+    if (qrCode && params.get('cc')) { if (bookingRef) storeQr('ref_' + bookingRef, qrCode); return }
     if (!/^WS-[A-Z0-9]{4,16}$/i.test(bookingRef)) return
     let alive = true, tries = 0
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -353,6 +353,12 @@ function ConfirmedContent() {
                   <CheckinQR code={qrCode} size={176} />
                 </div>
                 <p className="text-[12px] text-white/60 mt-2.5 text-center">{t.qrHint}</p>
+              </div>
+            )}
+            {/* Θέση του QR κρατημένη (χωρίς «πήδημα») όσο έρχεται — μόνο σε παλιές συνδέσεις χωρίς cc. */}
+            {!qrCode && (
+              <div className="mt-6 flex flex-col items-center">
+                <div className="bg-white/10 rounded-2xl animate-pulse" style={{ width: 200, height: 200 }} />
               </div>
             )}
 

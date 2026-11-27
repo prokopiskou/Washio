@@ -9,6 +9,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         // Τοπικό plugin: Play Install Referrer (αυτόματη σύνδεση web → εφαρμογή).
         registerPlugin(InstallReferrerPlugin.class);
+        // Τοπικό plugin: άνοιγμα Google Calendar / Outlook με το ραντεβού (components/AddToCalendar).
+        registerPlugin(CalendarIntentPlugin.class);
         super.onCreate(savedInstanceState);
         // Κινητά: μόνο κάθετα. Tablet (≥600dp, π.χ. tablet στο ταμείο πλυντηρίου): γυρνάει ελεύθερα.
         if (getResources().getConfiguration().smallestScreenWidthDp >= 600) {

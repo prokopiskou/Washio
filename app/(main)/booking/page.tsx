@@ -217,8 +217,8 @@ function MapThumb() {
   )
 }
 
-function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef, serviceFee, dateIso, durMin, locId }: {
-  dateIso: string; durMin: number; locId: string
+function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, formattedDate, slotTime, clientSecret, plate, bookingRef, serviceFee, dateIso, durMin, locId, cc }: {
+  dateIso: string; durMin: number; locId: string; cc?: string
   serviceFee: number
   total: number
   baseTotal: number
@@ -317,7 +317,7 @@ function CheckoutForm({ total, baseTotal, appliedCredit, email, phone, service, 
         elements,
         clientSecret,
         confirmParams: {
-          return_url: `${window.location.origin}/booking/confirmed?ref=${encodeURIComponent(bookingRef)}&email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}&plate=${encodeURIComponent(plate)}&total=${encodeURIComponent(total.toString())}&d=${encodeURIComponent(dateIso)}&dur=${durMin}&lid=${encodeURIComponent(locId)}`,
+          return_url: `${window.location.origin}/booking/confirmed?ref=${encodeURIComponent(bookingRef)}&email=${encodeURIComponent(email)}&date=${encodeURIComponent(formattedDate)}&time=${encodeURIComponent(slotTime)}&service=${encodeURIComponent(service.name)}&plate=${encodeURIComponent(plate)}&total=${encodeURIComponent(total.toString())}&d=${encodeURIComponent(dateIso)}&dur=${durMin}&lid=${encodeURIComponent(locId)}${cc ? `&cc=${encodeURIComponent(cc)}` : ''}`,
           // Κρύβουμε τα billing πεδία στο Element (fields: 'never') → ΠΡΕΠΕΙ να τα
           // περάσουμε εδώ, αλλιώς το Stripe πετάει σφάλμα. Δεν εμφανίζεται τίποτα
           // επιπλέον στη φόρμα.
@@ -497,6 +497,7 @@ function BookingPageContent() {
     return () => { alive = false }
   }, [])
   const [bookingRef, setBookingRef] = useState('')
+  const [checkinCc, setCheckinCc] = useState('') // QR check-in → στο return_url (εμφανίζεται αμέσως)
   const [cashLoading, setCashLoading] = useState(false)
   // Guest checkout: χωρίς σελίδα εγγραφής. Ο λογαριασμός φτιάχνεται τη στιγμή της κράτησης
   // (/api/auth/guest) και ο χρήστης συνδέεται αυτόματα. Email που υπάρχει → κωδικός εδώ μέσα.
@@ -567,7 +568,7 @@ function BookingPageContent() {
     promise: Promise<{ clientSecret?: string; customerSessionClientSecret?: string; error?: string }>
   } | null>(null)
 
-  type IntentResult = { clientSecret?: string; customerSessionClientSecret?: string; bookingRef?: string; appliedCredit?: number; error?: string }
+  type IntentResult = { clientSecret?: string; customerSessionClientSecret?: string; bookingRef?: string; checkin?: string; appliedCredit?: number; error?: string }
 
   const fetchIntent = (serviceArg: Service, plateArg: string, addonsArg: string[]): Promise<IntentResult> => {
     const key = JSON.stringify([serviceArg.id, locationId, dateStr, slotTime, plateArg, vehicleType, carModel, isTaxi, [...addonsArg].sort()])
@@ -1013,6 +1014,7 @@ function BookingPageContent() {
     setCustomerSessionClientSecret(data.customerSessionClientSecret)
     setAppliedCredit(Number(data.appliedCredit) || 0)
     setBookingRef(data.bookingRef || '')
+    setCheckinCc(String(data.checkin || ''))
     setShowPayment(true)
     // Έφτασε στην οθόνη πληρωμής (κάρτα).
     trackEvent('InitiateCheckout', { value: total, currency: 'EUR', content_ids: [locationId || serviceId] })
@@ -1535,7 +1537,7 @@ function BookingPageContent() {
               total={cardTotal} baseTotal={total} appliedCredit={appliedCredit} email={email} phone={phone} service={service}
               formattedDate={formattedDate} slotTime={slotTime}
               clientSecret={clientSecret} plate={plate} bookingRef={bookingRef} serviceFee={serviceFee}
-              dateIso={dateStr} durMin={Number(service.duration_minutes) || 60} locId={String(locationId || '')}
+              dateIso={dateStr} durMin={Number(service.duration_minutes) || 60} locId={String(locationId || '')} cc={checkinCc}
             />
           </Elements>
 

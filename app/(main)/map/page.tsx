@@ -153,6 +153,15 @@ function addDaysYmd(ymd: string, n: number): string {
   return dt.toISOString().slice(0, 10)
 }
 
+/** «30′» · «1ω» · «1ω 30′» — διάρκεια υπηρεσίας για την κάρτα του χάρτη. */
+function durLabel(s: { duration_minutes?: number; display_duration_minutes?: number | null }): string {
+  const m = Number(s.display_duration_minutes || s.duration_minutes || 0)
+  if (!m) return ''
+  if (m < 60) return `~${m}′`
+  const h = Math.floor(m / 60), r = m % 60
+  return `~${h}ω${r ? ` ${r}′` : ''}`
+}
+
 type Service = {
   id: string
   name: string
@@ -160,6 +169,7 @@ type Service = {
   price_moto?: number
   price_suv?: number
   duration_minutes?: number
+  display_duration_minutes?: number | null
   is_range?: boolean
   price_min?: number | null
   price_max?: number | null
@@ -514,7 +524,7 @@ function MapPageContent() {
       locsData = (j.locations || []).filter((l: { id: string }) => !isCanary(l.id)).map((l: { name: string }) => ({ ...l, name: stripWatermark(l.name || '') })); hoursData = j.hours; bookingsData = j.busy; exceptionsData = j.exceptions
     } catch {
       const [a, b, c, d] = await Promise.all([
-        supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos, services(id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv, is_active, sort_order), reviews(rating)').eq('is_active', true),
+        supabase.from('locations').select('id, name, address, city, slug, lat, lng, capacity, photos, services(id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv, is_active, sort_order), reviews(rating)').eq('is_active', true),
         supabase.from('location_hours').select('location_id, open_time, close_time, open_time2, close_time2, is_closed').eq('day_of_week', dayOfWeek),
         // busy_slots (RPC, security definer): ΟΛΕΣ οι πιασμένες ώρες χωρίς προσωπικά στοιχεία.
         supabase.rpc('busy_slots', { p_from: checkDate, p_to: checkDate }),
@@ -813,7 +823,7 @@ function MapPageContent() {
     if (cachedSvc && cachedRating) return
     const loadServices = async () => {
       const supabase = createClient()
-      const { data } = await supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv')
+      const { data } = await supabase.from('services').select('id, name, price, price_moto, price_suv, duration_minutes, display_duration_minutes, is_range, price_min, price_max, price_min_suv, price_max_suv')
         .eq('location_id', selectedLocation.id).eq('is_active', true).order('sort_order', { ascending: true })
       setLocationServices(((data as Service[]) || []).map(flattenRange).sort(compareServices))
     }
@@ -1785,6 +1795,8 @@ function MapPageContent() {
                       ) : (
                         <p className={`text-xs mt-0.5 font-semibold ${isSelected ? 'text-washio-cyan' : 'text-gray-500'}`}>{price}</p>
                       )}
+                      {/* Διάρκεια — διακριτικά (display_duration_minutes = ό,τι βλέπει ο πελάτης, αλλιώς η πραγματική). */}
+                      {durLabel(s) && <p className={`text-[10px] mt-0.5 ${isSelected ? 'text-white/55' : 'text-gray-400'}`}>{durLabel(s)}</p>}
                     </button>
                   )
                 })}
