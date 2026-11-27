@@ -71,3 +71,10 @@ where not exists (select 1 from public.wash_packs p where p.location_id = '5cca4
 -- Έλεγχος
 select p.name, p.washes, p.price, round(p.price / p.washes, 2) per_wash, s.name service, s.price single_price
 from public.wash_packs p join public.services s on s.id = p.service_id order by p.sort_order;
+
+-- 27/11: μεμονωμένα πλυσίματα (πακέτο του 1) — στην κάρτα του χάρτη αντί για υπηρεσίες/ώρες.
+insert into public.wash_packs (location_id, service_id, name, washes, price, valid_days, sort_order)
+select '5cca4ee5-2f6e-4fbd-985e-7f4dd0b58e64', s.id, v.name, 1, s.price, 90, v.ord
+from (values ('f776fb8c', 'Έξω', -3), ('f04eed3e', 'Μέσα', -2), ('f099ac82', 'Μέσα & Έξω', -1)) as v(sid, name, ord)
+join public.services s on s.id::text like v.sid || '%' and s.location_id = '5cca4ee5-2f6e-4fbd-985e-7f4dd0b58e64'
+where not exists (select 1 from public.wash_packs p where p.location_id = '5cca4ee5-2f6e-4fbd-985e-7f4dd0b58e64' and p.name = v.name);

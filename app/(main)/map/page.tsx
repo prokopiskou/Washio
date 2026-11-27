@@ -19,6 +19,7 @@ import { applyPromo, promoAppliesTo } from '@/lib/promotions'
 import { selectionHaptic } from '@/lib/haptics'
 import { WashioLoader } from '@/components/WashioLoader'
 import { isMotoService, compareServices } from '@/lib/services-catalog'
+import { TunnelPacks } from '@/components/TunnelPacks'
 import { BottomNav } from '@/components/BottomNav'
 import { isNativeApp } from '@/lib/native-auth'
 import { useT, useLocale, Locale } from '@/lib/i18n'
@@ -1659,19 +1660,24 @@ function MapPageContent() {
                 </div>
               </div>
 
-              {/* Τούνελ με πακέτα (lib/packs): προπληρωμένα πλυσίματα, χωρίς ραντεβού. */}
-              {packLocIds.has(selectedLocation.id) && (
-                <button onClick={() => router.push(`/packs?l=${selectedLocation.id}`)}
-                  className="w-full mb-3 flex items-center justify-between rounded-2xl px-4 py-3 text-left active:opacity-80"
-                  style={{ background: '#10182A' }}>
-                  <span>
-                    <span className="block text-[14px] font-semibold text-white">{locale === 'en' ? 'Wash packs · no appointment' : 'Πακέτα πλυσιμάτων · χωρίς ραντεβού'}</span>
-                    <span className="block text-[12px] text-white/60">{locale === 'en' ? 'Pay once, show the QR at the entrance' : 'Πλήρωσε μία φορά, δείξε το QR στην είσοδο'}</span>
-                  </span>
-                  <ChevronRight size={18} className="text-white/70 shrink-0" />
-                </button>
-              )}
-
+              {/* Τούνελ (lib/packs): χωρίς ραντεβού → μεμονωμένο πλύσιμο + πακέτα, χωρίς ώρες. */}
+              {packLocIds.has(selectedLocation.id) ? (
+                <>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold text-white" style={{ background: '#10182A' }}>
+                      <Clock size={13} className="text-white/70" /> {locale === 'en' ? 'Tunnel · no appointment' : 'Τούνελ · χωρίς ραντεβού'}
+                    </span>
+                    {selectedLocation.photos && selectedLocation.photos.length > 0 && (
+                      <button onClick={() => router.push(`/locations/${selectedLocation.slug}`)} aria-label={selectedLocation.name}
+                        className="w-[96px] h-[56px] rounded-xl overflow-hidden border-2 border-white shrink-0 active:opacity-80" style={{ boxShadow: '0 6px 16px rgba(16,24,42,0.12)' }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={selectedLocation.photos[0]} alt={selectedLocation.name} decoding="async" className="w-full h-full object-cover" />
+                      </button>
+                    )}
+                  </div>
+                  <TunnelPacks locationId={selectedLocation.id} locale={locale} />
+                </>
+              ) : (<>
               {/* Γραμμή 2: τύπος οχήματος · φωτογραφία (ίδια γραμμή, ίδιο ύψος) */}
               <div className="flex items-center justify-between gap-3 mb-3">
                 {/* key = πλυντήριο → σε κάθε νέο πάτημα πλυντηρίου ξαναπαίζει το bounce του «Τι όχημα έχεις;» */}
@@ -1893,6 +1899,7 @@ function MapPageContent() {
                   {t.otherDay}
                 </button>
               </div>
+              </>)}
             </div>
           )}
         </div>

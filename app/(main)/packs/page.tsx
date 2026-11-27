@@ -2,7 +2,7 @@
 
 // Πακέτα πλυσιμάτων ενός τούνελ (χωρίς ραντεβού): /packs?l=<locationId>
 // Αγορά με κάρτα → /profile/packs (εκεί «Χρησιμοποίησε 1 πλύσιμο» → QR).
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useSwipeBack } from '@/lib/useSwipeBack'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -69,7 +69,7 @@ function PacksInner() {
   const buy = async (p: Pack) => {
     setErr('')
     const { data } = await createClient().auth.getUser()
-    if (!data.user) { router.push(`/login?redirect=${encodeURIComponent(`/packs?l=${lid}`)}`); return }
+    if (!data.user) { router.push(`/login?redirect=${encodeURIComponent(`/packs?l=${lid}&p=${p.id}`)}`); return }
     funnel('pack_buy_click', { locationId: lid })
     setSel(p); setSecret('')
     const r = await fetch('/api/packs/intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ packId: p.id }) })
@@ -79,6 +79,16 @@ function PacksInner() {
   }
 
   // Πίσω: από την πληρωμή → στη λίστα πακέτων · αλλιώς προηγούμενη σελίδα (ή χάρτης αν δεν υπάρχει).
+  // Από τον χάρτη (?p=…): ανοίγει κατευθείαν η πληρωμή του επιλεγμένου.
+  const autoRef = useRef(false)
+  useEffect(() => {
+    const pid = sp.get('p')
+    if (autoRef.current || !pid || !packs) return
+    const p = packs.find(x => x.id === pid)
+    if (p) { autoRef.current = true; void buy(p) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packs, sp])
+
   const goBack = useCallback(() => {
     if (sel) { setSel(null); setSecret(''); return }
     if (window.history.length > 1) router.back(); else router.push('/map')
@@ -123,7 +133,9 @@ function PacksInner() {
                 <p className="text-[18px] font-semibold text-[#10182A]">{eur(p.price)}</p>
               </div>
               <p className="mt-1 text-[13px] text-gray-500">
-                {eur(p.perWash)} το πλύσιμο{p.single > 0 && p.single > p.perWash ? ` αντί ${eur(p.single)}` : ''} · ισχύει {Math.round(p.validDays / 30)} μήνες
+                {p.washes === 1
+                  ? `1 πλύσιμο · όποτε θες · ισχύει ${Math.max(1, Math.round(p.validDays / 30))} ${Math.round(p.validDays / 30) > 1 ? 'μήνες' : 'μήνα'}`
+                  : <>{eur(p.perWash)} το πλύσιμο{p.single > 0 && p.single > p.perWash ? ` αντί ${eur(p.single)}` : ''} · ισχύει {Math.round(p.validDays / 30)} μήνες</>}
               </p>
               {p.save > 0 && <p className="mt-2 inline-block rounded-full px-2.5 py-1 text-[12px] font-semibold" style={{ background: '#E7F6EF', color: '#0F7A5C' }}>Κερδίζεις {eur(p.save)}</p>}
             </button>
