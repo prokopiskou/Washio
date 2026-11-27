@@ -28,6 +28,21 @@ export async function POST(req: NextRequest) {
       }
       if (!customerId) customerId = (await stripe.customers.create({ email: user.email || undefined, metadata: { supabaseUserId: user.id } })).id
     } catch { customerId = undefined }
+    // Αποθηκευμένες κάρτες (1-tap) — ίδιο με το checkout κράτησης (create-intent).
+    let customerSessionClientSecret: string | undefined
+    if (customerId) {
+      try {
+        const cs = await stripe.customerSessions.create({
+          customer: customerId,
+          components: { payment_element: { enabled: true, features: {
+            payment_method_redisplay: 'enabled',
+            payment_method_allow_redisplay_filters: ['always', 'limited', 'unspecified'],
+            payment_method_save: 'disabled', payment_method_remove: 'enabled',
+          } } },
+        })
+        customerSessionClientSecret = cs.client_secret
+      } catch { /* χωρίς αποθηκευμένες */ }
+    }
 
     const price = Number(pack.price)
     const locName = (pack.locations as { name?: string } | null)?.name || ''
@@ -43,7 +58,7 @@ export async function POST(req: NextRequest) {
         price: price.toString(), washes: String(pack.washes), name: String(pack.name).slice(0, 100),
       },
     })
-    return NextResponse.json({ clientSecret: pi.client_secret, price, name: pack.name, location: locName })
+    return NextResponse.json({ clientSecret: pi.client_secret, customerSessionClientSecret, price, name: pack.name, location: locName })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Σφάλμα'
     await alertCritical('Αποτυχία πακέτου (intent)', msg)

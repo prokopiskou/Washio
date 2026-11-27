@@ -1,7 +1,7 @@
 'use client'
 
 // Τα πακέτα μου: υπόλοιπο πλυσιμάτων + «Χρησιμοποίησε 1 πλύσιμο» → QR για την είσοδο του τούνελ.
-import { Suspense, useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
 import { useSwipeBack } from '@/lib/useSwipeBack'
@@ -52,6 +52,15 @@ function Inner() {
     setQr({ id: p.id, code: d.checkin, ref: d.ref })
     setPacks(ps => (ps || []).map(x => x.id === p.id ? { ...x, left: d.left } : x))
   }
+
+  // Μεμονωμένο πλύσιμο με κάρτα (?auto=1): μόλις φανεί η αγορά → βγαίνει κατευθείαν το QR.
+  const autoRef = useRef(false)
+  useEffect(() => {
+    if (autoRef.current || sp.get('auto') !== '1' || !packs) return
+    const p = packs.find(x => x.fresh && x.usable && x.total === 1)
+    if (p) { autoRef.current = true; void use(p) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packs, sp])
 
   const goBack = useCallback(() => { router.push('/profile') }, [router])
   useSwipeBack(goBack)
