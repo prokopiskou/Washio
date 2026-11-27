@@ -999,6 +999,11 @@ function MapPageContent() {
     // (24/11) Παράθυρο «Πρόσθεσε το όχημά σου» στο πάτημα πλυντηρίου: ΑΝΕΝΕΡΓΟ — όπως πριν (μεγάλο κουμπί μέσα στο πλυντήριο).
     // Δυνατότερο intent signal: είδε συγκεκριμένο πλυντήριο (χτίζει retargeting pool).
     trackEvent('ViewContent', { content_type: 'wash', content_ids: [loc.slug || loc.id], content_name: loc.name })
+    // (28/11) AddToCart = άνοιξε πλυντήριο (το βελτιστοποιεί η local_booking) — μία φορά ανά πλυντήριο/συνεδρία.
+    try {
+      const k = 'ws_atc_' + loc.id
+      if (!sessionStorage.getItem(k)) { sessionStorage.setItem(k, '1'); trackEvent('AddToCart', { content_type: 'wash', content_ids: [loc.slug || loc.id] }) }
+    } catch { trackEvent('AddToCart', { content_type: 'wash', content_ids: [loc.slug || loc.id] }) }
     funnel('washer_open', { locationId: loc.id, meta: { avail: !!loc.hasAvailability, km: loc.distance ?? -1, timing, src } })
   }
 

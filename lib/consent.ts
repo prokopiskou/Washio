@@ -1,7 +1,8 @@
 // Συγκατάθεση cookies (ν. 3471/2006 · οδηγίες ΑΠΔΠΧ).
 // Cookie `ws_consent` = "v1.a<0|1>.m<0|1>"  (a = στατιστικά/GA4, m = διαφήμιση/Meta).
 // Το διαβάζει και ο server (CAPI μόνο με m=1 και όχι μέσα στην εφαρμογή).
-// Native app: cookie `ws_native=1` (το βάζει το CapacitorInit) → καμία διαφημιστική παρακολούθηση (Apple ATT).
+// Native app: cookie `ws_native` (το βάζει το CapacitorInit): '1' = iPhone → καμία διαφημιστική παρακολούθηση (Apple ATT)
+// · 'android' → μόνο server-side CAPI και μόνο με συγκατάθεση.
 
 export const CONSENT_COOKIE = 'ws_consent'
 export const NATIVE_COOKIE = 'ws_native'
@@ -35,6 +36,15 @@ export function isNativeClient(): boolean {
 /** Διαφήμιση (Meta Pixel / CAPI): μόνο με συγκατάθεση ΚΑΙ εκτός εφαρμογής. */
 export function marketingAllowed(): boolean {
   return !!getConsent()?.marketing && !isNativeClient()
+}
+
+/** Server-side CAPI (μέσω /api/capi/*): συγκατάθεση διαφήμισης ΚΑΙ (web ή εφαρμογή Android).
+ *  iPhone εφαρμογή: ποτέ (θέλει ATT της Apple). Το Pixel μένει κλειστό σε κάθε εφαρμογή. */
+export function serverAdAllowed(): boolean {
+  if (!getConsent()?.marketing) return false
+  if (!isNativeClient()) return true
+  const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor
+  return cap?.getPlatform?.() === 'android'
 }
 
 export function setConsent(c: Consent) {

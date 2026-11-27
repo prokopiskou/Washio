@@ -1,7 +1,7 @@
 'use client'
 
 import { Capacitor } from '@capacitor/core'
-import { marketingAllowed, CONSENT_EVENT } from '@/lib/consent'
+import { serverAdAllowed, CONSENT_EVENT } from '@/lib/consent'
 import { useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@/lib/analytics'
@@ -151,7 +151,7 @@ export function RegistrationTracker() {
         (u.app_metadata as { provider?: string } | undefined)?.provider || 'otp'
       // Χωρίς συγκατάθεση ΑΚΟΜΑ (συχνά γράφεται πριν πατήσει το banner) → κράτα το και
       // στείλ' το μόλις δώσει συγκατάθεση (ίδιο eventId → χωρίς διπλομέτρηση).
-      if (!marketingAllowed()) {
+      if (!serverAdAllowed()) {
         try { localStorage.setItem(PENDING_KEY, JSON.stringify({ id: u.id, method, at: Date.now() })) } catch { /* ignore */ }
         return
       }
@@ -160,7 +160,7 @@ export function RegistrationTracker() {
 
     // Συγκατάθεση δόθηκε αργότερα → στείλε την εκκρεμή εγγραφή (έως 7 μέρες πίσω).
     const onConsent = () => {
-      if (!marketingAllowed()) return
+      if (!serverAdAllowed()) return
       let p: { id?: string; method?: string; at?: number } | null = null
       try { p = JSON.parse(localStorage.getItem(PENDING_KEY) || 'null') } catch { p = null }
       if (!p?.id || !p.at || Date.now() - p.at > 7 * 864e5) return

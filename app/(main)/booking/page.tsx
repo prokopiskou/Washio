@@ -652,8 +652,8 @@ function BookingPageContent() {
       }
 
       track('checkout_started')
-      // Άφιξη στο booking = πρόθεση κράτησης (book intent).
-      trackEvent('AddToCart', { content_type: 'wash', content_ids: [locationId || serviceId] })
+      // (28/11) Το AddToCart στέλνεται πλέον στο πάτημα πλυντηρίου στον χάρτη (περισσότερα σήματα για το Meta).
+      // Εδώ μένει μόνο το InitiateCheckout (παρακάτω, στο «Πληρωμή»).
       funnel('booking_page', { locationId, meta: { guest: !user } })
 
       // ΟΛΑ τα queries ΠΑΡΑΛΛΗΛΑ (πριν: 5 διαδοχικά round-trips).
