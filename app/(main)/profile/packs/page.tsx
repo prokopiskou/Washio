@@ -3,6 +3,8 @@
 // Τα πακέτα μου: υπόλοιπο πλυσιμάτων + «Χρησιμοποίησε 1 πλύσιμο» → QR για την είσοδο του τούνελ.
 import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { ChevronLeft } from 'lucide-react'
+import { useSwipeBack } from '@/lib/useSwipeBack'
 import { CheckinQR, cachedQr, storeQr } from '@/components/CheckinQR'
 import { funnel } from '@/lib/funnel'
 
@@ -51,9 +53,15 @@ function Inner() {
     setPacks(ps => (ps || []).map(x => x.id === p.id ? { ...x, left: d.left } : x))
   }
 
+  const goBack = useCallback(() => { router.push('/profile') }, [router])
+  useSwipeBack(goBack)
+
   return (
-    <div className="mx-auto max-w-md px-5 pb-16 pt-6">
-      <button onClick={() => router.push('/profile')} className="mb-4 text-[14px] text-gray-500">← Προφίλ</button>
+    <div className="mx-auto max-w-md px-5 pb-16 pt-[calc(var(--safe-top)+8px)]">
+      <button onClick={goBack} aria-label="Πίσω"
+        className="-ml-2 mb-3 w-11 h-11 rounded-full flex items-center justify-center active:bg-gray-100">
+        <ChevronLeft size={26} className="text-[#10182A]" />
+      </button>
       <h1 className="text-[24px] font-semibold text-[#10182A]">Τα πακέτα μου</h1>
       {pi && packs?.some(p => p.fresh) && (
         <p className="mt-3 rounded-xl px-3 py-2 text-[14px] font-medium" style={{ background: '#E7F6EF', color: '#0F7A5C' }}>✓ Η αγορά ολοκληρώθηκε.</p>

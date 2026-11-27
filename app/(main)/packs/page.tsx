@@ -2,7 +2,9 @@
 
 // Πακέτα πλυσιμάτων ενός τούνελ (χωρίς ραντεβού): /packs?l=<locationId>
 // Αγορά με κάρτα → /profile/packs (εκεί «Χρησιμοποίησε 1 πλύσιμο» → QR).
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
+import { ChevronLeft } from 'lucide-react'
+import { useSwipeBack } from '@/lib/useSwipeBack'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
@@ -76,9 +78,19 @@ function PacksInner() {
     setSecret(d.clientSecret)
   }
 
+  // Πίσω: από την πληρωμή → στη λίστα πακέτων · αλλιώς προηγούμενη σελίδα (ή χάρτης αν δεν υπάρχει).
+  const goBack = useCallback(() => {
+    if (sel) { setSel(null); setSecret(''); return }
+    if (window.history.length > 1) router.back(); else router.push('/map')
+  }, [sel, router])
+  useSwipeBack(goBack)
+
   return (
-    <div className="mx-auto max-w-md px-5 pb-16 pt-6">
-      <button onClick={() => router.back()} className="mb-4 text-[14px] text-gray-500">← Πίσω</button>
+    <div className="mx-auto max-w-md px-5 pb-16 pt-[calc(var(--safe-top)+8px)]">
+      <button onClick={goBack} aria-label="Πίσω"
+        className="-ml-2 mb-3 w-11 h-11 rounded-full flex items-center justify-center active:bg-gray-100">
+        <ChevronLeft size={26} className="text-[#10182A]" />
+      </button>
       <p className="text-[12px] font-semibold uppercase tracking-wide text-gray-400">Τούνελ · χωρίς ραντεβού</p>
       <h1 className="mt-1 text-[24px] font-semibold text-[#10182A]">{loc?.name || 'Πακέτα πλυσιμάτων'}</h1>
       {loc?.address && <p className="mt-1 text-[14px] text-gray-500">{loc.address}</p>}
