@@ -8,9 +8,11 @@ const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SU
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
   if (sp.get('tunnels')) {
-    const { data } = await admin.from('wash_packs').select('location_id').eq('is_active', true)
+    const { data } = await admin.from('wash_packs').select('location_id, service_id').eq('is_active', true)
     const ids = [...new Set((data || []).map(r => r.location_id as string))]
-    return NextResponse.json({ ids }, { headers: { 'Cache-Control': 'public, s-maxage=300' } })
+    // Υπηρεσίες που καλύπτονται από πακέτα/μεμονωμένα (χωρίς ραντεβού) → κρύβονται από το «Με ραντεβού».
+    const svc = [...new Set((data || []).map(r => r.service_id as string))]
+    return NextResponse.json({ ids, svc }, { headers: { 'Cache-Control': 'public, s-maxage=300' } })
   }
   const locationId = String(sp.get('locationId') || '')
   if (!/^[0-9a-f-]{36}$/i.test(locationId)) return NextResponse.json({ packs: [] })

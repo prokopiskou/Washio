@@ -353,8 +353,11 @@ function MapPageContent() {
   const [favIds, setFavIds] = useState<Set<string>>(new Set())
   // Πλυντήρια-τούνελ με πακέτα (lib/packs) → κουμπί «Πακέτα» στην κάρτα.
   const [packLocIds, setPackLocIds] = useState<Set<string>>(new Set())
+  const [packSvcIds, setPackSvcIds] = useState<Set<string>>(new Set())
+  // Τούνελ: «Πλύσιμο τώρα» (πακέτα, χωρίς ραντεβού) ή «Με ραντεβού» (βιολογικός κ.ά.).
+  const [tunnelTab, setTunnelTab] = useState<'now' | 'appt'>('now')
   useEffect(() => {
-    fetch('/api/packs?tunnels=1').then(r => r.json()).then(d => setPackLocIds(new Set(d.ids || []))).catch(() => {})
+    fetch('/api/packs?tunnels=1').then(r => r.json()).then(d => { setPackLocIds(new Set(d.ids || [])); setPackSvcIds(new Set(d.svc || [])) }).catch(() => {})
   }, [])
   // Επισκέπτης χωρίς λογαριασμό (π.χ. από διαφήμιση lp=map) → banner προσφοράς.
   const [isGuest, setIsGuest] = useState(false)
@@ -464,6 +467,8 @@ function MapPageContent() {
   const discFor = (s: Service) => s.is_range ? 0 : ((Number(listPriceFor(s)) || 0) - (Number(priceFor(s)) || 0)) + couponDiscount(coupon, Number(priceFor(s)) || 0, s.is_range, selectedLocation?.id)
 
   const visibleServices = locationServices.filter(s => {
+    // Τούνελ: όσες υπηρεσίες έχουν πακέτο/μεμονωμένο ΔΕΝ κλείνονται με ώρα (μόνο στο «Πλύσιμο τώρα»).
+    if (packSvcIds.has(s.id)) return false
     // Χωρίς τιμή για τον επιλεγμένο τύπο οχήματος → δεν εμφανίζεται.
     if (s.is_range) {
       if (vehicleType === 'Μοτοσικλέτα') return false
@@ -986,6 +991,7 @@ function MapPageContent() {
   const selectLocation = (loc: Location, src: 'map' | 'list' = 'map') => {
     setListExpanded(false)
     setSelectedLocation(loc)
+    setTunnelTab('now')
     setSelectedService(null)
     setSelectedSlot(null)
     mapInstanceRef.current?.panTo({ lat: loc.lat, lng: loc.lng })
@@ -1661,22 +1667,41 @@ function MapPageContent() {
               </div>
 
               {/* Τούνελ (lib/packs): χωρίς ραντεβού → μεμονωμένο πλύσιμο + πακέτα, χωρίς ώρες. */}
-              {packLocIds.has(selectedLocation.id) ? (
-                <>
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold text-white" style={{ background: '#10182A' }}>
-                      <Clock size={13} className="text-white/70" /> {locale === 'en' ? 'Tunnel · no appointment' : 'Τούνελ · χωρίς ραντεβού'}
-                    </span>
-                    {selectedLocation.photos && selectedLocation.photos.length > 0 && (
-                      <button onClick={() => router.push(`/locations/${selectedLocation.slug}`)} aria-label={selectedLocation.name}
-                        className="w-[96px] h-[56px] rounded-xl overflow-hidden border-2 border-white shrink-0 active:opacity-80" style={{ boxShadow: '0 6px 16px rgba(16,24,42,0.12)' }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={selectedLocation.photos[0]} alt={selectedLocation.name} decoding="async" className="w-full h-full object-cover" />
-                      </button>
+              {packLocIds.has(selectedLocation.id) && (() => {
+                // Υπηρεσίες με ραντεβού (βιολογικός, γυάλισμα…) = όσες ΔΕΝ έχουν πακέτο και έχουν τιμή.
+                const appt = locationServices.filter(s => !packSvcIds.has(s.id) && (s.is_range || Number(s.price) > 0))
+                const names = [...new Set(appt.map(s => /βιολογ/i.test(s.name) ? (locale === 'en' ? 'Deep clean' : 'Βιολογικός') : translateCatalogName(s.name, locale)))].slice(0, 2).join(', ')
+                return (
+                  <>
+                    <div className="flex items-center justify-between gap-3 mb-3">
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold text-white" style={{ background: '#10182A' }}>
+                        <Clock size={13} className="text-white/70" /> {locale === 'en' ? 'Tunnel · no appointment' : 'Τούνελ · χωρίς ραντεβού'}
+                      </span>
+                      {tunnelTab === 'now' && selectedLocation.photos && selectedLocation.photos.length > 0 && (
+                        <button onClick={() => router.push(`/locations/${selectedLocation.slug}`)} aria-label={selectedLocation.name}
+                          className="w-[96px] h-[56px] rounded-xl overflow-hidden border-2 border-white shrink-0 active:opacity-80" style={{ boxShadow: '0 6px 16px rgba(16,24,42,0.12)' }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={selectedLocation.photos[0]} alt={selectedLocation.name} decoding="async" className="w-full h-full object-cover" />
+                        </button>
+                      )}
+                    </div>
+                    {appt.length > 0 && (
+                      <div className="grid grid-cols-2 gap-1 p-1 mb-3 rounded-[14px] bg-gray-100">
+                        {([['now', locale === 'en' ? 'Wash now' : 'Πλύσιμο τώρα', locale === 'en' ? 'no appointment' : 'χωρίς ραντεβού'],
+                           ['appt', names || (locale === 'en' ? 'Other services' : 'Άλλες υπηρεσίες'), locale === 'en' ? 'by appointment' : 'με ραντεβού']] as const).map(([k, title, sub]) => (
+                          <button key={k} onClick={() => { setTunnelTab(k); setSelectedService(null); setSelectedSlot(null) }}
+                            className={`rounded-[11px] py-2 px-2 text-center transition-all ${tunnelTab === k ? 'bg-white shadow-[0_2px_8px_rgba(16,24,42,0.10)]' : ''}`}>
+                            <span className={`block text-[13px] font-semibold truncate ${tunnelTab === k ? 'text-washio-navy' : 'text-gray-500'}`}>{title}</span>
+                            <span className="block text-[10.5px] text-gray-400">{sub}</span>
+                          </button>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                  <TunnelPacks locationId={selectedLocation.id} locale={locale} />
-                </>
+                  </>
+                )
+              })()}
+              {packLocIds.has(selectedLocation.id) && tunnelTab === 'now' ? (
+                <TunnelPacks locationId={selectedLocation.id} locale={locale} />
               ) : (<>
               {/* Γραμμή 2: τύπος οχήματος · φωτογραφία (ίδια γραμμή, ίδιο ύψος) */}
               <div className="flex items-center justify-between gap-3 mb-3">
