@@ -1484,7 +1484,8 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="space-y-3 lg:space-y-4">
-                  <div className="bg-white rounded-[20px] p-4 lg:p-5" style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
+                  {/* (28/11) «Γρήγορες ενέργειες» (Νέα κράτηση · Νέα προώθηση) κρυμμένες από την αρχική. */}
+                  {false && <div className="bg-white rounded-[20px] p-4 lg:p-5" style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
                     <p className="text-[15px] font-bold tracking-tight mb-3 flex items-center gap-2" style={{ color: '#10182A' }}>
                       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#19A8C7" strokeWidth="2" strokeLinejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg>
                       {t('Γρήγορες ενέργειες')}
@@ -1501,7 +1502,7 @@ export default function DashboardPage() {
                         </button>
                       ))}
                     </div>
-                  </div>
+                  </div>}
 
                   <div className="bg-white rounded-[20px] p-4 lg:p-5" style={{ boxShadow: '0 4px 16px rgba(16,24,42,0.05)', border: '1px solid #E6EEF3' }}>
                     <p className="text-[15px] font-bold tracking-tight mb-2 flex items-center gap-2" style={{ color: '#10182A' }}>
