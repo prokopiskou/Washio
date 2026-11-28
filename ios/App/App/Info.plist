@@ -31,6 +31,8 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Η κάμερα χρησιμοποιείται για να σκανάρεις το QR της κράτησης του πελάτη στο πλυντήριο.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Αν επιτρέψεις, μετράμε ποιες διαφημίσεις μας στο Facebook/Instagram φέρνουν κρατήσεις, ώστε να βλέπεις λιγότερες άσχετες διαφημίσεις.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Το Washio χρησιμοποιεί την τοποθεσία σου για να βρίσκει κοντινά πλυντήρια αυτοκινήτων.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

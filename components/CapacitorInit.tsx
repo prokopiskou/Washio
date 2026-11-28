@@ -21,6 +21,14 @@ export function CapacitorInit() {
           const v = cap.getPlatform?.() === 'android' ? 'android' : '1'
           document.cookie = `ws_native=${v}; path=/; max-age=31536000; SameSite=Lax; Secure`
         } catch { /* ignore */ }
+        // iPhone (από 1.0.6): απάντηση Apple ATT → 'ios_att' μόνο με «Ναι». Αν έχει ήδη «Αποδοχή» στα cookies
+        // και δεν έχει ερωτηθεί ποτέ → το παράθυρο της Apple (λίγο μετά την εκκίνηση). Νέα «Αποδοχή» → το ίδιο.
+        if (cap.getPlatform?.() === 'ios') {
+          const { syncAtt, requestAttIfConsented } = await import('@/lib/att')
+          syncAtt().then(() => setTimeout(() => { void requestAttIfConsented() }, 2500)).catch(() => {})
+          const { CONSENT_EVENT } = await import('@/lib/consent')
+          window.addEventListener(CONSENT_EVENT, () => { void requestAttIfConsented() })
+        }
 
         const { SplashScreen } = await import('@capacitor/splash-screen')
         const { StatusBar, Style } = await import('@capacitor/status-bar')

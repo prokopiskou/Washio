@@ -1,5 +1,47 @@
 import UIKit
 import Capacitor
+import AppTrackingTransparency
+
+// Τοπικό plugin: παράθυρο Apple «Να επιτρέπεται η παρακολούθηση;» (ATT).
+// JS: lib/att.ts → Meta (server-side CAPI) ΜΟΝΟ αν ο χρήστης πει «Ναι» εδώ ΚΑΙ «Αποδοχή» στα cookies.
+@objc(AppTrackingPlugin)
+public class AppTrackingPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "AppTrackingPlugin"
+    public let jsName = "AppTracking"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "getStatus", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "request", returnType: CAPPluginReturnPromise)
+    ]
+
+    static func label(_ s: ATTrackingManager.AuthorizationStatus) -> String {
+        switch s {
+        case .authorized: return "authorized"
+        case .denied: return "denied"
+        case .restricted: return "restricted"
+        case .notDetermined: return "notDetermined"
+        @unknown default: return "unknown"
+        }
+    }
+
+    @objc func getStatus(_ call: CAPPluginCall) {
+        call.resolve(["status": AppTrackingPlugin.label(ATTrackingManager.trackingAuthorizationStatus)])
+    }
+
+    @objc func request(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            ATTrackingManager.requestTrackingAuthorization { s in
+                call.resolve(["status": AppTrackingPlugin.label(s)])
+            }
+        }
+    }
+}
+
+// Κύριο view controller: καταχωρεί τα τοπικά plugins (Main.storyboard → MainViewController).
+class MainViewController: CAPBridgeViewController {
+    override open func capacitorDidLoad() {
+        bridge?.registerPluginInstance(AppTrackingPlugin())
+    }
+}
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {

@@ -32,7 +32,7 @@ const T = {
     a: [
       ['_ga, _ga_*', 'Google Analytics', 'Στατιστικά χρήσης', '2 έτη'],
     ] as Row[],
-    mH: '4. Διαφήμιση (με συγκατάθεση)', mP: 'Μετράμε την αποτελεσματικότητα των διαφημίσεών μας στο Facebook/Instagram. Μόνο με συγκατάθεση στέλνουμε στη Meta στοιχεία όπως κρυπτογραφημένο (hash) email και τις κρατήσεις σου. Στην εφαρμογή iPhone δεν χρησιμοποιούμε διαφημιστική παρακολούθηση. Στην εφαρμογή Android ισχύει το ίδιο με το web: μόνο με τη συγκατάθεσή σου, από τον server μας.',
+    mH: '4. Διαφήμιση (με συγκατάθεση)', mP: 'Μετράμε την αποτελεσματικότητα των διαφημίσεών μας στο Facebook/Instagram. Μόνο με συγκατάθεση στέλνουμε στη Meta στοιχεία όπως κρυπτογραφημένο (hash) email και τις κρατήσεις σου. Στην εφαρμογή ισχύει το ίδιο με το web: μόνο με τη συγκατάθεσή σου, από τον server μας. Στο iPhone χρειάζεται επιπλέον να το επιτρέψεις στο παράθυρο της Apple («Να επιτρέπεται η παρακολούθηση;»).',
     m: [
       ['_fbp, _fbc', 'Meta (Facebook)', 'Μέτρηση διαφημίσεων', '90 ημέρες'],
     ] as Row[],
@@ -67,7 +67,7 @@ const T = {
     a: [
       ['_ga, _ga_*', 'Google Analytics', 'Usage statistics', '2 years'],
     ] as Row[],
-    mH: '4. Advertising (with consent)', mP: 'Measure the effectiveness of our Facebook/Instagram ads. Only with consent do we send Meta data such as your hashed email and bookings. In the iPhone app we do not use ad tracking. In the Android app the same rule as the web applies: only with your consent, from our server.',
+    mH: '4. Advertising (with consent)', mP: 'Measure the effectiveness of our Facebook/Instagram ads. Only with consent do we send Meta data such as your hashed email and bookings. In the app the same rule as the web applies: only with your consent, from our server. On iPhone you must also allow it in Apple’s prompt (“Allow tracking?”).',
     m: [
       ['_fbp, _fbc', 'Meta (Facebook)', 'Ad measurement', '90 days'],
     ] as Row[],

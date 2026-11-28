@@ -29,7 +29,7 @@ const T = {
     s3p2a: 'Εφόσον το επιλέξεις, χρησιμοποιούμε επίσης το email/τηλέφωνό σου για να σου στέλνουμε προσφορές, νέα και ενημερώσεις για υπηρεσίες του Washio. Μπορείς να διαγραφείς ανά πάσα στιγμή (opt-out) με ένα κλικ ή στο ',
     s3p2b: '.',
     s3p3: 'Νομική βάση (GDPR): εκτέλεση σύμβασης (κρατήσεις/πληρωμές), έννομο συμφέρον (ασφάλεια, πρόληψη απάτης, βελτίωση, ενημέρωση πελατών για παρόμοιες υπηρεσίες) και η συγκατάθεσή σου (τοποθεσία, ειδοποιήσεις, εμπορική επικοινωνία, cookies στατιστικών και διαφήμισης).',
-    s3ads: 'Διαφήμιση: μόνο αν αποδεχθείς τα cookies διαφήμισης, στέλνουμε στη Meta (Facebook/Instagram) δεδομένα όπως κρυπτογραφημένο (hash) email/τηλέφωνο και τις κρατήσεις σου, για να μετράμε την αποτελεσματικότητα των διαφημίσεών μας. Στην εφαρμογή iPhone δεν το κάνουμε· στην εφαρμογή Android μόνο με τη συγκατάθεσή σου (όπως στο web). Μπορείς να ανακαλέσεις τη συγκατάθεση από τις Ρυθμίσεις cookies.',
+    s3ads: 'Διαφήμιση: μόνο αν αποδεχθείς τα cookies διαφήμισης, στέλνουμε στη Meta (Facebook/Instagram) δεδομένα όπως κρυπτογραφημένο (hash) email/τηλέφωνο και τις κρατήσεις σου, για να μετράμε την αποτελεσματικότητα των διαφημίσεών μας. Στην εφαρμογή μόνο με τη συγκατάθεσή σου (όπως στο web)· στο iPhone και μόνο αν το επιτρέψεις στο παράθυρο της Apple. Μπορείς να ανακαλέσεις τη συγκατάθεση από τις Ρυθμίσεις cookies.',
 
     s4h: '4. Με ποιους τα μοιραζόμαστε',
     s4intro: 'Με εκτελούντες την επεξεργασία (data processors), αυστηρά για τη λειτουργία της υπηρεσίας:',
@@ -88,7 +88,7 @@ const T = {
     s3p2a: 'If you opt in, we also use your email/phone to send you offers, news and updates about Washio services. You can unsubscribe (opt out) at any time with one click or at ',
     s3p2b: '.',
     s3p3: 'Legal basis (GDPR): performance of a contract (bookings/payments), legitimate interest (security, fraud prevention, improvement, informing customers about similar services) and your consent (location, notifications, commercial communication, analytics and advertising cookies).',
-    s3ads: 'Advertising: only if you accept advertising cookies do we send Meta (Facebook/Instagram) data such as your hashed email/phone and your bookings, to measure the effectiveness of our ads. We do not do this in the iPhone app; in the Android app only with your consent (as on the web). You can withdraw consent from Cookie settings.',
+    s3ads: 'Advertising: only if you accept advertising cookies do we send Meta (Facebook/Instagram) data such as your hashed email/phone and your bookings, to measure the effectiveness of our ads. In the app only with your consent (as on the web); on iPhone also only if you allow it in Apple’s prompt. You can withdraw consent from Cookie settings.',
 
     s4h: '4. Who we share it with',
     s4intro: 'With data processors, strictly for the operation of the service:',

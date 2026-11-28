@@ -38,13 +38,15 @@ export function marketingAllowed(): boolean {
   return !!getConsent()?.marketing && !isNativeClient()
 }
 
-/** Server-side CAPI (μέσω /api/capi/*): συγκατάθεση διαφήμισης ΚΑΙ (web ή εφαρμογή Android).
- *  iPhone εφαρμογή: ποτέ (θέλει ATT της Apple). Το Pixel μένει κλειστό σε κάθε εφαρμογή. */
+/** Server-side CAPI (μέσω /api/capi/*): συγκατάθεση διαφήμισης ΚΑΙ (web · Android · iPhone με «Ναι» στο ATT).
+ *  Το Pixel μένει κλειστό σε κάθε εφαρμογή. */
 export function serverAdAllowed(): boolean {
   if (!getConsent()?.marketing) return false
   if (!isNativeClient()) return true
   const cap = (window as unknown as { Capacitor?: { getPlatform?: () => string } }).Capacitor
-  return cap?.getPlatform?.() === 'android'
+  if (cap?.getPlatform?.() === 'android') return true
+  // iPhone: μόνο αν είπε «Ναι» στο παράθυρο της Apple (ATT) — cookie ws_native=ios_att (lib/att).
+  return /(?:^|; )ws_native=ios_att(?:;|$)/.test(document.cookie)
 }
 
 export function setConsent(c: Consent) {
