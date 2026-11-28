@@ -1021,6 +1021,14 @@ function BookingPageContent() {
     funnel('pay_click', { locationId, meta: { method: 'card', total, def: payDefault, fee: serviceFee } })
   }
 
+  // Πάτημα «Κάρτα» → η φόρμα κάρτας ανοίγει ΑΜΕΣΩΣ (χωρίς δεύτερο πάτημα «Συνέχεια με κάρτα»).
+  // «Στο πλυντήριο» → κλείνει η φόρμα. Επισκέπτης/ελλιπή στοιχεία → μόνο επιλογή (το κουμπί κάνει τα υπόλοιπα).
+  const pickPayMethod = (m: 'venue' | 'card') => {
+    setPayMethod(m)
+    if (m === 'venue') { if (showPayment) { setShowPayment(false); setClientSecret('') } return }
+    if (!showPayment && canProceed && service && !guestRef.current && !cashLoading) void handleProceedToPayment()
+  }
+
   const handleCashBooking = async () => {
     if (!service || cashLoading || !canProceed) return
     mediumTap()
@@ -1464,7 +1472,8 @@ function BookingPageContent() {
           </p>
 
           {/* Τρόπος πληρωμής — καθαρή επιλογή: στο πλυντήριο ή κάρτα */}
-          {!isRange && !showPayment && (
+          {/* Μένει ορατό και όταν είναι ανοιχτή η φόρμα κάρτας → αλλαγή σε «Στο πλυντήριο» με ένα πάτημα. */}
+          {!isRange && (
             <div className="mt-5">
               <p className="text-[11px] font-bold text-washio-navy/70 tracking-[1.4px] uppercase mb-2">{t.payMethod}</p>
               <div className="grid grid-cols-2 gap-2.5">
@@ -1477,7 +1486,7 @@ function BookingPageContent() {
                     <button
                       key={key}
                       type="button"
-                      onClick={() => { setPayMethod(key); selectionHaptic() }}
+                      onClick={() => { pickPayMethod(key); selectionHaptic() }}
                       className={`relative text-left rounded-[16px] border px-3.5 py-3 transition-all ${
                         active ? 'border-[#078EAD] bg-washio-cyan-light/60' : 'border-washio-border bg-white'
                       }`}
